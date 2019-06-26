@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="DomainID" type="java.lang.String" optional="false"/>
+	<parameter name="Categories" type="java.util.Iterator" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Product" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects" sqlDialect="Oracle">
+	SELECT DISTINCT p.uuid  , COUNT(distinct p.uuid) OVER() as "rowcount"
+	FROM product p
+	inner join ieproductcategoryassignment iepca on iepca.productid = p.uuid
+	WHERE 
+	p.DomainID = <template-variable value="DomainID"/>	
+	<template-if condition="isDefined(Categories)">
+		AND
+		iepca.categoryid IN 		
+		(
+			<template-loop iterator="Categories" alias="CategoryUUID">
+				<loop-statement>
+					SELECT cc.uuid
+					 FROM catalogcategory cc
+				    CONNECT BY PRIOR cc.uuid = cc.parentcategoryid
+				    START WITH cc.uuid = <template-variable value="CategoryUUID"/>  
+				</loop-statement>
+				<loop-separator> UNION </loop-separator>
+			</template-loop>
+		)	 
+	</template-if>
+	
+</template>
+<template type="countedobjects" sqlDialect="Microsoft">
+	WITH abc(uuid)
+	AS
+	(
+	SELECT cc.uuid FROM catalogcategory cc
+	<template-if condition="isDefined(Categories)">
+	where cc.uuid IN (
+	<template-loop iterator="Categories" alias="CategoryUUID">
+		<loop-statement>
+			<template-variable value="CategoryUUID" />
+		</loop-statement>
+		<loop-separator> , </loop-separator>
+	</template-loop>
+	)
+	</template-if>
+	UNION ALL
+	SELECT cc.uuid FROM catalogcategory cc
+	INNER JOIN abc a ON a.uuid = cc.PARENTCATEGORYID
+	)
+	SELECT uuid, COUNT(uuid)
+	OVER() as "rowcount"
+	FROM
+	(
+	SELECT DISTINCT p.uuid , COUNT(p.uuid) OVER() as "rowcount"
+	FROM product p
+	inner join ieproductcategoryassignment iepca on iepca.productid = p.uuid
+	WHERE
+	p.DomainID = <template-variable value="DomainID"/>
+		<template-if condition="isDefined(Categories)">
+			AND
+			iepca.categoryid IN 		
+			(
+				SELECT uuid FROM abc cc
+			)	 
+		</template-if>
+	)a
+</template>
+</query>

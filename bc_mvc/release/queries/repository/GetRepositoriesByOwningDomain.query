@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="OwningDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="TypeCodes" type="java.util.Iterator" optional="true"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Repository" type="orm" class="com.intershop.component.mvc.internal.catalog.RepositoryPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+		select r.uuid as UUID, count(*) over() as "ROWCOUNT"
+		from repository r
+		<template-if condition="isDefined(SortBy)">
+			<template-if condition="(lcase(SortBy) eq &apos;name&apos;) or (lcase(SortBy) eq &apos;description&apos;)">
+				left join repository_av rav on (
+					r.uuid=rav.ownerid
+					<template-if condition="(lcase(SortBy) eq &apos;name&apos;)">						
+						and rav.name=&apos;displayName&apos;
+						and rav.localeid=<template-variable value="Locale:LocaleID"/>
+					</template-if>
+					<template-if condition="(lcase(SortBy) eq &apos;description&apos;)">
+						and rav.name=&apos;shortDescription&apos;
+						and rav.localeid=<template-variable value="Locale:LocaleID"/>
+					</template-if>
+				)
+			</template-if>
+		</template-if>
+		where r.domainid=<template-variable value="OwningDomain:UUID"/>
+		<template-if condition="isDefined(TypeCodes)">
+			and r.typecode in (
+			<template-loop iterator="TypeCodes" alias="TypeCode">
+				<loop-statement><template-variable value="TypeCode"/></loop-statement>
+				<loop-separator>,</loop-separator>
+			</template-loop>)
+		</template-if>
+		<template-if condition="isDefined(SortBy)">			
+			<template-variable value="orderBy(column(identifier(lcase(SortBy)), names('rav.stringvalue', 'id:id', 'r.typecode:typecode', 'rav.stringvalue:name')), direction(SortDirection), if(isAscending(SortDirection), nullsLast(), nullsFirst()))" processing="text"/>
+		</template-if>
+	</template>
+</query>

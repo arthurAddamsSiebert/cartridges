@@ -1,0 +1,579 @@
+<ISCONTENT type="text/xml" templatemarker="false" charset="utf-8" SESSION="FALSE">
+<?xml version="1.0" encoding="UTF-8"?>
+<%@page import="com.intershop.beehive.core.capi.naming.NamingMgr,
+	com.intershop.beehive.foundation.quantity.*,
+	com.intershop.beehive.core.capi.pipeline.*,
+	com.intershop.beehive.core.capi.profile.*,
+	com.intershop.beehive.core.capi.user.*,
+	java.util.*,
+	com.intershop.beehive.bts.capi.orderprocess.*,
+	com.intershop.beehive.bts.capi.orderprocess.basket.*,
+	com.intershop.beehive.bts.capi.orderprocess.fulfillment.*" %>
+<enfinity
+    xsi:schemaLocation="http://www.intershop.com/xml/ns/enfinity/6.7/bts/impex order.xsd
+    	http://www.intershop.com/xml/ns/enfinity/6.5/core/impex-dt dt.xsd"
+    xmlns="http://www.intershop.com/xml/ns/enfinity/6.7/bts/impex"
+    xmlns:xml="http://www.w3.org/XML/1998/namespace"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:dt="http://www.intershop.com/xml/ns/enfinity/6.5/core/impex-dt"
+    major="6"
+    minor="1"
+    family="enfinity"
+    branch="enterprise"
+    build="<isprint value="#BuildNumber#">">
+<ISMODULE template="inc/Address"
+          name="ADDRESS"
+          attribute="address">
+<ISMODULE template="inc/CustomAttributes"
+          name="CUSTOMATTRIBUTES"
+          attribute="attributes">
+<ISMODULE template="inc/ProductReference"
+          name="PRODUCTREF"
+          attribute="product_ref"
+          attribute="type">
+<isinclude template="impex/Modules">          
+<isif condition="#isDefined(exportObjects)#">
+ <%
+  java.util.Iterator objects = (java.util.Iterator) getObject("exportObjects");
+
+  while (objects instanceof com.intershop.beehive.foundation.util.ResettableIterator)
+  {
+      objects = ((com.intershop.beehive.foundation.util.ResettableIterator) objects).toSequence();
+  }
+
+  List exportObjects = new ArrayList();
+
+  while (objects.hasNext())
+  {
+  PipelineDictionary pd = getPipelineDictionary();
+  Object lineItemCtnr = objects.next();
+  exportObjects.add( lineItemCtnr );
+  pd.put("lctnr", lineItemCtnr );
+
+  // check options, disable error messages for lookups
+  // this.disableErrorMessages();
+
+  boolean exportrefids     = false;
+  boolean exportDomainRefs = false;
+
+  if (getObject("ExportRefIDs") != null)
+  {
+      if (!(getObject("ExportRefIDs") instanceof Boolean))
+      {
+          getPipelineDictionary().put("ExportRefIDs", new Boolean((String) getObject("ExportRefIDs")));
+      }
+
+      exportrefids = ((Boolean) getObject("ExportRefIDs")).booleanValue();
+  }
+
+  if (getObject("ExportDomainRefs") != null)
+  {
+      if (!(getObject("ExportDomainRefs") instanceof Boolean))
+      {
+          getPipelineDictionary().put("ExportDomainRefs", new Boolean((String) getObject("ExportDomainRefs")));
+      }
+
+      exportDomainRefs = ((Boolean) getObject("ExportDomainRefs")).booleanValue();
+  }
+
+  LineItemCtnr ctnr = (LineItemCtnr) getObject("lctnr");
+
+  if (ctnr instanceof Basket)
+  {
+     pd.put("START_TAG",          "basket");
+     pd.put("DOCUMENT_TYPE_NAME", "basket-type");
+     pd.put("DOCUMENT_TYPE",      ((Basket) ctnr).getBasketTypeStateName());
+  }
+  else
+  {
+     pd.put("START_TAG",          "order");
+     pd.put("DOCUMENT_TYPE_NAME", "order-type");
+     pd.put("DOCUMENT_TYPE",      ((Order) ctnr).getOrderTypeStateName());
+  }
+
+  // reenable error messages
+  // this.isDefined("foney");
+  %>
+
+  <!--- start tag --->
+  	<<isprint value="#START_TAG#"><isif condition="#ExportRefIDs#"> <!---isnoloc---> refid="<!---/isnoloc---><isprint value="#lctnr:UUID#">"
+               </isif> document-no="<isprint value="#lctnr:DocumentNo#">" <isprint value="#DOCUMENT_TYPE_NAME#">="<isprint value="#DOCUMENT_TYPE#">">
+  <!--- /start tag --->
+
+  <!--- common to lineitemctnr --->
+  	<isif condition="#NOT lctnr:CreationDateNull#"><creation-date><ISDateTime date="#lctnr:CreationDate#"></creation-date></isif>
+  	<isif condition="#NOT lctnr:RequestedDeliveryDateNull#"><requested-delivery-date>><ISDateTime date="#lctnr:RequestedDeliveryDate#"></requested-delivery-date></isif>
+  	<isif condition="#isDefined(lctnr:StatusStateName)#"><order-status><isprint value="#lctnr:StatusStateName#"></order-status></isif>
+  	<isif condition="#NOT lctnr:DocumentNoNull#"><document-no><isprint value="#lctnr:DocumentNo#"></document-no></isif>
+  	<isif condition="#NOT lctnr:LeadCurrencyCodeNull#"><lead-currency><isprint value="#lctnr:LeadCurrencyCode#"></lead-currency></isif>
+  	<isif condition="#NOT lctnr:PurchaseCurrencyCodeNull#"><purchase-currency><isprint value="#lctnr:PurchaseCurrencyCode#"></purchase-currency></isif>
+  	<isif condition="#NOT lctnr:PaymentTransactionCurrencyCodeNull#"><transaction-currency><isprint value="#lctnr:PaymentTransactionCurrencyCode#"></transaction-currency></isif>
+
+  <exchange-rates>
+    <isif condition="#NOT lctnr:ExchangeRatePTCtoLCNull#"><isif condition="#lctnr:ExchangeRatePTCtoLC:isAvailable#"><exchange-rate source="TRANSACTION" target="LEAD"><isprint value="#lctnr:ExchangeRatePTCtoLC#"></exchange-rate></isif></isif>
+    <isif condition="#NOT lctnr:ExchangeRatePCtoLCNull#"><isif condition="#lctnr:ExchangeRatePCtoLC:isAvailable#"><exchange-rate source="PURCHASE" target="LEAD"><isprint value="#lctnr:ExchangeRatePCtoLC#"></exchange-rate></isif></isif>
+    <isif condition="#NOT lctnr:ExchangeRatePCtoPTCNull#"><isif condition="#lctnr:ExchangeRatePCtoPTC:isAvailable#"><exchange-rate source="PURCHASE" target="TRANSACTION"><isprint value="#lctnr:ExchangeRatePCtoPTC#"></exchange-rate></isif></isif>
+  </exchange-rates>
+
+  	<isif condition="#NOT lctnr:BuyerNoNull#"><buyer-no><isprint value="#lctnr:BuyerNo#"></buyer-no></isif>
+
+  <!--- user tag --->
+  <%
+  User user = ctnr.getUser();
+
+  if (user != null)
+  {
+      String businesspartnerNo = null;
+      String domainname = null;
+      ProfileMgr profileMgr = (ProfileMgr) NamingMgr.getInstance().lookupManager(ProfileMgr.REGISTRY_NAME);
+      Profile    profile    = profileMgr.getProfile(user);
+
+      if (profile != null)
+      {
+          businesspartnerNo = profile.getDataSheet().getBusinessPartnerNo();
+          domainname        = profile.getDomain().getDomainName();
+
+          		out.print("<user business-partner-no=\""+encodeString(businesspartnerNo) + '"');
+
+          		if (exportDomainRefs)
+          		{
+            		out.print(" domain=\""+encodeString(domainname) + '"');
+          		}
+
+          		if (exportrefids)
+          		{
+              		out.print(" refid=\""+encodeString(user.getID()) + '"');
+          		}
+
+          out.println("/>");
+      }
+  }
+  %>
+  <!--- /user tag --->
+
+  	<anonymous><isif condition="#NOT lctnr:isAnonymous#">0<iselse>1</isif></anonymous>
+  	<isif condition="#NOT lctnr:SessionIDNull#"><session-id><isprint value="#lctnr:SessionID#"></session-id></isif>
+
+  <!--- address references --->
+  	<isif condition="#ExportRefIDs#">
+  <%
+  Address add = null;
+  String  addType=null;
+
+	  	for (int i=0; i<2; i++)
+  {
+      switch (i)
+      {
+      case 0: add=ctnr.getInvoiceToAddress(); addType="invoice-to-address"; break;
+      case 1: add=ctnr.getShipFromAddress();  addType="ship-from-address";  break;
+      }
+
+      if (add != null)
+      {
+         out.print('<'+addType+' ');
+	         	out.print("refid=\""+add.getUUID()+"\" ");
+         out.println("id=\""+add.getAddressID()+"\"/>");
+      }
+  }
+  %>
+    <iselse/>
+      <isif condition="#isDefined(lctnr:ShipFromAddressID)#"><ship-from-address id="<isprint value="#lctnr:ShipFromAddressID#">"</isif>/>
+      <isif condition="#isDefined(lctnr:InvoiceToAddressID)#"><invoice-to-address id="<isprint value="#lctnr:InvoiceToAddressID#">"</isif>/>
+  	</isif>
+  <!--- /address references --->
+
+
+  <!--- prices --->
+  <prices>
+  <%
+  Money price=null;
+  String priceType=null, priceName=null;
+  boolean lastTime = false;
+
+  for(int i=0; i<7; i++)
+  {
+      switch (i)
+      {
+      case 0: priceType="PURCHASE";    price=ctnr.getGrandTotalNetPricePC();    priceName="grand-total-net-price  "; break;
+      case 1:                          price=ctnr.getGrandTotalGrossPricePC();  priceName="grand-total-gross-price"; break;
+      case 2:                          price=ctnr.getGrandTotalTaxPC();         priceName="grand-total-tax        "; break;
+      case 3: priceType="LEAD";        price=ctnr.getGrandTotalNetPriceLC();    priceName="grand-total-net-price  "; break;
+      case 4:                          price=ctnr.getGrandTotalGrossPriceLC();  priceName="grand-total-gross-price"; break;
+      case 5:                          price=ctnr.getGrandTotalTaxLC();         priceName="grand-total-tax        "; break;
+      case 6: priceType="TRANSACTION"; price=ctnr.getGrandTotalGrossPricePTC(); priceName="grand-total-gross-price"; break;
+      }
+
+      if (price != null && price.isAvailable())
+      {
+         out.print('<'+priceName+" type=\""+priceType+"\" currency=\""+price.getCurrencyMnemonic()+"\">");
+         out.print(price.getValue());
+         out.println("</"+priceName.trim()+'>');
+      }
+  }
+  %>
+  </prices>
+  <!--- /prices --->
+
+  <!--- order only --->
+  <ISIF condition="#hasLoopElements(lctnr:PaymentInstrumentInfo)#">
+    <payment-instrument-infos>
+      <ISLOOP iterator="lctnr:PaymentInstrumentInfo" alias="PII">
+        <payment-instrument-info<ISIF condition = "#isDefined(ExportRefIDs)#"> refid="<ISPRINT value="#PII:UUID#">"</ISIF> payment-service-id="<ISPRINT value="#PII:PaymentService:ID#">" service-configuration-id="<ISPRINT value="#PII:PaymentService:Configuration:ID#">" service-configuration-domain="<ISPRINT value="#PII:PaymentService:Configuration:Domain:DomainName#">">
+          <ISIF condition="#hasLoopElements(PII:PaymentTransaction)#">
+            <payment-transactions>
+            <ISLOOP iterator="PII:PaymentTransaction" alias="PT">
+              <payment-transaction<ISIF condition = "#isDefined(ExportRefIDs)#"> refid="<ISPRINT value="#PT:UUID#">"</ISIF>>
+                <ISIF condition="#isDefined(PT:Status)#"><status><ISPRINT value="#PT:Status#"></status></ISIF>
+                <ISIF condition="#NOT PT:ServiceTransactionIDNull#"><service-transaction><ISPRINT value="#PT:ServiceTransactionID#"></service-transaction></ISIF>
+                <ISIF condition="#NOT PT:AmountNull#"><amount currency="<ISPRINT value="#PT:Amount:CurrencyMnemonic#">"><% out.print(getObject("PT:Amount:Value")); %></amount></ISIF>
+                <ISIF condition="#NOT PT:AmountCapturedNull#"><amount-captured currency="<ISPRINT value="#PT:AmountCaptured:CurrencyMnemonic#">"><% out.print(getObject("PT:AmountCaptured:Value")); %></amount-captured></ISIF>
+                <ISIF condition="#NOT PT:AmountNull#"><amount-paid currency="<ISPRINT value="#PT:AmountPaid:CurrencyMnemonic#">"><% out.print(getObject("PT:AmountPaid:Value")); %></amount-paid></ISIF>
+                <ISIF condition="#NOT PT:DescriptionNull#"><description><ISPRINT value="#PT:Description#"></description></ISIF>
+
+		<!--- payer tag --->
+			  <%
+			  User payingUser = (User) getObject("PT:PayingUser");
+
+  if (payingUser != null)
+  {
+      String businesspartnerNo = null;
+      String domainname = null;
+      ProfileMgr profileMgr = (ProfileMgr) NamingMgr.getInstance().lookupManager(ProfileMgr.REGISTRY_NAME);
+      Profile    profile    = profileMgr.getProfile(payingUser);
+
+      if (profile != null)
+      {
+          businesspartnerNo = profile.getDataSheet().getBusinessPartnerNo();
+          domainname        = profile.getDomain().getDomainName();
+
+          			out.print("<payer business-partner-no=\""+encodeString(businesspartnerNo) + '"');
+
+          			if (exportDomainRefs)
+          			{
+            			out.print(" domain=\"" + encodeString(domainname) + '"');
+          			}
+
+          			if (exportrefids)
+          			{
+              			out.print(" refid=\"" + encodeString(payingUser.getID()) + '"');
+          			}
+
+          out.println("/>");
+      }
+  }
+  %>
+
+
+              <ISIF condition="#isDefined(PT:PaymentPayee)#">
+                  <payee domain="<ISPRINT value="#PT:PaymentPayee:DomainName#">"></payee>
+              </ISIF>
+
+              <ISIF condition="#hasLoopElements(PT:PaymentHistory)#">
+              	<payment-histories>
+              	  <ISLOOP iterator="PT:PaymentHistory" alias="PH">
+              	  	<payment-history event-id="#encodeValue(PH:EventID)#" event-date="<ISDateTime date="#product:PH:EventTime#">">
+			            <%{
+			                com.intershop.beehive.core.capi.domain.ExtensibleObject object = (com.intershop.beehive.core.capi.domain.ExtensibleObject) getObject("PH");
+			                getPipelineDictionary().put("CustomAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(object.createAttributeValuesIterator(), object));
+			            }%>
+			            <ISIF condition="#isDefined(CustomAttributes)#">
+			              <ISIF condition="#hasLoopElements(CustomAttributes)#">
+			                <custom-attributes>
+			                <ISLOOP iterator="CustomAttributes" alias="attribute">
+			                  <ISIF condition = "#attribute:Type < 4#">
+			                    <custom-attribute name="#stringToXml(attribute:Name)#" dt:dt="<ISIF condition = "#attribute:Type == 1#">int<ISELSEIF condition = "#attribute:Type == 2#">double<ISELSEIF condition = "#attribute:Type == 3#">string</ISIF>"<ISIF CONDITION="#attribute:isLocalized#"> xml:lang="#encodeValue(attribute:XMLLocaleID)#"<ISELSE></ISIF>><ISIF condition = "#attribute:Type == 3#"><ISPRINT value = "#attribute:Object#"><ISELSE><%out.print(getObject("attribute:Object"));%></ISIF></custom-attribute>
+			                  <ISELSE>
+			                    <custom-attribute name="#stringToXml(attribute:Name)#" dt:dt="<ISIF condition = "#attribute:Type == 4#">int<ISELSEIF condition = "#attribute:Type == 5#">double<ISELSEIF condition = "#attribute:Type == 6#">string</ISIF>"<ISIF CONDITION="#attribute:isLocalized#"> xml:lang="#encodeValue(attribute:XMLLocaleID)#"</ISIF>>
+			                    <%{
+			                      java.util.Iterator attributeIterator = (java.util.Iterator) getObject("attribute:Object");
+			                      while (attributeIterator.hasNext())
+			                      {
+			                        out.println("<value>" + stringToXml((String) attributeIterator.next()) + "</value>");
+			                      }}
+			                    %>
+			                    </custom-attribute>
+			                  </ISIF>
+			                </ISLOOP>
+			                </custom-attributes>
+			              </ISIF>
+			            </ISIF>
+          	  	    </payment-history>
+          	  	  </ISLOOP>
+          	    </payment-histories>
+          	  </ISIF>
+
+	            <%{
+	                com.intershop.beehive.core.capi.domain.ExtensibleObject object = (com.intershop.beehive.core.capi.domain.ExtensibleObject) getObject("PT");
+	                getPipelineDictionary().put("CustomAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(object.createAttributeValuesIterator(), object));
+	            }%>
+	            <ISIF condition="#isDefined(CustomAttributes)#">
+	              <ISIF condition="#hasLoopElements(CustomAttributes)#">
+	                <custom-attributes>
+	                <ISLOOP iterator="CustomAttributes" alias="attribute">
+	                  <ISIF condition = "#attribute:Type < 4#">
+	                    <custom-attribute name="#stringToXml(attribute:Name)#" dt:dt="<ISIF condition = "#attribute:Type == 1#">int<ISELSEIF condition = "#attribute:Type == 2#">double<ISELSEIF condition = "#attribute:Type == 3#">string</ISIF>"<ISIF CONDITION="#attribute:isLocalized#"> xml:lang="#encodeValue(attribute:XMLLocaleID)#"<ISELSE></ISIF>><ISIF condition = "#attribute:Type == 3#"><ISPRINT value = "#attribute:Object#"><ISELSE><%out.print(getObject("attribute:Object"));%></ISIF></custom-attribute>
+	                  <ISELSE>
+	                    <custom-attribute name="#stringToXml(attribute:Name)#" dt:dt="<ISIF condition = "#attribute:Type == 4#">int<ISELSEIF condition = "#attribute:Type == 5#">double<ISELSEIF condition = "#attribute:Type == 6#">string</ISIF>"<ISIF CONDITION="#attribute:isLocalized#"> xml:lang="#encodeValue(attribute:XMLLocaleID)#"</ISIF>>
+	                    <%{
+	                      java.util.Iterator attributeIterator = (java.util.Iterator) getObject("attribute:Object");
+	                      while (attributeIterator.hasNext())
+	                      {
+	                        out.println("<value>" + stringToXml((String) attributeIterator.next()) + "</value>");
+	                      }}
+	                    %>
+	                    </custom-attribute>
+	                  </ISIF>
+	                </ISLOOP>
+	                </custom-attributes>
+	              </ISIF>
+	            </ISIF>
+
+
+  </payment-transaction>
+            </ISLOOP>
+            </payment-transactions>
+          </ISIF>
+
+
+            <%{
+                com.intershop.beehive.core.capi.domain.ExtensibleObject object = (com.intershop.beehive.core.capi.domain.ExtensibleObject) getObject("PII");
+                getPipelineDictionary().put("CustomAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(object.createAttributeValuesIterator(), object));
+            }%>
+            <ISIF condition="#isDefined(CustomAttributes)#">
+              <ISIF condition="#hasLoopElements(CustomAttributes)#">
+                <custom-attributes>
+                <ISLOOP iterator="CustomAttributes" alias="attribute">
+                  <ISIF condition = "#attribute:Type < 4#">
+                    <custom-attribute name="#stringToXml(attribute:Name)#" dt:dt="<ISIF condition = "#attribute:Type == 1#">int<ISELSEIF condition = "#attribute:Type == 2#">double<ISELSEIF condition = "#attribute:Type == 3#">string</ISIF>"<ISIF CONDITION="#attribute:isLocalized#"> xml:lang="#encodeValue(attribute:XMLLocaleID)#"<ISELSE></ISIF>><ISIF condition = "#attribute:Type == 3#"><ISPRINT value = "#attribute:Object#"><ISELSE><%out.print(getObject("attribute:Object"));%></ISIF></custom-attribute>
+                  <ISELSE>
+                    <custom-attribute name="#stringToXml(attribute:Name)#" dt:dt="<ISIF condition = "#attribute:Type == 4#">int<ISELSEIF condition = "#attribute:Type == 5#">double<ISELSEIF condition = "#attribute:Type == 6#">string</ISIF>"<ISIF CONDITION="#attribute:isLocalized#"> xml:lang="#encodeValue(attribute:XMLLocaleID)#"</ISIF>>
+                    <%{
+                      java.util.Iterator attributeIterator = (java.util.Iterator) getObject("attribute:Object");
+                      while (attributeIterator.hasNext())
+                      {
+                        out.println("<value>" + stringToXml((String) attributeIterator.next()) + "</value>");
+                      }}
+                    %>
+                    </custom-attribute>
+                  </ISIF>
+                </ISLOOP>
+                </custom-attributes>
+              </ISIF>
+            </ISIF>
+        </payment-instrument-info>
+      </ISLOOP>
+    </payment-instrument-infos>
+  </ISIF>
+
+  <!--- / order only --->
+
+  <%
+      com.intershop.beehive.bts.capi.orderprocess.LineItemCtnr lictnr = (com.intershop.beehive.bts.capi.orderprocess.LineItemCtnr)getObject("lctnr");
+	  getPipelineDictionary().put("lictnrAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(lictnr.createAttributeValuesIterator(), lictnr));
+  %>
+  <ISCUSTOMATTRIBUTES attributes=#lictnrAttributes#>
+
+  <!--- line items --->
+  <line-items>
+		<isloop iterator="lctnr:LineItems" alias="line_item">
+  <%
+  // disable error messages for lookups
+  this.disableErrorMessages();
+  Object line_item = getObject("line_item");
+
+  if (line_item instanceof ProductLineItem)
+  {
+     pd.put("LINE_ITEM_START_TAG",          "product-line-item");
+  }
+  else if (line_item instanceof ServiceLineItem)
+  {
+     pd.put("LINE_ITEM_START_TAG",          "service-line-item");
+  }
+
+  // reenable error messages
+  this.isDefined("foney");
+  %>
+
+  <!--- line item start tag --->
+	  		<<isprint value="#LINE_ITEM_START_TAG#"> <isif condition="#(LINE_ITEM_START_TAG EQ 'product-line-item')#"><!---isnoloc--->position="{0}"<!---/isnoloc---><iselse><!---isnoloc--->name="{0}" domain="{1}"<!---/isnoloc---></isif><isif condition = "#ExportRefIDs#"> <!---isnoloc---> refid="<!---/isnoloc---><isprint value="#line_item:UUID#">"</isif>>
+  <!--- /line item start tag --->
+
+  <!--- line item domains --->
+	   		<isif condition="#isDefined(line_item:SellingDomain)#">
+       			<selling-domain name="<isprint value="#line_item:SellingDomain:DomainName#">"></selling-domain>
+  	 		</isif>
+		   	<isif condition="#isDefined(line_item:SupplyingDomain)#">
+		    	<supplying-domain name="<isprint value="#line_item:SupplyingDomain:DomainName#">"></supplying-domain>
+		   	</isif>
+   			<isif condition="#isDefined(line_item:ProductDefiningDomain)#">
+       			<product-defining-domain name="<isprint value="#line_item:ProductDefiningDomain:DomainName#">"></product-defining-domain>
+   			</isif>
+  <!--- /line item domains --->
+
+  <!--- line item group, prices and discounts --->
+  			<isif condition="#isDefined(line_item:LineItemGroup)#">
+      			<line-item-group domain="<isprint value="#line_item:LineItemGroup:Domain:DomainName#">"></line-item-group>
+  			</isif>
+    <prices>
+    <!--- product-line-item prices --->
+    		<isif condition="#LINE_ITEM_START_TAG EQ 'product-line-item'#">
+        		<isif condition="#(NOT line_item:SingleBasePricePCNull) AND (line_item:SingleBasePricePC:isAvailable)#"><single-base-price type="PURCHASE" currency="<isprint value="#line_item:SingleBasePricePC:CurrencyMnemonic#">"><% out.print(getObject("line_item:SingleBasePricePC:Value")); %></single-base-price></isif>
+        		<isif condition="#(NOT line_item:SinglePricePCNull) AND (line_item:SinglePricePC:isAvailable)#"><single-price type="PURCHASE" currency="<isprint value="#line_item:SinglePricePC:CurrencyMnemonic#">"><% out.print(getObject("line_item:SinglePricePC:Value")); %></single-price></isif>
+        		<isif condition="#(NOT line_item:NetPriceLCNull) AND (line_item:NetPriceLC:isAvailable)#"><net-price type="LEAD" currency="<isprint value="#line_item:NetPriceLC:CurrencyMnemonic#">"><% out.print(getObject("line_item:NetPriceLC:Value")); %></net-price></isif>
+    <!--- service-line-item prices --->
+    		<iselse>
+        		<isif condition="#NOT line_item:BasePricePCNull#"><base-price type="PURCHASE" currency="<isprint value="#line_item:BasePricePC:CurrencyMnemonic#">"><% out.print(getObject("line_item:BasePricePC:Value")); %></base-price></isif>
+    		</isif>
+        	<isif condition="#(NOT line_item:NetPricePCNull) AND (line_item:NetPricePC:isAvailable)#"><net-price type="PURCHASE" currency="<isprint value="#line_item:NetPricePC:CurrencyMnemonic#">"><% out.print(getObject("line_item:NetPricePC:Value")); %></net-price></isif>
+        	<isif condition="#(NOT line_item:GrossPricePCNull) AND (line_item:GrossPricePC:isAvailable)#"><gross-price type="PURCHASE" currency="<isprint value="#line_item:GrossPricePC:CurrencyMnemonic#">"><% out.print(getObject("line_item:GrossPricePC:Value")); %></gross-price></isif>
+        	<isif condition="#(NOT line_item:TaxPCNull) AND (line_item:TaxPC:isAvailable)#"><tax type="PURCHASE" currency="<isprint value="#line_item:TaxPC:CurrencyMnemonic#">"><% out.print(getObject("line_item:TaxPC:Value")); %></tax></isif>
+    		</prices>
+  <!--- / line item groups, prices and discounts --->
+
+  <!--- product line item specific --->
+  		<isif condition="#LINE_ITEM_START_TAG EQ 'product-line-item'#">
+      		<isif condition="#NOT line_item:ProductNameNull#"><product-name><isprint value="#line_item:ProductName#"></product-name></isif>
+      		<isif condition="#NOT line_item:ProductShortDescriptionNull#"><product-short-description><isprint value="#line_item:ProductShortDescription#"></product-short-description></isif>
+      		<isif condition="#NOT line_item:ProductThumbnailNull#"><product-thumbnail><isprint value="#line_item:ProductThumbnail#"></product-thumbnail></isif>
+      		<quantity unit="<isprint value="#line_item:Quantity:Unit#">"><isprint value="#line_item:Quantity:Value#" formatter="#0.#"></quantity>
+      		<selected-quantity unit="<isprint value="#line_item:SelectedQuantity:Unit#">"><isprint value="#line_item:SelectedQuantity:Value#" formatter="#0.#"></selected-quantity>
+      		<min-order-quantity unit="<isprint value="#line_item:MinOrderQuantity:Unit#">"><isprint value="#line_item:MinOrderQuantity:Value#" formatter="#0.#"></min-order-quantity>
+      		<step-order-quantity unit="<isprint value="#line_item:StepQuantity:Unit#">"><isprint value="#line_item:StepQuantity:Value#" formatter="#0.#"></step-order-quantity>
+      		<isif condition="#line_item:isPriceQuantityAvailable#"><price-quantity><isprint value="#line_item:PriceQuantityValue#" formatter="#0.#"></price-quantity></isif>
+      		<isif condition="#NOT line_item:PositionNull#"><position><isprint value="#line_item:Position#"></position></isif>
+      		<isif condition="#NOT line_item:TaxRateNull#"><tax-rate><isprint value="#line_item:TaxRate#" formatter="#0.#"></tax-rate></isif>
+      		<isif condition="#isDefined(line_item:StatusStateName)#"><status><isprint value="#line_item:StatusStateName#"></status></isif>
+      		<isif condition="#isDefined(line_item:Status2StateName)#"><status2><isprint value="#line_item:Status2StateName#"></status2></isif>
+      		<base-price-fixed><isif condition="#NOT line_item:isBasePriceFixed#">0<iselse>1</isif></base-price-fixed>
+      		<based-on-net-price><isif condition="#NOT line_item:isBasedOnNetPrice#">0<iselse>1</isif></based-on-net-price>
+      		<bundle><isif condition="#NOT line_item:isBundle#">0<iselse>1</isif></bundle>
+      		<adhoc><isif condition="#line_item:isAdhoc#">1<iselse>0</isif></adhoc>
+      		<isif condition="#isDefined(line_item:ParentLineItem)#">
+          		<parent<isif condition="#ExportRefIDs#"> refid="<isprint value="#line_item:ParentLineItemID#">"</isif>position="<isprint value="#line_item:ParentLineItem:Position#">" />
+      		</isif>
+      			<isif condition="#NOT line_item:OriginIDNull#"><origin refid="<isprint value="#line_item:OriginID#">"></origin></isif>
+      		<isif condition="#NOT line_item:TaxClassCodeNull#"><tax-class refid="<isprint value="#line_item:TaxClassCode#">"></tax-class></isif>
+      		<isif condition="#NOT line_item:ShipToAddressIDNull#">
+          		<ship-to-address<isif condition="#ExportRefIDs#"> refid="<isprint value="#line_item:ShipToAddress:UUID#">"</isif> id="<isprint value="#line_item:ShipToAddressID#">"></ship-to-address>
+      		</isif>
+      		<isif condition="#NOT line_item:ShipFromAddressIDNull#">
+          		<ship-from-address<isif condition="#ExportRefIDs#"> refid="<isprint value="#line_item:ShipFromAddress:UUID#">"</isif> id="<isprint value="#line_item:ShipFromAddressID#">"></ship-from-address>
+      		</isif>
+
+      		<isset scope="request" name="product_ref_type" value="OFFER">
+      		<isproductref product_ref=#line_item:OfferProductRef# type=#product_ref_type#>
+      		<isset scope="request" name="product_ref_type" value="DEFINITION">
+      		<isproductref product_ref=#line_item:DefinitionProductRef# type=#product_ref_type#>
+
+  <!--- /product line item specific --->
+  <!--- service line item specific --->
+		<iselse>
+      		<isif condition="#NOT line_item:NameNull#"><name><isprint value="#line_item:Name#"></name></isif>
+      		<isif condition="#NOT line_item:TaxRateNull#"><tax-rate><isprint value="#line_item:TaxRate#" formatter="#0.#"></tax-rate></isif>
+      		<base-price-fixed><isif condition="#NOT line_item:isBasePriceFixed#">0<iselse>1</isif></base-price-fixed>
+      		<based-on-net-price><isif condition="#NOT line_item:isBasedOnNetPrice#">0<iselse>1</isif></based-on-net-price>
+      		<selected><isif condition="#NOT line_item:isSelected#">0<iselse>1</isif></selected>
+      		<isif condition="#NOT line_item:TaxClassCodeNull#"><tax-class refid="<isprint value="#line_item:TaxClassCode#">"></tax-class></isif>
+  		</isif>
+  <!--- /service line item specific --->
+  <!--- common to all line items --->
+  <%
+      com.intershop.beehive.bts.capi.orderprocess.LineItem li = (com.intershop.beehive.bts.capi.orderprocess.LineItem)getObject("line_item");
+	  getPipelineDictionary().put("liAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(li.createAttributeValuesIterator(), li));
+  %>
+  		<iscustomattributes attributes=#liAttributes#>
+  <!--- /common to all line items --->
+
+  <!--- line item end tag --->
+  		</<isprint value="#LINE_ITEM_START_TAG#">>
+  <!--- /line item end tag --->
+
+  		</isloop>
+  </line-items>
+  <!--- end line items --->
+
+  <!--- line item groups --->
+  <line-item-groups>
+    	<isloop iterator="lctnr:LineItemGroups" alias="lineItemGroup">
+      		<line-item-group domain="<isprint value="#lineItemGroup:Domain:DomainName#">">
+        <prices>
+            <!--- payment currency prices --->
+            		<isif condition="#(NOT lineItemGroup:NetPricePCNull) AND (lineItemGroup:NetPricePC:isAvailable)#"><net-price type="PURCHASE" currency="<isprint value="#lineItemGroup:NetPricePC:CurrencyMnemonic#">"><% out.print(getObject("lineItemGroup:NetPricePC:Value")); %></net-price></isif>
+            		<isif condition="#(NOT lineItemGroup:TaxPCNull) AND (lineItemGroup:TaxPC:isAvailable)#"><tax type="PURCHASE" currency="<isprint value="#lineItemGroup:TaxPC:CurrencyMnemonic#">"><% out.print(getObject("lineItemGroup:TaxPC:Value")); %></tax></isif>
+            		<isif condition="#(NOT lineItemGroup:GrossPricePCNull) AND (lineItemGroup:GrossPricePC:isAvailable)#"><gross-price type="PURCHASE" currency="<isprint value="#lineItemGroup:GrossPricePC:CurrencyMnemonic#">"><% out.print(getObject("lineItemGroup:GrossPricePC:Value")); %></gross-price></isif>
+        </prices>
+		<%
+	      com.intershop.beehive.bts.capi.orderprocess.LineItemGroup ligroup = (com.intershop.beehive.bts.capi.orderprocess.LineItemGroup)getObject("lineItemGroup");
+		  getPipelineDictionary().put("ligroupAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(ligroup.createAttributeValuesIterator(), ligroup));
+	  	%>
+        		<iscustomattributes attributes=#ligroupAttributes#>
+      </line-item-group>
+    	</isloop>
+  </line-item-groups>
+  <!--- end line item groups --->
+
+  <!--- all bundled line items --->
+  <bundled-line-items>
+    	<isloop iterator="lctnr:RecursiveBundledProductLineItems" alias="line_item">
+    		<bundled-line-item position="<isprint value="#line_item:Position#">"<isif condition="#ExportRefIDs#"> refid="<isprint value="#line_item:UUID#">"</isif>>
+		      	<isif condition="#isDefined(line_item:SellingDomain)#"><selling-domain name="<isprint value="#line_item:SellingDomain:DomainName#">"></selling-domain></isif>
+		      	<isif condition="#isDefined(line_item:SupplyingDomain)#"><supplying-domain name="<isprint value="#line_item:SupplyingDomain:DomainName#">"></supplying-domain></isif>
+		      	<isif condition="#isDefined(line_item:ProductDefiningDomain)#"><product-defining-domain name="<isprint value="#line_item:ProductDefiningDomain:DomainName#">"></product-defining-domain></isif>
+		      	<isif condition="#isDefined(line_item:ProductLineItem)#"><product-line-item<isif condition = "#ExportRefIDs#"> refid="<isprint value="#line_item:ProductLineItemID#">"</isif> position="<isprint value="#line_item:ProductLineItem:Position#">"></product-line-item></isif>
+		      	<isif condition="#isDefined(line_item:ParentItem)#"><parent<isif condition = "#ExportRefIDs#"> refid="<isprint value="#line_item:ParentID#">"</isif> position="<isprint value="#line_item:ParentItem:Position#">"></parent></isif>
+		      	<isif condition="#NOT line_item:ProductNameNull#"><product-name><isprint value="#line_item:ProductName#"></product-name></isif>
+		      	<isset scope="request" name="product_ref_type" value="OFFER">
+		      	<isproductref product_ref=#line_item:OfferProductRef# type=#product_ref_type#>
+		      	<isset scope="request" name="product_ref_type" value="DEFINITION">
+		      	<isproductref product_ref=#line_item:DefinitionProductRef# type=#product_ref_type#>
+		      	<isif condition="#NOT line_item:ProductShortDescriptionNull#"><product-short-description><isprint value="#line_item:ProductShortDescription#"></product-short-description></isif>
+		      	<isif condition="#NOT line_item:ProductThumbnailNull#"><product-thumbnail><isprint value="#line_item:ProductThumbnail#"></product-thumbnail></isif>
+		      	<quantity unit="<isprint value="#line_item:Quantity:Unit#">"><isprint value="#line_item:Quantity:Value#" formatter="#0.#"></quantity>
+      <!--- common to all line items --->
+	  <%
+      	com.intershop.beehive.bts.capi.orderprocess.BundledProductLineItem bli = (com.intershop.beehive.bts.capi.orderprocess.BundledProductLineItem)getObject("line_item");
+	  	getPipelineDictionary().put("bliAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(bli.createAttributeValuesIterator(), bli));
+  	  %>
+		      	<iscustomattributes attributes=#bliAttributes#>
+      <!--- /common to all line items --->
+    </bundled-line-item>
+  		</isloop>
+  </bundled-line-items>
+
+  <addresses>
+		<isloop iterator="lctnr:StaticAddresses" alias="StaticAddress">
+			<isaddress address="#StaticAddress#">
+		</isloop>
+  </addresses>
+  <!--- /common to lineitemctnr --->
+
+  <!--- order only --->
+  	<isif condition="#START_TAG EQ 'order'#">
+    <order-status-details>
+	      	<isif condition="#isDefined(lctnr:ShippingStatusStateName)#"><shipping-status><isprint value="#lctnr:ShippingStatusStateName#"></shipping-status></isif>
+	      	<isif condition="#isDefined(lctnr:PaymentStatusStateName)#"><payment-status><isprint value="#lctnr:PaymentStatusStateName#"></payment-status></isif>
+	      	<isif condition="#isDefined(lctnr:InvoiceStatusStateName)#"><invoice-status><isprint value="#lctnr:InvoiceStatusStateName#"></invoice-status></isif>
+	      	<isif condition="#isDefined(lctnr:ExportStatusStateName)#"><export-status><isprint value="#lctnr:ExportStatusStateName#"></export-status></isif>
+    </order-status-details>
+    	<split-shipment-allowed><isif condition="#NOT lctnr:isSplitShipmentAllowed#">0<iselse>1</isif></split-shipment-allowed>
+    	<invoice-used-as-packing-slip><isif condition="#NOT lctnr:isInvoiceUsedAsPackingSlip#">0<iselse>1</isif></invoice-used-as-packing-slip>
+    	<isif condition="#NOT lctnr:BuyerNameNull#"><buyer-name><isprint value="#lctnr:BuyerName#"></buyer-name></isif>
+    	<isif condition="#NOT lctnr:OriginalBuyerNameNull#"><original-buyer-name><isprint value="#lctnr:OriginalBuyerName#"></original-buyer-name></isif>
+    	<isif condition="#NOT lctnr:BasketIDNull#"><basket refid = "<isprint value="#lctnr:BasketID#">"/></isif>
+    	<isif condition="#isDefined(lctnr:OrderTypeStateName)#"><order-type><isprint value="#lctnr:OrderTypeStateName#"></order-type></isif>
+    	<isif condition="#isDefined(lctnr:ParentOrder)#">
+     	<parent-order<isif condition = "#ExportRefIDs#"> refid="<isprint value="#lctnr:ParentOrderID#">"</isif> document-no="<isprint value="#lctnr:ParentOrder:DocumentNo#">" order-type="<isprint value="#lctnr:ParentOrder:OrderTypeStateName#">" domain="<isprint value="#lctnr:ParentOrder:Domain:DomainName#">"/></isif>
+  	</isif>
+  <!--- /order only --->
+  	<!--- end tag --->
+  	</<isprint value="#START_TAG#">>
+  <!--- /end tag --->
+  <%
+    }
+
+    // Restore exportObject Iterator for later reuse
+    PipelineDictionary pd = getPipelineDictionary();
+    	pd.put("exportObjects", exportObjects.iterator());
+  %>
+</isif>
+</enfinity>

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="targetRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="sourceRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+</parameters>
+
+<processor name="JDBC">
+</processor>
+<template sqlDialect="Oracle">
+update catalogcategory_av tcavx 
+            set (tcavx.localizedflag, tcavx.type, tcavx.intvalue, tcavx.doublevalue, tcavx.stringvalue, tcavx.objectvalue, tcavx.objecttype) 
+                = (select scav.localizedflag, scav.type, scav.intvalue, scav.doublevalue, scav.stringvalue, scav.objectvalue, scav.objecttype 
+                   from CatalogCategory tc, CatalogCategory sc, catalogcategory_av scav
+                   where    tc.uuid = tcavx.ownerid
+                      and sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                      and sc.name = substr(tc.name, 0, instr(tc.name,'@',-1)-1)
+                      and instr(tc.name,'@',-1) &gt; 0
+                      and scav.ownerid = sc.uuid
+                      and scav.name = tcavx.name
+                      and scav.localeid = tcavx.localeid
+                    ) ,
+                tcavx.LASTMODIFIED = UTCTIMESTAMP(),
+                tcavx.oca = tcavx.oca + 1
+            where (tcavx.ownerid,tcavx.name,tcavx.localeid) in (
+                select tc.uuid,scav.name,scav.localeid from CatalogCategory tc, CatalogCategory sc, catalogcategory_av scav, catalogcategory_av tcav 
+                where   tc.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+                    and sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                    and sc.name = substr(tc.name, 0, instr(tc.name,'@',-1)-1)
+                    and instr(tc.name,'@',-1) &gt; 0
+                    and scav.ownerid = sc.uuid
+                    and tc.uuid in (select i.uuid from CatalogCategory i 
+                                    where   i.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+                                        and not i.PARENTCATEGORYID is null
+                                    start with i.uuid in (<template-variable value="targetRoot:UUID"/>)   
+                                    connect by i.PARENTCATEGORYID = prior i.uuid )
+                     and tcav.ownerid = tc.uuid
+                     and tcav.name = scav.name
+                     and tcav.localeid = scav.localeid
+                     and (  scav.stringvalue &lt;&gt; tcav.stringvalue or ((scav.stringvalue is null and tcav.stringvalue is not null) or (scav.stringvalue is not null and tcav.stringvalue is null))
+                         or scav.localizedflag &lt;&gt; tcav.localizedflag or ((scav.localizedflag is null and tcav.localizedflag is not null) or (scav.localizedflag is not null and tcav.localizedflag is null))
+                         or scav.type &lt;&gt; tcav.type or ((scav.type is null and tcav.type is not null) or (scav.type is not null and tcav.type is null))
+                         or scav.intvalue &lt;&gt; tcav.intvalue or ((scav.intvalue is null and tcav.intvalue is not null) or (scav.intvalue is not null and tcav.intvalue is null))
+                         or scav.doublevalue &lt;&gt; tcav.doublevalue or ((scav.doublevalue is null and tcav.doublevalue is not null) or (scav.doublevalue is not null and tcav.doublevalue is null))
+                         or scav.objectvalue &lt;&gt; tcav.objectvalue or ((scav.objectvalue is null and tcav.objectvalue is not null) or (scav.objectvalue is not null and tcav.objectvalue is null))
+                         or scav.objecttype &lt;&gt; tcav.objecttype or ((scav.objecttype is null and tcav.objecttype is not null) or (scav.objecttype is not null and tcav.objecttype is null))
+                         ))
+</template>
+<template sqlDialect="Microsoft">
+with n(uuid, PARENTCATEGORYID) as (
+	select i.uuid, i.PARENTCATEGORYID
+	from CatalogCategory i
+    where i.uuid = <template-variable value="targetRoot:UUID"/>
+    union all
+    select ii.uuid, ii.PARENTCATEGORYID
+    from CatalogCategory ii, n
+	where ii.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+    and ii.PARENTCATEGORYID = n.uuid
+)
+update tcavx  
+set localizedflag = scav.localizedflag, 
+	type = scav.type, 
+	intvalue = scav.intvalue, 
+	doublevalue = scav.doublevalue, 
+	stringvalue = scav.stringvalue, 
+	objectvalue = scav.objectvalue, 
+	objecttype =  scav.objecttype,    
+    LASTMODIFIED = GetUTCDate(),
+    oca = tcavx.oca + 1
+from CatalogCategory sc, catalogcategory_av scav, CatalogCategory tc join catalogcategory_av tcavx on tc.uuid = tcavx.ownerid
+where sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+        and sc.name = substring(tc.name, 1, case when charIndex('@',tc.name)-1 > 0 then charIndex('@',tc.name)-1 else 0 end)
+        and charIndex('@',tc.name) &gt; 0
+        and scav.ownerid = sc.uuid
+        and scav.name = tcavx.name
+        and scav.localeid = tcavx.localeid
+		and exists (
+			select 1 
+			from CatalogCategory tc join CatalogCategory_av tcavx on tc.uuid = tcavx.ownerid, CatalogCategory sc, catalogcategory_av scav, catalogcategory_av tcav 
+		    where tc.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+		        and sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+		        and sc.name = substring(tc.name, 1, case when charIndex('@',tc.name)-1 > 0 then charIndex('@',tc.name)-1 else 0 end)
+		        and charIndex('@',tc.name) &gt; 0
+		        and scav.ownerid = sc.uuid
+		        and tc.uuid in (select uuid from n where n.PARENTCATEGORYID is not null)
+		         and tcav.ownerid = tc.uuid
+		         and tcav.name = scav.name
+		         and tcav.localeid = scav.localeid
+		         and (  scav.stringvalue &lt;&gt; tcav.stringvalue or ((scav.stringvalue is null and tcav.stringvalue is not null) or (scav.stringvalue is not null and tcav.stringvalue is null))
+		             or scav.localizedflag &lt;&gt; tcav.localizedflag or ((scav.localizedflag is null and tcav.localizedflag is not null) or (scav.localizedflag is not null and tcav.localizedflag is null))
+		             or scav.type &lt;&gt; tcav.type or ((scav.type is null and tcav.type is not null) or (scav.type is not null and tcav.type is null))
+		             or scav.intvalue &lt;&gt; tcav.intvalue or ((scav.intvalue is null and tcav.intvalue is not null) or (scav.intvalue is not null and tcav.intvalue is null))
+		             or scav.doublevalue &lt;&gt; tcav.doublevalue or ((scav.doublevalue is null and tcav.doublevalue is not null) or (scav.doublevalue is not null and tcav.doublevalue is null))
+		             or scav.objectvalue &lt;&gt; tcav.objectvalue or ((scav.objectvalue is null and tcav.objectvalue is not null) or (scav.objectvalue is not null and tcav.objectvalue is null))
+		             or scav.objecttype &lt;&gt; tcav.objecttype or ((scav.objecttype is null and tcav.objecttype is not null) or (scav.objecttype is not null and tcav.objecttype is null))
+		             )
+		         and tcavx.ownerid = tc.uuid
+		         and tcavx.name = scav.name
+		         and tcavx.localeid = scav.localeid
+		) 
+</template>
+</query>

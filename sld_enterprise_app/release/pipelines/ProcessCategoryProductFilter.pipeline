@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Category-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCategoryProductFilter" type="process">
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode12" strict="true" name="GetProductFilter"
+      callMode="Private">
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="CreateForm1"/>
+    <parameters name="Category" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"/>
+    <parameters name="ProductFilter" type="com.intershop.component.search.capi.querydefinition.SearchQueryDefinition"
+        optional="true"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateForm1">
+    <configurationValues name="FormName" value="SQDForm"/>
+    <configurationValues name="FormResource" value="SearchQueryDefinition"/>
+    <pipelet href="enfinity:/core/pipelets/CreateForm.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameterBindings name="CurrentDomain" objectPath="CurrentDomain"/>
+    <returnValueBindings name="Form" objectPath="SQDForm"/>
+  </nodes>
+<!--@displayNearNode@The check if SearchQueryDefinitionName exists 
+is necessary because it can varies from 
+Category:Name when the SQD is created via
+DBInit. This way the assigned SQD with different name will
+be resolved but also it can be found even if inactive.
+@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Category:SearchQueryDefinitionName"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="KeyMapper1"/>
+<!--@BendPoints 5,9 5,10-->
+    <nodeSuccessors name="decision_no" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="InValue_1" objectPath="Category:Name"/>
+    <returnValueBindings name="OutValue_1" objectPath="Name"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 3,18-->
+    <nodeSuccessors name="next" next="PrepareSearchQueryDefinitionForm1"/>
+    <nodeSuccessors name="NotFound" next="RemoveDictionaryValue1"/>
+    <parameterBindings name="SiteUUID" objectPath="Repository:Domain:SiteID"/>
+    <startNode referencedName="ProcessSearchQueryDefinitionBySearchIndex-GetCategorySQDByName"/>
+    <returnValueBindings name="SearchQueryDefinition" objectPath="ProductFilter"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PrepareSearchQueryDefinitionForm1">
+    <pipelet href="enfinity:/bc_search/pipelets/PrepareSearchQueryDefinitionForm.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <parameterBindings name="Form" objectPath="SQDForm"/>
+    <parameterBindings name="SearchQueryDefinition" objectPath="ProductFilter"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+    <returnValues name="ProductFilter" type="com.intershop.component.search.capi.querydefinition.SearchQueryDefinition"
+        optional="true"/>
+    <returnValues name="SQDForm" type="com.intershop.beehive.core.capi.webform.Form"
+        optional="true"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue1">
+    <configurationValues name="Key" value="ProductFilter"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 5,13-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="InValue_1" objectPath="Category:SearchQueryDefinitionName"/>
+    <returnValueBindings name="OutValue_1" objectPath="Name"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="UpdateProductFilter"
+      callMode="Private">
+<!--@BendPoints 11,4-->
+    <nodeSuccessors name="next" next="DecisionNode1" action="begin"/>
+    <parameters name="Category" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"/>
+    <parameters name="ProductAssignmentMode" type="java.lang.String" optional="true"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="SQDForm" type="com.intershop.beehive.core.capi.webform.Form"/>
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+  </nodes>
+<!--@displayNearNode@First checks what's the new assignment mode to apply(Dynamic or Manual)
+@Location 5,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ProductAssignmentMode"
+      operator="str_eq" conditionValue="Dynamic">
+    <nodeSuccessors name="decision_yes" next="DecisionNode0"/>
+<!--@BendPoints 17,5 17,6-->
+    <nodeSuccessors name="decision_no" next="DecisionNode3"/>
+  </nodes>
+<!--@displayNearNode@The check if SearchQueryDefinitionName exists 
+is necessary because it can varies from 
+Category:Name when the SQD is created via
+DBInit. This way the assigned SQD with different name will
+be resolved but also it can be found even if inactive.
+@Location 5,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Category:SearchQueryDefinitionName"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="KeyMapper0"/>
+<!--@BendPoints 13,7-->
+    <nodeSuccessors name="decision_no" next="KeyMapper3"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InValue_1" objectPath="Category:UUID"/>
+    <returnValueBindings name="OutValue_1" objectPath="SQDName"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="CallNode4"/>
+  </nodes>
+<!--@displayNearNode@If AssignmentMode is Dynamic,<br> deletes already existing SQD.
+@Location 5,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="UpdateCatalogCategory4"/>
+<!--@BendPoints 13,14-->
+    <nodeSuccessors name="NotFound" next="Call1"/>
+    <parameterBindings name="Name" objectPath="SQDName"/>
+    <parameterBindings name="SiteUUID" objectPath="Repository:Domain:SiteID"/>
+    <startNode referencedName="ProcessSearchQueryDefinitionBySearchIndex-GetCategorySQDByName"/>
+    <returnValueBindings name="SearchQueryDefinition" objectPath="ProductFilter"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCatalogCategory4">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateCatalogCategory.xml"/>
+<!--@BendPoints 11,18-->
+    <nodeSuccessors name="next" next="UpdateSearchQueryDefinition2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="DisplayName" nullBinding="true"/>
+    <parameterBindings name="Id" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="ParentCategory" nullBinding="true"/>
+    <parameterBindings name="SearchQueryDefinitionName" objectPath="SQDName"/>
+    <parameterBindings name="Template" nullBinding="true"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateSearchQueryDefinition2">
+    <pipelet href="enfinity:/bc_search/pipelets/UpdateSearchQueryDefinition.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="Form" objectPath="SQDForm"/>
+    <parameterBindings name="Name" objectPath="SQDName"/>
+    <parameterBindings name="SearchQueryDefinition" objectPath="ProductFilter"/>
+  </nodes>
+<!--@Location 5,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 11,22-->
+    <nodeSuccessors name="next" next="EndNode1" action="commit"/>
+  </nodes>
+<!--@Location 5,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="ProductFilter" type="com.intershop.component.search.capi.querydefinition.SearchQueryDefinition"
+        optional="true"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 14,19-->
+    <nodeSuccessors name="next" next="EndNode4" action="rollback"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="ERROR" strict="true"/>
+<!--@displayNearNode@then creates the new SQD with<br>the submitted SQDForm,
+and sets the <br>Category:SearchQueryDefinitionName<br> to Category:Name, in order to mark it as ACTIVE!<br>
+NOTE: Stupid ProductFilter\-Create impl,<br>must be created w/o ID, and then set the ID to Category:Name,<br>or the GlobalyVisible flag is impossible to set correctly!
+@Location 6,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="UpdateCatalogCategory4" action="savepoint"/>
+<!--@BendPoints 13,17-->
+    <nodeSuccessors name="ERROR" next="JoinNode3"/>
+    <parameterBindings name="Domain" objectPath="Repository:Domain"/>
+    <startNode referencedName="ProcessProductFilter-Create"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 13,11-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InValue_1" objectPath="Category:SearchQueryDefinitionName"/>
+    <returnValueBindings name="OutValue_1" objectPath="SQDName"/>
+  </nodes>
+<!--@displayNearNode@The check if SearchQueryDefinitionName exists 
+is necessary because it can varies from 
+Category:Name when the SQD is created via
+DBInit. This way the assigned SQD with different name will
+be resolved but also it can be found even if inactive.
+@Location 8,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="Category:SearchQueryDefinitionName"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+<!--@BendPoints 19,7-->
+    <nodeSuccessors name="decision_no" next="CallNode0"/>
+  </nodes>
+<!--@Location 8,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@displayNearNode@If AssignmentMode is Dynamic,<br> deletes already existing SQD.
+@Location 9,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="RemoveSearchQueryDefinition0"/>
+<!--Works only in case in CatalogCategory table 
+has a vaue for search query defintion name, 
+but there is no record in SearchQueryDefinition table 
+for the respective category.
+@BendPoints 20,11 20,19-->
+    <nodeSuccessors name="NotFound" next="JoinNode6"/>
+    <parameterBindings name="Name" objectPath="Category:SearchQueryDefinitionName"/>
+    <parameterBindings name="SiteUUID" objectPath="Repository:Domain:SiteID"/>
+    <startNode referencedName="ProcessSearchQueryDefinitionBySearchIndex-GetCategorySQDByName"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveSearchQueryDefinition0">
+    <pipelet href="enfinity:/bc_search/pipelets/RemoveSearchQueryDefinition.xml"/>
+    <nodeSuccessors name="next" next="UpdateCatalogCategory3"/>
+  </nodes>
+<!--@displayNearNode@If AssignmentMode is<br>
+Manual does NOT delete pre\-existing SQD<br>(in order to save it for later use),<br>but only marks it INACTIVE<br>by deleting the Category's<br>
+SearchQueryDefinitionName!
+@Location 9,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCatalogCategory3">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateCatalogCategory.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+<!--@BendPoints 21,17-->
+    <nodeSuccessors name="pipelet_error" next="EndNode2" action="rollback"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="DisplayName" nullBinding="true"/>
+    <parameterBindings name="Id" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="ParentCategory" nullBinding="true"/>
+    <parameterBindings name="SearchQueryDefinitionName" constant=""/>
+    <parameterBindings name="Template" nullBinding="true"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 9,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 19,21-->
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 10,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="ERROR" strict="true"/>
+</pipeline:Pipeline>

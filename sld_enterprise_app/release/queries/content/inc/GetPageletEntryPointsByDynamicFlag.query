@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Retrieves Pages or Includes depending on their Dinamic Flag attribute - either System Managed (dynamic false) or Content (dynamic true). For System Managed only instances in the local repository are selected, for Content one - also shared from other repositories.">
+<parameters>
+  <parameter name="SystemManaged" type="java.lang.Boolean" optional="false" description="Defines wheter the search is for System managed or Content PageletEntryPoints."/>
+
+  <parameter name="ContentRepository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the pagelet belongs to."/>
+  <parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false" description="Search in context of the given locale."/>
+  <parameter name="AllLocales" type="java.util.Iterator" optional="true" description="All available locales."/>
+  <parameter name="PageFlag" type="java.lang.String" optional="false" description="This flag defines, if the query should search for pagelets where PAGEFLAG = 1 (true/false)."/>
+  <parameter name="NameOrIDExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+  <parameter name="NameExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="This is the display name of the pagelet."/>
+  <parameter name="IDExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="This is the ID attribute of the pagelet."/>
+  <parameter name="PageletEntryPointTypes" type="java.lang.Iterable" optional="true" description="Selected by user PageletEntryPoint Definition in Simple or Advanced Search mode."/>
+  <parameter name="ApplicationType" type="com.intershop.beehive.core.capi.domain.ApplicationType" optional="true" description="The application type the pagelet entry points need to be valid for."/>
+  <parameter name="TypeSelection" type="java.lang.String" optional="true" description="Selected by user kind of PageletEntryPoint Definition filtering in Advanced Search mode: 'all'/'system'/'content'/'product'/'category'."/>
+  <parameter name="LabelID" type="java.lang.String" optional="true" description="The UUID of Label used to filter components by their PageletLabelAssignment."/>
+  <parameter name="LastModifiedFrom" type="java.util.Date" optional="true"/>
+  <parameter name="LastModifiedTo" type="java.util.Date" optional="true"/>
+  <parameter name="ConfigParamType" type="java.lang.String" optional="true"/>
+  <parameter name="ConfigParamValueExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+  <parameter name="ParentPageNameOrIDExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="Expression to search for parent pages to be used as filter."/>
+  <parameter name="ParentPageIncludeSubsequentPages" type="java.lang.String" optional="true" description="Defines if, when applied parent pages filter, the search should be exteded with the indirect parents too."/>
+  <parameter name="Publishing" type="java.lang.String" optional="true"/>
+  <parameter name="PublishedFrom" type="java.lang.String" optional="true"/>
+  <parameter name="PublishedTo" type="java.lang.String" optional="true"/>
+  <parameter name="PublishedFromSinceDate" type="java.util.Date" optional="true"/>
+  <parameter name="PublishedFromTillDate" type="java.util.Date" optional="true"/>
+  <parameter name="PublishedToSinceDate" type="java.util.Date" optional="true"/>
+  <parameter name="PublishedToTillDate" type="java.util.Date" optional="true"/>
+  <parameter name="SharingSearchType" type="java.lang.String" optional="true"/>
+  <parameter name="SharedRepositoryDomainID" type="java.lang.String" optional="true"/>
+  <parameter name="SortedNames" type="java.util.Map" optional="true" description="A Map of pagelet qualified names sorted according to the display name of page components, localize in current locale."/>
+  <parameter name="SortBy" type="java.lang.String" optional="true" description="The column by which the result set should be sorted."/>
+  <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+  <processor-preprocessing output="cConfigParamValue" input="ConfigParamValueExpression" processing="SearchExpression2Contains"/>
+  <processor-preprocessing output="ModelElementAliasProcessedTypes" input="PageletEntryPointTypes" processing="ModelElementAliasHelper"/>
+</processor>
+<template type="objects">
+  select pep.uuid AS uuid,
+    <template-call name="content/inc/PageletEntryPointSorting">
+      <call-parameter name="TableAlias" value="&apos;pep&apos;"/>
+      <call-parameter name="AVTableAlias" value="&apos;pepav&apos;"/>
+      <call-parameter name="ParentAVTableAlias" value="&apos;parentav&apos;"/>
+      <call-parameter name="PATableAlias" value="&apos;pepa&apos;"/>
+      <call-parameter name="SortBy" value="SortBy"/>
+      <call-parameter name="SortedNames" value="SortedNames"/>
+    </template-call> as sorting
+      from PageletEntryPoint pep
+    <template-if condition="isDefined(SortBy) AND SortBy eq &apos;parent&apos;">
+      left outer join pageletentrypointrelation pepr
+      left outer join PageletEntryPoint_av parentav
+        on (    pepr.parententrypointid = parentav.ownerid
+            and parentav.name = &apos;displayName&apos;
+            and parentav.localeid = <template-variable value="Locale:LocaleID"/>)
+        on (pep.uuid = pepr.entrypointid)
+    </template-if>
+    <template-if condition="(isDefined(SortBy) and ((SortBy eq &apos;publishedfrom&apos;) or (SortBy eq &apos;publishedto&apos;)))
+                         or (isDefined(PublishedFrom) and PublishedFrom ne &apos;all&apos;)
+                         or (isDefined(PublishedTo) and PublishedTo ne &apos;all&apos;)
+                         or (isDefined(Publishing) and Publishing eq &apos;notPublished&apos;)">
+      left outer join PageletEntryPoint_PA pepa
+        on (pep.uuid = pepa.entrypointid and pepa.onlineflag = 1)
+    </template-if>
+    <template-if condition="isDefined(LabelID) AND (LabelID NE &apos;all&apos;) AND (LabelID NE &apos;&apos;)">
+      join PageletEntryPointLabelAssignmt pepla
+        on (pep.uuid = pepla.pageletentrypointuuid AND pepla.labeluuid = <template-variable value="LabelID"/>)
+    </template-if>
+      left outer join PageletEntryPoint_av pepav
+        on (    pep.uuid = pepav.ownerid AND pepav.name = &apos;displayName&apos;
+            and pepav.localeid = <template-variable value="Locale:LocaleID"/>)
+    <template-if condition="(isDefined(ConfigParamType) and ConfigParamType ne 'all') or (isDefined(ConfigParamValueExpression) and ConfigParamValueExpression:NotEmpty) ">
+      join (<template-call name="content/inc/ConfigurationParameterFilter">
+              <call-parameter name="AllLocales" value="AllLocales"/>
+              <call-parameter name="ConfigParamType" value="ConfigParamType"/>
+              <call-parameter name="ConfigParamValue" value="cConfigParamValue"/>
+            </template-call>) param_found
+        on (pep.uuid = param_found.configurationparameterctnrid)
+    </template-if>
+     where 
+    <template-if condition="PageFlag EQ &apos;true&apos;">
+           pep.PageFlag = 1
+    <if-else/>
+           pep.PageFlag = 0
+    </template-if>
+    <template-if condition="SystemManaged">
+       and pep.dynamicflag = 0
+       and pep.domainid = <template-variable value="ContentRepository:RepositoryDomain:UUID"/>
+    <if-else/>
+       and pep.dynamicflag = 1
+       and pep.domainid in (
+           <template-call name="pagelet/inc/ContentRepositories">
+             <call-parameter name="Repository" value="ContentRepository"/>
+             <call-parameter name="SharingSearchType" value="SharingSearchType"/>
+             <call-parameter name="SharedRepositoryDomainID" value="SharedRepositoryDomainID"/>
+           </template-call>)
+    </template-if>
+    
+	<template-call name="content/inc/PageletEntryPointNameIDFilter">
+      <call-parameter name="PageletEntryPointTableAlias" value="&apos;pep&apos;"/>
+      <call-parameter name="Repository" value="ContentRepository"/>
+      <call-parameter name="Locale" value="Locale"/>
+      <call-parameter name="NameOrIDExpression" value="NameOrIDExpression"/>
+      <call-parameter name="NameExpression" value="NameExpression"/>
+      <call-parameter name="IDExpression" value="IDExpression"/>
+    </template-call>
+    
+    <template-call name="content/inc/PageletEntryPointParentPagesFilter">
+      <call-parameter name="PageletEntryPointTableAlias" value="&apos;pep&apos;"/>
+      <call-parameter name="Repository" value="ContentRepository"/>
+      <call-parameter name="Locale" value="Locale"/>
+      <call-parameter name="NameOrIDExpression" value="ParentPageNameOrIDExpression"/>
+      <call-parameter name="IncludeSubsequentPages" value="ParentPageIncludeSubsequentPages"/>
+    </template-call>
+
+    <template-call name="content/inc/PageletEntryPointTypeFilter">
+      <call-parameter name="PageletEntryPointTableAlias" value="&apos;pep&apos;"/>
+      <call-parameter name="PageletEntryPointTypes" value="ModelElementAliasProcessedTypes"/>
+      <call-parameter name="TypeSelection" value="TypeSelection"/>
+    </template-call>
+    
+    <template-if condition="isDefined(ApplicationType)">
+      <template-if condition="hasElements(ApplicationType:CartridgeNamesList)">
+        and pep.resourcesetid in (
+        <template-loop iterator="ApplicationType:CartridgeNamesList" alias="ResourceSetId">
+          <loop-statement><template-variable value="ResourceSetId"/></loop-statement>
+          <loop-separator>,</loop-separator>
+        </template-loop>) 
+      <if-else/>
+        and 1 = 2 
+      </template-if>
+    </template-if> 
+
+    <template-if condition="isDefined(LastModifiedFrom)">
+       and pep.lastmodified &gt; <template-variable value="LastModifiedFrom"/>
+    </template-if>
+    <template-if condition="isDefined(LastModifiedTo)">
+       and pep.lastmodified &lt; <template-variable value="LastModifiedTo"/>
+    </template-if>
+
+    <template-if condition="(isDefined(SortBy) and ((SortBy eq &apos;publishedfrom&apos;) or (SortBy eq &apos;publishedto&apos;)))
+                         or (isDefined(PublishedFrom) and PublishedFrom ne &apos;all&apos;)
+                         or (isDefined(PublishedTo) and PublishedTo ne &apos;all&apos;)
+                         or (isDefined(Publishing) and Publishing eq &apos;notPublished&apos;)">
+	    <template-call name="pagelet/inc/PublishingFilter">
+	      <call-parameter name="TableAlias" value="&apos;pepa&apos;"/>
+	      <call-parameter name="WhereClause" value="false()"/>
+	      <call-parameter name="PublishingOption" value="Publishing"/>
+	      <call-parameter name="PublishedFromOption" value="PublishedFrom"/>
+	      <call-parameter name="PublishedToOption" value="PublishedTo"/>
+	      <call-parameter name="PublishedFromSinceDate" value="PublishedFromSinceDate"/>
+	      <call-parameter name="PublishedFromTillDate" value="PublishedFromTillDate"/>
+	      <call-parameter name="PublishedToSinceDate" value="PublishedToSinceDate"/>
+	      <call-parameter name="PublishedToTillDate" value="PublishedToTillDate"/>
+	      <call-parameter name="HideOnlineFlag" value="true()"/>
+	    </template-call>
+	<if-else />
+        <template-call name="pagelet/inc/PublishingFilter">
+          <call-parameter name="TableAlias" value="&apos;pepa&apos;"/>
+          <call-parameter name="WhereClause" value="false()"/>
+          <call-parameter name="PublishingOption" value="Publishing"/>
+          <call-parameter name="PublishedFromOption" value="PublishedFrom"/>
+          <call-parameter name="PublishedToOption" value="PublishedTo"/>
+          <call-parameter name="PublishedFromSinceDate" value="PublishedFromSinceDate"/>
+          <call-parameter name="PublishedFromTillDate" value="PublishedFromTillDate"/>
+          <call-parameter name="PublishedToSinceDate" value="PublishedToSinceDate"/>
+          <call-parameter name="PublishedToTillDate" value="PublishedToTillDate"/>
+        </template-call>
+    </template-if>
+
+    <template-if condition="isDefined(SortBy) and ((SortBy EQ &apos;publishedfrom&apos;) or (SortBy EQ &apos;publishedto&apos;))">
+      group by pep.uuid
+    </template-if>
+</template>
+</query>

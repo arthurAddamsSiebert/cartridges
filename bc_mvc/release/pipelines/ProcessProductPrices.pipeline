@@ -1,0 +1,783 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Manages Price functionality (view, create, delete).
+@Group Product-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessProductPrices" type="process">
+<!--@Location 19,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" name="CheckBonusPointPrices"
+      callMode="Private">
+<!--@BendPoints 39,2-->
+    <nodeSuccessors name="next" next="Pipelet12"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+  </nodes>
+<!--@Location 19,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet12">
+    <configurationValues name="Prefix" value="BonusPointPriceCurrency"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorForPrefix.xml"/>
+<!--@BendPoints 39,4-->
+    <nodeSuccessors name="next" next="Pipelet14"/>
+    <returnValueBindings name="PrefixIterator" objectPath="Currencies"/>
+  </nodes>
+<!--@Location 19,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet14">
+    <configurationValues name="DefaultRecordID" value="BonusPointPriceValue"/>
+    <pipelet href="enfinity:/core/pipelets/GetFormRecord.xml"/>
+<!--@BendPoints 39,6-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <returnValueBindings name="FormRecord" objectPath="Prices"/>
+  </nodes>
+<!--@Location 19,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <startNode referencedName="ProcessProductPrices-CheckBonusPointValue"/>
+  </nodes>
+<!--@Location 19,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="InValue_1" objectPath="BonusPointStatus"/>
+    <returnValueBindings name="OutValue_1" objectPath="BonusPointPriceStatus"/>
+  </nodes>
+<!--@Location 19,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 17,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 15,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 31,13 32,13-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="PriceErrorCurrencies"
+      operator="has_elements">
+<!--@BendPoints 35,13-->
+    <nodeSuccessors name="decision_yes" next="JoinNode6"/>
+<!--@BendPoints 33,14-->
+    <nodeSuccessors name="decision_no" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 17,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 17,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="ERROR"/>
+<!--@Location 16,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="NewPriceErrorCode"
+      operator="undef">
+<!--@BendPoints 33,16-->
+    <nodeSuccessors name="decision_yes" next="EndNode2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 16,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 23,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CheckBonusPointValue"
+      callMode="Private">
+<!--@BendPoints 47,16-->
+    <nodeSuccessors name="next" next="LoopNode1"/>
+<!--All currencies from form.-->
+    <parameters name="Currencies" type="com.intershop.beehive.foundation.util.ResettableIterator"
+        optional="true"/>
+<!--All Prices from form.-->
+    <parameters name="Prices" type="java.util.HashMap" optional="true"/>
+<!--The ProductID.-->
+    <parameters name="ProductID" type="java.lang.String" optional="true"/>
+    <parameters name="Process" type="com.intershop.beehive.core.capi.locking.Process"
+        optional="true"/>
+<!--A map with the errors.-->
+    <parameters name="PriceErrors" type="java.util.Map" optional="true"/>
+<!--Iterator with some error codes from verifying money.-->
+    <parameters name="PriceErrorCurrencies" type="java.util.Iterator" optional="true"/>
+<!--The organization.-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+<!--The domain of the product.-->
+    <parameters name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 23,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Currencies">
+<!--@BendPoints 55,17 55,29-->
+    <nodeSuccessors name="next" next="JoinNode13"/>
+    <entry key="Currency">
+<!--@BendPoints 47,18-->
+      <nodeSuccessors name="loop_entry_next" next="Pipelet6"/>
+    </entry>
+  </nodes>
+<!--@Location 23,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <configurationValues name="MaxValue" value="1e30"/>
+    <configurationValues name="MinValue" value="0"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyMoney.xml"/>
+<!--@BendPoints 47,20-->
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <nodeSuccessors name="pipelet_error" next="CheckForEmptyString1"/>
+    <parameterBindings name="CurrencyMnemonic" objectPath="Currency"/>
+    <parameterBindings name="LocalizedString" objectPath="Prices:get(Currency)"/>
+  </nodes>
+<!--@Location 23,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="MoneyValue:Value"
+      operator="gt" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="JoinNode4"/>
+    <nodeSuccessors name="decision_no" next="JoinNode15"/>
+  </nodes>
+<!--@Location 23,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 22,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 25,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="Call9"/>
+  </nodes>
+<!--@Location 25,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call9">
+<!--@BendPoints 51,24-->
+    <nodeSuccessors name="next" next="ConcatenateStrings1"/>
+    <nodeSuccessors name="error-product-not-available" next="EndNode13"/>
+    <startNode referencedName="ProcessProductPrices-DeleteBonusPrices"/>
+  </nodes>
+<!--@Location 25,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="JoinNode13"/>
+    <parameterBindings name="String0" constant="DoNotUpdate_"/>
+    <parameterBindings name="String1" objectPath="Currency"/>
+    <returnValueBindings name="Concatenated" objectPath="BonusPointStatus"/>
+  </nodes>
+<!--@Location 25,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="EndNode12"/>
+  </nodes>
+<!--@Location 25,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" strict="true">
+<!--Iterator with some error codes from verifying money.-->
+    <returnValues name="PriceErrorCurrencies" type="java.util.Iterator" optional="true"/>
+    <returnValues name="BonusPointStatus" type="java.lang.String" optional="true"/>
+<!--A map with the errors.-->
+    <returnValues name="PriceErrors" type="java.util.Map" optional="true"/>
+  </nodes>
+<!--@Location 24,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13"/>
+<!--@Location 25,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="GetCurrency1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode15"/>
+    <parameterBindings name="FilledString" objectPath="Prices:get(Currency)"/>
+  </nodes>
+<!--@Location 26,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrency1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrency.xml"/>
+    <nodeSuccessors name="next" next="Pipelet2"/>
+    <parameterBindings name="Mnemonic" objectPath="Currency"/>
+  </nodes>
+<!--@Location 26,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="Mode" value="Add"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateMapping.xml"/>
+<!--@BendPoints 53,27-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="InMap" objectPath="PriceErrors"/>
+    <parameterBindings name="Key" objectPath="Currency:CurrencyName"/>
+    <parameterBindings name="Value" objectPath="ErrorCode"/>
+    <returnValueBindings name="Keys" objectPath="PriceErrorCurrencies"/>
+    <returnValueBindings name="OutMap" objectPath="PriceErrors"/>
+  </nodes>
+<!--@Location 17,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" name="CheckCostPrices"
+      callMode="Private">
+<!--@BendPoints 35,2-->
+    <nodeSuccessors name="next" next="Pipelet9"/>
+<!--The record ID (i.e. parameter name prefix) to be used to read the parameter group.-->
+    <parameters name="RecordID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 17,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet9">
+    <configurationValues name="Prefix" value="CostPriceCurrency"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorForPrefix.xml"/>
+<!--@BendPoints 35,4-->
+    <nodeSuccessors name="next" next="Pipelet10"/>
+    <returnValueBindings name="PrefixIterator" objectPath="Currencies"/>
+  </nodes>
+<!--@Location 17,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet10">
+    <configurationValues name="DefaultRecordID" value="CostPriceValue"/>
+    <pipelet href="enfinity:/core/pipelets/GetFormRecord.xml"/>
+<!--@BendPoints 35,6-->
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <returnValueBindings name="FormRecord" objectPath="Prices"/>
+  </nodes>
+<!--@Location 17,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <startNode referencedName="This:CheckExistingPrices"/>
+  </nodes>
+<!--@Location 17,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="PriceCurrency_CurrencyMnemonic" objectPath="CostPriceCurrency_CurrencyMnemonic"/>
+    <parameterBindings name="PriceValue_CurrencyMnemonic" objectPath="CostPriceValue_CurrencyMnemonic"/>
+    <startNode referencedName="This:CheckNewPrice"/>
+  </nodes>
+<!--@Location 23,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="CheckExistingPrices"
+      callMode="Private">
+<!--@BendPoints 47,2-->
+    <nodeSuccessors name="next" next="LoopNode3"/>
+  </nodes>
+<!--@Location 23,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="Currencies">
+<!--@BendPoints 48,3-->
+    <nodeSuccessors name="next" next="EndNode11"/>
+    <entry key="Currency">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode11"/>
+    </entry>
+  </nodes>
+<!--@Location 23,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="Currency"
+      operator="str_eq" conditionValue="CurrencyMnemonic">
+<!--@BendPoints 46,6 46,11-->
+    <nodeSuccessors name="decision_yes" next="JoinNode11"/>
+    <nodeSuccessors name="decision_no" next="Pipelet15"/>
+  </nodes>
+<!--@Location 23,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+<!--@BendPoints 47,13 45,13 45,3-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+  </nodes>
+<!--@Location 23,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet15">
+    <configurationValues name="MaxValue" value="1e30"/>
+    <configurationValues name="MinValue" value="0"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyMoney.xml"/>
+    <nodeSuccessors name="next" next="JoinNode11"/>
+<!--@BendPoints 49,7 49,8-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet16"/>
+    <parameterBindings name="CurrencyMnemonic" objectPath="Currency"/>
+    <parameterBindings name="LocalizedString" objectPath="Prices:get(Currency)"/>
+  </nodes>
+<!--@Location 24,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet16">
+    <configurationValues name="Mode" value="Add"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateMapping.xml"/>
+<!--@BendPoints 49,11-->
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="InMap" objectPath="PriceErrors"/>
+    <parameterBindings name="Key" objectPath="Currency"/>
+    <parameterBindings name="Value" objectPath="ErrorCode"/>
+    <returnValueBindings name="Keys" objectPath="PriceErrorCurrencies"/>
+    <returnValueBindings name="OutMap" objectPath="PriceErrors"/>
+  </nodes>
+<!--@Location 24,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11"/>
+<!--@Location 21,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" name="CheckGrantedBonusPoints"
+      callMode="Private">
+<!--@BendPoints 43,2-->
+    <nodeSuccessors name="next" next="Pipelet13"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+  </nodes>
+<!--@Location 21,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet13">
+    <configurationValues name="Prefix" value="GrantedBonusPointsCurrency"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorForPrefix.xml"/>
+<!--@BendPoints 43,4-->
+    <nodeSuccessors name="next" next="Pipelet17"/>
+    <returnValueBindings name="PrefixIterator" objectPath="Currencies"/>
+  </nodes>
+<!--@Location 21,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet17">
+    <configurationValues name="DefaultRecordID" value="GrantedBonusPointsValue"/>
+    <pipelet href="enfinity:/core/pipelets/GetFormRecord.xml"/>
+<!--@BendPoints 43,6-->
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <returnValueBindings name="FormRecord" objectPath="Prices"/>
+  </nodes>
+<!--@Location 21,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 43,8-->
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+    <startNode referencedName="ProcessProductPrices-CheckBonusPointValue"/>
+  </nodes>
+<!--@Location 21,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 43,11-->
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="InValue_2" objectPath="BonusPointStatus"/>
+    <returnValueBindings name="OutValue_2" objectPath="BonusPointValueStatus"/>
+  </nodes>
+<!--@Location 28,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="CheckNewPrice"
+      callMode="Private">
+<!--@BendPoints 57,2-->
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+    <parameters name="PriceCurrency_CurrencyMnemonic" type="java.lang.String" optional="true"/>
+    <parameters name="PriceValue_CurrencyMnemonic" type="java.lang.String" optional="true"/>
+<!--An optional locale. Fallback is the session locale.-->
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"
+        optional="true"/>
+    <parameters name="Prices" type="java.util.HashMap" optional="true"/>
+  </nodes>
+<!--@Location 28,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="PriceValue_CurrencyMnemonic"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="Pipelet7"/>
+<!--@BendPoints 59,3-->
+    <nodeSuccessors name="decision_no" next="Pipelet11"/>
+  </nodes>
+<!--@Location 28,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet7">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue1"/>
+    <parameterBindings name="InValue_1" objectPath="PriceCurrency_CurrencyMnemonic"/>
+    <returnValueBindings name="OutValue_1" objectPath="NewPriceErrorCurrency"/>
+  </nodes>
+<!--@Location 28,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="NewPriceErrorCode"/>
+    <configurationValues name="Value" value="ParseError"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 28,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 28,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" strict="true">
+    <returnValues name="NewPriceErrorCode" type="java.lang.String" optional="true"/>
+    <returnValues name="NewPriceErrorCurrency" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 29,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet11">
+    <configurationValues name="MaxValue" value="1e30"/>
+    <configurationValues name="MinValue" value="0"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyMoney.xml"/>
+    <nodeSuccessors name="next" next="JoinNode12"/>
+<!--@BendPoints 61,5-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet1"/>
+    <parameterBindings name="CurrencyMnemonic" objectPath="PriceCurrency_CurrencyMnemonic"/>
+    <parameterBindings name="LocalizedString" objectPath="PriceValue_CurrencyMnemonic"/>
+    <returnValueBindings name="ErrorCode" objectPath="NewPriceErrorCode"/>
+  </nodes>
+<!--@Location 29,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 29,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Prices:get(PriceCurrency_CurrencyMnemonic)"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="JoinNode9"/>
+<!--@BendPoints 61,11-->
+    <nodeSuccessors name="decision_no" next="Pipelet5"/>
+  </nodes>
+<!--@Location 29,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+<!--@BendPoints 59,17-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 30,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 61,15-->
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="InValue_1" objectPath="PriceCurrency_CurrencyMnemonic"/>
+    <parameterBindings name="InValue_10" constant="DuplicateCurrency"/>
+    <returnValueBindings name="OutValue_1" objectPath="NewPriceErrorCurrency"/>
+    <returnValueBindings name="OutValue_10" objectPath="NewPriceErrorCode"/>
+  </nodes>
+<!--@Location 30,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 61,9-->
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <parameterBindings name="InValue_1" objectPath="PriceCurrency_CurrencyMnemonic"/>
+    <returnValueBindings name="OutValue_1" objectPath="NewPriceErrorCurrency"/>
+  </nodes>
+<!--@Location 15,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="CheckPrices" callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet4"/>
+  </nodes>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="Prefix" value="ListPriceCurrency"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorForPrefix.xml"/>
+    <nodeSuccessors name="next" next="Pipelet3"/>
+    <returnValueBindings name="PrefixIterator" objectPath="Currencies"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="DefaultRecordID" value="ListPriceValue"/>
+    <pipelet href="enfinity:/core/pipelets/GetFormRecord.xml"/>
+<!--@BendPoints 31,6-->
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <returnValueBindings name="FormRecord" objectPath="Prices"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <startNode referencedName="This:CheckExistingPrices"/>
+  </nodes>
+<!--@Location 15,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="PriceCurrency_CurrencyMnemonic" objectPath="ListPriceCurrency_CurrencyMnemonic"/>
+    <parameterBindings name="PriceValue_CurrencyMnemonic" objectPath="ListPriceValue_CurrencyMnemonic"/>
+    <startNode referencedName="This:CheckNewPrice"/>
+  </nodes>
+<!--@Location 12,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start8" name="DeleteBonusPrices" callMode="Private">
+    <nodeSuccessors name="next" next="Call7"/>
+  </nodes>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call7">
+    <nodeSuccessors name="next" next="GetProductListPrice2"/>
+<!--@BendPoints 26,4 26,5-->
+    <nodeSuccessors name="error-product-not-available" next="EndNode15"/>
+    <startNode referencedName="ProcessProductPrices-Prefix"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductListPrice2">
+    <pipelet href="enfinity:/bc_pricing/pipelets/GetProductListPrice.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+<!--@BendPoints 27,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+    <parameterBindings name="CurrencyMnemonic" objectPath="Currency"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ProductListPrice">
+    <nodeSuccessors name="decision_yes" next="RemoveProductListPrice2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode7"/>
+  </nodes>
+<!--@Location 12,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveProductListPrice2">
+    <pipelet href="enfinity:/bc_pricing/pipelets/RemoveProductListPrice.xml"/>
+    <nodeSuccessors name="next" next="Call8"/>
+  </nodes>
+<!--@Location 12,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call8">
+    <nodeSuccessors name="next" next="Join3"/>
+    <startNode referencedName="ProcessProductHistory-SaveProductSnapShot"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+<!--@BendPoints 25,16-->
+    <nodeSuccessors name="next" next="EndNode14"/>
+  </nodes>
+<!--@Location 12,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14"/>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 27,15-->
+    <nodeSuccessors name="next" next="Join3"/>
+  </nodes>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" name="error-product-not-available"/>
+<!--@Location 34,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start6" name="DeleteCostPrices" callMode="Private">
+<!--@BendPoints 69,2-->
+    <nodeSuccessors name="next" next="Call4"/>
+  </nodes>
+<!--@Location 34,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call4">
+    <nodeSuccessors name="next" next="Loop2"/>
+    <startNode referencedName="ProcessProductPrices-Prefix"/>
+  </nodes>
+<!--@Location 34,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="CurrencyMnemonics">
+<!--@BendPoints 70,5-->
+    <nodeSuccessors name="next" next="EndNode8"/>
+    <entry key="CurrencyMnemonic">
+<!--@BendPoints 69,6-->
+      <nodeSuccessors name="loop_entry_next" next="GetProductCostPrice1"/>
+    </entry>
+  </nodes>
+<!--@Location 34,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductCostPrice1">
+    <pipelet href="enfinity:/bc_pricing/pipelets/GetProductCostPrice.xml"/>
+<!--@BendPoints 69,8-->
+    <nodeSuccessors name="next" next="RemoveProductCostPrice1"/>
+<!--@BendPoints 70,7 70,11-->
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+  </nodes>
+<!--@Location 34,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveProductCostPrice1">
+    <pipelet href="enfinity:/bc_pricing/pipelets/RemoveProductCostPrice.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 34,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+<!--@BendPoints 69,12 67,12 67,5-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+  </nodes>
+<!--@Location 35,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8"/>
+<!--@Location 9,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="DeleteListPrices" callMode="Private">
+<!--@BendPoints 19,2-->
+    <nodeSuccessors name="next" next="Call3"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call3">
+    <nodeSuccessors name="next" next="Loop1"/>
+    <nodeSuccessors name="error-product-not-available" next="EndNode6"/>
+    <startNode referencedName="ProcessProductPrices-Prefix"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="CurrencyMnemonics">
+    <nodeSuccessors name="next" next="End3"/>
+    <entry key="CurrencyMnemonic">
+      <nodeSuccessors name="loop_entry_next" next="GetProductListPrice1"/>
+    </entry>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductListPrice1">
+    <pipelet href="enfinity:/bc_pricing/pipelets/GetProductListPrice.xml"/>
+    <nodeSuccessors name="next" next="RemoveProductListPrice1"/>
+<!--@BendPoints 20,7 20,11-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveProductListPrice1">
+    <pipelet href="enfinity:/bc_pricing/pipelets/RemoveProductListPrice.xml"/>
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+<!--@BendPoints 19,12 17,12 17,5-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="error-product-not-available"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="Prefix" callMode="Private">
+    <nodeSuccessors name="next" next="GetProductByUUID1"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="End4"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+    <parameterBindings name="ProductUUID" objectPath="ProductID"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="error-product-not-available"/>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" name="SetPage" callMode="Private">
+<!--@BendPoints 1,16-->
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="PageNumber">
+<!--@BendPoints 1,18-->
+    <nodeSuccessors name="decision_yes" next="VerifyInteger1"/>
+<!--@BendPoints 5,17 5,18-->
+    <nodeSuccessors name="decision_no" next="SetPage2"/>
+  </nodes>
+<!--@Location 0,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyInteger1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyInteger.xml"/>
+<!--@BendPoints 1,20-->
+    <nodeSuccessors name="next" next="SetPage1"/>
+<!--@BendPoints 3,19-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode16"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="LocalizedString" objectPath="PageNumber"/>
+    <parameterBindings name="Pattern" nullBinding="true"/>
+    <returnValueBindings name="IntegerObject" objectPath="PageNumber"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetPage1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetPage.xml"/>
+<!--@BendPoints 1,23-->
+    <nodeSuccessors name="next" next="JoinNode16"/>
+    <parameterBindings name="Pageable" objectPath="PriceScaleTables"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+    <nodeSuccessors name="next" next="ConcatenateStrings3"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="SetPageLocator1"/>
+    <parameterBindings name="String0" constant="ViewProductPrices_"/>
+    <parameterBindings name="String1" objectPath="CurrentChannel:TypeCode"/>
+    <parameterBindings name="String2" constant="-Paging"/>
+    <returnValueBindings name="Concatenated" objectPath="HandlerPipeline"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetPageLocator1">
+    <configurationValues name="DefaultHandlerPipeline" value="HandlerPipeline"/>
+    <configurationValues name="DefaultPageLocatorName" value="PriceScaleTablesSelection"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetPageLocator.xml"/>
+<!--@BendPoints 3,28-->
+    <nodeSuccessors name="next" next="EndNode16"/>
+    <parameterBindings name="HandlerPipeline" nullBinding="true"/>
+    <parameterBindings name="PageLocatorName" nullBinding="true"/>
+    <parameterBindings name="Pageable" objectPath="PriceScaleTables"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" strict="true"/>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetPage2">
+    <configurationValues name="DefaultPageNumber" value="0"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetPage.xml"/>
+<!--@BendPoints 5,23-->
+    <nodeSuccessors name="next" next="JoinNode16"/>
+    <parameterBindings name="PageNumber" objectPath="PageLocator:PageNumber"/>
+    <parameterBindings name="Pageable" objectPath="PriceScaleTables"/>
+  </nodes>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start7" name="UpdateBonusPrices" callMode="Private">
+    <nodeSuccessors name="next" next="Call6"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call6">
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+<!--@BendPoints 13,4 14,4 14,3-->
+    <nodeSuccessors name="error-product-not-available" next="EndNode10"/>
+    <startNode referencedName="ProcessProductPrices-Prefix"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="BonusPointPriceStatus"
+      operator="str_eq" conditionValue="DoNotUpdate_BPP">
+    <nodeSuccessors name="decision_yes" next="JoinNode10"/>
+<!--@BendPoints 15,5 15,6-->
+    <nodeSuccessors name="decision_no" next="UpdateProductListPricesByForm2"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 13,10-->
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="BonusPointValueStatus"
+      operator="str_eq" conditionValue="DoNotUpdate_BPV">
+    <nodeSuccessors name="decision_yes" next="JoinNode14"/>
+<!--@BendPoints 15,11 15,12-->
+    <nodeSuccessors name="decision_no" next="UpdateProductListPricesByForm3"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+<!--@BendPoints 13,16-->
+    <nodeSuccessors name="next" next="End6"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6"/>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductListPricesByForm3">
+    <configurationValues name="Prefix" value="GrantedBonusPoints"/>
+    <pipelet href="enfinity:/bc_pricing/pipelets/UpdateProductListPricesByForm.xml"/>
+<!--@BendPoints 15,15-->
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductListPricesByForm2">
+    <configurationValues name="Prefix" value="BonusPointPrice"/>
+    <pipelet href="enfinity:/bc_pricing/pipelets/UpdateProductListPricesByForm.xml"/>
+<!--@BendPoints 15,9-->
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name="error-product-not-available"/>
+<!--@Location 32,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="UpdateCostPrices" callMode="Private">
+    <nodeSuccessors name="next" next="Call5"/>
+  </nodes>
+<!--@Location 32,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call5">
+<!--@BendPoints 65,4-->
+    <nodeSuccessors name="next" next="UpdateProductCostPricesByForm1"/>
+    <nodeSuccessors name="error-product-not-available" next="EndNode7"/>
+    <startNode referencedName="ProcessProductPrices-Prefix"/>
+  </nodes>
+<!--@Location 32,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductCostPricesByForm1">
+    <configurationValues name="Prefix" value="CostPrice"/>
+    <pipelet href="enfinity:/bc_pricing/pipelets/UpdateProductCostPricesByForm.xml"/>
+<!--@BendPoints 65,8-->
+    <nodeSuccessors name="next" next="End5"/>
+  </nodes>
+<!--@Location 32,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5"/>
+<!--@Location 33,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="error-product-not-available"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="UpdateListPrices" callMode="Private">
+    <nodeSuccessors name="next" next="Call2"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+    <nodeSuccessors name="next" next="UpdateProductListPricesByForm1"/>
+<!--@BendPoints 9,4 10,4 10,3-->
+    <nodeSuccessors name="error-product-not-available" next="EndNode5"/>
+    <startNode referencedName="ProcessProductPrices-Prefix"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductListPricesByForm1">
+    <configurationValues name="Prefix" value="ListPrice"/>
+    <pipelet href="enfinity:/bc_pricing/pipelets/UpdateProductListPricesByForm.xml"/>
+    <nodeSuccessors name="next" next="End2"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="error-product-not-available"/>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="View" callMode="Private">
+    <nodeSuccessors name="next" next="Call1"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="GetProductListPrices1"/>
+    <nodeSuccessors name="error-product-not-available" next="EndNode4"/>
+    <startNode referencedName="ProcessProductPrices-Prefix"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductListPrices1">
+    <pipelet href="enfinity:/bc_pricing/pipelets/GetProductListPrices.xml"/>
+<!--@BendPoints 5,6-->
+    <nodeSuccessors name="next" next="GetProductCostPrices1"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductCostPrices1">
+    <pipelet href="enfinity:/bc_pricing/pipelets/GetProductCostPrices.xml"/>
+<!--@BendPoints 5,8-->
+    <nodeSuccessors name="next" next="GetCurrencies1"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrencies1">
+    <configurationValues name="Method" value="Active Currencies"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrencies.xml"/>
+    <nodeSuccessors name="next" next="GetPriceDefinitionsByProduct1"/>
+    <parameterBindings name="Domain" objectPath="OrganizationDomain"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPriceDefinitionsByProduct1">
+    <configurationValues name="Type" value="All"/>
+    <pipelet href="enfinity:/bc_pricing/pipelets/GetPriceDefinitionsByProduct.xml"/>
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="error-product-not-available"/>
+</pipeline:Pipeline>

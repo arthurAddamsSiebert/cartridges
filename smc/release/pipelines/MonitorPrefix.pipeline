@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Manages the server affinity for the monitor cartridge.
+@Group Monitor-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="MonitorPrefix" type="">
+  <registry xsi:type="pipeline:PipelineRegistry" href="enfinity:/smc/pipelines"/>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CheckAccess"
+      callMode="Private">
+<!--@BendPoints 7,2-->
+    <nodeSuccessors name="next" next="AccessControl1"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AccessControl1">
+    <configurationValues name="RequireHTTPS" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/AccessControl.xml"/>
+    <nodeSuccessors name="next" next="CheckIsSiteLive1"/>
+    <nodeSuccessors name="pipelet_error" next="JumpNode3"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckIsSiteLive1">
+    <pipelet href="enfinity:/core/pipelets/CheckIsSiteLive.xml"/>
+    <nodeSuccessors name="next" next="CheckUserLoggedIn1"/>
+    <nodeSuccessors name="pipelet_error" next="Jump1"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckUserLoggedIn1">
+    <pipelet href="enfinity:/core/pipelets/CheckUserLoggedIn.xml"/>
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <nodeSuccessors name="pipelet_error" next="Jump2"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+<!--@BendPoints 9,10-->
+    <nodeSuccessors name="ERROR" next="DecisionNode1"/>
+    <startNode referencedName="MonitorPrefix-CheckPasswordExpired"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 7,14-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="CurrentStartNodeName"
+      operator="str_eq" conditionValue="ProcessPasswordChange">
+<!--@BendPoints 9,13-->
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+<!--@BendPoints 11,11 11,12-->
+    <nodeSuccessors name="decision_no" next="JumpNode1"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="ChangePasswordLogin-ViewPasswordChange"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump2">
+    <startNode referencedName="SMCMain-Start"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump1">
+    <startNode referencedName="ShowSiteDisabledStatus-Start"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode3">
+    <startNode referencedName="SMCUser-DisplayLoginPage"/>
+  </nodes>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="CheckPasswordExpired"
+      callMode="Private">
+<!--@BendPoints 13,2-->
+    <nodeSuccessors name="next" next="ExchangeSessionObject1"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject1">
+    <configurationValues name="ProcessMethod" value="Get Object from Session"/>
+    <configurationValues name="SessionObjectName" value="PASSWORD_EXPIRED"/>
+    <pipelet href="enfinity:/core/pipelets/ExchangeSessionObject.xml"/>
+<!--@BendPoints 13,4-->
+    <nodeSuccessors name="next" next="DecisionNode12"/>
+    <returnValueBindings name="LoadObject" objectPath="PasswordExpired"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="PasswordExpired">
+<!--@BendPoints 13,6-->
+    <nodeSuccessors name="decision_yes" next="EndNode26"/>
+<!--@BendPoints 15,5 15,6-->
+    <nodeSuccessors name="decision_no" next="EndNode15"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode26" name="ERROR"/>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Light" callMode="Private">
+<!--@BendPoints 3,5-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 1,6-->
+    <nodeSuccessors name="next" next="DetermineServerRegistrations1"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineServerRegistrations1">
+    <pipelet href="enfinity:/monitor/pipelets/DetermineServerRegistrations.xml"/>
+    <nodeSuccessors name="next" next="DetermineLocalServer1"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineLocalServer1">
+    <pipelet href="enfinity:/monitor/pipelets/DetermineLocalServer.xml"/>
+    <nodeSuccessors name="next" next="Pipelet2"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/smc/pipelets/PrepareTargetServerID.xml"/>
+    <nodeSuccessors name="next" next="Decision2"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="TargetServerID">
+    <nodeSuccessors name="decision_yes" next="CheckServerResponsible1"/>
+<!--@BendPoints 5,13-->
+    <nodeSuccessors name="decision_no" next="End2"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckServerResponsible1">
+    <pipelet href="enfinity:/monitor/pipelets/CheckServerResponsible.xml"/>
+    <nodeSuccessors name="next" next="End1"/>
+<!--@BendPoints 3,15-->
+    <nodeSuccessors name="pipelet_error" next="RedirectRequest1"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RedirectRequest1">
+    <pipelet href="enfinity:/monitor/pipelets/RedirectRequest.xml"/>
+    <nodeSuccessors name="next" next="Join1"/>
+<!--@BendPoints 4,17 4,19-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="InteractionEnd2"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionEnd2">
+    <template referencedName="monitor/monitor_redirect"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="Start" sessionMode="Volatile"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <startNode referencedName="MonitorPrefix-CheckAccess"/>
+  </nodes>
+</pipeline:Pipeline>

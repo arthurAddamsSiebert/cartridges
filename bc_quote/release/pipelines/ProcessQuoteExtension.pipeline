@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This process pipeline is used to implement the extension points of ProcessBasket pipeline
+@Group quote-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessQuoteExtension" overrideMode="Inherit" type="extension">
+<!--Only valid quotes (not expired and valid items) can be added to the basket.
+That's why the quote has to be checked before.
+@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="CheckBasketBeforeOrderCreate"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ValidateBasketBeforeCreateOrder0"/>
+    <parameters name="BasketBO" type="com.intershop.component.basket.capi.BasketBO"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ValidateBasketBeforeCreateOrder0">
+    <pipelet href="enfinity:/bc_quote/pipelets/ValidateBasketBeforeCreateOrder.xml"/>
+    <nodeSuccessors name="next" next="EndNode7"/>
+<!--@BendPoints 15,3-->
+    <nodeSuccessors name="pipelet_error" next="EndNode8"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true"/>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="Error" strict="true"/>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" visibility="Private"
+      name="CheckQuote" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameters name="AddToBasketRecords" type="com.intershop.component.basket.capi.AddToBasketRecords"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="AddToBasketRecords:Parameter(&quot;quoteID&quot;)">
+    <nodeSuccessors name="decision_yes" next="GetApplicationBO0"/>
+<!--@BendPoints 5,15-->
+    <nodeSuccessors name="decision_no" next="EndNode5"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetQuoteBOByID0"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetQuoteBOByID0">
+    <pipelet href="enfinity:/bc_quote/pipelets/GetQuoteBOByID.xml"/>
+    <nodeSuccessors name="next" next="EndNode4"/>
+<!--@BendPoints 1,19-->
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+    <parameterBindings name="QuoteBORepository" objectPath="ApplicationBO:Repository(&quot;QuoteBORepository&quot;)"/>
+    <parameterBindings name="QuoteID" objectPath="AddToBasketRecords:Parameter(&quot;quoteID&quot;)"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="QUOTE" strict="true">
+    <returnValues name="QuoteBO" type="com.intershop.component.quote.capi.QuoteBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="QUOTE_NOT_FOUND" strict="true"/>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="NO_QUOTE" strict="true"/>
+<!--Only the whole quote  (all items) can be added to the basket.
+If one line item can't be added for some reaseon (e.g. offline) 
+the Add\-quote\-transaction has to be rolled back
+@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="CheckQuoteAfterAddToBasket"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameters name="Basket" type="com.intershop.component.basket.capi.BasketBO"/>
+    <parameters name="AddToBasketRecords" type="com.intershop.component.basket.capi.AddToBasketRecords"/>
+    <parameters name="AddToBasketResults" type="com.intershop.component.basket.capi.AddToBasketResults"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 11,5-->
+    <nodeSuccessors name="QUOTE_NOT_FOUND" next="JoinNode3"/>
+    <nodeSuccessors name="QUOTE" next="DecisionNode2"/>
+<!--@BendPoints 7,7-->
+    <nodeSuccessors name="NO_QUOTE" next="JoinNode0"/>
+    <startNode referencedName="ProcessQuoteExtension-CheckQuote"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="Error" strict="true"/>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="AddToBasketResults:isFailure"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="JoinNode3"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--If a line item that comes from a quote is removed from the basket,
+all line items of the same quote are automatically removed from the basket.
+A quote can not be modified anymore and can only be ordered as it was 
+negotiated.
+@Location 9,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="CheckQuoteAfterRemoveFromBasket"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+    <parameters name="RemoveFromBasketResults" type="com.intershop.component.basket.capi.RemoveFromBasketResults"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="LoopNode0"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="RemoveFromBasketResults:Successes">
+    <nodeSuccessors name="next" next="EndNode9"/>
+    <entry key="RemoveFromBasketResult">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode0"/>
+    </entry>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="RemoveFromBasketResult:Parameter(&quot;quoteID&quot;)">
+    <nodeSuccessors name="decision_yes" next="GetQuoteBOByID1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetQuoteBOByID1">
+    <pipelet href="enfinity:/bc_quote/pipelets/GetQuoteBOByID.xml"/>
+    <nodeSuccessors name="next" next="RemoveQuoteFromBasket0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="QuoteBORepository" objectPath="ApplicationBO:Repository(&quot;QuoteBORepository&quot;)"/>
+    <parameterBindings name="QuoteID" objectPath="RemoveFromBasketResult:Parameter(&quot;quoteID&quot;)"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveQuoteFromBasket0">
+    <pipelet href="enfinity:/bc_quote/pipelets/RemoveQuoteFromBasket.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="BasketBO" objectPath="RemoveFromBasketResult:Basket"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" strict="true"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CheckQuoteBeforeAddToBasket"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <parameters name="Basket" type="com.intershop.component.basket.capi.BasketBO"/>
+    <parameters name="AddToBasketRecords" type="com.intershop.component.basket.capi.AddToBasketRecords"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="QUOTE_NOT_FOUND" next="JoinNode1"/>
+    <nodeSuccessors name="NO_QUOTE" next="JoinNode2"/>
+    <nodeSuccessors name="QUOTE" next="ValidateQuoteBeforeAddToBasket0"/>
+    <startNode referencedName="ProcessQuoteExtension-CheckQuote"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="Error" strict="true">
+    <returnValues name="ErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ValidateQuoteBeforeAddToBasket0">
+    <pipelet href="enfinity:/bc_quote/pipelets/ValidateQuoteBeforeAddToBasket.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="BasketBO" objectPath="Basket"/>
+  </nodes>
+</pipeline:Pipeline>

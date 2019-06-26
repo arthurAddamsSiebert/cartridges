@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query gets pairs of product type names (as group name) and attribute names for a given product type name and domain. If the given product type name is not &quot;Basic&quot; then the query recurses all children of the given product type.">
+<parameters>
+    <parameter name="ProductTypeName" type="java.lang.String" optional="false"/>
+    <parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="objects" sqlDialect="Oracle">
+SELECT 
+    pt.name AS GROUPNAME, pa.name AS ATTRIBUTENAME, pa.valuetype AS VALUETYPE, pa.localizedflag AS LOCALIZED
+FROM
+( 
+    SELECT * FROM
+        producttype 
+	<template-if condition="ProductTypeName EQ 'Basic'">
+	WHERE
+	<if-else/>
+	CONNECT BY PRIOR 
+	    uuid = parentproducttypeid 
+	START WITH 
+	</template-if>
+	    name = <template-variable value="ProductTypeName"/>
+	AND
+	    domainid = <template-variable value="Domain:UUID"/>
+) pt
+JOIN 
+    productattribute pa ON pa.PRODUCTTYPEID = pt.uuid 
+</template>
+<template type="objects" sqlDialect="Microsoft">
+	 WITH N (NAME, PARENTPRODUCTTYPEID, DEFAULTFLAG, UUID, DOMAINID, OCA, LASTMODIFIED)
+	 AS
+	 (
+			SELECT * FROM producttype 
+		UNION ALL 
+			SELECT pt.* FROM producttype PT INNER JOIN N ON PT.UUID = N.PARENTPRODUCTTYPEID
+	)
+	SELECT 
+		pt.name AS GROUPNAME, pa.name AS ATTRIBUTENAME, pa.valuetype AS VALUETYPE, CAST(pa.localizedflag AS INT) AS LOCALIZED
+	FROM
+	( 
+		<template-if condition="ProductTypeName EQ 'Basic'">
+			SELECT * FROM PRODUCTTYPE
+		<if-else/>
+		select * from N
+		</template-if>
+		WHERE
+
+			name = <template-variable value="ProductTypeName"/>
+		AND
+			domainid = <template-variable value="Domain:UUID"/>
+	) pt
+	JOIN 
+		productattribute pa ON pa.PRODUCTTYPEID = pt.uuid
+</template>
+</query>

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Order-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessImmediateOrderExport" type="process">
+<!--If multiple ExportScenarios 
+are passed rhen they must all 
+belong to the same application.
+@Location 0,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode2"/>
+<!--This internal pipeline is designed 
+to be started in the context of the 
+application of the given 
+ExportScenario (JobConfiguration).
+@Location 3,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--TODO Pipeline rework:
+* still retrieves Uses ApplicationBO.
+It must be handed over via Parameter!
+@Location 5,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--TODO Pipeline rework:
+* Uses still CurrentUser!
+The User must be handed 
+in via Parameter!
+* ExecutePipeline sets an 
+Application context, that is retrieved 
+later in RunExportInternal via 
+getApplicationBO.
+It must be handed over via Parameter!
+@Location 2,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Export"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetFirstElementOfIterator1"/>
+    <parameters name="ExportScenarios" type="java.util.Iterator&lt;com.intershop.component.order.impex.capi.export.scenario.ExportScenario>"/>
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+    <parameters name="ExportScenario1" type="com.intershop.component.order.impex.capi.export.scenario.ExportScenario"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFirstElementOfIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFirstElementOfIterator.xml"/>
+    <nodeSuccessors name="next" next="ExecutePipeline2"/>
+<!--@BendPoints 4,3 4,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="Iterator" objectPath="ExportScenarios"/>
+    <returnValueBindings name="FirstElement" objectPath="ExportScenario"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline2">
+    <configurationValues name="Asynchronous" value="true"/>
+    <configurationValues name="PipelineName" value="ProcessImmediateOrderExport"/>
+    <configurationValues name="PipelineStartNode" value="ExportInternal"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="App" nullBinding="true"/>
+    <parameterBindings name="Application" objectPath="ExportScenario:JobConfiguration:Application"/>
+    <parameterBindings name="CurrentDomain" nullBinding="true"/>
+    <parameterBindings name="PipelineDomain" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainID" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainName" nullBinding="true"/>
+    <parameterBindings name="PipelineName" nullBinding="true"/>
+    <parameterBindings name="PipelineStartNode" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 3,8-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="ExportInternal"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameters name="ExportScenarios" type="java.util.Iterator&lt;com.intershop.component.order.impex.capi.export.scenario.ExportScenario>"/>
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="InValue_1" objectPath="OrderBO:Extension(&quot;(Class)com.intershop.beehive.core.capi.domain.PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <returnValueBindings name="OutValue_1" objectPath="Order"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="ExportScenarios">
+<!--@BendPoints 8,7-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <entry key="ExportScenario">
+<!--@BendPoints 7,8-->
+      <nodeSuccessors name="loop_entry_next" next="CallNode8"/>
+    </entry>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="GetOrderBO2"/>
+    <parameterBindings name="Config" objectPath="ExportScenario"/>
+    <startNode referencedName="ProcessOrderExportJob-GetOrderBORepository"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderBO2">
+    <pipelet href="enfinity:/bc_order/pipelets/GetOrderBO.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector2"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 7,14-->
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" objectPath="OrderBO"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="OrderBOs"/>
+    <returnValueBindings name="OutVector" nullBinding="true"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 7,16 6,16 6,7-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <parameterBindings name="Config" objectPath="ExportScenario"/>
+    <startNode referencedName="ProcessImmediateOrderExport-RunExportInternal"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" visibility="Private"
+      name="RunExportInternal" callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+    <parameters name="OrderBOs" type="java.util.Iterator&lt;com.intershop.component.order.capi.OrderBO>"/>
+    <parameters name="Config" type="com.intershop.component.order.impex.capi.export.scenario.ExportScenario"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper3"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="ExecuteOrderExportService1" action="begin"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;ServiceConfigurationBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ServiceConfigurationRepository"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteOrderExportService1">
+    <pipelet href="enfinity:/bc_order_impex/pipelets/ExecuteOrderExportService.xml"/>
+    <nodeSuccessors name="next" next="CallNode9"/>
+<!--@BendPoints 14,9-->
+    <nodeSuccessors name="pipelet_error" next="LogMessage3" action="rollback"/>
+    <parameterBindings name="ItemSelector" objectPath="Config:LineItemConditions:ItemSelector"/>
+    <parameterBindings name="Orders" objectPath="OrderBOs"/>
+    <parameterBindings name="ServiceConfigurationDomain" objectPath="Config:JobConfiguration:Domain"/>
+    <parameterBindings name="ServiceConfigurationRepository" objectPath="ServiceConfigurationRepository"/>
+    <parameterBindings name="ServiceID" objectPath="Config:ServiceID"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="JoinNode1" action="commit"/>
+    <parameterBindings name="DataPushObjects" objectPath="Result"/>
+    <startNode referencedName="ProcessOrderExportJob-RunExportActions"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 13,14-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage3">
+    <configurationValues name="Level" value="Debug"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 16,9 16,13-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="MessageParam0" objectPath="ExportService:Name"/>
+    <parameterBindings name="MessageText" constant="The service '{}' is deactivated."/>
+  </nodes>
+</pipeline:Pipeline>

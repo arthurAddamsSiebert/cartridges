@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This job pipelines performs maintenance tasks for catalog filters. The pipeline refreshes all expired catalog filters and purges deleted filters.
+@Group Job-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="SLDMaintainCatalogFilters" type="process">
+<!--Skip filters with update interval ="Automatic" since they get checked during publishing
+@Location 14,8-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--@Location 21,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="GetChannelOrganizations"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameters name="Channel" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+    <parameters name="ExcludeOrganizations" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 21,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="ExcludeOrganizations"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="Pipelet3"/>
+    <nodeSuccessors name="decision_no" next="EndNode10"/>
+  </nodes>
+<!--@Location 21,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameterBindings name="InValue_1" objectPath="Channel:RepositoryDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="OwningDomain"/>
+  </nodes>
+<!--@Location 21,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="Pipelet2"/>
+    <startNode referencedName="GetOrganizations-Start"/>
+  </nodes>
+<!--@Location 21,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableSequence.xml"/>
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <parameterBindings name="PageableIterator" objectPath="Organizations"/>
+    <returnValueBindings name="PageableSequence" objectPath="Organizations"/>
+  </nodes>
+<!--@Location 21,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 22,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10"/>
+<!--@Location 15,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start12" name="PerformTask" callMode="Private">
+    <nodeSuccessors name="next" next="GetOrganizationByName1"/>
+    <parameters name="ChannelTask" type="java.lang.String" optional="true"/>
+    <parameters name="OrganizationTask" type="java.lang.String" optional="true"/>
+    <parameters name="ExcludeOrganizations" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByName1">
+    <configurationValues name="DefaultName" value="Operations"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByName.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizations4"/>
+    <parameterBindings name="Name" nullBinding="true"/>
+    <returnValueBindings name="Organization" objectPath="Operations"/>
+    <returnValueBindings name="OrganizationDomain" objectPath="OperationsDomain"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizations4">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizations.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="Owner" objectPath="OperationsDomain"/>
+    <returnValueBindings name="Organizations" objectPath="Enterprises"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Enterprises">
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <entry key="Enterprise">
+      <nodeSuccessors name="loop_entry_next" next="Pipelet5"/>
+    </entry>
+  </nodes>
+<!--@Location 15,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStack.xml"/>
+    <nodeSuccessors name="next" next="ManipulateStack2"/>
+    <returnValueBindings name="Stack" objectPath="OrganizationStack"/>
+  </nodes>
+<!--@Location 15,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack2">
+    <configurationValues name="ProcessMethod" value="PUSH"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="Call10"/>
+    <parameterBindings name="AddElement" objectPath="Enterprise"/>
+    <parameterBindings name="AddElements" nullBinding="true"/>
+    <parameterBindings name="Stack" objectPath="OrganizationStack"/>
+  </nodes>
+<!--@Location 15,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call10">
+<!--@BendPoints 31,15 29,15 29,7-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <startNode referencedName="SLDMaintainCatalogFilters-RecurseChannels"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="PublishChannelFilter"
+      callMode="Private">
+<!--@BendPoints 9,2-->
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <parameters name="Channel" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+    <parameters name="Role" type="com.intershop.beehive.core.capi.security.Role" optional="true"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="Channel:TypeCode"
+      operator="eq" conditionValue="42">
+<!--@BendPoints 9,6-->
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue4"/>
+<!--@BendPoints 11,3 11,4-->
+    <nodeSuccessors name="decision_no" next="DecisionNode7"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue4">
+    <configurationValues name="Name" value="PermissionGroupID"/>
+    <configurationValues name="Value" value="SLD_AR_42_CATALOG_VIEWER"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 9,10-->
+    <nodeSuccessors name="next" next="GetExpiredCatalogFilters1"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetExpiredCatalogFilters1">
+    <configurationValues name="State" value="Online"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetExpiredCatalogFilters.xml"/>
+<!--@BendPoints 9,12-->
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Channel:RepositoryDomain"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector2"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" objectPath="Filters"/>
+    <returnValueBindings name="Iterator" objectPath="Filters"/>
+    <returnValueBindings name="OutVector" objectPath="FilterVector"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" objectPath="Channel:RepositoryDomain:Site"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="SiteVector"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call9"/>
+    <parameterBindings name="InValue_1" objectPath="Channel"/>
+    <returnValueBindings name="OutValue_1" objectPath="Repository"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call9">
+<!--@BendPoints 9,20-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <startNode referencedName="PublishCatalogFilter-Multiple"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4"/>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="Channel:TypeCode"
+      operator="eq" conditionValue="52">
+<!--@BendPoints 11,6-->
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue5"/>
+<!--@BendPoints 12,5-->
+    <nodeSuccessors name="decision_no" next="EndNode3"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue5">
+    <configurationValues name="Name" value="PermissionGroupID"/>
+    <configurationValues name="Value" value="SLD_AR_52_CATALOG_VIEWER"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 11,9-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="Purge" sessionMode="Volatile"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet6"/>
+    <parameters name="ExcludeOrganizations" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode6"/>
+    <parameterBindings name="InValue_1" constant="SLDMaintainCatalogFilters-PurgeChannelFilters"/>
+    <parameterBindings name="InValue_10" constant="SLDMaintainCatalogFilters-PurgeOrganizationFilters"/>
+    <returnValueBindings name="OutValue_1" objectPath="ChannelTask"/>
+    <returnValueBindings name="OutValue_10" objectPath="OrganizationTask"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="Pipelet4"/>
+    <startNode referencedName="SLDMaintainCatalogFilters-PerformTask"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="Key" value="ChannelTask"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Pipelet7"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet7">
+    <configurationValues name="Key" value="OrganizationTask"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5"/>
+<!--@Location 9,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="PurgeChannelFilters"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+    <parameters name="Channel" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <parameterBindings name="InValue_1" objectPath="Channel:RepositoryDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="PurgeDomain"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="EndNode8"/>
+    <startNode referencedName="SLDMaintainCatalogFilters-PurgeDomainFilters"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8"/>
+<!--@Location 12,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" name="PurgeDomainFilters"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetCatalogFiltersByDomain1"/>
+    <parameters name="PurgeDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+  </nodes>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogFiltersByDomain1">
+    <configurationValues name="DefaultState" value="Deleted"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogFiltersByDomain.xml"/>
+    <nodeSuccessors name="next" next="Loop4"/>
+    <parameterBindings name="Domain" objectPath="PurgeDomain"/>
+    <parameterBindings name="State" nullBinding="true"/>
+  </nodes>
+<!--@Location 12,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop4" loop="Filters">
+<!--@BendPoints 27,5 27,11 25,11-->
+    <nodeSuccessors name="next" next="GetCatalogFiltersByDomain2"/>
+    <entry key="Filter">
+      <nodeSuccessors name="loop_entry_next" next="PurgeCatalogFilter1"/>
+    </entry>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PurgeCatalogFilter1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/PurgeCatalogFilter.xml"/>
+    <nodeSuccessors name="next" next="Join3"/>
+<!--@BendPoints 26,7 26,9-->
+    <nodeSuccessors name="pipelet_error" next="Join3"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+<!--@BendPoints 25,10 24,10 24,5-->
+    <nodeSuccessors name="next" next="Loop4_Entry"/>
+  </nodes>
+<!--@Location 12,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogFiltersByDomain2">
+    <configurationValues name="DefaultState" value="All"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogFiltersByDomain.xml"/>
+<!--@BendPoints 25,14-->
+    <nodeSuccessors name="next" next="Loop5"/>
+    <parameterBindings name="Domain" objectPath="PurgeDomain"/>
+    <parameterBindings name="State" nullBinding="true"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop5" loop="Filters">
+<!--@BendPoints 26,15-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+    <entry key="Filter">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode4"/>
+    </entry>
+  </nodes>
+<!--@Location 12,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="Filter:UpdateInterval"
+      operator="lte" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="RemoveDeadCatalogFilterRules1"/>
+<!--@BendPoints 26,17 26,23-->
+    <nodeSuccessors name="decision_no" next="JoinNode8"/>
+  </nodes>
+<!--@Location 12,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDeadCatalogFilterRules1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveDeadCatalogFilterRules.xml"/>
+    <nodeSuccessors name="next" next="ExecuteUpdateQuery0"/>
+  </nodes>
+<!--@Location 12,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteUpdateQuery0">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="ParameterName_01" value="CatalogFilterUUID"/>
+    <configurationValues name="QueryName" value="catalogfilter/RemoveFilterProductAssignments"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteUpdateQuery.xml"/>
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Filter:UUID"/>
+  </nodes>
+<!--@Location 12,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 24,23 24,15-->
+    <nodeSuccessors name="next" next="Loop5_Entry"/>
+  </nodes>
+<!--@Location 13,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7"/>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="PurgeOrganizationFilters"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet8"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet8">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <parameterBindings name="InValue_1" objectPath="Organization:OrganizationDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="PurgeDomain"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="EndNode9"/>
+    <startNode referencedName="SLDMaintainCatalogFilters-PurgeDomainFilters"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9"/>
+<!--@Location 18,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start11" name="RecurseChannels" callMode="Private">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameters name="OrganizationStack" type="java.util.Stack" optional="true"/>
+    <parameters name="ExcludeOrganizations" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 18,1-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="ManipulateStack3"/>
+  </nodes>
+<!--@Location 18,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack3">
+    <configurationValues name="ProcessMethod" value="POP"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode6"/>
+    <parameterBindings name="Stack" objectPath="OrganizationStack"/>
+    <returnValueBindings name="GetElement" objectPath="Organization"/>
+  </nodes>
+<!--@Location 18,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="OrganizationTask">
+    <nodeSuccessors name="decision_yes" next="CallNode1"/>
+<!--@BendPoints 38,7 38,11-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 18,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1" callModePermissions="Private">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <startNode objectPath="OrganizationTask"/>
+  </nodes>
+<!--@Location 18,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="Pipelet1"/>
+  </nodes>
+<!--@Location 18,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositories.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Organization:Domain"/>
+    <returnValueBindings name="Repositories" objectPath="Channels"/>
+  </nodes>
+<!--@Location 18,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Channels">
+<!--@BendPoints 41,15 41,3-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <entry key="Channel">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode1"/>
+    </entry>
+  </nodes>
+<!--@Location 18,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Channel:Proxy"
+      operator="str_eq" conditionValue="false">
+    <nodeSuccessors name="decision_yes" next="DecisionNode3"/>
+<!--@BendPoints 41,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 18,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ChannelTask">
+    <nodeSuccessors name="decision_yes" next="CallNode4"/>
+<!--@BendPoints 38,19 38,23-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 18,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4" callModePermissions="Private">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <startNode objectPath="ChannelTask"/>
+  </nodes>
+<!--@Location 18,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="CallNode5"/>
+  </nodes>
+<!--@Location 18,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <startNode referencedName="SLDMaintainCatalogFilters-GetChannelOrganizations"/>
+  </nodes>
+<!--@Location 18,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="LoopNode3"/>
+  </nodes>
+<!--@Location 18,14-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="Organizations">
+    <nodeSuccessors name="next" next="SwitchToNextPage2"/>
+    <entry key="Organization">
+      <nodeSuccessors name="loop_entry_next" next="ManipulateStack4"/>
+    </entry>
+  </nodes>
+<!--@Location 18,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack4">
+    <configurationValues name="ProcessMethod" value="PUSH"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+<!--@BendPoints 37,32 36,32 36,29-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+    <parameterBindings name="AddElement" objectPath="Organization"/>
+    <parameterBindings name="Stack" objectPath="OrganizationStack"/>
+  </nodes>
+<!--@Location 19,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SwitchToNextPage2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SwitchToNextPage.xml"/>
+<!--@BendPoints 40,29 40,27-->
+    <nodeSuccessors name="next" next="JoinNode5"/>
+<!--@BendPoints 39,31-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="PageableIterator" objectPath="Organizations"/>
+  </nodes>
+<!--@Location 20,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 41,33 35,33 35,15-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 19,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6"/>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Refresh" sessionMode="Volatile"
+      callMode="Private">
+<!--@BendPoints 5,2-->
+    <nodeSuccessors name="next" next="SetDictionaryValue1"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="ChannelTask"/>
+    <configurationValues name="Value" value="SLDMaintainCatalogFilters-PublishChannelFilter"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 5,4-->
+    <nodeSuccessors name="next" next="CallNode2"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 5,6-->
+    <nodeSuccessors name="next" next="RemoveDictionaryValue1"/>
+    <startNode referencedName="SLDMaintainCatalogFilters-PerformTask"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue1">
+    <configurationValues name="Key" value="ChannelTask"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+<!--@BendPoints 5,8-->
+    <nodeSuccessors name="next" next="End4"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="Start" sessionMode="Volatile"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Call1"/>
+    <parameters name="ExcludeOrganizations" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="Call2"/>
+    <startNode referencedName="SLDMaintainCatalogFilters-Purge"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+    <nodeSuccessors name="next" next="End3"/>
+    <startNode referencedName="SLDMaintainCatalogFilters-Refresh"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+</pipeline:Pipeline>

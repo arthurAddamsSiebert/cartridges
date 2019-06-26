@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="A filter query to be included in page variant/component search where to filter the set of pagelet by ContextObjectRelation (PageletEntryPoint) assignments to product/category pages.">
+  <parameters>
+    <parameter name="PageletTableAlias" type="java.lang.String" optional="false" description="The Pagelet table alias from the main search where this filter is included."/>
+    <parameter name="AssignmentTable" type="java.lang.String" optional="false" description="The PageletEntryPointAssignment table."/>
+    <!--
+      Must be one of:
+       'product_pepa'         -> PageletEntryPointProductAssignmentPO
+       'catalogcategory_pepa' -> PageletEntryPointCategoryAssignmentPO
+      -->
+    <parameter name="AssignmentsSelection" type="java.lang.String" optional="true" description="&apos;all&apos;/&apos;assigned&apos;/&apos;notAssigned&apos;"/>
+    <parameter name="ContentEntryPointDefinitionInclusion" type="java.lang.String" optional="true" description="Qualified name of the content entry point definition inclusion selected by the user."/>
+    <parameter name="PageletSearchParameters" type="java.util.Map" optional="false" description="A Map containing the Pagelet Search parameters for the Page query."/>
+  </parameters>
+  <processor name="OracleSQL"/>
+  <template>
+    <template-if condition="isDefined(AssignmentsSelection) and AssignmentsSelection ne &apos;all&apos;">
+        and <template-if condition="AssignmentsSelection eq &apos;notAssigned&apos;">not </template-if>exists
+            (select 1 
+               from pageletentrypoint_pa entry_point_pa
+               join <template-variable value="AssignmentTable" processing="text"/> pepa
+                 on (entry_point_pa.entrypointid = pepa.pageletentrypointid)
+            where entry_point_pa.pageletid=<template-variable value="PageletTableAlias" processing="text"/>.pageletuuid
+        <template-if condition="(isDefined(AssignmentsSelection) and AssignmentsSelection ne &apos;notAssigned&apos;)
+                                and (isDefined(ContentEntryPointDefinitionInclusion) and (ContentEntryPointDefinitionInclusion ne 'any'))">
+            and pepa.definitionqualifiedname=<template-variable value="ContentEntryPointDefinitionInclusion"/>
+        </template-if>
+        <template-call name="pagelet/inc/PublishingFilter">
+          <call-parameter name="TableAlias" value="&apos;entry_point_pa&apos;"/>
+          <call-parameter name="WhereClause" value="false()"/>
+          <call-parameter name="PublishingOption" value="PageletSearchParameters:AssignmentsVisibility"/>
+          <call-parameter name="PublishedFromOption" value="PageletSearchParameters:AssignmentsVisibleFrom"/>
+          <call-parameter name="PublishedToOption" value="PageletSearchParameters:AssignmentsVisibleTo"/>
+          <call-parameter name="PublishedFromSinceDate" value="PageletSearchParameters:AssignmentsVisibleFromSinceDate"/>
+          <call-parameter name="PublishedFromTillDate" value="PageletSearchParameters:AssignmentsVisibleFromTillDate"/>
+          <call-parameter name="PublishedToSinceDate" value="PageletSearchParameters:AssignmentsVisibleToSinceDate"/>
+          <call-parameter name="PublishedToTillDate" value="PageletSearchParameters:AssignmentsVisibleToTillDate"/>
+        </template-call>)
+    </template-if>
+  </template>
+</query>

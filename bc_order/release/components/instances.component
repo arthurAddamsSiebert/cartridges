@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<components xmlns="http://www.intershop.de/component/2010">
+
+	<instance name="OrderCreationResultFactory" with="OrderCreationResultFactory" />
+	<instance name="OrderCreationResultMergeStrategy" with="OrderCreationResultMergeStrategy" />
+
+	<fulfill requirement="chainDefinition" of="ChainRegistry">
+		<instance name="OrderCreationChainDefinition" with="ChainDefinition" scope="app">
+			<fulfill requirement="name" value="OrderCreationChain" />
+			<fulfill requirement="contextType" value="com.intershop.component.order.capi.handlerchain.OrderCreationContext" />
+			<fulfill requirement="resultType" value="com.intershop.component.order.capi.handlerchain.OrderCreationResult" />
+			<fulfill requirement="resultMergeStrategy" with="OrderCreationResultMergeStrategy" />
+			<fulfill requirement="chain">
+				<!-- Sub-chain for preparing the order creation. That includes the validation of the
+				basket, performing approval workflow (if needed) and handling of recurring orders. -->
+				<instance name="PreOrderCreationChain" with="Chain" scope="app">
+					<fulfill requirement="name" value="PreOrderCreationChain" />
+					<fulfill requirement="behaviorOnFailure" value="ROLLBACK" />
+					<fulfill requirement="transactional" value="false" />
+					<fulfill requirement="resultFactory" with="OrderCreationResultFactory" />
+				</instance>
+				
+				<!-- Core order creation and enrichment functionality -->
+				<instance name="OrderCreationChain" with="Chain" scope="app">
+					<fulfill requirement="name" value="OrderCreationChain" />
+					<fulfill requirement="behaviorOnFailure" value="ROLLBACK" />
+					<fulfill requirement="transactional" value="true" />
+					<fulfill requirement="resultFactory" with="OrderCreationResultFactory" />
+				</instance>
+				
+				<!-- 
+				Sub-chain for performing payment authorizations (incl. redirect after checkout).
+				 -->
+				<instance name="PaymentAuthorizationOrderCreationChain" with="Chain" scope="app">
+					<fulfill requirement="name" value="PaymentAuthorizationOrderCreationChain" />
+					<fulfill requirement="behaviorOnFailure" value="ROLLBACK" />
+					<fulfill requirement="transactional" value="false" />
+					<fulfill requirement="resultFactory" with="OrderCreationResultFactory" />
+				</instance>
+				
+				<!-- 
+				Sub-chain for processing all actions that do not need to wait for a successful completion of the payment
+				 (e.g. send order confirmation mail).
+				 -->
+				<instance name="PendingPaymentOrderCreationChain" with="Chain" scope="app">
+					<fulfill requirement="name" value="PendingPaymentOrderCreationChain" />
+					<fulfill requirement="behaviorOnFailure" value="CONTINUE" />
+					<fulfill requirement="transactional" value="false" />
+					<fulfill requirement="resultFactory" with="OrderCreationResultFactory" />
+				</instance>			
+				
+				<!-- 
+				Sub-chain for processing asynchronous payment notifications. Waits for all pending payments
+				and continues if all payments were authorized or rolls back if a payment failed.
+				 -->
+				<instance name="PaymentSynchronizationOrderCreationChain" with="Chain" scope="app">
+					<fulfill requirement="name" value="PaymentSynchronizationOrderCreationChain" />
+					<fulfill requirement="behaviorOnFailure" value="ROLLBACK" />
+					<fulfill requirement="transactional" value="false" />
+					<fulfill requirement="resultFactory" with="OrderCreationResultFactory" />
+				</instance>
+
+				<!-- 
+				All handlers to be processed after the payment was completed successful have to go 
+				in this sub-chain. (e.g. booking affiliate provisions) 
+				-->
+				<instance name="PostPaymentOrderCreationChain" with="Chain" scope="app">
+					<fulfill requirement="name" value="PostPaymentOrderCreationChain" />
+					<fulfill requirement="behaviorOnFailure" value="CONTINUE" />
+					<fulfill requirement="transactional" value="false" />
+					<fulfill requirement="resultFactory" with="OrderCreationResultFactory" />
+				</instance>
+			</fulfill>
+		</instance>
+	</fulfill>
+
+</components>

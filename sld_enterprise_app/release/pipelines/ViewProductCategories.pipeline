@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Pipeline to manage product catalog category assignment, view assigned categories, browse possible catalogs, assign a product or products to a category, remove product category assignment.
+@Group Product-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ViewProductCategories" type="view">
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="AssignDynamicSelectedProducts">
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <startNode referencedName="ViewProductCategories-CheckLock"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="tree">
+    <nodeSuccessors name="decision_yes" next="SplitString0"/>
+<!--@BendPoints 11,5 11,15-->
+    <nodeSuccessors name="decision_no" next="CallNode7"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SplitString0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SplitString.xml"/>
+    <nodeSuccessors name="next" next="ExchangeSessionObject0"/>
+    <parameterBindings name="Delimeter" constant=","/>
+    <parameterBindings name="Trim" constant="(Boolean)true"/>
+    <parameterBindings name="ValuesString" objectPath="tree"/>
+    <returnValueBindings name="ValuesIterator" objectPath="CategoryIDs"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject0">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="ProductID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="CreateIteratorForPrefix2"/>
+    <parameterBindings name="SaveObject" objectPath="ProductID"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorForPrefix2">
+    <configurationValues name="Prefix" value="ProductID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorForPrefix.xml"/>
+    <nodeSuccessors name="next" next="ExchangeSessionObject1"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject1">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="ProductUUIDs"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <parameterBindings name="SaveObject" objectPath="PrefixIterator"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <startNode referencedName="DetermineRepositories-Master"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="CategoryIDs">
+<!--@BendPoints 11,17 11,23-->
+    <nodeSuccessors name="next" next="RemoveDictionaryValue0"/>
+    <entry key="SelectedCategoryUUID">
+      <nodeSuccessors name="loop_entry_next" next="CallNode9"/>
+    </entry>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <startNode referencedName="ViewProductCategories-Prefix"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+<!--@BendPoints 7,21 7,19 7,17 8,17-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+<!--@BendPoints 13,21-->
+    <nodeSuccessors name="ERROR" next="RemoveDictionaryValue5"/>
+    <startNode referencedName="ProcessProductCategories-AssignSelectedProducts"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue5">
+    <configurationValues name="Key" value="Products"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JumpNode9"/>
+  </nodes>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode9">
+    <startNode referencedName="ViewProduct-Edit"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue0">
+    <configurationValues name="Key" value="Products"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="CallNode10"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="GetProductByUUID1"/>
+    <startNode referencedName="ProcessProductHistory-SaveProductSnapShot"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+<!--@BendPoints 10,27-->
+    <nodeSuccessors name="pipelet_error" next="JumpNode3"/>
+    <parameterBindings name="ProductDomain" objectPath="CurrentMasterRepository:RepositoryDomain"/>
+    <parameterBindings name="ProductUUID" objectPath="ProductID"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="Product">
+    <nodeSuccessors name="decision_yes" next="JumpNode7"/>
+<!--@BendPoints 13,29-->
+    <nodeSuccessors name="decision_no" next="JumpNode8"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode7">
+    <startNode referencedName="ViewProduct-RefreshCategoryAssignmentSection"/>
+  </nodes>
+<!--@Location 6,15-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode8">
+    <startNode referencedName="ViewProduct-JumpToList"/>
+  </nodes>
+<!--@Location 5,13-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode3">
+    <startNode referencedName="ViewProduct-ErrorProductNotAvailable"/>
+  </nodes>
+<!--@Location 13,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="CheckLock" callMode="Private">
+<!--@BendPoints 27,2-->
+    <nodeSuccessors name="next" next="CallNode5"/>
+  </nodes>
+<!--@Location 13,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+<!--@BendPoints 27,4-->
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <nodeSuccessors name="error-product-not-available" next="JumpNode4"/>
+    <startNode referencedName="DetermineProduct-MasterRepositoryProduct"/>
+  </nodes>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <nodeSuccessors name="NO_LOCK" next="JumpNode1"/>
+    <parameterBindings name="LockingDomain" objectPath="OrganizationDomain"/>
+    <parameterBindings name="PreferenceDomain" objectPath="OrganizationDomain"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="ProcessProductLock-Check"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="ViewProduct-Edit"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode4">
+    <startNode referencedName="ViewProduct-ErrorProductNotAvailable"/>
+  </nodes>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="DeleteProductAssignment">
+    <nodeSuccessors name="next" next="CallNode3"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="Call3"/>
+    <startNode referencedName="ViewProductCategories-CheckLock"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call3">
+    <nodeSuccessors name="next" next="Call6"/>
+    <startNode referencedName="ViewProductCategories-Prefix"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call6">
+    <nodeSuccessors name="next" next="RemoveDictionaryValue3"/>
+    <nodeSuccessors name="error-product-not-available" next="RemoveDictionaryValue4"/>
+    <startNode referencedName="ProcessProductCategories-DeleteProductAssignment"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue3">
+    <configurationValues name="Key" value="Products"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+<!--@BendPoints 15,10-->
+    <nodeSuccessors name="next" next="Call11"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call11">
+    <nodeSuccessors name="next" next="JumpNode6"/>
+    <startNode referencedName="ProcessProductHistory-SaveProductSnapShot"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode6">
+    <startNode referencedName="ViewProduct-Edit"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue4">
+    <configurationValues name="Key" value="Products"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JumpNode2"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode2">
+    <startNode referencedName="ViewProduct-ErrorProductNotAvailable"/>
+  </nodes>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="Dispatch">
+    <nodeSuccessors name="next" next="DispatchFormAction1"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DispatchFormAction1">
+    <configurationValues name="OutValue_1" value="ViewProductCategories-DeleteProductAssignment"/>
+    <configurationValues name="OutValue_2" value="ViewProduct-Edit"/>
+    <configurationValues name="OutValue_3" value="ViewProduct-Edit"/>
+    <configurationValues name="OutValue_4" value="ViewProductCategories-SetDefaultCategory"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/DispatchFormAction.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--@BendPoints 23,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="Key_1" objectPath="deleteSection"/>
+    <parameterBindings name="Key_2" objectPath="confirmDeleteSection"/>
+    <parameterBindings name="Key_3" objectPath="cancelSection"/>
+    <parameterBindings name="Key_4" objectPath="applySection"/>
+    <returnValueBindings name="SelectionKey" objectPath="JumpTarget"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="confirmDeleteSection">
+    <nodeSuccessors name="decision_yes" next="CreateIteratorForPrefix1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorForPrefix1">
+    <configurationValues name="Prefix" value="CatalogCategoryID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorForPrefix.xml"/>
+<!--@BendPoints 21,8-->
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="Jump5"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump5">
+    <startNode referencedName="SecureJump-Start"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 23,9-->
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="Prefix" callMode="Private">
+    <nodeSuccessors name="next" next="Call2"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <startNode referencedName="ProcessProduct-DetermineCategoryPath"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 1,6-->
+    <nodeSuccessors name="next" next="End1"/>
+    <parameterBindings name="InValue_1" objectPath="Category"/>
+    <parameterBindings name="InValue_2" objectPath="CategoriesPath"/>
+    <parameterBindings name="InValue_3" objectPath="CurrentMasterRepository:RepositoryDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="JumpCategory"/>
+    <returnValueBindings name="OutValue_2" objectPath="JumpPath"/>
+    <returnValueBindings name="OutValue_3" objectPath="ProductDomain"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1" name="OK"/>
+<!--@Location 16,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" name="SetDefaultCategory">
+<!--@BendPoints 33,2 32,2 32,3-->
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+  </nodes>
+<!--@Location 16,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="defaultCategory"
+      operator="str_empty">
+<!--@BendPoints 35,3-->
+    <nodeSuccessors name="decision_yes" next="JoinNode8"/>
+<!--@BendPoints 33,4-->
+    <nodeSuccessors name="decision_no" next="GetCategoryByUUID0"/>
+  </nodes>
+<!--@Location 17,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 17,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 35,11-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 33,12-->
+    <nodeSuccessors name="next" next="JumpNode0"/>
+  </nodes>
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode0">
+    <startNode referencedName="ViewProduct-Edit"/>
+  </nodes>
+<!--@Location 16,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoryByUUID0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoryByUUID.xml"/>
+<!--@BendPoints 33,6-->
+    <nodeSuccessors name="next" next="GetProductByUUID0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="CatalogCategoryID" objectPath="defaultCategory"/>
+    <returnValueBindings name="Category" objectPath="DefaultCatalogCategory"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="UpdateProduct0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+    <parameterBindings name="ProductDomain" objectPath="CurrentMasterRepository:RepositoryDomain"/>
+    <parameterBindings name="ProductUUID" objectPath="ProductID"/>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProduct0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateProduct.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="DefaultCategory" objectPath="DefaultCatalogCategory"/>
+    <parameterBindings name="ProductID" objectPath="Product:SKU"/>
+  </nodes>
+</pipeline:Pipeline>

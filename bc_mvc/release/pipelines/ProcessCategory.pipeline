@@ -1,0 +1,577 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Catalog-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCategory" type="process">
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Copy"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet3" action="begin"/>
+<!--The ID of the origin catalog category.-->
+    <parameters name="CatalogCategoryID" type="java.lang.String"/>
+<!--The domain where the products of the origin category reside.-->
+    <parameters name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--An optional prefix for the display name of the copied directory-->
+    <parameters name="NewCategoryNamePrefix" type="java.lang.String" optional="true"/>
+<!--The new parent catalog category of the copied category. If none is given, the parent category of the original catalog category is taken.-->
+    <parameters name="ParentCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"
+        optional="true"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoryByUUID.xml"/>
+    <nodeSuccessors name="next" next="Pipelet4"/>
+<!--@BendPoints 21,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="CopyProductCategoryAssignments" value="true"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/CopyCatalogCategory.xml"/>
+    <nodeSuccessors name="next" next="Pipelet7"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="Domain" objectPath="Category:Domain"/>
+    <parameterBindings name="NamePrefix" objectPath="NewCategoryNamePrefix"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet7">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogByCategory.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="CatalogCategory" objectPath="Category"/>
+  </nodes>
+<!--Check, if the Category belongs to a ClassificationCatalog
+@Location 8,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Catalog:TypeCode"
+      operator="eq" conditionValue="2">
+    <nodeSuccessors name="decision_yes" next="Pipelet10"/>
+<!--@BendPoints 19,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet10">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductType.xml"/>
+    <nodeSuccessors name="next" next="Pipelet11"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="ProductTypeDomainName" objectPath="Category:Domain:DomainName"/>
+    <parameterBindings name="ProductTypeName" objectPath="Category:Name"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet11">
+    <pipelet href="enfinity:/bc_mvc/pipelets/CopyProductType.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <nodeSuccessors name="pipelet_error" next="Join19"/>
+    <parameterBindings name="NewProductTypeID" objectPath="NewCategory:UUID"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 17,16-->
+    <nodeSuccessors name="next" next="EndNode1" action="commit"/>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+<!--The copied catalog category.-->
+    <returnValues name="NewCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join19">
+<!--@BendPoints 19,15-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="Join19"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 21,16-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 10,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="Error" strict="true"/>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Create" callMode="Private">
+    <nodeSuccessors name="next" next="GetLocale1"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="GetCategoryByName1"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoryByName1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoryByName.xml"/>
+    <nodeSuccessors name="next" next="CreateCatalogCategory1" action="begin"/>
+<!--@BendPoints 3,5-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue1"/>
+    <parameterBindings name="CategoryName" objectPath="ParentId"/>
+    <returnValueBindings name="Category" objectPath="ParentCategory"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateCatalogCategory1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/CreateCatalogCategory.xml"/>
+    <nodeSuccessors name="next" next="UpdateCatalogCategory2"/>
+    <nodeSuccessors name="pipelet_error" next="Join1" action="rollback"/>
+    <parameterBindings name="Domain" objectPath="ParentCategory:Domain"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCatalogCategory2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateCatalogCategory.xml"/>
+    <nodeSuccessors name="next" next="End2" action="commit"/>
+    <nodeSuccessors name="pipelet_error" next="Join4" action="rollback"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2" name="OK"/>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1" name="ERROR"/>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="Join4"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="3"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--gets the category by UUID and determine the category path and the catalog of this category.
+@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="Get"
+      callMode="Private">
+<!--@BendPoints 23,2-->
+    <nodeSuccessors name="next" next="GetCategoryByUUID2"/>
+<!--The UUID of the CatalogCategory to process.-->
+    <parameters name="CatalogCategoryID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoryByUUID2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoryByUUID.xml"/>
+    <nodeSuccessors name="next" next="DetermineCatalogCategoriesPath1"/>
+<!--@BendPoints 25,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineCatalogCategoriesPath1">
+    <pipelet href="enfinity:/xcs/pipelets/DetermineCatalogCategoriesPath.xml"/>
+    <nodeSuccessors name="next" next="GetCatalogByCategory1"/>
+    <parameterBindings name="CatalogCategoryID" nullBinding="true"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogByCategory1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogByCategory.xml"/>
+<!--@BendPoints 23,10-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="CatalogCategory" objectPath="Category"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="Catalog" type="com.intershop.component.mvc.capi.catalog.Catalog"
+        optional="true"/>
+    <returnValues name="Category" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"
+        optional="true"/>
+    <returnValues name="Organization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+    <returnValues name="CategoriesPath" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 25,10-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 12,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="Error" strict="true"/>
+<!--@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="GetAllCategories"
+      callMode="Private">
+<!--@BendPoints 29,2-->
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery2"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery2">
+    <configurationValues name="QueryName" value="catalog/GetAllCategories"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 29,4-->
+    <nodeSuccessors name="next" next="EndNode8"/>
+<!--@BendPoints 31,3 31,4-->
+    <nodeSuccessors name="pipelet_error" next="EndNode7"/>
+    <returnValueBindings name="SearchResult" objectPath="Categories"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" strict="true">
+    <returnValues name="Categories" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true">
+    <returnValues name="ErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 14,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="GetCategoryRepositoryDomainPair"
+      callMode="Private">
+<!--@BendPoints 29,12-->
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery3"/>
+  </nodes>
+<!--@Location 14,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery3">
+    <configurationValues name="QueryName" value="catalog/GetCategoryRepositoryDomainPair"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 29,14-->
+    <nodeSuccessors name="next" next="EndNode10"/>
+<!--@BendPoints 31,13 31,14-->
+    <nodeSuccessors name="pipelet_error" next="EndNode9"/>
+    <returnValueBindings name="SearchResult" objectPath="CategoryRepositoryDomainPairs"/>
+  </nodes>
+<!--@Location 14,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" strict="true">
+    <returnValues name="CategoryRepositoryDomainPairs" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 15,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" strict="true">
+    <returnValues name="ErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="Remove" callMode="Private">
+    <nodeSuccessors name="next" next="GetCategoryByUUID1"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoryByUUID1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoryByUUID.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+<!--@BendPoints 11,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+    <parameterBindings name="InValue_1" objectPath="Category:Parent:UUID"/>
+    <returnValueBindings name="OutValue_1" objectPath="CatalogCategoryID"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 7,8-->
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" objectPath="Category:UUID"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CategoryUUIDs"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="ParameterName_01" value="CategoryUUIDs"/>
+    <configurationValues name="ParameterName_02" value="Recursive"/>
+    <configurationValues name="ParameterName_03" value="SortingDirection"/>
+    <configurationValues name="QueryName" value="catalog/GetSubCategoriesByCategories"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 7,10-->
+    <nodeSuccessors name="next" next="LoopNode1" action="begin"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="ParameterValue_01" objectPath="CategoryUUIDs"/>
+    <parameterBindings name="ParameterValue_02" constant="true"/>
+    <parameterBindings name="ParameterValue_03" constant="desc"/>
+    <returnValueBindings name="SearchResult" objectPath="Categories"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Categories">
+<!--@BendPoints 9,11-->
+    <nodeSuccessors name="next" next="EndNode6" action="commit"/>
+    <entry key="Category">
+<!--@BendPoints 7,12-->
+      <nodeSuccessors name="loop_entry_next" next="CallNode2"/>
+    </entry>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 8,13-->
+    <nodeSuccessors name="ERROR" next="JoinNode12" action="rollback"/>
+<!--@BendPoints 7,14 6,14 6,11-->
+    <nodeSuccessors name="OK" next="LoopNode1_Entry"/>
+    <startNode referencedName="ProcessCategory-RemoveInternal"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 11,14-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="ERROR" strict="true"/>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="OK" strict="true"/>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="RemoveInternal"
+      callMode="Private">
+<!--@BendPoints 7,18-->
+    <nodeSuccessors name="next" next="GetProductType1"/>
+    <parameters name="Category" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductType1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductType.xml"/>
+<!--@BendPoints 7,20-->
+    <nodeSuccessors name="next" next="RemoveProductType1"/>
+<!--@BendPoints 8,19 8,23-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="ProductTypeDomainName" objectPath="Category:Domain:DomainName"/>
+    <parameterBindings name="ProductTypeName" objectPath="Category:Name"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveProductType1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveProductType.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+<!--@BendPoints 9,21-->
+    <nodeSuccessors name="pipelet_error" next="Join7"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="CallNode18"/>
+    <parameterBindings name="Object" objectPath="Category"/>
+    <startNode referencedName="ProcessLabel-UnassignAllLabels"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode18">
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameterBindings name="ContextObject" objectPath="Category"/>
+    <parameterBindings name="Domain" nullBinding="true"/>
+    <parameterBindings name="Site" objectPath="CurrentDomain"/>
+    <startNode referencedName="ProcessPageletEntryPoint-DeletePageletEntryPointsByObject"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+<!--@BendPoints 7,30-->
+    <nodeSuccessors name="next" next="GetCatalogByCategory2"/>
+    <parameterBindings name="CatalogCategory" objectPath="Category"/>
+    <startNode referencedName="ProcessCategoryConfigurationParameters-ProcessDelete"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogByCategory2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogByCategory.xml"/>
+<!--@BendPoints 7,32-->
+    <nodeSuccessors name="next" next="Pipelet2"/>
+    <nodeSuccessors name="pipelet_error" next="Join7"/>
+    <parameterBindings name="CatalogCategory" objectPath="Category"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="DefaultPageSize" value="100"/>
+    <configurationValues name="ParameterName_01" value="Catalog"/>
+    <configurationValues name="QueryName" value="catalog/GetChannelsBySharedCatalog"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+    <parameterBindings name="PageSize" nullBinding="true"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Catalog"/>
+    <returnValueBindings name="SearchResult" objectPath="AssignedChannels"/>
+  </nodes>
+<!--@Location 3,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+  </nodes>
+<!--@Location 3,18-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="AssignedChannels">
+<!--@BendPoints 8,37 8,44 7,44-->
+    <nodeSuccessors name="next" next="KeyMapper4"/>
+    <entry key="Channel">
+      <nodeSuccessors name="loop_entry_next" next="KeyMapper19"/>
+    </entry>
+  </nodes>
+<!--@Location 3,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper19">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 7,40-->
+    <nodeSuccessors name="next" next="RemoveSearchQueryDefinitionBOCategoryAssignments1"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;SearchQueryDefinition&quot;, Channel:Domain:Site:DomainID)"/>
+    <returnValueBindings name="OutValue_1" objectPath="SearchQueryDefinitionBORepository"/>
+  </nodes>
+<!--@Location 3,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveSearchQueryDefinitionBOCategoryAssignments1">
+    <pipelet href="enfinity:/bc_search/pipelets/RemoveSearchQueryDefinitionBOCategoryAssignments.xml"/>
+<!--@BendPoints 7,42 6,42 6,37-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <nodeSuccessors name="pipelet_error" next="Join6"/>
+    <parameterBindings name="CategoryDomain" objectPath="Category:Domain"/>
+    <parameterBindings name="CategoryName" objectPath="Category:Name"/>
+  </nodes>
+<!--@Location 4,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+    <nodeSuccessors name="next" next="Join8"/>
+  </nodes>
+<!--@Location 4,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join8">
+    <nodeSuccessors name="next" next="Join5"/>
+  </nodes>
+<!--@Location 4,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+<!--@BendPoints 9,50-->
+    <nodeSuccessors name="next" next="End4"/>
+  </nodes>
+<!--@Location 4,25-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4" name="ERROR" strict="true"/>
+<!--@Location 3,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 7,46-->
+    <nodeSuccessors name="next" next="RemoveSearchQueryDefinitionBOCategoryAssignments2"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;SearchQueryDefinition&quot;, Catalog:OwningDomain:Site:DomainID)"/>
+    <returnValueBindings name="OutValue_1" objectPath="SearchQueryDefinitionBORepository"/>
+  </nodes>
+<!--@Location 3,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveSearchQueryDefinitionBOCategoryAssignments2">
+    <pipelet href="enfinity:/bc_search/pipelets/RemoveSearchQueryDefinitionBOCategoryAssignments.xml"/>
+<!--@BendPoints 7,48-->
+    <nodeSuccessors name="next" next="RemoveCatalogCategory1"/>
+    <nodeSuccessors name="pipelet_error" next="Join8"/>
+    <parameterBindings name="CategoryDomain" objectPath="Category:Domain"/>
+    <parameterBindings name="CategoryName" objectPath="Category:Name"/>
+  </nodes>
+<!--@Location 3,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveCatalogCategory1">
+    <configurationValues name="Recursive" value="true"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveCatalogCategory.xml"/>
+    <nodeSuccessors name="next" next="End3"/>
+    <nodeSuccessors name="pipelet_error" next="Join5"/>
+  </nodes>
+<!--@Location 3,25-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3" name="OK" strict="true"/>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="Update" callMode="Private">
+    <nodeSuccessors name="next" next="GetLocale2"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="Decision1"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="Category:Parent">
+    <nodeSuccessors name="decision_yes" next="KeyMapper1"/>
+<!--@BendPoints 14,5 14,11-->
+    <nodeSuccessors name="decision_no" next="Join3"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetCategoryByName2"/>
+    <parameterBindings name="InValue_1" objectPath="Category:Domain:DomainName"/>
+    <returnValueBindings name="OutValue_1" objectPath="CategoryDomainName"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoryByName2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoryByName.xml"/>
+    <nodeSuccessors name="next" next="Join3"/>
+<!--@BendPoints 15,9-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue2"/>
+    <parameterBindings name="CategoryName" objectPath="ParentId"/>
+    <returnValueBindings name="Category" objectPath="ParentCategory"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+<!--@BendPoints 13,12-->
+    <nodeSuccessors name="next" next="KeyMapper3"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 13,14-->
+    <nodeSuccessors name="next" next="UpdateCatalogCategory1"/>
+    <parameterBindings name="InValue_1" objectPath="Category:Name"/>
+    <returnValueBindings name="OutValue_1" objectPath="OldCategoryName"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCatalogCategory1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateCatalogCategory.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="SearchIndexDomain">
+<!--@BendPoints 13,18-->
+    <nodeSuccessors name="decision_yes" next="UpdateFilterAttributeWithCategoryName1"/>
+<!--@BendPoints 14,17 14,20 13,20-->
+    <nodeSuccessors name="decision_no" next="GetProductType2"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateFilterAttributeWithCategoryName1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateFilterAttributeWithCategoryName.xml"/>
+<!--@BendPoints 13,20-->
+    <nodeSuccessors name="next" next="GetProductType2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+    <parameterBindings name="Domain" objectPath="SearchIndexDomain"/>
+    <parameterBindings name="NewCategoryName" objectPath="Id"/>
+    <parameterBindings name="OldCategoryName" objectPath="OldCategoryName"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductType2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductType.xml"/>
+<!--@BendPoints 13,22-->
+    <nodeSuccessors name="next" next="UpdateProductType1"/>
+<!--@BendPoints 14,21 14,23 14,25-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="ProductTypeDomainName" objectPath="Category:Domain:DomainName"/>
+    <parameterBindings name="ProductTypeName" objectPath="OldCategoryName"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductType1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateProductType.xml"/>
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+    <parameterBindings name="DefaultFlag" nullBinding="true"/>
+    <parameterBindings name="DisplayName" nullBinding="true"/>
+    <parameterBindings name="ID" objectPath="Category:Name"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+  </nodes>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="End5"/>
+  </nodes>
+<!--@Location 6,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5" name="OK"/>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="End6"/>
+  </nodes>
+<!--@Location 7,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6" name="ERROR"/>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="3"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+</pipeline:Pipeline>

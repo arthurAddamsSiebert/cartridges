@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="gets an ordered list of category assignments for a product domain">
+<parameters>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+	SELECT 
+	        categoryid AS CATALOGCATEGORYID,
+	        position, 
+	        p.UUID as UUID,
+	        COALESCE(dp.sku,p.sku) AS SORTING
+	FROM
+	    ieproductcategoryassignment pca 
+	    JOIN product p ON pca.productid = p.uuid
+	    LEFT OUTER JOIN derivedproduct dp ON (dp.baseproductid=p.uuid AND dp.domainid=<template-variable value="ProductDomain:UUID"/>)
+	WHERE
+	<template-if condition="Sharing:Enabled">
+	    	pca.productdomainid IN 
+	   (<template-loop alias="Domain" iterator="Sharing:Domains"><loop-statement><template-variable value="Domain:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+	    <template-if condition="hasElements(Sharing:ProductSets)">
+	        OR EXISTS (
+	            SELECT 1
+	            FROM
+	                productsetassignment psa
+	            JOIN
+	                productset ps ON (psa.productsetuuid=ps.uuid)
+	            WHERE
+	                p.uuid=psa.productUUID
+	            AND
+	                p.domainid=ps.domainid
+	            AND
+	                psa.productsetuuid IN (<template-loop alias="ProductSet" iterator="Sharing:ProductSets"><loop-statement><template-variable value="ProductSet:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+	        )
+	    </template-if>
+	<if-else/>
+	    	pca.productdomainid = <template-variable value="ProductDomain:UUID"/>
+	</template-if>
+		ORDER BY SORTING, position	    
+</template>
+</query>

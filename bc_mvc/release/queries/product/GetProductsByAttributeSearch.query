@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+    <parameter name="ProductRepositories" type="java.util.Iterator" optional="true"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+    <parameter name="BindingAttribute" type="java.lang.String" optional="false"/>
+    <parameter name="BindingValue" type="java.lang.String" optional="false"/>
+    <parameter name="Online" type="java.lang.Integer" optional="true"/>
+    <parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttributeType" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttributeLocalizedFlag" type="java.lang.Integer" optional="true"/>
+    <parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+<template-if condition="Sharing:Enabled">
+    <template-call name="product/GetSharedProductsByAdvancedSearch">
+        <call-parameter name="ProductDomain" value="ProductDomain"/>
+        <call-parameter name="Sharing" value="Sharing"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+        <call-parameter name="BindingAttribute" value="BindingAttribute"/>
+        <call-parameter name="BindingValue" value="BindingValue"/>
+        <call-parameter name="Online" value="Online"/>
+        <call-parameter name="SortAttribute" value="SortAttribute"/>
+        <call-parameter name="SortAttributeType" value="SortAttributeType"/>
+        <call-parameter name="SortAttributeLocalizedFlag" value="SortAttributeLocalizedFlag"/>
+        <call-parameter name="NameOrID"  value="NameOrID"/>
+    </template-call>
+<if-else/>
+    SELECT
+        p.uuid as UUID, 
+    <template-call name="product/inc/ProductSorting">
+        <call-parameter name="ProductAlias" value="'p'"/>
+        <call-parameter name="SortAttribute" value="SortAttribute"/>
+        <call-parameter name="SortAttributeType" value="SortAttributeType"/>
+        <call-parameter name="SortAttributeLocalizedFlag" value="SortAttributeLocalizedFlag"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+    </template-call> AS SORTING
+    FROM 
+        product p
+    WHERE 1=1
+    <template-call name="product/inc/ProductBindingFilter">
+        <call-parameter name="ProductAlias" value="'p'"/>
+        <call-parameter name="BindingAttribute" value="BindingAttribute"/>
+        <call-parameter name="BindingValue" value="BindingValue"/>
+    </template-call>
+    <template-if condition="isDefined(ProductDomain)">
+        AND domainid = <template-variable value="ProductDomain:UUID"/>
+    </template-if>
+    <template-if condition="isDefined(ProductRepositories)">
+        AND domainid IN (
+        <template-loop iterator="ProductRepositories" alias="Repository">
+            <loop-statement>
+            <template-variable value="Repository:DomainID"/>
+            </loop-statement>
+            <loop-separator>,</loop-separator>
+        </template-loop>
+    )
+    </template-if>
+    <template-if condition="isDefined(Online)">
+        <template-if condition="Online == 1">
+        AND (p.onlineflag IS NULL OR p.onlineflag=<template-variable value="Online"/>)
+        <if-else/>
+        AND p.onlineflag=<template-variable value="Online"/>
+        </template-if>
+    </template-if>
+    <template-call name="product/inc/NameOrIDFilter">
+        <call-parameter name="ProductAlias" value="'p'"/>
+        <call-parameter name="NameOrID" value="NameOrID"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+    </template-call>
+</template-if>
+</template>
+</query>

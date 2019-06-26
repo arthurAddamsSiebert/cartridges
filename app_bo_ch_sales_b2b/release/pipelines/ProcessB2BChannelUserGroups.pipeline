@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Pipeline for B2B user groups. Contains hook for channel creation.-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessB2BChannelUserGroups" overrideMode="Inherit" type="process">
+<!--set name and description
+(UserGroupInformation_AV)
+@Location 0,5-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="OnChannelCreation"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameters name="SiteDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Repository:TypeCode"
+      operator="eq" conditionValue="52">
+    <nodeSuccessors name="decision_yes" next="GetStringSubstitution0"/>
+    <nodeSuccessors name="decision_no" next="EndNode2"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetStringSubstitution0">
+    <configurationValues name="DefaultPattern" value="(-Site)$"/>
+    <configurationValues name="DefaultSubstitutionPattern" value="-Anonymous"/>
+    <pipelet href="enfinity:/core/pipelets/GetStringSubstitution.xml"/>
+    <nodeSuccessors name="next" next="GetDomainByName0"/>
+    <parameterBindings name="InputString" objectPath="SiteDomain:DomainName"/>
+    <parameterBindings name="Pattern" nullBinding="true"/>
+    <parameterBindings name="SubstitutionPattern" nullBinding="true"/>
+    <returnValueBindings name="OutputString" objectPath="AnonymousDomainName"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByName0">
+    <pipelet href="enfinity:/core/pipelets/GetDomainByName.xml"/>
+    <nodeSuccessors name="next" next="CreateUserGroup0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="DomainName" objectPath="AnonymousDomainName"/>
+    <returnValueBindings name="Domain" objectPath="AnonymousDomain"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateUserGroup0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateUserGroup.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="Domain" objectPath="AnonymousDomain"/>
+    <parameterBindings name="UserGroupID" constant="APP_B2B_OCI_USER"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="" strict="true"/>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="next" strict="true"/>
+<!--Deletes user group with ID
+APP_B2B_OCI_USER.
+@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="OnChannelDeletion"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Repository:TypeCode"
+      operator="eq" conditionValue="52">
+    <nodeSuccessors name="decision_yes" next="ConcatenateStrings0"/>
+<!--@BendPoints 5,3 5,13-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings0">
+    <pipelet href="enfinity:/core/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="GetDomainByName1"/>
+    <parameterBindings name="String0" objectPath="Repository:RepositoryDomain:DomainName"/>
+    <parameterBindings name="String1" constant="-Anonymous"/>
+    <returnValueBindings name="Concatenated" objectPath="AnonymousDomainName"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByName1">
+    <pipelet href="enfinity:/core/pipelets/GetDomainByName.xml"/>
+    <nodeSuccessors name="next" next="GetUserGroupByID0"/>
+<!--@BendPoints 9,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="DomainName" objectPath="AnonymousDomainName"/>
+    <returnValueBindings name="Domain" objectPath="AnonymousDomain"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserGroupByID0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetUserGroupByID.xml"/>
+    <nodeSuccessors name="next" next="RemoveUserGroup0" action="begin"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="Domain" objectPath="AnonymousDomain"/>
+    <parameterBindings name="UserGroupID" constant="APP_B2B_OCI_USER"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveUserGroup0">
+    <pipelet href="enfinity:/bc_b2b/pipelets/RemoveUserGroup.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2" action="commit"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="next" strict="true"/>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="error" strict="true"/>
+</pipeline:Pipeline>

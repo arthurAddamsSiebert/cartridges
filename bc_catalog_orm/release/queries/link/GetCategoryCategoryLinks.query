@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Retrieves the Outgoing or Incoming Category links. The sharing of the categories is taken into account.">
+  <parameters>
+    <parameter name="SourceCategoryID" type="java.lang.String" optional="true"/>
+    <parameter name="TargetCategoryID" type="java.lang.String" optional="true"/>
+    <parameter name="Catalog" type="com.intershop.component.mvc.capi.catalog.Catalog" optional="false" description="The catalog of this category that exists in the domain where the links should be."/>
+    <parameter name="TypeCode" type="java.lang.Integer" optional="false"/>
+  </parameters>
+
+  <return-mappings>
+    <return-mapping name="SourceCategoryId" type="rename">
+      <return-attribute name="sourcecategoryid"/>
+    </return-mapping>
+    <return-mapping name="TargetCategoryId" type="rename">
+      <return-attribute name="targetcategoryid"/>
+    </return-mapping>
+    <return-mapping name="Local" type="rename">
+      <return-attribute name="local"/>
+    </return-mapping>
+    <return-mapping name="Shared" type="rename">
+      <return-attribute name="shared"/>
+    </return-mapping>
+  </return-mappings>
+
+  <processor name="OracleSQL"/>
+  <template type="objects">
+    <template-comment>
+      Notes for the "inline" hint:
+          The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+          of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+          not a good practice.
+      Solved problems:
+          Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+          if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+          data were not subsequently deleted.
+    </template-comment>
+  with available_links as
+    (select /*+ inline - to avoid massive not released temporary tablespace data */ link.sourcecategoryid, link.targetcategoryid, link.domainid, link.position
+       from catalogcategorylink link,
+            catalogcategory source_category,
+            catalogcategory target_category,
+            (<template-call name="catalog/inc/GetSharingSourceDomainsByCatalogInclude">
+               <call-parameter name="Catalog" value="Catalog"/>
+             </template-call>) sharing_domains
+      where link.typecode = <template-variable value="TypeCode"/>
+      <template-if condition="isDefined(SourceCategoryID)">
+        and link.sourcecategoryid = <template-variable value="SourceCategoryID"/>
+      </template-if>
+      <template-if condition="isDefined(TargetCategoryID)">
+        and link.targetcategoryid = <template-variable value="TargetCategoryID"/>
+      </template-if>
+        and link.sourcecategoryid = source_category.uuid
+        and link.targetcategoryid = target_category.uuid
+        and exists (select 1
+                      from catalog
+                     where domainid = <template-variable value="Catalog:OwningDomain:UUID"/>
+                       and catalogdomainid = source_category.domainid)
+        and exists (select 1
+                      from catalog
+                     where domainid = <template-variable value="Catalog:OwningDomain:UUID"/>
+                       and catalogdomainid = target_category.domainid)
+        and link.domainid = sharing_domains.domainid
+    )
+  select *
+  from(
+  select local_links.sourcecategoryid, local_links.targetcategoryid, '1' as local, '0' as shared, local_links.position
+    from available_links local_links
+   where local_links.domainid = <template-variable value="Catalog:OwningDomain:UUID"/>
+     and not exists (select 1 
+                       from available_links shared_links
+                      where shared_links.sourcecategoryid = local_links.sourcecategoryid
+                        and shared_links.targetcategoryid = local_links.targetcategoryid
+                        and shared_links.domainid != local_links.domainid)
+  union
+  select shared_links.sourcecategoryid, shared_links.targetcategoryid, 
+  <sql-dialect name="Oracle">
+	(decode(local_links.sourcecategoryid, null, '0', '1')) as local
+  </sql-dialect>
+  <sql-dialect name="Microsoft">
+	(CASE WHEN local_links.sourcecategoryid IS NULL THEN '0' ELSE '1' END) as local
+  </sql-dialect>
+  , '1' as shared, local_links.position
+    from (select distinct sourcecategoryid, targetcategoryid
+            from available_links
+           where domainid != <template-variable value="Catalog:OwningDomain:UUID"/>) shared_links
+    left outer join (select sourcecategoryid, targetcategoryid, position
+                       from available_links 
+                      where domainid = <template-variable value="Catalog:OwningDomain:UUID"/>) local_links
+      on (    shared_links.sourcecategoryid = local_links.sourcecategoryid 
+          and shared_links.targetcategoryid = local_links.targetcategoryid)
+  ) a
+  <template-variable value="orderBy(column('position', nullsLast()))" processing="text"/>
+  </template>
+</query>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--May be used in a job to call a cleanup deleted user pipeline.
+@Group User-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="TriggerDeleteUserReferences" type="process">
+  <registry xsi:type="pipeline:PipelineRegistry" href="enfinity:/core/pipelines"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="DetermineDeletedUsers1"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineDeletedUsers1">
+    <pipelet href="enfinity:/core/pipelets/DetermineDeletedUsers.xml"/>
+    <nodeSuccessors name="next" next="Decision1"/>
+<!--@BendPoints 5,3-->
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="DeletedUsers">
+    <nodeSuccessors name="decision_yes" next="ExecuteCartridgePipelines1"/>
+<!--@BendPoints 2,5 2,11-->
+    <nodeSuccessors name="decision_no" next="Join1"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCartridgePipelines1">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelinePropertyName" value="UserDeletionPipeline"/>
+    <configurationValues name="ProcessReversely" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCartridgePipelines.xml"/>
+    <nodeSuccessors name="next" next="RefreshCache1"/>
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshCache1">
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="CleanUpDeletionPOs1"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CleanUpDeletionPOs1">
+    <configurationValues name="CartridgeName" value="core"/>
+    <configurationValues name="ColumnName" value="userid"/>
+    <configurationValues name="DeletionTrackingTableName" value="DeletedUser"/>
+    <configurationValues name="PDKeyOfIdentifiers" value="DeletedUsers"/>
+    <pipelet href="enfinity:/core/pipelets/CleanUpDeletionPOs.xml"/>
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="End2"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2" name="error"/>
+</pipeline:Pipeline>

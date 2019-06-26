@@ -1,0 +1,614 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--A pipeline that checks and processes outdated baskets.
+@Group Basket-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessOutdatedBasketsJob" overrideMode="Inherit" type="job">
+<!--No slow ORM cache refresh here
+since the basket repositories are NOT
+supposed to return INVALID baskets 
+to higher levels.
+@Location 6,5-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text7"/>
+<!--The resource name is "Baskets".
+Resource is locked per domain.
+@Location 1,19-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text6"/>
+<!--OLD STATUS = ORDERED, EXPIRED
+NEW STATUS = INVALID
+
+@Location 7,9-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text5"/>
+<!--OLD STATUS = OPEN
+NEW STATUS = EXPIRED
+
+@Location 5,9-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text4"/>
+<!--Basket removal (only INVALID)
+@Location 5,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text3"/>
+<!--Basket status update:
+
+EXPIRED \-> INVALID,
+ORDERED \-> INVALID
+
+
+@Location 3,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2"/>
+<!--Basket status update:
+OPEN \-> EXPIRED
+@Location 1,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--BasketStatuses:
+
+OPEN = 0
+INVALID = 1
+ORDERED = 2
+UNSPECIFIED = 3
+EXPIRED = 4
+@Location 6,13-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" visibility="Private"
+      name="GetBasketDomains" callMode="Private">
+    <nodeSuccessors name="next" next="GetOrganizationByName0"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByName0">
+    <configurationValues name="DefaultName" value="Operations"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByName.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizations0"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+    <returnValueBindings name="Organization" objectPath="Operations"/>
+    <returnValueBindings name="OrganizationDomain" objectPath="OperationsDomain"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizations0">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizations.xml"/>
+    <nodeSuccessors name="next" next="CreateStack0"/>
+    <parameterBindings name="Owner" objectPath="OperationsDomain"/>
+    <returnValueBindings name="Organizations" objectPath="Enterprises"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStack0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStack.xml"/>
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <returnValueBindings name="Stack" objectPath="LeafOrganizationStack"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="Enterprises">
+    <nodeSuccessors name="next" next="AddObjectToCollection0"/>
+    <entry key="Enterprise">
+      <nodeSuccessors name="loop_entry_next" next="CallNode0"/>
+    </entry>
+  </nodes>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <startNode referencedName="GetRepositories-GetLeafOrganizations"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection0">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InCollection" nullBinding="true"/>
+    <parameterBindings name="InObject" nullBinding="true"/>
+    <returnValueBindings name="OutCollection" objectPath="BasketDomains"/>
+    <returnValueBindings name="OutIterator" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="ManipulateStack0"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack0">
+    <configurationValues name="ProcessMethod" value="POP"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToCollection1"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode2"/>
+    <parameterBindings name="Stack" objectPath="LeafOrganizationStack"/>
+    <returnValueBindings name="GetElement" objectPath="LeafOrganization"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection1">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InCollection" objectPath="BasketDomains"/>
+    <parameterBindings name="InObject" objectPath="LeafOrganization:OrganizationDomain"/>
+    <returnValueBindings name="OutCollection" objectPath="BasketDomains"/>
+    <returnValueBindings name="OutIterator" nullBinding="true"/>
+  </nodes>
+<!--@Location 2,17-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+<!--A collection with basket domains.-->
+    <returnValues name="BasketDomains" type="java.util.Collection&lt;com.intershop.beehive.core.capi.domain.Domain>"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="Error" strict="true"/>
+<!--Returns the date before which a basket may be considered expired. This date equals the current date minus the expiration time. The used expiration time property is interpreted as minutes by default. In case teh preference to read is defined in hours, the flag "InterpreteAsHours" has to be set to true. 
+@Location 3,10-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" visibility="Private"
+      name="GetExpirationDate" callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainPreference0"/>
+<!--The domain where the expiration date is kept.-->
+    <parameters name="BasketPreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The name of the preference where the expiration time is kept.-->
+    <parameters name="BasketPreferenceKey" type="java.lang.String"/>
+<!--Set to 'true' if the preference value is given in hours. Missing value is interpreted as 'false'.-->
+    <parameters name="InterpretAsHours" type="java.lang.Boolean" optional="true"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference0">
+    <configurationValues name="Type" value="Double"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="CalculateNumber0"/>
+    <nodeSuccessors name="pipelet_error" next="LogMessage1"/>
+    <parameterBindings name="PreferenceDomain" objectPath="BasketPreferenceDomain"/>
+    <parameterBindings name="PreferenceKey" objectPath="BasketPreferenceKey"/>
+    <returnValueBindings name="Preference" nullBinding="true"/>
+    <returnValueBindings name="PreferenceDoubleValue" objectPath="BasketLifetimeDoubleValue"/>
+    <returnValueBindings name="PreferenceIntValue" nullBinding="true"/>
+    <returnValueBindings name="PreferenceStringValue" nullBinding="true"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateNumber0">
+    <configurationValues name="Operation" value="+"/>
+    <configurationValues name="Type" value="Integer"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CalculateNumber.xml"/>
+    <nodeSuccessors name="next" next="GetCurrentDate0"/>
+    <parameterBindings name="Operand1" objectPath="BasketLifetimeDoubleValue"/>
+    <parameterBindings name="Operand2" constant="(Integer)0"/>
+    <returnValueBindings name="Result" objectPath="BasketLifetimeValue"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="InterpretAsHours">
+<!--@BendPoints 9,29-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode10"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="InterpretAsHours"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CalculateDate1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode10"/>
+  </nodes>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDate1">
+    <configurationValues name="CalculationMethod" value="Subtract"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CalculateDate.xml"/>
+<!--@BendPoints 9,35-->
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="Date" objectPath="CurrentDate"/>
+    <parameterBindings name="Days" nullBinding="true"/>
+    <parameterBindings name="Hours" objectPath="BasketLifetimeValue"/>
+    <parameterBindings name="Milliseconds" nullBinding="true"/>
+    <parameterBindings name="Minutes" nullBinding="true"/>
+    <parameterBindings name="NonWorkingDayList" nullBinding="true"/>
+    <parameterBindings name="Seconds" nullBinding="true"/>
+    <returnValueBindings name="CalculatedDate" objectPath="BasketExpirationDate"/>
+  </nodes>
+<!--@Location 3,17-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 3,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true">
+    <returnValues name="BasketExpirationDate" type="java.util.Date"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="CalculateDate0"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDate0">
+    <configurationValues name="CalculationMethod" value="Subtract"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CalculateDate.xml"/>
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="Date" objectPath="CurrentDate"/>
+    <parameterBindings name="Days" nullBinding="true"/>
+    <parameterBindings name="Hours" nullBinding="true"/>
+    <parameterBindings name="Milliseconds" nullBinding="true"/>
+    <parameterBindings name="Minutes" objectPath="BasketLifetimeValue"/>
+    <parameterBindings name="NonWorkingDayList" nullBinding="true"/>
+    <parameterBindings name="Seconds" nullBinding="true"/>
+    <returnValueBindings name="CalculatedDate" objectPath="BasketExpirationDate"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage1">
+    <configurationValues name="Category" value="basket"/>
+    <configurationValues name="Level" value="Error"/>
+    <configurationValues name="Marker" value="basket"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <parameterBindings name="MessageParam0" objectPath="BasketPreferenceDomain:DomainName"/>
+    <parameterBindings name="MessageParam1" objectPath="BasketPreferenceKey"/>
+    <parameterBindings name="MessageText" objectPath="Unable to get the basket lifetime for domain {} and preference key {}."/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="Error" strict="true"/>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" name="InvalidateOutdatedBaskets"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode7"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <nodeSuccessors name="Error" next="EndNode14"/>
+    <startNode referencedName="This:GetBasketDomains"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="BasketDomains">
+    <nodeSuccessors name="next" next="EndNode13"/>
+    <entry key="BasketDomain">
+      <nodeSuccessors name="loop_entry_next" next="CallNode9"/>
+    </entry>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <nodeSuccessors name="Error" next="JoinNode8"/>
+    <startNode referencedName="This:PrepareInvalidateOutdatedParams"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="ExecuteUpdateQuery1"/>
+    <nodeSuccessors name="Error" next="JoinNode6"/>
+    <startNode referencedName="This:Lock"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteUpdateQuery1">
+    <configurationValues name="QueryName" value="basket/UpdateBasketStatusByExpirationDate"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteUpdateQuery.xml"/>
+    <nodeSuccessors name="next" next="RefreshCache1"/>
+    <parameterBindings name="Parameters" objectPath="QueryParameters"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshCache1">
+    <configurationValues name="ForceRefresh" value="true"/>
+    <configurationValues name="PersistentClassName_0" value="com.intershop.beehive.bts.internal.orderprocess.basket.BasketPO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+    <nodeSuccessors name="next" next="CallNode10"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <startNode referencedName="This:Unlock"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13"/>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" name="Error"/>
+<!--Acquires all necessary resources for this process to run.
+@Location 1,20-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" visibility="Private"
+      name="Lock" callMode="Private">
+    <nodeSuccessors name="next" next="GetResourceByName0"/>
+<!--The process who owns the lock.-->
+    <parameters name="Process" type="com.intershop.beehive.core.capi.locking.Process"/>
+<!--The domain of the baskets.-->
+    <parameters name="BasketDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 1,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetResourceByName0">
+    <pipelet href="enfinity:/core/pipelets/GetResourceByName.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="Domain" objectPath="BasketDomain"/>
+    <parameterBindings name="ParentResource" nullBinding="true"/>
+    <parameterBindings name="ResourceName" constant="Baskets"/>
+  </nodes>
+<!--@Location 1,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector0">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="AcquireResourcesForProcess0"/>
+    <parameterBindings name="InVector" objectPath="Resources"/>
+    <parameterBindings name="Object" objectPath="Resource"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="Resources"/>
+  </nodes>
+<!--@Location 1,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AcquireResourcesForProcess0">
+    <pipelet href="enfinity:/core/pipelets/AcquireResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="EndNode8"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="AcquisitionTimeout" constant="(Integer)60"/>
+  </nodes>
+<!--@Location 1,24-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" strict="true">
+<!--The acquired resources.-->
+    <returnValues name="Acquisitions" type="com.intershop.beehive.core.capi.locking.Acquisitions"/>
+  </nodes>
+<!--@Location 2,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="LogMessage0"/>
+  </nodes>
+<!--@Location 3,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage0">
+    <configurationValues name="Category" value="basket"/>
+    <configurationValues name="Level" value="Warn"/>
+    <configurationValues name="Marker" value="basket"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="EndNode9"/>
+    <parameterBindings name="MessageText" objectPath="Unable to lock the resources needed for basket manipulation."/>
+  </nodes>
+<!--@Location 3,24-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="Error" strict="true"/>
+<!--@Location 2,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" name="MoveOutdatedBasketsToHistory"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <nodeSuccessors name="Error" next="EndNode3"/>
+    <startNode referencedName="This:GetBasketDomains"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="BasketDomains">
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <entry key="BasketDomain">
+      <nodeSuccessors name="loop_entry_next" next="CallNode4"/>
+    </entry>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <nodeSuccessors name="Error" next="JoinNode3"/>
+    <startNode referencedName="This:PrepareMoveOutdatedToHistoryParams"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="ExecuteUpdateQuery0"/>
+    <nodeSuccessors name="Error" next="JoinNode2"/>
+    <startNode referencedName="This:Lock"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteUpdateQuery0">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="QueryName" value="basket/UpdateBasketStatusByExpirationDate"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteUpdateQuery.xml"/>
+    <nodeSuccessors name="next" next="RefreshCache0"/>
+    <parameterBindings name="Parameters" objectPath="QueryParameters"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshCache0">
+    <configurationValues name="ForceRefresh" value="true"/>
+    <configurationValues name="PersistentClassName_0" value="com.intershop.beehive.bts.internal.orderprocess.basket.BasketPO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+    <nodeSuccessors name="next" next="CallNode5"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <startNode referencedName="This:Unlock"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0"/>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="Error"/>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" visibility="Private"
+      name="PrepareInvalidateOutdatedParams" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode6"/>
+    <parameters name="BasketDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="AddObjectToCollection3"/>
+    <nodeSuccessors name="Error" next="EndNode11"/>
+    <parameterBindings name="BasketPreferenceDomain" objectPath="BasketDomain"/>
+    <parameterBindings name="BasketPreferenceKey" constant="BasketInHistoryLifetime"/>
+    <parameterBindings name="InterpretAsHours" constant="(Boolean)true"/>
+    <startNode referencedName="This:GetExpirationDate"/>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection3">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToCollection4"/>
+    <parameterBindings name="InCollection" objectPath="OldStatuses"/>
+    <parameterBindings name="InObject" constant="(Integer)2"/>
+    <returnValueBindings name="OutCollection" objectPath="OldStatuses"/>
+    <returnValueBindings name="OutIterator" nullBinding="true"/>
+  </nodes>
+<!--@Location 7,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection4">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="UpdateDictionary1"/>
+    <parameterBindings name="InCollection" objectPath="OldStatuses"/>
+    <parameterBindings name="InObject" constant="(Integer)4"/>
+    <returnValueBindings name="OutCollection" objectPath="OldStatuses"/>
+    <returnValueBindings name="OutIterator" nullBinding="true"/>
+  </nodes>
+<!--@Location 7,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary1">
+    <configurationValues name="Name_01" value="BasketDomain"/>
+    <configurationValues name="Name_02" value="NewStatus"/>
+    <configurationValues name="Name_03" value="OldStatuses"/>
+    <configurationValues name="Name_04" value="ExpirationDate"/>
+    <configurationValues name="Name_05" value="UpdateHistoryDate"/>
+    <configurationValues name="Name_06" value="IgnoreSessionBasedBaskets"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="EndNode12"/>
+    <parameterBindings name="Value_01" objectPath="BasketDomain"/>
+    <parameterBindings name="Value_02" constant="(Integer)1"/>
+    <parameterBindings name="Value_03" objectPath="OldStatuses"/>
+    <parameterBindings name="Value_04" objectPath="BasketExpirationDate"/>
+    <parameterBindings name="Value_05" constant="(Boolean)true"/>
+    <parameterBindings name="Value_06" nullBinding="true"/>
+    <returnValueBindings name="OutDictionary" objectPath="QueryParameters"/>
+  </nodes>
+<!--@Location 7,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" strict="true">
+    <returnValues name="QueryParameters" type="java.util.Map"/>
+  </nodes>
+<!--@Location 8,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" name="Error" strict="true"/>
+<!--@Location 5,10-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" visibility="Private"
+      name="PrepareMoveOutdatedToHistoryParams" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameters name="BasketDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 5,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="AddObjectToCollection2"/>
+    <nodeSuccessors name="Error" next="EndNode7"/>
+    <parameterBindings name="BasketPreferenceDomain" objectPath="BasketDomain"/>
+    <parameterBindings name="BasketPreferenceKey" constant="BasketLifetime"/>
+    <parameterBindings name="InterpretAsHours" constant="(Boolean)false"/>
+    <startNode referencedName="This:GetExpirationDate"/>
+  </nodes>
+<!--@Location 5,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection2">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="UpdateDictionary0"/>
+    <parameterBindings name="InCollection" objectPath="OldStatuses"/>
+    <parameterBindings name="InObject" constant="(Integer)0"/>
+    <returnValueBindings name="OutCollection" objectPath="OldStatuses"/>
+    <returnValueBindings name="OutIterator" nullBinding="true"/>
+  </nodes>
+<!--@Location 5,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary0">
+    <configurationValues name="Name_01" value="BasketDomain"/>
+    <configurationValues name="Name_02" value="NewStatus"/>
+    <configurationValues name="Name_03" value="OldStatuses"/>
+    <configurationValues name="Name_04" value="ExpirationDate"/>
+    <configurationValues name="Name_05" value="UpdateHistoryDate"/>
+    <configurationValues name="Name_06" value="IgnoreSessionBasedBaskets"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="EndNode6"/>
+    <parameterBindings name="Value_01" objectPath="BasketDomain"/>
+    <parameterBindings name="Value_02" constant="(Integer)4"/>
+    <parameterBindings name="Value_03" objectPath="OldStatuses"/>
+    <parameterBindings name="Value_04" objectPath="BasketExpirationDate"/>
+    <parameterBindings name="Value_05" constant="(Boolean)true"/>
+    <parameterBindings name="Value_06" constant="(Boolean)true"/>
+    <returnValueBindings name="OutDictionary" objectPath="QueryParameters"/>
+  </nodes>
+<!--@Location 5,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true">
+    <returnValues name="QueryParameters" type="java.util.Map"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="Error" strict="true"/>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" name="RemoveOutdatedBaskets"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode11"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+    <nodeSuccessors name="next" next="ToString0"/>
+    <nodeSuccessors name="Error" next="JoinNode9"/>
+    <startNode referencedName="This:GetBasketDomains"/>
+  </nodes>
+<!--Backward compatibility hack.
+@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ToString0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ToString.xml"/>
+    <nodeSuccessors name="next" next="LoopNode3"/>
+    <parameterBindings name="Object1" objectPath="MaxNumberOfBaskets"/>
+    <parameterBindings name="Object10" nullBinding="true"/>
+    <parameterBindings name="Object2" nullBinding="true"/>
+    <parameterBindings name="Object3" nullBinding="true"/>
+    <parameterBindings name="Object4" nullBinding="true"/>
+    <parameterBindings name="Object5" nullBinding="true"/>
+    <parameterBindings name="Object6" nullBinding="true"/>
+    <parameterBindings name="Object7" nullBinding="true"/>
+    <parameterBindings name="Object8" nullBinding="true"/>
+    <parameterBindings name="Object9" nullBinding="true"/>
+    <returnValueBindings name="String1" objectPath="MaxNumberOfBasketsStr"/>
+    <returnValueBindings name="String10" nullBinding="true"/>
+    <returnValueBindings name="String2" nullBinding="true"/>
+    <returnValueBindings name="String3" nullBinding="true"/>
+    <returnValueBindings name="String4" nullBinding="true"/>
+    <returnValueBindings name="String5" nullBinding="true"/>
+    <returnValueBindings name="String6" nullBinding="true"/>
+    <returnValueBindings name="String7" nullBinding="true"/>
+    <returnValueBindings name="String8" nullBinding="true"/>
+    <returnValueBindings name="String9" nullBinding="true"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="BasketDomains">
+    <nodeSuccessors name="next" next="PerformSessionStorageCleanUpBySP0"/>
+    <entry key="BasketDomain">
+      <nodeSuccessors name="loop_entry_next" next="CheckHistoryBasketsBySP0"/>
+    </entry>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckHistoryBasketsBySP0">
+    <pipelet href="enfinity:/bts/pipelets/CheckHistoryBasketsBySP.xml"/>
+<!--@BendPoints 10,11 10,9-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+    <parameterBindings name="LeafOrganizationDomain" objectPath="BasketDomain"/>
+    <parameterBindings name="MaxNoOfBaskets" objectPath="MaxNumberOfBasketsStr"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PerformSessionStorageCleanUpBySP0">
+    <pipelet href="enfinity:/core/pipelets/PerformSessionStorageCleanUpBySP.xml"/>
+    <nodeSuccessors name="next" next="EndNode16"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16"/>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="EndNode15"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" name="Error"/>
+<!--Releases the resources owned by this process.
+@Location 3,20-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" visibility="Private"
+      name="Unlock" callMode="Private">
+    <nodeSuccessors name="next" next="ReleaseResourcesForProcess0"/>
+<!--Unlocks all the resources needed by this process.-->
+    <parameters name="Process" type="com.intershop.beehive.core.capi.locking.Process"/>
+<!--The acquisitions of the process.-->
+    <parameters name="Acquisitions" type="com.intershop.beehive.core.capi.locking.Acquisitions"/>
+  </nodes>
+<!--@Location 3,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ReleaseResourcesForProcess0">
+    <pipelet href="enfinity:/core/pipelets/ReleaseResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 3,22-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" strict="true"/>
+</pipeline:Pipeline>

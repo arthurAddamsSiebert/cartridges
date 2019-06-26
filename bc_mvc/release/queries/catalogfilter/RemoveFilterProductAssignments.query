@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query is used to clean up all outdated filter-product assignments as some products have been already deleted or unshared.">
+<parameters>
+    <parameter name="CatalogFilterUUID" type="java.lang.String" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template>
+<sql-dialect name="Oracle">
+	DELETE FROM filterproductassignment fpa 
+</sql-dialect>
+<sql-dialect name="Microsoft">
+	DELETE fpa 
+	FROM filterproductassignment fpa
+</sql-dialect>
+WHERE fpa.catalogfilterid = <template-variable value="CatalogFilterUUID"/>
+AND fpa.associatedproductproductsku NOT IN
+(
+    -- local products 
+	SELECT sku FROM product p, domaininformation di
+	WHERE p.domainid = di.domainid
+	AND di.domainname = fpa.associatedproductdomainname
+	AND p.sku = fpa.associatedproductproductsku
+	
+	UNION
+	
+	-- shared products with share all option and no inbound sharing
+	SELECT sku FROM product p, productsetdomainassignment psda, productset ps,domaininformation di
+	WHERE psda.domainid = di.domainid
+	AND di.domainname = fpa.associatedproductdomainname
+	AND ps.uuid = psda.productsetuuid AND ps.allflag = 1
+	AND p.sku = fpa.associatedproductproductsku
+	AND ps.domainid = p.domainid
+	AND NOT EXISTS
+	(SELECT sku FROM product p, productset ps, productsetassignment psa,domaininformation di
+	WHERE ps.domainid = di.domainid
+	AND di.domainname = fpa.associatedproductdomainname
+	AND psa.productuuid = p.uuid AND ps.inboundflag = 1
+	AND p.sku = fpa.associatedproductproductsku
+	AND psa.productsetuuid = ps.uuid
+    )
+  
+    UNION
+  
+    -- shared products with share all option and inbound sharing
+	SELECT sku FROM product p, productsetdomainassignment psda, productset ps,domaininformation di
+	WHERE psda.domainid = di.domainid
+	AND di.domainname = fpa.associatedproductdomainname
+	AND ps.uuid = psda.productsetuuid AND ps.allflag = 1
+	AND p.sku = fpa.associatedproductproductsku
+	AND ps.domainid = p.domainid
+    AND EXISTS
+    (SELECT sku FROM product p, productset ps, productsetassignment psa,domaininformation di
+    WHERE ps.domainid = di.domainid
+    AND di.domainname = fpa.associatedproductdomainname
+	AND psa.productuuid = p.uuid AND ps.inboundflag = 1
+	AND p.sku = fpa.associatedproductproductsku
+	AND psa.productsetuuid = ps.uuid
+    )
+	
+	UNION
+	
+	-- shared products shared via sharing groups and no inbound sharing
+	SELECT sku FROM product p, productsetdomainassignment psda, productset ps, productsetassignment psa,domaininformation di
+	WHERE psda.domainid = di.domainid
+	AND di.domainname = fpa.associatedproductdomainname
+	AND ps.uuid = psda.productsetuuid AND ps.activeflag = 1
+	AND psa.productuuid = p.uuid
+	AND p.sku = fpa.associatedproductproductsku
+	AND psa.productsetuuid = ps.uuid
+    AND NOT EXISTS
+   (SELECT sku FROM product p, productset ps, productsetassignment psa,domaininformation di
+    WHERE ps.domainid = di.domainid
+    AND di.domainname = fpa.associatedproductdomainname
+    AND psa.productuuid = p.uuid AND ps.inboundflag = 1
+    AND p.sku = fpa.associatedproductproductsku
+    AND psa.productsetuuid = ps.uuid
+   )
+  
+  UNION
+	
+	-- shared products shared via sharing groups and inbound sharing
+	SELECT sku FROM product p, productsetdomainassignment psda, productset ps, productsetassignment psa,domaininformation di
+	WHERE psda.domainid = di.domainid
+	AND di.domainname = fpa.associatedproductdomainname
+	AND ps.uuid = psda.productsetuuid AND ps.activeflag = 1
+	AND psa.productuuid = p.uuid
+	AND p.sku = fpa.associatedproductproductsku
+	AND psa.productsetuuid = ps.uuid
+    AND EXISTS
+   (SELECT sku FROM product p, productset ps, productsetassignment psa,domaininformation di
+    WHERE ps.domainid = di.domainid
+	AND di.domainname = fpa.associatedproductdomainname
+	AND psa.productuuid = p.uuid AND ps.inboundflag = 1
+	AND p.sku = fpa.associatedproductproductsku
+	AND psa.productsetuuid = ps.uuid
+   )
+)
+</template>
+</query>

@@ -1,0 +1,20 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><!-- TEMPLATENAME: PageletFilter.isml -->
+<% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"content/Modules", null, "3");} %><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("AssignmentFilterConfiguration:PageAssignment"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",5,e);}if (_boolean_result) { %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewPageletAssignmentFilter-View",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("UniquePageletSearchID",null),context.getFormattedValue(getObject("AssignmentFilterConfiguration:AliasKey"),null))).addURLParameter(context.getFormattedValue("SearchType",null),context.getFormattedValue(getObject("SearchType"),null)).addURLParameter(context.getFormattedValue("SelectedMenuItem",null),context.getFormattedValue(getObject("SelectedMenuItem"),null)))),
+new TagParameter("id","PageletAssignmentFilter"),
+new TagParameter("text",localizeText(context.getFormattedValue("PageletFilter.PageFilter.text",null)))}, 6); %><% } else { %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewPageletAssignmentFilter-View",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("UniquePageletSearchID",null),context.getFormattedValue(getObject("AssignmentFilterConfiguration:AliasKey"),null))).addURLParameter(context.getFormattedValue("SearchType",null),context.getFormattedValue(getObject("SearchType"),null)).addURLParameter(context.getFormattedValue("SelectedMenuItem",null),context.getFormattedValue(getObject("SelectedMenuItem"),null)))),
+new TagParameter("id","PageletAssignmentFilter"),
+new TagParameter("text",localizeText(context.getFormattedValue("PageletFilter.ComponentFilter.text",null)))}, 8); %><% } %><% processOpenTag(response, pageContext, "pageletsearch", new TagParameter[] {
+new TagParameter("submitbuttonstemplate","content/search/inc/PageletFilterButtons"),
+new TagParameter("isfilter","true"),
+new TagParameter("start",getObject("StartFlag")),
+new TagParameter("page",context.getFormattedValue(getObject("AssignmentFilterConfiguration:PageAssignment"),null)),
+new TagParameter("targetpageletviewpipeline","ViewPageletAssignmentFilter-Dispatch"),
+new TagParameter("notfoundtemplate","content/search/inc/EmptyPageletSearchResult"),
+new TagParameter("uniqueid",getObject("AssignmentFilterConfiguration:AliasKey"))}, 11); %><% printFooter(out); %>

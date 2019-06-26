@@ -1,0 +1,543 @@
+<iscontent type="text/html" charset="UTF-8" compact="true"/>
+
+<!---
+    All parameters and values are case sensitive!
+    "displaynamekey"    .. ISText key without prefix of the displayed name of the row;
+                            the prefix is generated automatically via the summarygroup
+    
+    "statisticskey1"    .. the name of an event (eventname) or conversions (preevent-postevent)
+    "statisticmarker1"  .. (optional) which marker shall be used to return the first statisticskey values
+                            {'absolute' -> always default, therefore not necessary
+                            'Sum' -> only for TTest and CountAndSum calculators to get the Sum instead of the Count; 
+                            Case sensitive!} 
+                            the event or conversion used for a second value to calculate an average
+    "calculator1"       .. which calculator shall be used for the first key depending on its definition of the event/conversion
+                            {'count','sum','countandsum','ttest','chisqu','time'} 
+                            There is not yet a time calculator, but use this string for Last Statistic Update!
+    
+    "statisticskey2"    .. (optional) only mandatory when summarygroup='average' or 'averageinpercent'
+    "statisticmarker2"  .. (optional) which marker shall be used to return the second statisticskey values
+    "calculator2"       .. (optional) only mandatory when using statisticskey2:
+                            which calculator shall be used for the second key 
+    
+    "summarygroup"      .. has effect on representation and calculation
+                            {'lastupdate','total',
+                            'conversion'        -> shows significance values (needs calculator 'chisqu' or 'ttest' without a statisticmarker)
+                            'average'           -> processes statisticskey1 divided by statisticskey2
+                                                   if giving over the currency keep in mind the statisticskey2 needs to be currency aware, too
+                            'averageinpercent'  -> processes statisticskey1 divided by statisticskey2 × 100 (by style)
+                                                   if giving over the currency keep in mind the statisticskey2 needs to be currency aware, too} 
+    "type"              .. has effect on representation and calculation
+                            {'timestamp','duration','integer','decimal',
+                            'currency'          -> shows currency mnemonic
+                            'percent'           -> prints a % sign (is independent from summarygroup 'averageinpercent')
+    "currency"          .. (optional) the currency object to get the currency aware values for statisticskey1 and 2
+    "isimportant"       .. (optional) if defined and 'true' the row shows up on most important view 
+    "togglefor"			.. (optional) if set to unique string value a toggle button is displayed in front of the value, which toggles the visibility 
+    					    of items with the string value as title-attribute
+    "selector"    		.. (optional) a selector attribute for the table row element (needed for togglefor) 
+    					    
+    
+--->
+
+
+<!--- if "Most Important" is chosen, then only show this row, if it is marked as important --->
+<isif condition="#((isDefined(isimportant)) AND (isimportant EQ 'true')) OR (currentabtestsummarygroup NE 'mostimportant')#">
+
+    <!---  definition of ISML-tag to assembly and print the displayname
+        "disnamekey"    .. the ISText key for the displayname without prefix
+        "sumgroup"      .. the summarygroup of the current row to determine the correct prefix
+                            {'lastupdate','total'        -> prefix: 'abtest.statistic.total.'
+                            'conversion'                 -> prefix: 'abtest.statistic.conversion.'
+                            'average','averageinpercent' -> prefix: 'abtest.statistic.average.'
+    --->
+    <ismodule 
+                template  = "marketing/ABTestSummaryDisplayName_52.isml"
+                name      = "setdisplayname"
+                attribute = "disnamekey"
+                attribute = "sumgroup"
+                strict    = "true"
+    >
+    
+		<!--- BEGIN Check for correct parameters, if failed the row gives back a related message --->
+		<isset scope="request" name="invalid" value="#null#"/>
+		
+		<!--- displaynamekey missing? --->
+		<isif condition="#  NOT isDefined(displaynamekey)#"><isset scope="request" name="displaynamekey" value="#'N/A'#"></isif>
+		
+		<!--- mandatory parameters correct? --->
+		<isif condition="#  NOT isDefined(summarygroup) 	OR NOT((summarygroup 	EQ 'total') 	OR (summarygroup 	EQ 'conversion') 	OR (summarygroup 	EQ 'average') 		OR (summarygroup 	EQ 'averageinpercent') 	OR (summarygroup 	EQ 'lastupdate'))
+						OR  NOT isDefined(type) 			OR NOT((type 			EQ 'integer')	OR (type 			EQ 'decimal') 		OR (type 			EQ 'currency') 		OR (type 			EQ 'timestamp') 		OR (type 			EQ 'duration')	OR (type 			EQ 'percent'))
+						OR  NOT isDefined(statisticskey1)	OR 	  ( statisticskey1 	EQ '')
+						OR  NOT isDefined(calculator1) 		OR NOT((calculator1 	EQ 'count') 	OR (calculator1 	EQ 'sum') 			OR (calculator1  EQ 'countandsum')	    OR (calculator1 	EQ 'ttest')		        OR (calculator1     EQ 'chisqu')    OR (calculator1 EQ 'time'))#">
+			<isset scope="request" name="invalid" value="#localizeText('ABTestSummaryLine_52.MissingOrWrongMandatoryParameter')#"/>
+		</isif>
+		
+		<!--- secondary parameters correct? --->
+		<isif condition="# 	NOT isDefined(invalid) 
+						AND 	((summarygroup EQ 'average') OR (summarygroup EQ 'averageinpercent'))
+						AND 	(	NOT isDefined(statisticskey2)	OR 	  (statisticskey2 	EQ '')
+								OR 	NOT isDefined(calculator2) 		OR NOT((calculator2 	EQ 'count') OR (calculator2 EQ 'sum') OR (calculator2  EQ 'countandsum') OR (calculator2 EQ 'ttest') OR (calculator2 EQ 'chisqu') OR (calculator2 EQ 'time'))
+								)#">
+			<isset scope="request" name="invalid" value="#localizeText('ABTestSummaryLine_52.MissingOrWrongSecondaryParametersForAverage')#"/>
+		</isif>
+		
+		<!--- currency parameters correct? --->
+		<isif condition="# 	NOT isDefined(invalid) 
+						AND 	(	(type EQ 'currency')
+								AND	(	NOT isDefined(currency)			 OR	(currency 	EQ ''))
+								)#">
+			<isset scope="request" name="invalid" value="#localizeText('ABTestSummaryLine_52.MissingOrWrongParametersForCurrencies')#"/>
+		</isif>
+		
+		<!--- Last statistic update parameters correct? --->
+		<isif condition="# 	NOT isDefined(invalid) 
+						AND 	(summarygroup 	 	EQ 'lastupdate') 
+						AND 	(  NOT(type 	 	EQ 'timestamp'))#">
+			<isset scope="request" name="invalid" value="#localizeText('ABTestSummaryLine_52.WrongTypeForLastStatisticUpdate')#"/>
+		</isif>
+		
+		<!--- statisticmarker parameters correct? --->
+		<isif condition="# 	NOT isDefined(invalid) 
+						AND		(	(isDefined(statisticmarker1) AND NOT((statisticmarker1 EQ '') OR (statisticmarker1 EQ 'absolute') OR (statisticmarker1 EQ 'Sum')))
+								OR 	(isDefined(statisticmarker2) AND NOT((statisticmarker2 EQ '') OR (statisticmarker2 EQ 'absolute') OR (statisticmarker2 EQ 'Sum')))
+								)#">
+			<isset scope="request" name="invalid" value="#localizeText('ABTestSummaryLine_52.WrongStatisticmarkerParameters')#"/>
+		</isif>
+	<!--- END Check for correct parameters --->
+	
+
+	<!--- BEGIN Variable definition --->
+		<!--- set not available phrase for timestamps --->
+		<isset scope="request"  name="notYetPhraseKey" value="abtest.statistic.general.notYet">
+		
+		<!--- set significance phrase --->
+		<isset scope="request"  name="sigProbPhraseKey" value="abtest.statistic.general.sigProb">
+		
+		<!--- set percent phrase --->
+		<isset scope="request"  name="percentPhraseKey" value="abtest.statistic.general.percent">
+		
+		<!--- set control group --->
+		<isset scope="request"  name="controlgroup" value="#ABTest:ControlGroup#"/>
+		
+		<!--- set statisticmarkers --->
+		<isif condition="#	NOT isDefined(statisticmarker1)
+						OR  (isDefined(statisticmarker1) AND (statisticmarker1 NE 'Sum'))#">
+			<isset scope="request"  name="statisticmarker1" value="#''#"/>
+		</isif>
+		<isif condition="#	NOT isDefined(statisticmarker2)
+						OR  (isDefined(statisticmarker2) AND (statisticmarker2 NE 'Sum'))#">
+			<isset scope="request"  name="statisticmarker2" value="#''#"/>
+		</isif>
+
+        <!--- set statisticskeys for currency --->
+		<isif condition="#isDefined(currency)#">
+			<isset scope="request"  name="statisticskey1" value="#statisticskey1.'-'.currency:Mnemonic#"/>
+			<isif condition="#(summarygroup EQ 'average') OR (summarygroup EQ 'averageinpercent')#">
+			    <isset scope="request"  name="statisticskey2" value="#statisticskey2.'-'.currency:Mnemonic#"/>
+			</isif>
+		</isif>
+
+		<!--- set whether to use Chi-Square, TTest or no significance test --->
+		<isset scope="request" name="significanceTest" value="#''#"/>
+			<!--- only conversions shall be tested --->
+		<isif condition="#summarygroup EQ 'conversion'#">
+			<!--- only binary counts shall use Chi-Square --->
+			<isif condition="#  (calculator1 EQ 'chisqu')
+							OR ((calculator1 EQ 'ttest') AND (statisticmarker1 EQ ''))#">
+				<isset scope="request" name="significanceTest" value="#'ChiSqu'#"/>
+			<!--- only numericals of ttest conversions shall use TTest --->
+			<iselseif condition="#(calculator1 EQ 'ttest') AND (statisticmarker1 EQ 'Sum')#"/>
+				<isset scope="request" name="significanceTest" value="#'TTest'#"/>
+			</isif>
+		</isif>
+	<!--- END Variable definition --->
+
+    <!--- END Variable definition --->
+
+
+    <!--- BEGIN Row --->
+    <tr <isif condition="#isDefined(selector)#">selector="<isprint value="#selector#"/>"</isif>
+        <isif condition="#isDefined(togglefor)#"> style="font-weight: bold"</isif>>
+        <!--- LEFT column - displayname--->
+        <td class="table_detail w e s left currency_#isDefined(currency)#">
+        
+        	<isif condition="#isDefined(togglefor)#">
+        		<button type="button"
+        				onclick="$('tr[selector=<isprint value="#togglefor#"/>]').toggle(); $(this).html( $(this).html() == '-' ? '+' : '-' )">-</button>
+        	</isif>
+        
+            <issetdisplayname disnamekey="#displaynamekey#" sumgroup="#summarygroup#">
+            <isif condition="#isDefined(currency)#"> (<isprint value="#currency:CurrencyName#"/>)</isif>
+            <isif condition="#type EQ 'percent'#"> <istext key="#percentPhraseKey#"/></isif>
+        </td>
+		
+		<!--- BEGIN CONTROL GROUP column --->
+		<td class="table_detail e s right" nowrap="nowrap">
+			<isif condition="#isDefined(invalid)#">
+				<isprint value="#invalid#">
+			<iselse>
+				<!--- BEGIN Controlgroup variable definition --->
+					<!--- clear variables --->
+					<isset scope="request"  name="Value1" value="#''#"/>
+					<isset scope="request"  name="Value2" value="#''#"/>
+					<isset scope="request"  name="RelativeValue" value="#''#"/>
+					
+					<!--- get (and calculate average) value for control group
+						 (there is [not yet] a time calculator) 				--->
+					<isif condition="#(summarygroup NE 'lastupdate') OR (calculator1 NE 'time')#">
+						<isset scope="request"	name="CGCalculator"		value="#controlgroup:TestStatistics:Calculation:Formula(calculator1)#"/>
+						<isset scope="request"	name="CGStatisticsPO"	value="#CGCalculator:Statistics#"/>
+						<isset scope="request"  name="Value1" 			value="#CGCalculator:AbsoluteC(statisticskey1,statisticmarker1)#"/>
+						<isif condition="#NOT isDefined(Value1) OR (Value1 EQ '') #">
+							<isset scope="request"  name="Value1" value="#0#"/>
+						</isif>
+					<iselseif condition="#summarygroup EQ 'lastupdate'#"/>
+						<isset scope="request"  name="Value1" value="#controlgroup:TestStatistics:LastStatisticUpdate#"/>
+					</isif>
+						<!--- get second sum value for average and calculate with it --->
+					<isif condition="#((summarygroup EQ 'average') OR (summarygroup EQ 'averageinpercent')) AND (calculator2 NE 'time')#">
+ 						<isset scope="request"  name="Value2" value="#controlgroup:TestStatistics:Calculation:Formula(calculator2):AbsoluteC(statisticskey2,statisticmarker2)#"/>
+						<isif condition="#isDefined(Value2) AND (Value2 NE '') AND (Value1 NE '') AND (Value2 != 0)#">
+							<isset scope="request"  name="Value1" value="#Value1/Value2#"/>
+						<iselse>
+							<isset scope="request"  name="Value1" value="#0#">
+						</isif>
+					</isif>
+					
+                    <!--- rounding --->
+                    <isif condition="#type EQ 'decimal'#">
+                        <%  getPipelineDictionary().put("Value1", 
+                                        new java.math.BigDecimal(((Number)getObject("Value1")).doubleValue()).setScale(1, java.math.BigDecimal.ROUND_HALF_UP));
+                        %>
+                    <iselseif condition="#type EQ 'percent'#"/>
+                        <%  getPipelineDictionary().put("Value1", 
+                                        new java.math.BigDecimal(((Number)getObject("Value1")).doubleValue()).setScale(3, java.math.BigDecimal.ROUND_HALF_UP));
+                        %>
+                    </isif>
+					
+					<isif condition="#summarygroup NE 'averageinpercent'#">
+					
+						<!--- turn Value into a Money object if its of type currency and round it --->
+						<isif condition="#type EQ 'currency'#">
+                            <%  getPipelineDictionary().put("Value1", 
+                                            new com.intershop.beehive.foundation.quantity.Money((String)getObject("currency:Mnemonic"), 
+                                                    new java.math.BigDecimal(((Number)getObject("Value1")).doubleValue()).setScale(2, java.math.BigDecimal.ROUND_HALF_UP)));
+                            %>
+						
+						<!--- calculate duration
+							 (first there has to be a time calculator and the 
+							 checks above [calculator NE 'time'] needs to be removed) --->
+						<iselseif condition="#type EQ 'duration'#"/>
+							<% long t = ((Number)getObject("Value1")).longValue();
+									long h = t / 3600;
+									long m = (t - h*3600) / 60;
+									long s = t - h*3600 - m*60;
+									getPipelineDictionary().put("Valueh", new Long(h));
+									getPipelineDictionary().put("Valuem", new Long(m));
+									getPipelineDictionary().put("Values", new Long(s));
+							%>
+						</isif>
+					</isif>
+					
+					<!--- retrieve relative value (not for average or timestamp) --->
+					<isif condition="#(type NE 'timestamp') AND (summarygroup NE 'average') AND (summarygroup NE 'averageinpercent')#">
+						<isset scope="request"  name="RelativeValue" value="#CGCalculator:RelativeC(statisticskey1,statisticmarker1)#"/>
+						<isif condition="#NOT isDefined(RelativeValue) OR (RelativeValue EQ '') #">
+							<isset scope="request"  name="RelativeValue" value="#0#"/>
+						</isif>
+					</isif>
+				<!--- END Controlgroup variable definition --->
+
+				<!--- BEGIN Controlgroup printing --->
+					<!--- percentage --->
+					<isif condition="#type EQ 'percent'#">
+						<isprint value="#Value1#" style="PERCENTAGE" />
+					<!--- integer --->
+					<iselseif condition="#type EQ 'integer'#"/>
+						<isprint value="#Value1#" style="INTEGER"/>
+					<!--- decimals --->
+					<iselseif condition="#type EQ 'decimal'#"/>
+						<isprint value="#Value1#" style="DECIMAL"/>
+					<!--- currency --->
+					<iselseif condition="#type EQ 'currency'#"/>
+						<isprint value="#Value1#" style="MONEY_LONG"/>
+					<!--- duration --->
+					<iselseif condition="#type EQ 'duration'#"/>
+						<isprint value="#Valueh#" formatter="00"/><isprint value="#':'#"/><isprint value="#Valuem#" formatter="00"/><isprint value="#':'#"/><isprint value="#Values#" formatter="00"/>
+					<!--- timestamp --->
+					<iselseif condition="#type EQ 'timestamp'#"/>
+						<isif condition="#Value1 NE ''#">
+							<isprint value="#Value1#" style="DATE_SHORT"> <isprint value="#Value1#" style="DATE_TIME">
+						<iselse>
+							<istext key="#notYetPhraseKey#"/>
+						</isif>
+					</isif>
+					
+					<!--- add relation --->
+					<isif condition="#(type NE 'timestamp') AND (summarygroup NE 'average') AND (summarygroup NE 'averageinpercent')#">
+						(<isprint value="#RelativeValue#" style="PERCENTAGE"/>)
+					</isif>
+				<!--- END Controlgroup printing --->
+			</isif>
+		</td>
+		<!--- END CONTROL GROUP column --->
+
+		<!--- BEGIN TEST GROUPS columns --->
+		<isloop iterator="ABTestGroups" alias="TestGroup">
+			<isif condition="#controlgroup:UUID NE TestGroup:UUID#">
+				<td class="table_detail e s right" nowrap="nowrap">
+					<isif condition="#NOT isDefined(invalid)#">
+						<!--- BEGIN Testgroup variable definition --->
+							<!--- clear variables --->
+							<isset scope="request"  name="Value1" value="#''#"/>
+							<isset scope="request"  name="Value2" value="#''#"/>
+							<isset scope="request"  name="RelativeValue" value="#''#"/>
+
+							<!--- get (and calculate average) value for test group
+								 (there is (not yet) a time calculator) 				--->
+							<isif condition="#(summarygroup NE 'lastupdate') OR (calculator1 NE 'time')#">
+								<isset scope="request"	name="TGCalculator"	value="#TestGroup:TestStatistics:Calculation:Formula(calculator1)#"/>
+								<isset scope="request"  name="Value1" value="#TGCalculator:AbsoluteC(statisticskey1,statisticmarker1)#"/>
+								<isif condition="#NOT isDefined(Value1) OR (Value1 EQ '') #">
+									<isset scope="request"  name="Value1" value="#0#"/>
+								</isif>
+							<iselseif condition="#summarygroup EQ 'lastupdate'#"/>
+								<isset scope="request"  name="Value1" value="#TestGroup:TestStatistics:LastStatisticUpdate#"/>
+							</isif>
+								<!--- get second sum value for average and calculate --->
+							<isif condition="#((summarygroup EQ 'average') OR (summarygroup EQ 'averageinpercent')) AND (calculator2 NE 'time')#">
+								<isset scope="request"  name="Value2" value="#TestGroup:TestStatistics:Calculation:Formula(calculator2):AbsoluteC(statisticskey2,statisticmarker2)#"/>
+								<isif condition="#isDefined(Value2) AND (Value2 NE '') AND (Value1 NE '') AND (Value2 != 0)#">
+									<isset scope="request"  name="Value1" value="#Value1/Value2#"/>
+								<iselse>
+									<isset scope="request"  name="Value1" value="#0#"/>
+								</isif>
+							</isif>
+
+                            <!--- rounding --->
+		                    <isif condition="#type EQ 'decimal'#">
+		                        <%  getPipelineDictionary().put("Value1", 
+		                                        new java.math.BigDecimal(((Number)getObject("Value1")).doubleValue()).setScale(1, java.math.BigDecimal.ROUND_HALF_UP));
+		                        %>
+		                    <iselseif condition="#type EQ 'percent'#"/>
+		                        <%  getPipelineDictionary().put("Value1", 
+		                                        new java.math.BigDecimal(((Number)getObject("Value1")).doubleValue()).setScale(3, java.math.BigDecimal.ROUND_HALF_UP));
+		                        %>
+		                    </isif>
+							<isif condition="#summarygroup NE 'averageinpercent'#">
+							
+								<!--- turn Value into a Money object if its of type currency and round it --->
+								<isif condition="#type EQ 'currency'#">
+                                    <%  getPipelineDictionary().put("Value1", 
+                                                    new com.intershop.beehive.foundation.quantity.Money((String)getObject("currency:Mnemonic"), 
+                                                                    new java.math.BigDecimal(((Number)getObject("Value1")).doubleValue()).setScale(2, java.math.BigDecimal.ROUND_HALF_UP)));
+                                    %>
+								
+								<!--- calculate duration
+									 (first there has to be a time calculator and the 
+									 checks above [calculator NE 'time'] needs to be removed) --->
+								<iselseif condition="#type EQ 'duration'#"/>
+									<% long t = ((Number)getObject("Value1")).longValue();
+											long h = t / 3600;
+											long m = (t - h*3600) / 60;
+											long s = t - h*3600 - m*60;
+											getPipelineDictionary().put("Valueh", new Long(h));
+											getPipelineDictionary().put("Valuem", new Long(m));
+											getPipelineDictionary().put("Values", new Long(s));
+									%>
+								</isif>
+							</isif>
+							
+							<!--- retrieve relative value (not for average or timestamp) --->
+							<isif condition="#(type NE 'timestamp') AND (summarygroup NE 'average') AND (summarygroup NE 'averageinpercent')#">
+								<isset scope="request"  name="RelativeValue" value="#TGCalculator:RelativeC(statisticskey1,statisticmarker1)#"/>
+								<isif condition="#NOT isDefined(RelativeValue) OR (RelativeValue EQ '') #">
+									<isset scope="request"  name="RelativeValue" value="#0#"/>
+								</isif>
+							</isif>
+							
+							<!--- retrieve significance probabilities --->
+							<isif condition="#(significanceTest NE '')#">
+								
+								<!--- Beware: 
+									The calculator class will always have the StatisticsPO of the 
+									last group which summoned the getFormula() method for it.  
+									In this specific case, it will be the one of the current test group.
+									Because groups calculator class and significance calculator class can 
+									be identical we have to make sure to call the PValue() method with 
+									the testgroup and provide its calculator class AND the StatisticsPO of the regarding 
+									companion group for significance calculation (here: the control group). --->
+								<isset scope="request"	name="TGCalculator"	value="#TestGroup:TestStatistics:Calculation:Formula(significanceTest)#"/>
+								<isset scope="request"  name="pvalue" value="#(1 - (TGCalculator:PValue(statisticskey1, CGCalculator, CGStatisticsPO)))#"/>
+								
+								<!--- set css class of significant_textcolor --->
+								<isif condition="#pvalue >= 0.95#">
+									<isset scope="request" name="significant_textcolor" value="significant_green"/>
+								<iselseif condition="#pvalue >= 0.90#">
+									<isset scope="request" name="significant_textcolor" value="significant_yellow"/>
+								<iselse>
+									<isset scope="request" name="significant_textcolor" value="significant_red"/>
+								</isif>
+							</isif>
+							
+						<!--- END Testgroup variable definition --->
+						
+						<!--- BEGIN Testgroup printing --->
+							<!--- percentage --->
+							<isif condition="#type EQ 'percent'#">
+								<isprint value="#Value1#" style="PERCENTAGE">
+							<!--- integer --->
+							<iselseif condition="#type EQ 'integer'#"/>
+								<isprint value="#Value1#" style="INTEGER"/>
+							<!--- decimals --->
+							<iselseif condition="#type EQ 'decimal'#"/>
+								<isprint value="#Value1#" style="DECIMAL"/>
+							<!--- currency --->
+							<iselseif condition="#type EQ 'currency'#"/>
+								<isprint value="#Value1#" style="MONEY_LONG"/>
+							<!--- duration --->
+							<iselseif condition="#type EQ 'duration'#"/>
+								<isprint value="#Valueh#" formatter="00"/><isprint value="#':'#"/><isprint value="#Valuem#" formatter="00"/><isprint value="#':'#"/><isprint value="#Values#" formatter="00"/>
+							<!--- timestamp --->
+							<iselseif condition="#type EQ 'timestamp'#"/>
+								<isif condition="#Value1 NE ''#">
+									<isprint value="#Value1#" style="DATE_SHORT"/> <isprint value="#Value1#" style="DATE_TIME"/>
+								<iselse>
+									<istext key="#notYetPhraseKey#"/>
+								</isif>
+							</isif>
+							
+							<!--- add relation --->
+							<isif condition="#(type NE 'timestamp') AND (summarygroup NE 'average') AND (summarygroup NE 'averageinpercent')#">
+							     (<isprint value="#RelativeValue#" style="PERCENTAGE"/>)
+								<!--- add significance probabilities --->
+								<isif condition="#significanceTest NE ''#">
+									<div class="<isprint value="#significant_textcolor#"/>" style="display: inline;">
+										<a title="<istext key="#sigProbPhraseKey#"/><isprint value="#pvalue#" style="PERCENTAGE">">
+											
+											<isif condition="#(significanceTest EQ 'ChiSqu')#">
+												<isprint value="#'&nbsp;&nbsp;&nbsp;&nbsp;&chi;&sup2; = '#" encoding = "off"/>
+											<iselse>
+												<isprint value="#'TTest = '#"/>
+											</isif>
+											
+											<!--- 'Green' significant --->
+											<isif condition="#pvalue >= 0.95#">
+												<isprint value="#'G'#"/>
+											<!--- 'Yellow' kind of significant --->
+											<iselseif condition="#pvalue >= 0.90#">
+												<isprint value="#'Y'#"/>
+											<!--- 'red' not really significant --->
+											<iselse>
+												<isprint value="#'R'#"/>
+											</isif>
+											
+										</a>
+									</div>
+								</isif>
+							</isif>
+							
+						<!--- END Testgroup printing --->
+					</isif>
+				</td>
+			</isif>
+		</isloop>
+		<!--- END TEST GROUPS columns --->
+		
+		<!--- BEGIN TOTAL column --->
+		<td class="table_detail e s right" nowrap="nowrap">
+			<isif condition="#NOT isDefined(invalid)#">
+				<!--- BEGIN Totasl variable definition --->
+					<!--- get (and calculate average) sum value for total column
+						 (there is (not yet) a time calculator) 					--->
+					<isif condition="#(summarygroup NE 'lastupdate') OR (calculator1 NE 'time')#">
+						<isset scope="request"  name="TotalValue1" value="#controlgroup:TestStatistics:Calculation:Formula(calculator1):SumC(statisticskey1,statisticmarker1)#"/>
+						<isif condition="#NOT isDefined(TotalValue1) OR (TotalValue1 EQ '') #">
+							<isset scope="request"  name="TotalValue1" value="#0#"/>
+						</isif>
+					<iselse>
+						<isset scope="request"  name="TotalValue1" value="#''#"/>
+					</isif>
+						<!--- get second sum value for average and calculate total --->
+					<isif condition="#((summarygroup EQ 'average') OR (summarygroup EQ 'averageinpercent')) AND (calculator2 NE 'time')#">
+						<isset scope="request"  name="TotalValue2" value="#controlgroup:TestStatistics:Calculation:Formula(calculator2):SumC(statisticskey2,statisticmarker2)#"/>
+						<isif condition="#isDefined(TotalValue2) AND (TotalValue2 NE '') AND (TotalValue1 NE '') AND (TotalValue2 != 0)#">
+							<isset scope="request"  name="TotalValue1" value="#TotalValue1/TotalValue2#"/>
+						<iselse>
+							<isset scope="request"  name="TotalValue1" value="#0#"/>
+						</isif>
+					</isif>
+
+                    <!--- rounding --->
+                    <isif condition="#type EQ 'decimal'#">
+                        <%  getPipelineDictionary().put("TotalValue1", 
+                                        new java.math.BigDecimal(((Number)getObject("TotalValue1")).doubleValue()).setScale(1, java.math.BigDecimal.ROUND_HALF_UP));
+                        %>
+                    <iselseif condition="#type EQ 'percent'#"/>
+                        <%  getPipelineDictionary().put("TotalValue1", 
+                                        new java.math.BigDecimal(((Number)getObject("TotalValue1")).doubleValue()).setScale(3, java.math.BigDecimal.ROUND_HALF_UP));
+                        %>
+                    </isif>
+					<isif condition="#summarygroup NE 'averageinpercent'#">
+					
+						<!--- turn TotalValue into a Money object if its of type currency --->
+						<isif condition="#type EQ 'currency'#">
+                            <%  getPipelineDictionary().put("TotalValue1", 
+                                        new com.intershop.beehive.foundation.quantity.Money((String)getObject("currency:Mnemonic"), 
+                                                new java.math.BigDecimal(((Number)getObject("TotalValue1")).doubleValue()).setScale(2, java.math.BigDecimal.ROUND_HALF_UP)));
+                            %>
+						
+						<!--- calculate duration
+							 (first there has to be a time calculator and the 
+							 checks above [calculator NE 'time'] needs to be removed) --->
+						<iselseif condition="#type EQ 'duration'#">
+							<%  long t = ((Number)getObject("TotalValue1")).longValue();
+									long h = t / 3600;
+									long m = (t - h*3600) / 60;
+									long s = t - h*3600 - m*60;
+									getPipelineDictionary().put("Totalh", new Long(h));
+									getPipelineDictionary().put("Totalm", new Long(m));
+									getPipelineDictionary().put("Totals", new Long(s));
+							%>
+						</isif>
+					</isif>
+				<!--- END Total variable definition --->
+				
+				
+				<!--- BEGIN Total printing --->
+					<!--- percentage --->
+					<isif condition="#type EQ 'percent'#">
+						<isprint value="#TotalValue1#" style="PERCENTAGE">
+					<!--- integer --->
+					<iselseif condition="#type EQ 'integer'#"/>
+						<isprint value="#TotalValue1#" style="INTEGER"/>
+					<!--- decimals --->
+					<iselseif condition="#type EQ 'decimal'#"/>
+						<isprint value="#TotalValue1#" style="DECIMAL"/>
+					<!--- currency --->
+					<iselseif condition="#type EQ 'currency'#"/>
+						<isprint value="#TotalValue1#" style="MONEY_LONG"/>
+					<!--- duration --->
+					<iselseif condition="#type EQ 'duration'#"/>
+						<isprint value="#Totalh#" formatter="00"/><isprint value="#':'#"/><isprint value="#Totalm#" formatter="00"/><isprint value="#':'#"/><isprint value="#Totals#" formatter="00"/>
+					<!--- timestamp (total only for average) --->
+					<iselseif condition="#(summarygroup EQ 'average') AND (type EQ 'timestamp')#"/>
+						<isif condition="#(TotalValue1 NE '') AND (TotalValue1 != 0)#">
+							<isprint value="#TotalValue1#" style="DATE_SHORT"/> <isprint value="#TotalValue1#" style="DATE_TIME"/>
+						<iselse>
+							<istext key="#notYetPhraseKey#"/>
+						</isif>
+					</isif>
+					
+					<!--- add '100%' string --->
+					<isif condition="#(type NE 'timestamp') AND (summarygroup NE 'average') AND (summarygroup NE 'averageinpercent')#">
+						(<isprint value="#1#" style="PERCENTAGE" />)
+					</isif>
+				<!--- END Total printing --->
+			</isif>
+		</td>
+		<!--- END TOTAL column --->
+	</tr>
+	<!--- END Row --->
+</isif>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<query>
+<parameters>
+    <parameter name="ProductExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>                            
+    <parameter name="ProductItemStatus" type="java.lang.Integer" optional="true"/>
+    <parameter name="OrderDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<processor name="OracleSQL"/>
+<template>
+         <!-- query for status of products contained in order -->        
+         <template-if condition="isDefined(ProductItemStatus)">
+                 AND EXISTS
+                 (
+                    SELECT 1 
+                      FROM productlineitem pli  
+                      JOIN (
+                        <template-call name="product/GetProductsByAdvancedSearch">
+                            <call-parameter name="ProductDomain" value="OrderDomain"/>
+                            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+                            <call-parameter name="Available" value="ProductItemStatus"/>
+                        </template-call>
+                      ) p ON (pli.offerproductrefproductsku = p.sku
+	  		                  <template-if condition="isDefined(OrderDomain)">
+            			       AND pli.domainid = <template-variable value="OrderDomain:UUID"/>
+                  			  </template-if>
+                  			  )
+                     WHERE (io.uuid = pli.lineitemctnrid AND io.domainid = pli.domainid) 
+                  )
+         </template-if>
+
+         <!-- query for sku of products contained in order -->
+         <template-if condition="isDefined(ProductExpression)">
+                 AND EXISTS
+                 (
+                    SELECT 1 
+                     FROM productlineitem pli  
+                     WHERE (io.uuid = pli.lineitemctnrid AND io.domainid = pli.domainid) 
+                     AND 
+                       (
+                          <template-call name="inc/SearchExpression2Like">
+                              <call-parameter name="SearchExpression" value="ProductExpression"/>
+                              <call-parameter name="ColumnNames" value="&quot;pli.offerproductrefproductsku&quot;"/>
+                              <call-parameter name="CaseInsensitive" value="true()"/>
+                          </template-call>
+                          OR
+                          <template-call name="inc/SearchExpression2Like">
+                              <call-parameter name="SearchExpression" value="ProductExpression"/>
+                              <call-parameter name="ColumnNames" value="&quot;pli.productname&quot;"/>
+                              <call-parameter name="CaseInsensitive" value="true()"/>
+                          </template-call>
+                       )
+                   )
+         </template-if>
+
+</template>
+</query>

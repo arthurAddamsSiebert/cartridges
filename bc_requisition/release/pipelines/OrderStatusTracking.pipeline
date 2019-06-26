@@ -1,0 +1,552 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Tracks order status changes.
+@Group Order-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="OrderStatusTracking" type="process">
+<!--No preference check because of
+performance reasons!
+Check must be done before 
+starting order export.
+@Location 9,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode12" name="CheckEnabled" callMode="Private">
+<!--@BendPoints 15,16-->
+    <nodeSuccessors name="next" next="GetDomainPreference10"/>
+<!--The domain which defines the domain preference 'OrderStatusTracking'.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference10">
+    <configurationValues name="DefaultPreferenceKey" value="OrderStatusTracking"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+<!--@BendPoints 15,18-->
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+<!--@BendPoints 17,17-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="OrderStatusTracking"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="OrderStatusTracking"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 15,20-->
+    <nodeSuccessors name="decision_yes" next="EndNode7"/>
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7"/>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="EndNode24"/>
+  </nodes>
+<!--@Location 8,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode24" name="ERROR"/>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" name="GetTrackingEntriesByOrder"
+      callMode="Private">
+<!--@BendPoints 15,24-->
+    <nodeSuccessors name="next" next="ExecutePageableQuery1"/>
+<!--The order to get all tracking entries for. (status changes of the given order and its product lineitems)-->
+    <parameters name="Order" type="com.intershop.beehive.core.capi.domain.PersistentObject"
+        optional="true"/>
+<!--Sorting criteria (one of 'User', 'Date', 'Status'). Default is 'Date'.-->
+    <parameters name="Sorting" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery1">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="DefaultPageSize" value="100"/>
+    <configurationValues name="ParameterName_01" value="OrderUUID"/>
+    <configurationValues name="ParameterName_02" value="SortAttribute"/>
+    <configurationValues name="ParameterName_03" value="SortDirection"/>
+    <configurationValues name="QueryName" value="order/GetCommentsByOrder"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+<!--@BendPoints 15,26-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+<!--@BendPoints 17,25-->
+    <nodeSuccessors name="pipelet_error" next="EndNode9"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Order:UUID"/>
+    <parameterBindings name="ParameterValue_02" objectPath="Sorting"/>
+    <parameterBindings name="ParameterValue_03" objectPath="SortDirection"/>
+    <returnValueBindings name="SearchResult" objectPath="TrackingEntries"/>
+  </nodes>
+<!--@Location 7,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5"/>
+<!--@Location 8,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="ERROR"/>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" name="TrackCustomOrderStatus"
+      callMode="Private">
+<!--@BendPoints 21,2-->
+    <nodeSuccessors name="next" next="DecisionNode30"/>
+<!--The order whose status has been changed.-->
+    <parameters name="Order" type="com.intershop.beehive.core.capi.domain.PersistentObject"
+        optional="true"/>
+<!--The domain which defines the domain preference 'OrderStatusTracking'.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--The user who did the status change.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+<!--Typecode for a custom order status to be tracked. Must be an Integer >23-->
+    <parameters name="CustomStatusType" type="java.lang.Integer" optional="true"/>
+<!--The custom status to be tracked.-->
+    <parameters name="CustomStatus" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode30" conditionKey="CustomStatusType">
+<!--@BendPoints 21,4-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode32"/>
+<!--@BendPoints 23,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode11"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode32" conditionKey="CustomStatus">
+<!--@BendPoints 21,6-->
+    <nodeSuccessors name="decision_yes" next="CallNode12"/>
+    <nodeSuccessors name="decision_no" next="JoinNode11"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode12">
+<!--@BendPoints 21,10-->
+    <nodeSuccessors name="next" next="CreateComment8"/>
+    <nodeSuccessors name="ERROR" next="JoinNode7"/>
+    <startNode referencedName="OrderStatusTracking-CheckEnabled"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateComment8">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateComment.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode24"/>
+    <parameterBindings name="Author" objectPath="User"/>
+    <parameterBindings name="CommentText" objectPath="CustomStatus"/>
+    <parameterBindings name="PersistentObject" objectPath="Order"/>
+    <parameterBindings name="TypeCode" objectPath="CustomStatusType"/>
+  </nodes>
+<!--@Location 10,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 10,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4"/>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode24">
+<!--@BendPoints 23,13-->
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="JoinNode24"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" name="TrackCustomPLIStatus"
+      callMode="Private">
+<!--@BendPoints 9,16-->
+    <nodeSuccessors name="next" next="DecisionNode16"/>
+<!--The product lineitem whose status has been changed.-->
+    <parameters name="ProductLineItem" type="com.intershop.beehive.core.capi.domain.PersistentObject"
+        optional="true"/>
+<!--The domain which defines the domain preference The domain which defines the domain preference 'OrderStatusTracking'.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--The user who did the status change.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+    <parameters name="CustomStatusType" type="java.lang.Integer" optional="true"/>
+    <parameters name="CustomStatus" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode16" conditionKey="CustomStatusType">
+<!--@BendPoints 9,18-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode17"/>
+<!--@BendPoints 11,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode17"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode17" conditionKey="CustomStatus">
+<!--@BendPoints 9,20-->
+    <nodeSuccessors name="decision_yes" next="CallNode17"/>
+    <nodeSuccessors name="decision_no" next="JoinNode17"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode17">
+<!--@BendPoints 9,24-->
+    <nodeSuccessors name="next" next="CreateComment9"/>
+    <nodeSuccessors name="ERROR" next="JoinNode19"/>
+    <startNode referencedName="OrderStatusTracking-CheckEnabled"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateComment9">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateComment.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode27"/>
+    <parameterBindings name="Author" objectPath="User"/>
+    <parameterBindings name="CommentText" objectPath="CustomStatus"/>
+    <parameterBindings name="PersistentObject" objectPath="ProductLineItem"/>
+    <parameterBindings name="TypeCode" objectPath="CustomStatusType"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="EndNode11"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11"/>
+<!--@Location 5,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode27">
+<!--@BendPoints 11,27-->
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 5,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+    <nodeSuccessors name="next" next="JoinNode27"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+    <nodeSuccessors name="next" next="JoinNode19"/>
+  </nodes>
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" name="TrackOrderExportStatus"
+      callMode="Private">
+<!--@BendPoints 17,3-->
+    <nodeSuccessors name="next" next="ToString5"/>
+<!--The order whose status has been changed.-->
+    <parameters name="Order" type="com.intershop.beehive.core.capi.domain.PersistentObject"
+        optional="true"/>
+<!--The domain which defines the domain preference 'OrderStatusTracking'.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--The user who did the status change.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ToString5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ToString.xml"/>
+    <nodeSuccessors name="next" next="CreateComment7"/>
+    <parameterBindings name="Object1" objectPath="Order:ExportStatusStateName"/>
+    <returnValueBindings name="String1" objectPath="OrderStatus"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateComment7">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateComment.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+<!--@BendPoints 18,7 18,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="Author" objectPath="User"/>
+    <parameterBindings name="CommentText" objectPath="OrderStatus"/>
+    <parameterBindings name="PersistentObject" objectPath="Order"/>
+    <parameterBindings name="TypeCode" constant="(Integer)24"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" name="TrackOrderInvoiceStatus"
+      callMode="Private">
+<!--@BendPoints 5,2-->
+    <nodeSuccessors name="next" next="CallNode4"/>
+<!--The order whose status has been changed.-->
+    <parameters name="Order" type="com.intershop.beehive.core.capi.domain.PersistentObject"
+        optional="true"/>
+<!--The domain which defines the domain preference 'OrderStatusTracking'.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--The user who did the status change.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 5,4-->
+    <nodeSuccessors name="next" next="ToString2"/>
+<!--@BendPoints 7,4-->
+    <nodeSuccessors name="ERROR" next="JoinNode20"/>
+    <startNode referencedName="OrderStatusTracking-CheckEnabled"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ToString2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ToString.xml"/>
+    <nodeSuccessors name="next" next="CreateComment3"/>
+    <parameterBindings name="Object1" objectPath="Order:InvoiceStatusStateName"/>
+    <returnValueBindings name="String1" objectPath="OrderStatus"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateComment3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateComment.xml"/>
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode20"/>
+    <parameterBindings name="Author" objectPath="User"/>
+    <parameterBindings name="CommentText" objectPath="OrderStatus"/>
+    <parameterBindings name="PersistentObject" objectPath="Order"/>
+    <parameterBindings name="TypeCode" constant="(Integer)21"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6"/>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+<!--@BendPoints 7,9-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="TrackOrderPaymentStatus"
+      callMode="Private">
+<!--@BendPoints 9,2-->
+    <nodeSuccessors name="next" next="CallNode6"/>
+<!--The order whose status has been changed.-->
+    <parameters name="Order" type="com.intershop.beehive.core.capi.domain.PersistentObject"
+        optional="true"/>
+<!--The domain which defines the domain preference 'OrderStatusTracking'.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--The user who did the status change.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 9,4-->
+    <nodeSuccessors name="next" next="ToString3"/>
+<!--@BendPoints 11,4-->
+    <nodeSuccessors name="ERROR" next="JoinNode21"/>
+    <startNode referencedName="OrderStatusTracking-CheckEnabled"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ToString3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ToString.xml"/>
+<!--@BendPoints 9,6-->
+    <nodeSuccessors name="next" next="CreateComment4"/>
+    <parameterBindings name="Object1" objectPath="Order:PaymentStatusStateName"/>
+    <returnValueBindings name="String1" objectPath="OrderStatus"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateComment4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateComment.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode21"/>
+    <parameterBindings name="Author" objectPath="User"/>
+    <parameterBindings name="CommentText" objectPath="OrderStatus"/>
+    <parameterBindings name="PersistentObject" objectPath="Order"/>
+    <parameterBindings name="TypeCode" constant="(Integer)22"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode16"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16"/>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode21">
+<!--@BendPoints 11,9-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="TrackOrderShippingStatus"
+      callMode="Private">
+<!--@BendPoints 13,2-->
+    <nodeSuccessors name="next" next="CallNode8"/>
+<!--The order whose status has been changed.-->
+    <parameters name="Order" type="com.intershop.beehive.core.capi.domain.PersistentObject"
+        optional="true"/>
+<!--The domain which defines the domain preference 'OrderStatusTracking'.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--The user who did the status change.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+<!--@BendPoints 13,4-->
+    <nodeSuccessors name="next" next="ToString4"/>
+<!--@BendPoints 15,4-->
+    <nodeSuccessors name="ERROR" next="JoinNode22"/>
+    <startNode referencedName="OrderStatusTracking-CheckEnabled"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ToString4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ToString.xml"/>
+    <nodeSuccessors name="next" next="CreateComment6"/>
+    <parameterBindings name="Object1" objectPath="Order:ShippingStatusStateName"/>
+    <returnValueBindings name="String1" objectPath="OrderStatus"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateComment6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateComment.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode22"/>
+    <parameterBindings name="Author" objectPath="User"/>
+    <parameterBindings name="CommentText" objectPath="OrderStatus"/>
+    <parameterBindings name="PersistentObject" objectPath="Order"/>
+    <parameterBindings name="TypeCode" constant="(Integer)23"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode22">
+<!--@BendPoints 15,9-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" name="TrackOrderStatus"
+      callMode="Private">
+<!--@BendPoints 1,2-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+<!--The order whose status has been changed.-->
+    <parameters name="Order" type="com.intershop.beehive.core.capi.domain.PersistentObject"
+        optional="true"/>
+<!--The domain which defines the domain preference 'OrderStatusTracking'.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--The user who did the status change.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 1,4-->
+    <nodeSuccessors name="next" next="ToString1"/>
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="ERROR" next="JoinNode18"/>
+    <startNode referencedName="OrderStatusTracking-CheckEnabled"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ToString1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ToString.xml"/>
+    <nodeSuccessors name="next" next="CreateComment2"/>
+    <parameterBindings name="Object1" objectPath="Order:StatusStateName"/>
+    <returnValueBindings name="String1" objectPath="OrderStatus"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateComment2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateComment.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode18"/>
+    <parameterBindings name="Author" objectPath="User"/>
+    <parameterBindings name="CommentText" objectPath="OrderStatus"/>
+    <parameterBindings name="PersistentObject" objectPath="Order"/>
+    <parameterBindings name="TypeCode" constant="(Integer)20"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3"/>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+<!--@BendPoints 3,9-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="TrackPLIStatus" callMode="Private">
+<!--@BendPoints 1,16-->
+    <nodeSuccessors name="next" next="CallNode14"/>
+<!--The product lineitem whose status has been changed.-->
+    <parameters name="ProductLineItem" type="com.intershop.beehive.core.capi.domain.PersistentObject"
+        optional="true"/>
+<!--The domain which defines the domain preference The domain which defines the domain preference 'OrderStatusTracking'.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--The user who did the status change.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode14">
+<!--@BendPoints 1,18-->
+    <nodeSuccessors name="next" next="ToString6"/>
+<!--@BendPoints 3,18-->
+    <nodeSuccessors name="ERROR" next="JoinNode25"/>
+    <startNode referencedName="OrderStatusTracking-CheckEnabled"/>
+  </nodes>
+<!--@Location 0,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ToString6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ToString.xml"/>
+<!--@BendPoints 1,20-->
+    <nodeSuccessors name="next" next="CreateComment1"/>
+    <parameterBindings name="Object1" objectPath="ProductLineItem:StatusStateName"/>
+    <returnValueBindings name="String1" objectPath="PLIStatus"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateComment1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateComment.xml"/>
+    <nodeSuccessors name="next" next="JoinNode16"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode25"/>
+    <parameterBindings name="Author" objectPath="User"/>
+    <parameterBindings name="CommentText" objectPath="PLIStatus"/>
+    <parameterBindings name="PersistentObject" objectPath="ProductLineItem"/>
+    <parameterBindings name="TypeCode" constant="(Integer)30"/>
+  </nodes>
+<!--@Location 0,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+<!--@BendPoints 1,24-->
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 0,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10"/>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode25">
+<!--@BendPoints 3,23-->
+    <nodeSuccessors name="next" next="JoinNode16"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" name="TrackPLIStatus2"
+      callMode="Private">
+<!--@BendPoints 5,16-->
+    <nodeSuccessors name="next" next="CallNode15"/>
+<!--The product lineitem whose status has been changed.-->
+    <parameters name="ProductLineItem" type="com.intershop.beehive.core.capi.domain.PersistentObject"
+        optional="true"/>
+<!--The domain which defines the domain preference The domain which defines the domain preference 'OrderStatusTracking'.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--The user who did the status change.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode15">
+<!--@BendPoints 5,18-->
+    <nodeSuccessors name="next" next="ToString7"/>
+<!--@BendPoints 7,18-->
+    <nodeSuccessors name="ERROR" next="JoinNode26"/>
+    <startNode referencedName="OrderStatusTracking-CheckEnabled"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ToString7">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ToString.xml"/>
+    <nodeSuccessors name="next" next="CreateComment5"/>
+    <parameterBindings name="Object1" objectPath="ProductLineItem:Status2StateName"/>
+    <returnValueBindings name="String1" objectPath="PLIStatus"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateComment5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateComment.xml"/>
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode26"/>
+    <parameterBindings name="Author" objectPath="User"/>
+    <parameterBindings name="CommentText" objectPath="PLIStatus"/>
+    <parameterBindings name="PersistentObject" objectPath="ProductLineItem"/>
+    <parameterBindings name="TypeCode" constant="(Integer)31"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="EndNode8"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8"/>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode26">
+<!--@BendPoints 7,23-->
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+</pipeline:Pipeline>

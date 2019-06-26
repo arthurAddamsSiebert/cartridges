@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+	<parameters>
+		<parameter name="Pagelet" type="com.intershop.component.pmc.capi.pagelet.Pagelet" optional="false"/>
+		<parameter name="ContentRepository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false"/>
+		<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+		<parameter name="PageletModelRepository" type="com.intershop.component.pmc.capi.model.PageletModelRepository" optional="false"/>
+		<parameter name="PageFlag" type="java.lang.Boolean" optional="false"/>
+		<parameter name="TemplateFlag" type="java.lang.Boolean" optional="true"/>
+		<parameter name="SortBy" type="java.lang.String" optional="true"/>
+		<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	</parameters>
+	<return-mappings>
+		<return-mapping name="Assignment" type="provider" provider="PageletAssignmentProvider">
+			<return-attribute name="a_uuid"/>
+		</return-mapping>
+		<return-mapping name="Pagelet" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletPO">
+			<return-attribute name="p_uuid"/>
+		</return-mapping>
+	</return-mappings>
+	<processor name="OracleSQL"/>
+	<template type="countedobjects" sqlDialect="Oracle">
+		
+		SELECT a_uuid, p_uuid,
+			COUNT (a_uuid) OVER() AS "rowcount",
+	        <template-if condition="isDefined(SortBy) AND (SortBy EQ &apos;VisibleFrom&apos;)">
+				validfrom
+			<if-elseif condition="isDefined(SortBy) AND (SortBy EQ &apos;VisibleTo&apos;)"/>
+				validto
+			<if-else/>
+				pav.stringvalue
+			</template-if> AS sorting
+		FROM (
+			SELECT spa.subpageletid AS uuid, spa.uuid AS a_uuid, spa.domainid AS domainid, spa.validfrom AS validfrom, spa.validto AS validto, p.uuid AS p_uuid, p.pageflag AS pageflag, p.templateflag AS templateflag, p.resourcesetid as resourcesetid
+			FROM slotpageletassignment spa
+			JOIN slot s
+			  ON spa.parentslotid = s.uuid
+			JOIN pagelet p 
+			  ON s.parentpageletid = p.uuid
+			
+			UNION ALL
+			SELECT p_pa.pageletid AS uuid, p_pa.uuid AS a_uuid, p_pa.domainid AS domainid, p_pa.validfrom AS validfrom, p_pa.validto AS validto, p.uuid AS p_uuid, p.pageflag AS pageflag, p.templateflag AS templateflag, p.resourcesetid as resourcesetid
+			FROM placeholder_pa p_pa
+			JOIN placeholder_parent p_parent
+			  ON p_pa.placeholderid = p_parent.uuid
+			JOIN pagelet p
+			  ON p_parent.templateid = p.uuid
+			
+			UNION ALL
+			SELECT p_pa.pageletid AS uuid, p_pa.uuid AS a_uuid, p_pa.domainid AS domainid, p_pa.validfrom AS validfrom, p_pa.validto AS validto, p.uuid AS p_uuid, p.pageflag AS pageflag, p.templateflag AS templateflag, p.resourcesetid as resourcesetid
+			FROM placeholder_pa p_pa
+			JOIN placeholder_spa p_spa
+			  ON p_pa.placeholderid = p_spa.uuid
+			JOIN pagelet p
+			  ON p_spa.templateid = p.uuid
+			  
+			UNION ALL
+			SELECT p_pa.pageletid AS uuid, p_pa.uuid AS a_uuid, p_pa.domainid AS domainid, p_pa.validfrom AS validfrom, p_pa.validto AS validto, p.uuid AS p_uuid, p.pageflag AS pageflag, p.templateflag AS templateflag, p.resourcesetid as resourcesetid
+			FROM placeholder_pa p_pa
+			JOIN placeholder_ppa p_ppa
+			  ON p_pa.placeholderid = p_ppa.uuid
+			JOIN pagelet p
+			  ON p_ppa.templateid = p.uuid
+			  
+			UNION ALL
+			SELECT p_pa.pageletid AS uuid, p_pa.uuid AS a_uuid, p_pa.domainid AS domainid, p_pa.validfrom AS validfrom, p_pa.validto AS validto, p.uuid AS p_uuid, p.pageflag AS pageflag, p.templateflag AS templateflag, p.resourcesetid as resourcesetid
+			FROM placeholder_pa p_pa
+			JOIN placeholder_override p_ovr
+			  ON p_pa.placeholderid = p_ovr.uuid
+			JOIN pagelet p
+			  ON p_ovr.pageletid = p.uuid		
+		)
+		
+		LEFT OUTER JOIN pagelet_av pav 
+			ON (p_uuid = pav.ownerid 
+				AND pav.name=&apos;displayName&apos; 
+				AND pav.localeid=<template-variable value="Locale:LocaleID"/>)
+		
+		WHERE uuid = <template-variable value="Pagelet:UUID"/>
+		AND domainid IN
+		(
+			<template-call name="pagelet/inc/ContentRepositories">
+				<call-parameter name="Repository" value="ContentRepository"/>
+			</template-call>
+		)
+        AND resourcesetid IN 
+        (
+          <template-loop iterator="PageletModelRepository:ResourceSetIds" alias="ResourceSetId">
+            <loop-statement><template-variable value="ResourceSetId"/></loop-statement>
+            <loop-separator>,</loop-separator>
+          </template-loop>
+        ) 
+		<template-if condition="PageFlag">
+			AND pageflag=1
+			<if-else/>
+			AND pageflag=0
+		</template-if>
+		<template-if condition="isDefined(TemplateFlag)">
+			<template-if condition="TemplateFlag">
+				AND templateflag=1
+				<if-else/>
+				AND templateflag=0
+			</template-if>
+		</template-if>
+		
+		ORDER BY sorting
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			DESC NULLS FIRST
+		<if-else/>
+			ASC NULLS LAST
+		</template-if>	
+	</template>
+	<template type="countedobjects" sqlDialect="Microsoft">
+		
+		SELECT a_uuid, p_uuid,
+			COUNT (a_uuid) OVER() AS "rowcount",
+	        <template-if condition="isDefined(SortBy) AND (SortBy EQ &apos;VisibleFrom&apos;)">
+				validfrom
+			<if-elseif condition="isDefined(SortBy) AND (SortBy EQ &apos;VisibleTo&apos;)"/>
+				validto
+			<if-else/>
+				pav.stringvalue
+			</template-if> AS sorting
+		FROM (
+			SELECT spa.subpageletid AS uuid, spa.uuid AS a_uuid, spa.domainid AS domainid, spa.validfrom AS validfrom, spa.validto AS validto, p.uuid AS p_uuid, p.pageflag AS pageflag, p.templateflag AS templateflag, p.resourcesetid as resourcesetid
+			FROM slotpageletassignment spa
+			JOIN slot s
+			  ON spa.parentslotid = s.uuid
+			JOIN pagelet p 
+			  ON s.parentpageletid = p.uuid
+			
+			UNION ALL
+			SELECT p_pa.pageletid AS uuid, p_pa.uuid AS a_uuid, p_pa.domainid AS domainid, p_pa.validfrom AS validfrom, p_pa.validto AS validto, p.uuid AS p_uuid, p.pageflag AS pageflag, p.templateflag AS templateflag, p.resourcesetid as resourcesetid
+			FROM placeholder_pa p_pa
+			JOIN placeholder_parent p_parent
+			  ON p_pa.placeholderid = p_parent.uuid
+			JOIN pagelet p
+			  ON p_parent.templateid = p.uuid
+			
+			UNION ALL
+			SELECT p_pa.pageletid AS uuid, p_pa.uuid AS a_uuid, p_pa.domainid AS domainid, p_pa.validfrom AS validfrom, p_pa.validto AS validto, p.uuid AS p_uuid, p.pageflag AS pageflag, p.templateflag AS templateflag, p.resourcesetid as resourcesetid
+			FROM placeholder_pa p_pa
+			JOIN placeholder_spa p_spa
+			  ON p_pa.placeholderid = p_spa.uuid
+			JOIN pagelet p
+			  ON p_spa.templateid = p.uuid
+			  
+			UNION ALL
+			SELECT p_pa.pageletid AS uuid, p_pa.uuid AS a_uuid, p_pa.domainid AS domainid, p_pa.validfrom AS validfrom, p_pa.validto AS validto, p.uuid AS p_uuid, p.pageflag AS pageflag, p.templateflag AS templateflag, p.resourcesetid as resourcesetid
+			FROM placeholder_pa p_pa
+			JOIN placeholder_ppa p_ppa
+			  ON p_pa.placeholderid = p_ppa.uuid
+			JOIN pagelet p
+			  ON p_ppa.templateid = p.uuid
+			  
+			UNION ALL
+			SELECT p_pa.pageletid AS uuid, p_pa.uuid AS a_uuid, p_pa.domainid AS domainid, p_pa.validfrom AS validfrom, p_pa.validto AS validto, p.uuid AS p_uuid, p.pageflag AS pageflag, p.templateflag AS templateflag, p.resourcesetid as resourcesetid
+			FROM placeholder_pa p_pa
+			JOIN placeholder_override p_ovr
+			  ON p_pa.placeholderid = p_ovr.uuid
+			JOIN pagelet p
+			  ON p_ovr.pageletid = p.uuid	
+		) a
+		
+		LEFT OUTER JOIN pagelet_av pav 
+			ON (p_uuid = pav.ownerid 
+				AND pav.name=&apos;displayName&apos; 
+				AND pav.localeid=<template-variable value="Locale:LocaleID"/>)
+		
+		WHERE uuid = <template-variable value="Pagelet:UUID"/>
+		AND domainid IN
+		(
+			<template-call name="pagelet/inc/ContentRepositories">
+				<call-parameter name="Repository" value="ContentRepository"/>
+			</template-call>
+		)
+        AND resourcesetid IN 
+        (
+          <template-loop iterator="PageletModelRepository:ResourceSetIds" alias="ResourceSetId">
+            <loop-statement><template-variable value="ResourceSetId"/></loop-statement>
+            <loop-separator>,</loop-separator>
+          </template-loop>
+        ) 
+		<template-if condition="PageFlag">
+			AND pageflag=1
+			<if-else/>
+			AND pageflag=0
+		</template-if>
+		<template-if condition="isDefined(TemplateFlag)">
+			<template-if condition="TemplateFlag">
+				AND templateflag=1
+				<if-else/>
+				AND templateflag=0
+			</template-if>
+		</template-if>
+		
+		ORDER BY
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			CASE
+				WHEN 
+					<template-if condition="isDefined(SortBy) AND (SortBy EQ &apos;VisibleFrom&apos;)">
+						validfrom
+					<if-elseif condition="isDefined(SortBy) AND (SortBy EQ &apos;VisibleTo&apos;)"/>
+						validto
+					<if-else/>
+						pav.stringvalue
+					</template-if> 
+					IS NULL THEN 0
+				ELSE 1
+			END, sorting DESC
+		<if-else/>
+			CASE
+				WHEN 
+					<template-if condition="isDefined(SortBy) AND (SortBy EQ &apos;VisibleFrom&apos;)">
+						validfrom
+					<if-elseif condition="isDefined(SortBy) AND (SortBy EQ &apos;VisibleTo&apos;)"/>
+						validto
+					<if-else/>
+						pav.stringvalue
+					</template-if>  IS NULL THEN 1
+				ELSE 0
+			END, sorting ASC
+		</template-if>	
+	</template>
+</query>

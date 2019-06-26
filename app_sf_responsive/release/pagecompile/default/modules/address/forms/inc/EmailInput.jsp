@@ -1,0 +1,24 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"modules/common/Modules", null, "2");} %><div class="form-group">
+<label class="control-label col-sm-4" for="<% {String value = null;try{value=context.getFormattedValue(context.getFormattedValue(getObject("EmailAddress:Email:QualifiedName"),null) + context.getFormattedValue(getObject("idSuffix"),null),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {6}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("checkout.addresses.email.label","",null,null,null,null,null,null,null,null,null,null,null));} %><% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) getObject("webform:Email:Optional")).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",8,e);}if (_boolean_result) { %><span class="required">*</span><% } %></label>
+<div class="col-sm-8">
+<input maxlength="255" aria-required="true" 
+type="email" 
+id="<% {String value = null;try{value=context.getFormattedValue(getObject("EmailAddress:Email:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {13}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+name="<% {String value = null;try{value=context.getFormattedValue(getObject("EmailAddress:Email:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {14}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+<% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("EmailAddress:Email:Value"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",15,e);}if (_boolean_result) { %>
+value="<% {String value = null;try{value=context.getFormattedValue(getObject("EmailAddress:Email:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {16}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+<% } else { %>
+value="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentCartBO:InvoiceToAddressBO:EMail"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {18}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+<% } %>
+class="form-control <% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("EmailAddress:Email:isInvalid"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",20,e);}if (_boolean_result) { %>has-error<% } %>"
+required 
+data-bv-notempty-message="<% {out.write(localizeISText("account.email.error.email","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+data-bv-emailaddress-message="<% {out.write(localizeISText("checkout.addresses.email.invalid.error","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+data-flash-error-keys="fieldFailureMessageGlobal" />
+</div>
+</div><% printFooter(out); %>

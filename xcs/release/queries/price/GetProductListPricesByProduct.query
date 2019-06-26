@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Product" type="com.intershop.beehive.xcs.capi.product.Product" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="ProductPriceQueryProvider" type="provider" class="ProductPriceQueryProvider">
+		<return-attribute name="PRODUCTID"/>
+		<return-attribute name="DOMAINID"/>
+		<return-attribute name="CURRENCY"/>
+		<return-attribute name="CLASSNAME"/>
+	</return-mapping>
+</return-mappings>
+<processor name="JDBC"/>
+<template type="objects">
+SELECT * FROM (
+	SELECT 
+		productid, domainid, currency, 'com.intershop.beehive.xcs.internal.price.DerivedProductListPricePO' AS CLASSNAME
+	FROM
+		derivedproductlistprice 
+	WHERE 
+		productid = <template-variable value="Product:UUID"/>
+	AND
+		domainid = <template-variable value="Product:DomainID"/>  
+	UNION ALL 
+	SELECT 
+		productid, <template-variable value="Product:DomainID"/> AS DOMAINID, currency, 'com.intershop.beehive.xcs.internal.price.ProductListPricePO' AS CLASSNAME
+	FROM 
+		productlistprice
+	WHERE
+		productid = <template-variable value="Product:UUID"/>
+	AND
+		(
+            currency NOT IN (
+                SELECT 
+                    currency
+                FROM
+                    derivedproductlistprice 
+                WHERE 
+                    productid = <template-variable value="Product:UUID"/>
+                AND
+                    domainid = <template-variable value="Product:DomainID"/>    
+            )
+        ) 
+) <sql-dialect name="Microsoft">a</sql-dialect>
+ORDER BY currency
+</template>
+</query>

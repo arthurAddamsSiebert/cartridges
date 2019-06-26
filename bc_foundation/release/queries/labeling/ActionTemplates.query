@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="TypeCode" type="java.lang.Integer" optional="true"/>
+	<parameter name="LabelAssignedTypes" type="java.util.Iterator" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="ActionTemplates" type="orm" class="com.intershop.beehive.core.internal.job.JobConfigurationPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="objects">
+	select uuid
+	from jobconfiguration jc, jobconfiguration_av jcav
+	where domainid = <template-variable value="Domain:UUID"/>
+	and jc.uuid = jcav.ownerid
+	and jcav.name = 'ActionTemplate'
+	<template-if condition="isDefined(TypeCode)">
+		AND (jcav.stringvalue = 'all'
+			OR(
+				<sql-dialect name="Oracle">
+		             (instr(jcav.stringvalue, '<template-variable value="TypeCode" processing="text"/>') &gt; 0) 
+		        </sql-dialect>
+		        <sql-dialect name="Microsoft">
+		             (Charindex('<template-variable value="TypeCode" processing="text"/>', jcav.stringvalue) &gt; 0) 
+		        </sql-dialect>
+		       )
+			)
+	</template-if>
+	<template-if condition="isDefined(LabelAssignedTypes) and hasLoopElements(LabelAssignedTypes)">
+    AND EXISTS 
+    (
+        select 1 from jobconfiguration_av 
+        where 
+        ownerid = jc.uuid and name = 'ObjectType'
+        and 
+        (
+            	<template-loop iterator="LabelAssignedTypes" alias="AssignedType">
+	            	<loop-statement>
+	            		<sql-dialect name="Oracle">
+		                	(instr(stringvalue, '<template-variable value="AssignedType" processing="text"/>') &gt; 0) 
+		                </sql-dialect>
+		                <sql-dialect name="Microsoft">
+		                	(Charindex('<template-variable value="AssignedType" processing="text"/>', stringvalue) &gt; 0) 
+		                </sql-dialect>
+	                </loop-statement>
+					<loop-separator> OR </loop-separator>
+                </template-loop>
+        )
+	    OR ( NOT EXISTS (select 1 from jobconfiguration_av where ownerid = jc.uuid and name = 'ObjectType'))
+    )
+	</template-if>
+	order by jc.description
+</template>
+</query>

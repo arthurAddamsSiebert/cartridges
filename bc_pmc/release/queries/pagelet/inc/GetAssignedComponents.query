@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Retrieves the set of unique UUIDs of Pagelets, assigned to either Pages or Components, depending on the value of input parameter AssignmentType.">
+<parameters>
+	<parameter name="AssignmentType" type="java.lang.String" optional="false" description="'all'/'page'/'component'"/>
+	<parameter name="PageletAssignmentsOption" type="java.lang.String" optional="true" description="The selected by user search option for filtering by parent page/component. Possible values: 'all', 'assigned', 'notAssigned', 'assignedToFilteredPagelet'"/>
+	<parameter name="ComponentSearchParameters" type="java.util.Map" optional="false" description="A Map containing the Pagelet Search parameters for the base Component query."/>
+	<parameter name="UsePublishingFilter" type="java.lang.Boolean" optional="true" description="Default value -> Boolean.TRUE"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Pagelet" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletPO">
+		<return-attribute name="PageletUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	(
+		select distinct pagelet_assignments_parents.pageletuuid
+           from (<template-call name = "pagelet/inc/GetPageletAssignmentsWithParents"/>) pagelet_assignments_parents
+	    <template-if condition="AssignmentType eq &apos;all&apos;">
+	      where 1 = 1  <!-- All assignments -->
+	    <if-else/>
+	      where pagelet_assignments_parents.parent_pageflag <template-if condition="AssignmentType eq &apos;page&apos;">= 1<if-else/>!= 1</template-if>
+	    </template-if>
+	    <template-if condition="not isDefined(UsePublishingFilter) or UsePublishingFilter">
+	          <template-call name="pagelet/inc/PublishingFilter">
+	            <call-parameter name="TableAlias" value="&apos;pagelet_assignments_parents&apos;"/>
+	            <call-parameter name="WhereClause" value="false()"/>
+	            <call-parameter name="PublishingOption" value="ComponentSearchParameters:AssignmentsVisibility"/>
+	            <call-parameter name="PublishedFromOption" value="ComponentSearchParameters:AssignmentsVisibleFrom"/>
+	            <call-parameter name="PublishedToOption" value="ComponentSearchParameters:AssignmentsVisibleTo"/>
+	            <call-parameter name="PublishedFromSinceDate" value="ComponentSearchParameters:AssignmentsVisibleFromSinceDate"/>
+	            <call-parameter name="PublishedFromTillDate" value="ComponentSearchParameters:AssignmentsVisibleFromTillDate"/>
+	            <call-parameter name="PublishedToSinceDate" value="ComponentSearchParameters:AssignmentsVisibleToSinceDate"/>
+	            <call-parameter name="PublishedToTillDate" value="ComponentSearchParameters:AssignmentsVisibleToTillDate"/>
+	          </template-call>
+	    </template-if>)
+</template>
+</query>

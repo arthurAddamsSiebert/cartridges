@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+	<parameter name="ProductAlias" type="java.lang.String" optional="true"/>
+	<parameter name="DerivedAlias" type="java.lang.String" optional="true"/>
+	<parameter name="ProductIDField" type="java.lang.String" optional="true" description="The Product ID-Field to compare with"/>
+</parameters>
+<processor name="OracleSQL">
+	<processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+	    <template-if condition="Sharing:Enabled">
+		    SELECT 
+		        productid, domainid, currency, value, netpriceflag
+		    FROM
+		        derivedproductlistprice dp
+		    WHERE 
+		        domainid = <template-variable value="ProductDomain:UUID"/> 
+		        <template-if condition="isdefined(ProductIDField)">AND dp.productid = <template-variable value="ProductIDField" processing="text"/></template-if>
+		        
+		    UNION ALL 
+		    SELECT 
+		        productid, <template-variable value="ProductDomain:UUID"/> AS DOMAINID, currency, value, netpriceflag
+		    FROM 
+		        productlistprice 
+		        <template-if condition="isdefined(ProductAlias)"><template-variable value="ProductAlias" processing="text"/><if-else/>pl</template-if>
+		    WHERE
+		        NOT EXISTS (
+		            SELECT 1
+		            FROM
+		                derivedproductlistprice <template-if condition="isdefined(DerivedAlias)"><template-variable value="DerivedAlias" processing="text"/><if-else/>dpl</template-if>
+		            WHERE
+		                <template-if condition="isdefined(DerivedAlias)"><template-variable value="DerivedAlias" processing="text"/><if-else/>dpl</template-if>.productid = <template-if condition="isdefined(ProductAlias)"><template-variable value="ProductAlias" processing="text"/><if-else/>pl</template-if>.productid
+		            AND
+		                <template-if condition="isdefined(DerivedAlias)"><template-variable value="DerivedAlias" processing="text"/><if-else/>dpl</template-if>.domainid = <template-variable value="ProductDomain:UUID"/>
+		        )
+		    <if-else/>
+		    SELECT * FROM productlistprice 
+		    </template-if>
+</template>
+</query>

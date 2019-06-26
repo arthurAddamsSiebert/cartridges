@@ -1,0 +1,182 @@
+<!--- TEMPLATENAME: ActionEditor.isml --->
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<%@page import="org.apache.commons.lang.StringUtils"%>
+<%@page import="com.intershop.beehive.core.capi.webform.FormParameter"%>
+<%@page import="java.util.ArrayList"%>
+<%@page import="java.util.HashMap"%>
+<%@page import="com.intershop.beehive.core.capi.webform.Form"%>
+<%@page import="com.intershop.component.foundation.capi.action.ActionDescriptor"%>
+<%@page import="java.util.Iterator"%>
+<%@page import="com.intershop.component.foundation.capi.action.ActionDescriptorRegistry"%>
+
+<!--- Prepare special data container --->
+<!--- TypeActionDescriptors : holds action descriptors with predefined type --->
+<!--- ActionTypes : holds all available action types --->
+<!--- ActionTypesMap : holds display names for action types --->
+<%
+	 ArrayList<ActionDescriptor> typeActionDescriptors = new ArrayList<ActionDescriptor>();
+	 HashMap<String, String> typesMap = new HashMap<String, String>();
+	 
+	 String selectedType = null;
+	 Form form = getObject("NewActionForm")==null ? (Form) getObject("ActionForm") : (Form) getObject("NewActionForm");
+	 if (form!=null) {
+	 	FormParameter param = form.getParameter("ActionType");
+	 	if (param!=null) selectedType = (String) param.getValue();
+	 }
+	 
+	 ActionDescriptorRegistry reg = (ActionDescriptorRegistry) getObject("ActionDescriptorRegistry");
+     Iterator<ActionDescriptor> descriptors = reg.sortDescriptorsByName(reg.getDescriptors()).iterator();
+	 
+	 // collect descriptor information
+	 while (descriptors.hasNext()) {
+	 	ActionDescriptor desc = descriptors.next();
+	 	if (!desc.isConfigurable(getObject("ContextObject"))) 
+	 		continue;		// check if action is configurable
+	 	if (selectedType!=null && desc.getType().equals(selectedType)) 
+	 		typeActionDescriptors.add(desc);
+	 	if (StringUtils.isNotBlank(desc.getType())) 
+	 		typesMap.put(desc.getType(), desc.getTypeName());
+	 }
+	 
+	 getPipelineDictionary().put("TypeActionDescriptors", typeActionDescriptors.iterator());
+	 getPipelineDictionary().put("ActionTypes", typesMap.keySet().iterator());
+	 getPipelineDictionary().put("ActionTypesMap", typesMap);
+	 
+%>
+
+<script type="text/javascript">
+function preSubmit(event)
+{
+	if (event.keyCode == 13)
+	{
+		if (document.DiscountRuleForm.jumpActionIncExc)
+		{
+			// document.DiscountRuleForm.removeChild(document.DiscountRuleForm.jumpActionIncExc);
+			window.setTimeout(function() { document.DiscountRuleForm.removeChild(document.DiscountRuleForm.jumpActionIncExc); }, 50);
+
+			var element = document.createElement("input");
+			element.type = "hidden";
+			element.name = "updateAction";
+			element.value = "OK";
+			document.DiscountRuleForm.appendChild(element);
+		}
+		document.DiscountRuleForm.submit();
+	}
+}
+</script>
+
+<!-- Discount Actions -->
+<isform action="#url(action('ViewPromotionDiscountRules-Dispatch'))#" name="DiscountRuleForm" method="post">
+	<table cellpadding="0" cellspacing="0" border="0" width="100%" class="w e s">
+		<tr><td colspan=3><img src="#WebRoot()#/images/space.gif" width="20" height="6" alt="" border="0"/></td></tr>
+		<tr>
+			<td class="table_title3 n w100"><istext key="ActionEditor.PromotionDiscount.table_title3" encoding="off"/></td>
+			<td class="table_detail n right">
+				<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_MARKETING)#">
+					<input type="checkbox" name="<isprint value="#ActionOverrideApplicationExclusionsForms:get(Rebate:UUID):Selection:QualifiedName#">" <isif condition="#ActionOverrideApplicationExclusionsForms:get(Rebate:UUID):Selection:Value#">checked="checked"</isif>/>
+				<iselse>
+					<input type="checkbox" name="<isprint value="#ActionOverrideApplicationExclusionsForms:get(Rebate:UUID):Selection:QualifiedName#">" <isif condition="#ActionOverrideApplicationExclusionsForms:get(Rebate:UUID):Selection:Value#">checked="checked"</isif> disabled="disabled"/>
+				</isif>
+			</td>
+			<td nowrap="nowrap" class="table_detail n right">
+				<istext key="ActionEditor.OverrideApplicationLevelExclusions.table_detail" encoding="off"/>
+			</td>
+		</tr>
+	</table>
+		
+	<!-- delete confirmation if one is selected and error if nothing is selected-->
+	<isif condition="#(TargetActionID EQ ContextObject:UUID) AND isDefined(confirmDeleteAction)#">
+		<table border="0" cellpadding="0" cellspacing="0" width="100%">
+			<tr>
+				<td>
+					<table border="0" cellspacing="0" cellpadding="0" width="100%" class="confirm_box">
+						<isif condition="#hasLoopElements(ActionClipboard:ObjectUUIDs)#">
+							<ISMessageBox subject="#localizeText('PageletPromotionAssignments.Actions.table_header')#" type="mdc" 
+								message="#localizeText('ActionEditor.DeleteAllSelectedDiscounts.message')#" okbtnname="deleteAction" cancelbtnname="cancelAction" colspan="1">
+						<iselse/>
+							<ISMessageBox subject="#localizeText('PageletPromotionAssignments.Actions.table_header')#" type="mde" message="#localizeText('ActionEditor.PleaseSelectAtLeastOneDiscount.message')#" colspan="1">
+						</isif>
+					</table>
+				</td>
+			</tr>
+		</table>
+	</isif>
+	
+	<input type="hidden" name="PromotionUUID" value="<isprint value="#Promotion:UUID#">"/>
+	<input type="hidden" name="ChannelID" value="<isprint value="#CurrentChannel:UUID#">"/>
+	<input type="hidden" name="RebateID" value="<isprint value="#Rebate:UUID#">"/>
+	<input type="hidden" name="TargetActionID" value="<isprint value="#ContextObject:UUID#">"/>
+	<input type="hidden" name="LocaleID" value="<isprint value="#SelectedLocale:LocaleID#">"/>
+	
+	<table border="0" cellpadding="0" cellspacing="0" width="100%">
+		<tr>
+			<td>
+				<isif condition="#not hasLoopElements(Rebate:Actions) and not (isDefined(NewActionForm) AND (TargetActionID EQ ContextObject:UUID))#">
+					<!-- There is no sub condition -->
+					<table border="0" cellpadding="0" cellspacing="4" width="100%" class="w e s">
+						<tr>
+							<td class="table_detail">
+								<isif condition="#NOT isDefined(CurrentChannelPermissionMap:SLD_MANAGE_MARKETING)#">
+									<istext key="ActionEditor.CurrentlyThereIsNoDiscountDefined.table_detail" encoding="off"/>
+								<iselse>
+									<istext key="ActionEditor.CurrentlyThereIsNoDiscountDefined.noPermissions.table_detail" encoding="off"/>
+								</isif>
+							</td>
+						</tr>
+					</table>
+					<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_MARKETING)#">
+						<table width="100%" cellspacing="0" cellpadding="0" border="0" class="w e s">
+							<tr>
+								<td width="100%" align="right">
+									<table cellspacing="4" cellpadding="0" border="0">
+										<tr>
+											<td class="button"><input type="submit" class="button" value="#localizeText('ActionEditor.Apply.button')#" name="applyAction"/></td>
+											<td class="button"><input type="submit" class="button" value="#localizeText('ActionEditor.New.button')#" name="newAction" /></td>
+										</tr>
+									</table>
+								</td>
+							</tr>
+						</table>
+					</isif>
+				<iselse/>
+					<table border="0" cellpadding="0" cellspacing="4" width="100%" class="e w s">
+						<tr>
+							<td class="table_detail">
+								<isif condition="#isDefined(NewActionForm) AND (TargetActionID EQ ContextObject:UUID)#">
+									<!---  User tries to create a new condition currently --->
+									<isinclude template="marketing/inc/PromotionActionNew"/>
+								</isif>
+								<!--- There are action: Display actions--->
+								<isloop iterator="Rebate:Actions" alias="ThisAction">
+									<isinclude template="marketing/inc/PromotionAction"/>
+								</isloop>
+							</td>
+						</tr>
+					</table>
+				</isif>
+				
+				<!--- Button bar --->
+				<isif condition="#hasLoopElements(Rebate:Actions) AND isDefined(CurrentChannelPermissionMap:SLD_MANAGE_MARKETING)#">
+					<table width="100%" cellspacing="0" cellpadding="0" border="0" class="w e s">
+						<tr>
+							<td width="100%" align="right">
+								<table cellspacing="4" cellpadding="0" border="0">
+									<tr>
+										<isif condition="#isDefined(ThisEditMode) AND ThisEditMode#">
+											<td class="button"><input type="submit" class="button" value="#localizeText('ActionEditor.Apply.button')#" name="applyAction" disabled="disabled" /></td>
+											<td class="button"><input type="submit" class="button" value="#localizeText('ActionEditor.Delete.button')#" name="confirmDeleteAction" disabled="disabled" /></td>
+										<iselse/>
+											<td class="button"><input type="submit" class="button" value="#localizeText('ActionEditor.Apply.button')#" name="applyAction"/></td>
+											<td class="button"><input type="submit" class="button" value="#localizeText('ActionEditor.Delete.button')#" name="confirmDeleteAction"/></td>
+										</isif>
+									</tr>
+								</table>
+							</td>
+						</tr>
+					</table>
+				</isif>
+			</td>
+		</tr>
+	</table>
+</isform>

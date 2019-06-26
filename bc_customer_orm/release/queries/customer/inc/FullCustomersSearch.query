@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Serves to perform Customers Search in more complex cases when join with BasicProfile is needed - like NameOrID search, Advanced Search with User parameters or
+                    just presence of at least one Individual Customer">
+  <parameters>
+    <parameter name="CustomerBORepository" type="com.intershop.component.customer.capi.CustomerBORepository" optional="false"/>
+    <parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="CustomerNo" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="CompanyName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="BusinessPartnerNo" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="Login" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="FirstName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="LastName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="UserID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="CustomerType" type="java.lang.String" optional="true"/>
+    <parameter name="CustomerCreationDateFrom" type="java.util.Date" optional="true"/>
+    <parameter name="CustomerCreationDateTo" type="java.util.Date" optional="true"/>
+    <parameter name="UserCreationDateFrom" type="java.util.Date" optional="true"/>
+    <parameter name="UserCreationDateTo" type="java.util.Date" optional="true"/>
+    <parameter name="EnabledCustomersOnly" type="java.lang.Boolean" optional="true"/>
+    <parameter name="DisabledCustomersOnly" type="java.lang.Boolean" optional="true"/>
+    <parameter name="EnabledUsersOnly" type="java.lang.Boolean" optional="true"/>
+    <parameter name="DisabledUsersOnly" type="java.lang.Boolean" optional="true"/>
+    <parameter name="CustomerApprovalStatus" type="java.lang.String" optional="true"/>
+    <parameter name="SortBy" type="java.lang.String" optional="true"/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+  </parameters>
+
+  <return-mappings>
+    <return-mapping name="CustomerBO" type="bo-orm" class="com.intershop.component.customer.orm.internal.orm.CustomerPO" mapperclass="CustomerPOToCustomerBOMapper">
+      <return-attribute name="UUID"/>
+    </return-mapping>
+    <return-mapping name="UserIDs" type="constructor" class="com.intershop.component.customer.orm.internal.query.mapping.ArrayToCollectionMapping">
+      <return-attribute name="users"/>
+    </return-mapping>
+  </return-mappings>
+
+  <processor name="OracleSQL"/>
+
+  <template type="countedobjects">
+  <sql-dialect name="Microsoft">
+  SELECT uuid as cuuid , users,SORTING FROM (
+SELECT DISTINCT e.cuuid AS uuid, SORTING,
+    SUBSTRING(
+        (
+            SELECT ','+a.buuid  
+            FROM (SELECT c.uuid AS cuuid, bp.uuid AS buuid, c.domainid AS cdomainid
+                  FROM
+                  customer c 
+                  LEFT JOIN customerprofileassignment cpa ON (c.uuid=cpa.customerid) 
+                  LEFT JOIN basicprofile bp on (cpa.profileid=bp.uuid)
+                  LEFT JOIN customeraddress ca ON (c.uuid=ca.customerid)
+                  LEFT JOIN companyprofile cp ON (cp.customerid=c.uuid)) a
+            WHERE a.cuuid = e.cuuid
+            ORDER BY a.cuuid
+            For XML PATH ('')
+        ), 2, 1000) users
+		FROM (
+			SELECT c.uuid AS cuuid, bp.uuid AS buuid, 
+				<template-if condition="NOT isDefined(SortBy) OR SortBy EQ &apos;CreationDate&apos;">
+                     case when cp.creationdate is null then bp.creationdate else cp.creationdate end 
+                 </template-if>
+                 <template-if condition="SortBy EQ &apos;CustomerTypeID&apos;">
+                     c.customertypeid
+                 </template-if>
+                 <template-if condition="SortBy EQ &apos;Customer&apos;">
+                     case when cp.uuid is null then bp.firstname else cp.companyname end
+                 </template-if>
+                 <template-if condition="SortBy EQ &apos;CustomerNo&apos;">
+                     c.customerno
+                 </template-if>
+                 <template-if condition="SortBy EQ &apos;Status&apos;">
+                     case when cp.uuid is null then bc.disabledflag else cp.disabledflag end 
+                 </template-if>
+                 <template-if condition="SortBy EQ &apos;CustomerApprovalStatus&apos;">
+                     c.approvalStatus
+                 </template-if> as SORTING,
+                 rank() over (partition by c.uuid order by bp.typecode, bp.uuid) rank
+
+             FROM customer c 
+        LEFT JOIN customerprofileassignment cpa ON (c.uuid=cpa.customerid) 
+        LEFT JOIN basicprofile bp ON (cpa.profileid=bp.uuid)
+        LEFT JOIN basiccredentials bc on bc.basicprofileid = bp.uuid
+        LEFT JOIN customeraddress ca ON (c.uuid=ca.customerid)
+        LEFT JOIN companyprofile cp ON (cp.customerid=c.uuid)
+            where c.domainid = <template-variable value="CustomerBORepository:RepositoryID"/>
+           <template-if condition="isDefined(NameOrID)">
+               <template-call name="inc/SearchExpression2LikeWithSeparator">
+					<call-parameter name="SearchExpression" value="NameOrID"/>
+					<call-parameter name="ColumnNames" value="&quot;bp.lastName;bp.firstName;bp.businessPartnerNo;cp.companyname;cp.companyname2;c.customerno;concat(bp.firstname, concat(&apos; &apos;,bp.lastname))&quot;"/>
+					<call-parameter name="CaseInsensitive" value="true()"/>
+					<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+					<call-parameter name="Separator" value="&quot;;&quot;"/>
+				</template-call>
+               <template-if condition="isDefined(CustomerType) and (CustomerType ne &apos;All&apos;)">
+                   and c.customertypeid = <template-variable value="CustomerType"/>
+               </template-if>
+             <if-else/>
+               <template-if condition="isDefined(CustomerNo)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="CustomerNo"/><call-parameter name="ColumnNames" value="&quot;c.customerno &quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(CompanyName)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="CompanyName"/><call-parameter name="ColumnNames" value="&quot;cp.companyname &quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(BusinessPartnerNo)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="BusinessPartnerNo"/><call-parameter name="ColumnNames" value="&quot;bp.businessPartnerNo &quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(Login)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="Login"/><call-parameter name="ColumnNames" value="&quot;bc.login&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(FirstName)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="FirstName"/><call-parameter name="ColumnNames" value="&quot;bp.firstname&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(LastName)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="LastName"/><call-parameter name="ColumnNames" value="&quot;bp.lastname&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(UserID)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="UserID"/><call-parameter name="ColumnNames" value="&quot;bp.businesspartnerno&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(CustomerType) and (CustomerType ne &apos;All&apos;)">
+                   and c.customertypeid = <template-variable value="CustomerType"/>
+               </template-if>
+               <template-if condition="isDefined(UserCreationDateFrom)">
+                   and bp.creationdate &gt;= <template-variable value="UserCreationDateFrom"/>
+               </template-if>
+               <template-if condition="isDefined(UserCreationDateTo)">
+                   and <template-variable value="UserCreationDateTo"/> &gt;= bp.creationdate
+               </template-if>
+               <template-if condition="isDefined(CustomerCreationDateFrom)">
+                   and <template-variable value="CustomerCreationDateFrom"/> &lt;= (case when cp.creationdate is null then bp.creationdate else cp.creationdate end)
+               </template-if>
+               <template-if condition="isDefined(CustomerCreationDateTo)">
+                   and <template-variable value="CustomerCreationDateTo"/> &gt;= (case when cp.creationdate is null then bp.creationdate else cp.creationdate end)
+               </template-if>
+               <template-if condition="isDefined(CustomerApprovalStatus) and (CustomerApprovalStatus eq &apos;0&apos;)">
+                   and isNull(c.approvalstatus, &apos;0&apos;) = &apos;0&apos;
+               </template-if>
+
+               <template-if condition="isDefined(EnabledCustomersOnly) OR isDefined(DisabledCustomersOnly)">
+                   and (case 
+                            when cp.customerid is null then bc.disabledflag
+                            else cp.disabledflag
+                        end) = <template-if condition="isDefined(DisabledCustomersOnly)">1<if-else/>0</template-if>
+               </template-if>
+               
+               <template-if condition="isDefined(EnabledUsersOnly) OR isDefined(DisabledUsersOnly)">
+                   and (
+                        cp.customerid is null
+                        or
+                        bc.disabledflag = <template-if condition="isDefined(DisabledUsersOnly)">1<if-else />0</template-if>
+                   )
+               </template-if>
+           </template-if>
+           ) e
+     where rank &lt;= 10
+     group by cuuid, SORTING   
+                     
+                     ) e 
+                     
+
+					 
+	</sql-dialect>
+	<sql-dialect name="Oracle">
+    select cuuid,
+           CAST(COLLECT(buuid) AS collectionOfUUIDs) AS users,
+           SORTING
+      from (
+            select c.uuid as cuuid, bp.uuid as buuid,
+                 <template-if condition="NOT isDefined(SortBy) OR SortBy EQ &apos;CreationDate&apos;">
+                     case when cp.creationdate is null then bp.creationdate else cp.creationdate end 
+                 </template-if>
+                 <template-if condition="SortBy EQ &apos;CustomerTypeID&apos;">
+                     c.customertypeid
+                 </template-if>
+                 <template-if condition="SortBy EQ &apos;Customer&apos;">
+                     case when cp.uuid is null then bp.firstname else cp.companyname end
+                 </template-if>
+                 <template-if condition="SortBy EQ &apos;CustomerNo&apos;">
+                     c.customerno
+                 </template-if>
+                 <template-if condition="SortBy EQ &apos;Status&apos;">
+                     case when cp.uuid is null then bc.disabledflag else cp.disabledflag end 
+                 </template-if>
+                 <template-if condition="SortBy EQ &apos;CustomerApprovalStatus&apos;">
+                     c.approvalStatus
+                 </template-if> as SORTING,
+                 rank() over (partition by c.uuid order by bp.typecode, bp.uuid) rank
+              from customer c
+         left join customerprofileassignment cpa on c.uuid=cpa.customerid 
+         left join basicprofile bp on cpa.profileid = bp.uuid
+         left join basiccredentials bc on bc.basicprofileid = bp.uuid
+         left join companyprofile cp on cp.customerid = c.uuid
+             where c.domainid = <template-variable value="CustomerBORepository:RepositoryID"/>
+           <template-if condition="isDefined(NameOrID)">
+               <template-call name="inc/SearchExpression2LikeWithSeparator"><call-parameter name="SearchExpression" value="NameOrID"/><call-parameter name="ColumnNames" value="&quot;bp.lastName;bp.firstName;bp.businessPartnerNo;cp.companyname;cp.companyname2;c.customerno;concat(bp.firstname, concat(&apos; &apos;,bp.lastname))&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/><call-parameter name="Separator" value="&quot;;&quot;"/></template-call>
+               <template-if condition="isDefined(CustomerType) and (CustomerType ne &apos;All&apos;)">
+                   and c.customertypeid = <template-variable value="CustomerType"/>
+               </template-if>
+             <if-else/>
+               <template-if condition="isDefined(CustomerNo)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="CustomerNo"/><call-parameter name="ColumnNames" value="&quot;c.customerno &quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(CompanyName)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="CompanyName"/><call-parameter name="ColumnNames" value="&quot;cp.companyname &quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(BusinessPartnerNo)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="BusinessPartnerNo"/><call-parameter name="ColumnNames" value="&quot;bp.businessPartnerNo &quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(Login)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="Login"/><call-parameter name="ColumnNames" value="&quot;bc.login&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(FirstName)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="FirstName"/><call-parameter name="ColumnNames" value="&quot;bp.firstname&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(LastName)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="LastName"/><call-parameter name="ColumnNames" value="&quot;bp.lastname&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(UserID)">
+                   <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="UserID"/><call-parameter name="ColumnNames" value="&quot;bp.businesspartnerno&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/></template-call>
+               </template-if>
+               <template-if condition="isDefined(CustomerType) and (CustomerType ne &apos;All&apos;)">
+                   and c.customertypeid = <template-variable value="CustomerType"/>
+               </template-if>
+               <template-if condition="isDefined(UserCreationDateFrom)">
+                   and bp.creationdate &gt;= <template-variable value="UserCreationDateFrom"/>
+               </template-if>
+               <template-if condition="isDefined(UserCreationDateTo)">
+                   and <template-variable value="UserCreationDateTo"/> &gt;= bp.creationdate
+               </template-if>
+               <template-if condition="isDefined(CustomerCreationDateFrom)">
+                   and <template-variable value="CustomerCreationDateFrom"/> &lt;= (case when cp.creationdate is null then bp.creationdate else cp.creationdate end)
+               </template-if>
+               <template-if condition="isDefined(CustomerCreationDateTo)">
+                   and <template-variable value="CustomerCreationDateTo"/> &gt;= (case when cp.creationdate is null then bp.creationdate else cp.creationdate end)
+               </template-if>
+
+               <template-if condition="isDefined(CustomerApprovalStatus) and (CustomerApprovalStatus ne &apos;&apos;)">
+                   <template-if condition="CustomerApprovalStatus eq &apos;0&apos;">
+                     <!-- NULL or 0 for Pending -->
+                     and COALESCE(c.approvalstatus, 0) = 0
+                   <if-else/>
+                     <!-- 1 for Approved, 2 for Rejected -->
+                     and c.approvalstatus = <template-variable value="CustomerApprovalStatus"/>
+                   </template-if>
+               </template-if>
+
+               <template-if condition="isDefined(EnabledCustomersOnly) OR isDefined(DisabledCustomersOnly)">
+                   and (case 
+                            when cp.customerid is null then bc.disabledflag
+                            else cp.disabledflag
+                        end) = <template-if condition="isDefined(DisabledCustomersOnly)">1<if-else/>0</template-if>
+               </template-if>
+               
+               <template-if condition="isDefined(EnabledUsersOnly) OR isDefined(DisabledUsersOnly)">
+                   and (
+                        cp.customerid is null
+                        or
+                        bc.disabledflag = <template-if condition="isDefined(DisabledUsersOnly)">1<if-else />0</template-if>
+                   )
+               </template-if>
+           </template-if>
+           ) b
+     where rank &lt;= 10
+     group by cuuid, SORTING
+	</sql-dialect>
+
+  </template>
+</query>

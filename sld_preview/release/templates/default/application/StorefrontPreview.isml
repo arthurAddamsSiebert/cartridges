@@ -1,0 +1,365 @@
+<iscontent type="text/html" charset="UTF-8" compact="true" templatemarker="false"><!DOCTYPE html>
+<isinclude template="inc/Modules">
+<isinclude template="editing/Modules">
+<isif condition="#not(isDefined(ApplicationURL))#">
+	<ISGetDefaultApplicationURL
+		targetSite="#TargetSite#"
+		sourceSite="#CurrentDomain#"
+		previewWebform="#PreviewWebform#"
+		contentRepositoryUUID="#ContentRepository:UUID#"
+		ApplicationURL="ApplicationURL">
+</isif>
+<ISGetURI URL="#URL(Action('EditView-Dispatch'))#" URLInformation="URI" StandardPath="URLStandardPath">
+<ispipeline pipeline="EditView-GetPermissionMap" alias="EditViewPermission">
+
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+	<title><istext key="StorefrontPreview.StorefrontPreview.title"/></title>
+
+	<!--- isnoloc --->
+	<isinclude template="webcontrols/PlaceholderHead"/>
+	<isplacement placeholderid="JSWebLibraries">jquery.js</isplacement>
+	<isplacement placeholderid="JSWebLibraries">jquery-migrate-1.2.1.js</isplacement>
+	<isplacement placeholderid="JSWebLibraries">jquery-ui-1.10.3.js</isplacement>
+	<isplacement placeholderid="JSWebLibraries">jquery/jquery.cookie.js</isplacement>
+	<isplacement placeholderid="JSWebLibraries">jquery/jquery.dotimeout-1.0.js</isplacement>
+	<isplacement placeholderid="JSWebLibraries">jquery/jquery.scrollTo-1.4.2.js</isplacement>
+	
+	<!--- include all Javascript and CSS libraries that will be needed in Ajax calls at this level --->
+	<isinclude template="inc/GlobalJavaScript">
+	<isinclude template="webcontrols/Modules">
+	<isplacement placeholderid="CSSWebLibraries">jquery/popupmenu/jquery.popupmenu.css</isplacement>
+	<isplacement placeholderid="JSWebLibraries">jquery/popupmenu/jquery.popupmenu.js</isplacement>
+	<isplacement placeholderid="JSWebLibraries">bridge/bridge.js</isplacement>
+	<isplacement placeholderid="JSWebLibraries">pageselection.js</isplacement>
+	<isplacement placeholderid="JSWebLibraries">flyoutdialog.js</isplacement>
+	<!--- /isnoloc --->
+	
+	<script src="#WebRoot()#/js/KeepScrollPositionPreview.js"></script>
+	<script src="#WebRoot()#/js/kor.base.js"></script>
+	<script src="#WebRoot()#/js/kor.drag.js"></script>
+	<script src="#WebRoot()#/js/kor.treemenu.js"></script>
+	<script src="#WebRoot()#/js/kor.overlay.js"></script>
+	<script src="#WebRoot()#/js/kor.validator.js"></script>
+
+	<script type="text/javascript">
+	(function($){
+		KOR.namespace('KOR.SFE.URLS').application = "<isprint value="#ApplicationURL#" encoding="javascript">";
+		KOR.SFE.URLS.editing = "<isprint value="#URL(Action('ViewEditing-Start'), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#" encoding="javascript">";
+		KOR.SFE.URLS.backofficeEditing = "<isprint value="#URL(Action('ViewEditing-BackOffice'), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#" encoding="javascript">";
+		KOR.SFE.URLS.moveAssignment = "<isprint value="#URL(Action('ViewEditingActions-MoveAssignment'), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#" encoding="javascript">";
+		KOR.SFE.URLS.applicationReset = "<isprint value="#URL(Action('EditView-CleanStart'), Parameter('TargetSiteUUID', TargetSite:DomainID), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#" encoding="javascript">";
+		KOR.SFE.storefrontCSS = "#WebRoot()#/css/designer.storefront.css";
+		KOR.SFE.channelID = "todo";
+		KOR.SFE.contentRepoUUID = "<isprint value="#ContentRepository:UUID#" encoding="javascript">";
+		KOR.SFE.cookiePath = "<isprint value="#URLStandardPath.'/'.URI:ServerGroup.'/'.URI:DomainName.'/'.URI:LangID.'/'.URI:TemplateSet.'/'.URI:Currency.'/'#" encoding="javascript">";
+		//externalized strings object
+		$.extend(KOR.namespace('KOR.extStrings'), {
+			fieldFailureMessageRequired: "<isprint value="#localizeText('StorefrontPreview.ThisFieldIsRequired')#" encoding="javascript"/>",
+			fieldFailureInvalidPassword: "<isprint value="#localizeText('StorefrontPreview.InvalidPassword')#" encoding="javascript"/>"
+		});
+
+		//localized templates
+		$.extend(KOR.namespace('KOR.templates'), {
+			validationErrorTemplate: '<span class="{{this.errorClass}}">{{this.errorMessage}}</span>',
+			modalTemplate: '<div data-comp-type="{{this.NAME}}" data-comp-id="{{this.uId}}" class="{{this.modalClass}}"></div>',
+			overlayTemplate: '<div data-comp-type="{{this.NAME}}" data-comp-id="{{this.uId}}" class="{{this.overlayClass}} kor-{{this.NAME}}">{{this.html}}</div>',
+			overlayImageTemplate: '<img src="{{this.url}}" />',
+			menuOverlayTemplate: '\
+				<div data-comp-type="{{this.NAME}}" data-comp-id="{{this.uId}}" class="{{this.overlayClass}}">\
+					<div class="{{this.overlayHeaderClass}}">\
+						<div class="{{this.closeClass}}"><isprint value="#localizeText('StorefrontPreview.Close.link')#" encoding="javascript"/></div>\
+					</div>\
+					<div class="{{this.overlayContentClass}}">{{this.html}}</div>\
+				</div>',
+			arrowTipOverlayTemplate: '\
+				<div data-comp-type="{{this.NAME}}" data-comp-id="{{this.uId}}" class="{{this.overlayClass}} kor-{{this.NAME}}">\
+					<div class="kor-arrow-overlay-content">{{this.html}}</div>\
+					<div class="{{this.arrowClass}}"></div>\
+				</div>',
+			loginDialogOverlayTemplate: '\
+				<div data-comp-type="{{this.NAME}}" data-comp-id="{{this.uId}}" class="{{this.overlayClass}}">\
+					<div class="sfe-dialog-wrapper">\
+						<h1><isprint value="#localizeText('StorefrontPreview.SessionTimeout')#" encoding="javascript"/></h1>\
+						<a class="sfe-dialog-close kor-overlay-close" href="."><isprint value="#localizeText('StorefrontPreview.Close.link')#" encoding="javascript"/></a>\
+						<div class="sfe-generic-wrapper">\
+							<div class="sfe-dialog-content">\
+								<p class="sfe-info"><isprint value="#localizeText('StorefrontPreview.LoggedOutForSecurity')#" encoding="javascript"/></p>\
+								<isform id="sfe-login-dialog-form" method="post" action="#URL(Action('ViewApplication-ProcessLogin', 'WFS', 'SLDSystem', null, null, '-'))#">\
+									<label for="reenter-password"><isprint value="#localizeText('StorefrontPreview.Password.label')#" encoding="javascript"/>&nbsp;<span class="sfe-required">*</span></label>\
+									<input autocomplete="off" name="LoginForm_Password" type="password" data-validate="required">\
+									<input type="hidden" name="LoginForm_Login" value="<isprint value="#CurrentUser:Profile:Credentials:Login#">"/>\
+									<input type="hidden" name="LoginForm_RegistrationDomain" value="<isprint value="#CurrentUser:Profile:Domain:DomainName#">"/>\
+									<input type="hidden" name="submit" value="Logon"/>\
+								</isform>\
+							</div>\
+						</div>\
+						<div class="sfe-generic-wrapper">\
+							<ul class="sfe-button-bar">\
+								<li><a class="kor-overlay-close" href="."><isprint value="#localizeText('StorefrontPreview.Cancel.link')#" encoding="javascript"/></a></li>\
+								<li><a class="sfe-primary" id="sfe-login-dialog-button" href="."><isprint value="#localizeText('StorefrontPreview.OK.link')#" encoding="javascript"/></a></li>\
+							</ul>\
+						</div>\
+					</div>\
+				</div>',
+
+			errorDialogOverlayTemplate: '\
+				<div data-comp-type="{{this.NAME}}" data-comp-id="{{this.uId}}" class="{{this.overlayClass}}">\
+					<div class="sfe-dialog-wrapper">\
+						<h1><isprint value="#localizeText('StorefrontPreview.ApplicationError')#" encoding="javascript"/></h1>\
+						<a class="sfe-dialog-close kor-overlay-close" href="."><isprint value="#localizeText('StorefrontPreview.Close.link')#" encoding="javascript"/></a>\
+						<div class="sfe-generic-wrapper">\
+							<div class="sfe-dialog-content">\
+								<p class="sfe-error"><isprint value="#localizeText('StorefrontPreview.StorefrontEditingInformationMissing')#" encoding="javascript"/></p>\
+							</div>\
+						</div>\
+						<div class="sfe-generic-wrapper">\
+							<ul class="sfe-button-bar">\
+								<li><a class="kor-overlay-close" href="."><isprint value="#localizeText('StorefrontPreview.Cancel.link')#" encoding="javascript"/></a></li>\
+								<li><a class="sfe-primary sfe-reset-button" href="."><isprint value="#localizeText('StorefrontPreview.Reset.link')#" encoding="javascript"/></a></li>\
+							</ul>\
+						</div>\
+					</div>\
+				</div>',
+
+			errorCreationDialogOverlayTemplate: '\
+				<div data-comp-type="{{this.NAME}}" data-comp-id="{{this.uId}}" class="{{this.overlayClass}}">\
+					<div class="sfe-dialog-wrapper">\
+						<div class="sfe-generic-wrapper">\
+							<div class="sfe-dialog-content" data-default-message="<isprint value="#localizeText('StorefrontPreview.ContentManagementError.text')#" encoding="javascript"/>">\
+								<div class="sfe-error-box">\
+									<a class="sfe-dialog-close kor-overlay-close" href="."><isprint value="#localizeText("StorefrontPreview.Close.link")#" encoding="javascript"/></a>\
+									<p></p>\
+								</div>\
+							</div>\
+						</div>\
+					</div>\
+				</div>',
+
+			errorPreviewDialogOverlayTemplate: '\
+				<div data-comp-type="{{this.NAME}}" data-comp-id="{{this.uId}}" class="{{this.overlayClass}}">\
+					<div class="sfe-dialog-wrapper">\
+						<h1><isprint value="#localizeText('StorefrontPreview.PreviewConfigurationError')#" encoding="javascript"/></h1>\
+						<a class="sfe-dialog-close kor-overlay-close" href="."><isprint value="#localizeText('StorefrontPreview.Close.link')#" encoding="javascript"/></a>\
+						<div class="sfe-generic-wrapper">\
+							<div class="sfe-dialog-content">\
+								<p class="sfe-error"><isprint value="#localizeText('StorefrontPreview.ConfigurationNotTransferred')#" encoding="javascript"/></p>\
+							</div>\
+						</div>\
+						<div class="sfe-generic-wrapper">\
+							<ul class="sfe-button-bar">\
+								<li><a class="kor-overlay-close" href="."><isprint value="#localizeText('StorefrontPreview.Cancel.link')#" encoding="javascript"/></a></li>\
+								<li><a class="sfe-primary sfe-reset-button" href="."><isprint value="#localizeText('StorefrontPreview.Reset.link')#" encoding="javascript"/></a></li>\
+							</ul>\
+						</div>\
+					</div>\
+				</div>',
+
+			dialogIframeOverlayTemplate: '\
+			    <div data-comp-type="{{this.NAME}}" data-comp-id="{{this.uId}}" class="{{this.overlayClass}} sfe-detail-dialog">\
+				    <div class="sfe-dialog-wrapper">\
+						<h1 id="sfe-dialog-title"></h1>\
+					    <a class="sfe-dialog-close kor-overlay-close" href="."><isprint value="#localizeText('StorefrontPreview.Close.link')#" encoding="javascript"/></a>\
+					    <div class="sfe-generic-wrapper">\
+						<div class="sfe-dialog-content-padding">\
+						    <div class="sfe-dialog-content">\
+							    <iframe name="sfe-dialog-iframe" id="sfe-dialog-iframe" src="" frameborder="0"/>\
+									<p class="sfe-detail-dialog-loader"><img src="#WebRoot()#/images/loading.gif" alt="<isprint value="#localizeText('StorefrontPreview.Loading.message').'...'#" encoding="javascript"/>" width="16" height="11" /><isprint value="#localizeText('StorefrontPreview.Loading.message').'...'#" encoding="javascript"/></p>\
+						    </div>\
+						</div>\
+					    </div>\
+				    </div>\
+			    </div>',
+
+			loaderTemplate: '<p class="sfe-loading"><img src="#WebRoot()#/images/loading.gif" alt="<isprint value="#localizeText('StorefrontPreview.Loading.message').'...'#" encoding="javascript"/>" width="16" height="11" /><isprint value="#localizeText('StorefrontPreview.Loading.message').'...'#" encoding="javascript"/></p>',
+
+			dataLinkTemplate: '\
+			    {% if (this.categoryLink) {%}\
+			    <div class="sfe-category sfe-right">\
+				<a href="{{this.categoryLink}}" class="sfe-button sfe-icon sfe-data-view-button"><span><isprint value="#localizeText('StorefrontPreview.EditCategoryInformation.link')#" encoding="javascript"/></span></a>\
+			    </div>\
+			    {%}%}\
+			    {% if (this.productLink) {%}\
+			    <div class="sfe-product sfe-right">\
+				<a href="{{this.productLink}}" class="sfe-button sfe-icon sfe-data-view-button"><span><isprint value="#localizeText('StorefrontPreview.EditProductInformation.link')#" encoding="javascript"/></span></a>\
+			    </div>\
+			    {%}%}',
+
+			componentOverlayTemplate: '<div class="sfe-highlight-overlay"\
+				style="position:absolute; display:none; z-index:10; top:0; left:0; height:0; width:0;\
+				background-color: #'#'#319F9E;\
+				border: 1px dashed #'#'#000000;\
+				box-sizing: border-box;\
+				box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);"></div>',
+
+			componentInspectorTemplate: '<div class="sfe-inspector-overlay sfe-inspector-top" \
+			    style="position:absolute; display:none; z-index:2; top:0; left:0; background: #1489bc; height:2px; width:2px;"></div>\
+			    <div class="sfe-inspector-overlay sfe-inspector-right" style="position:absolute; display:none; z-index:2; top:0; left:0; background: #1489bc; height:2px; width:2px;"></div>\
+			    <div class="sfe-inspector-overlay sfe-inspector-bottom" style="position:absolute; display:none; z-index:2; top:0; left:0; background: #1489bc; height:2px; width:2px;"></div>\
+			    <div class="sfe-inspector-overlay sfe-inspector-left" style="position:absolute; display:none; z-index:2; top:0; left:0; background: #1489bc; height:2px; width:2px;"></div>',
+
+			componentTreeTemplate: '{%var obj=this; $.each(this.componentTree ,function(i,tree){ %}\
+			    {% tree.renderObject.treeId = tree.renderObject.id %}\
+			    {% obj.componentDetailObject[tree.id] = tree.renderObject; %}\
+			    <div class="sfe-generic-wrapper">\
+				    <ul class="sfe-component-tree">\
+					    <li data-type="{{this.displayType}}" {%if(this.renderObject.pageletAssignmentUUID){%}data-assignment-id="{{this.renderObject.pageletAssignmentUUID}}"{%}%}>\
+							<a class="sfe-container-tree-level-link" data-component-id="{{this.id}}" data-component-tree-id="{{this.renderObject.treeId}}" href="javascript:void(false)" title="{{this.displayType}}"><span {%if(this.renderObject.pageletAssignmentUUID){%}class="drag-controller"{%}%}></span><span {% if(this.children && this.children.length){ %}class="sfe-toggle-view sfe-closed"{%}%}></span><span class="sfe-content-icon"></span><span class="sfe-content-displayName">{{this.displayName}}</span></a>\
+						    {% if(this.children && this.children.length){ %}\
+						      {{obj.componentTreeItemTemplate.uTemplate({\
+						    ins: obj,\
+						    componentTree: tree}) }}\
+						    {% } %}\
+					    </li>\
+				    </ul>\
+			    </div>\
+			    {%})%}',
+
+			componentTreeItemTemplate: '\
+			    <ul>\
+			      {% var obj=this; $.each(this.componentTree.children, function(){ %}\
+				  {% if (this && this.renderObject) {%}\
+			      {% this.renderObject.treeId = (this.renderObject.pageletAssignmentUUID || \'\' ) + \'-\' + this.renderObject.id+\'-\'+obj.componentTree.renderObject.treeId %}\
+			      {% obj.ins.componentDetailObject[this.id] = this.renderObject %}\
+			      <li data-type="{{this.displayType}}" {%if(this.renderObject.isFallback === "true"){%}class="fallback"{%}%} {%if(this.renderObject.pageletAssignmentUUID){%}data-assignment-id="{{this.renderObject.pageletAssignmentUUID}}"{%}%}>\
+					<a class="sfe-container-tree-level-link" data-component-id="{{this.id}}" data-component-tree-id="{{this.renderObject.treeId}}" href="javascript:void(false)" title="{{this.displayType}}"><span {%if(this.renderObject.pageletAssignmentUUID){%}class="drag-controller"{%}%}></span><span {% if(this.children && this.children.length){ %}class="sfe-toggle-view sfe-closed"{%}%}></span><span class="sfe-content-icon"></span><span class="sfe-content-displayName">{{this.displayName}}</span></a>\
+				    {% if(this.children && this.children.length){ %}\
+				      {{obj.ins.componentTreeItemTemplate.uTemplate({\
+				    ins: obj.ins,\
+				    componentTree: this}) }}\
+				    {% } %}\
+			      </li>\
+				  {% } %}\
+			      {% }) %}\
+			    </ul>'
+		});
+
+	})(jQuery);
+	</script>
+	<isplacement placeholderid="CSSWebLibraries">opensans.css</isplacement>
+	<link href="#WebRoot()#/css/enterprisesite.css" rel="stylesheet" >
+	<link href="#WebRoot()#/css/reset.css" rel="stylesheet" >
+	<link href="#WebRoot()#/css/designer.css" rel="stylesheet" >
+	<isinclude template="inc/JavaScriptDisabledStyleSheet.isml" />
+	
+	<!--[if IE]>
+	<link href="#WebRoot()#/css/ie.css" rel="stylesheet" >
+	<![endif]-->
+	
+	<link rel="icon" type="image/png" href="#WebRoot()#/images/logo_is7.ico" />
+	
+	<isinclude extensionpoint="HTMLHeadExtension"/>
+</head>
+<body class="backoffice">
+	<isinclude template="inc/JavaScriptDisabledOverlay.isml" />
+	
+	<div id="masthead">
+		<div id="masthead-wrapper">
+			<a id="brand" href="#URL(Action('ViewApplication-DisplayWelcomePage'))#"><istext key="GlobalNavigation.link.home"/></a>			
+			<a id="brand_title" href="#URL(Action('ViewApplication-DisplayWelcomePage'))#"><istext key="GlobalNavigation.link.brandtitle"/></a>
+			<ul id="app-toggle">
+				<li><a href="#URL(Action('EditView-ToDataView', null, null, null, null, ApplicationBO:UrlIdentifier))#" id="data-view" title="#localizeText('StorefrontPreview.StartsTheDataView.link')#"><istext key="GlobalNavigation.link.dataview"/></a></li>
+				<li><a id="design-view" class="active" title="#localizeText('StorefrontPreview.StartsTheDesignView.link')#"><istext key="GlobalNavigation.link.designview"/></a></li>
+				<isif condition="#isDefined(PreviewWebform)#">
+					<li><a href="#'#'#" class="" id="design-preview" title="#localizeText('StorefrontPreview.SetupStorefrontPreviewParameters.link')#"><istext key="GlobalNavigation.link.designview"/></a></li>
+				</isif>
+			</ul>
+			<ul id="globalMenu">
+				<isinclude template="application/StorefrontPreviewGlobalMenu">
+			</ul>
+		</div>
+		<isinclude template="application/StorefrontPreviewSummary.isml">
+	</div>
+	
+	<!--- default component creation pipeline used for drag and drop (also provides the needed SynchronizerToken) --->
+	<isform id="createComponentForm" action="#URL(Action('ManageCMS-AssignComponent'), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#" method="post"></isform>
+	
+	<!--- the palette area (gets content via extension points) --->
+	<div id="component-palette">
+		<div id="component-palette-head">
+			<ul id="component-palette-tabs" class="tab-list">
+				<isinclude extensionpoint="ComponentPalette"/>
+			</ul>
+		</div>
+		<div id="component-palette-content"></div>
+	</div>
+	<div id="palette-resizer">
+		<a class="palette-collapse"></a>
+	</div>
+	
+	<!--- the preview content area (iframe) --->
+	<div id="viewable-area">
+		<iframe id="siteContent" name="siteContent"></iframe>
+		<div id="siteContentOverlay"></div>
+	</div>
+	
+	<isif condition="#isDefined(EditViewPermission:PermissionMap:SLD_VIEW_CONTENT) and (ContentObjectsCount > 0)#">
+		<div id="sfe-control-panel">
+			<div id="sfe-panel-tree">
+				<div class="sfe-control-bar">
+					<div class="sfe-generic-wrapper">
+						<div class="sfe-left">
+							<a href="#'#'#" class="sfe-button sfe-icon sfe-inspector-button" title="#localizeText('StorefrontPreview.Inspect.title')#"><span><istext key="StorefrontPreview.Inspect"/></span></a>
+						</div>
+						<div class="sfe-left">
+							<a href="#'#'#" class="sfe-button sfe-icon sfe-layout-button" title="#localizeText('StorefrontPreview.Layout.title')#"><span><istext key="StorefrontPreview.Layout"/></span></a>
+						</div>
+						<div class="sfe-control-bar-resizer"></div>
+					</div>
+				</div>
+				<div id="sfe-container-tree"></div>
+			</div>
+			<div id="sfe-panel-divider">
+				<div class="sfe-control-bar"><span></span></div>
+			</div>
+			<div id="sfe-panel-edit">
+				<div class="sfe-control-bar">
+					<div class="sfe-generic-wrapper">
+						<div class="sfe-right">
+							<a href="javascript:void(false)" class="sfe-button sfe-panel-collapse-button sfe-panel-collapse-opened">&nbsp;</a>
+						</div>
+						<div class="sfe-tabs"></div>
+						<div class="sfe-links"></div>
+						<div class="sfe-control-bar-resizer"></div>
+					</div>
+				</div>
+				<div id="sfe-container-edit">
+					<div class="sfe-generic-wrapper"></div>
+				</div>
+				<div id="sfe-panel-edit-controls">
+					<div class="sfe-generic-wrapper">
+						<div class="sfe-button-bar"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</isif>
+	
+	<div id="waitingOverlay">
+		<div class="waitingNote">
+			<img src="#WebRoot()#/images/ajax-loader-small.gif"/>
+		</div>
+	</div>
+	
+	<isif condition="#isDefined(PreviewWebform)#">
+		<isinclude template="application/StorefrontPreviewLayer.isml">
+	</isif>
+	<script src="#WebRoot()#/js/designer.polyfill.js"></script>
+	<script src="#WebRoot()#/js/designer.js"></script>
+	<script src="#WebRoot()#/js/designer.defaults.js"></script>
+	<script src="#WebRoot()#/js/designer.palette.js"></script>
+	<script src="#WebRoot()#/js/designer.dragdrop.js"></script>
+	
+	<ISHtmlEditor
+		LocaleId="#Locale:LocaleID#"
+		Name="false"
+		RepositoryId="#ContentRepository:RepositoryDomain:UUID#"
+		CategoryLinkPipeline="ViewStandardCatalog-Browse"
+		CategoryLinkSite="#ContentRepository:RepositoryDomain:Site:DomainName#"
+		ProductLinkPipeline="ViewProduct-Start"
+		ProductLinkSite="#ContentRepository:RepositoryDomain:Site:DomainName#"
+		Enabled="true"
+	>
+</body>
+</html>

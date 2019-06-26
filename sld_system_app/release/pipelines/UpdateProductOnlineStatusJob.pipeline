@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Pipeline updates product online status according to specified available\-from, available\-to date.
+@Group Job-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="UpdateProductOnlineStatusJob" type="process">
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start12" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="GetOrganizationByName1"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByName1">
+    <configurationValues name="DefaultName" value="Operations"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByName.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizations4"/>
+    <parameterBindings name="Name" nullBinding="true"/>
+    <returnValueBindings name="Organization" objectPath="Operations"/>
+    <returnValueBindings name="OrganizationDomain" objectPath="OperationsDomain"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizations4">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizations.xml"/>
+    <nodeSuccessors name="next" next="CreateStack2"/>
+    <parameterBindings name="Owner" objectPath="OperationsDomain"/>
+    <returnValueBindings name="Organizations" objectPath="Enterprises"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStack2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStack.xml"/>
+    <nodeSuccessors name="next" next="CreateStack3"/>
+    <returnValueBindings name="Stack" objectPath="OrganizationStack"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStack3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStack.xml"/>
+    <nodeSuccessors name="next" next="Loop3"/>
+    <returnValueBindings name="Stack" objectPath="ChannelStack"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop3" loop="Enterprises">
+<!--@BendPoints 5,11-->
+    <nodeSuccessors name="next" next="Call10"/>
+    <entry key="Enterprise">
+      <nodeSuccessors name="loop_entry_next" next="ManipulateStack2"/>
+    </entry>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack2">
+    <configurationValues name="ProcessMethod" value="PUSH"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+<!--@BendPoints 3,14 2,14 2,11-->
+    <nodeSuccessors name="next" next="Loop3_Entry"/>
+    <parameterBindings name="AddElement" objectPath="Enterprise"/>
+    <parameterBindings name="Stack" objectPath="OrganizationStack"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call10">
+    <nodeSuccessors name="next" next="GetCurrentDate1"/>
+    <startNode referencedName="GetRepositories-ChannelsReverse"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="Join4"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+    <nodeSuccessors name="next" next="ManipulateStack5"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack5">
+    <configurationValues name="ProcessMethod" value="POP"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+<!--@BendPoints 7,19-->
+    <nodeSuccessors name="pipelet_error" next="RefreshCache1"/>
+    <parameterBindings name="Stack" objectPath="ChannelStack"/>
+    <returnValueBindings name="GetElement" objectPath="Channel"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 5,22-->
+    <nodeSuccessors name="next" next="ExecuteStoredProcedure1"/>
+    <parameterBindings name="InValue_1" objectPath="Channel:RepositoryDomain:DomainID"/>
+    <returnValueBindings name="OutValue_1" objectPath="DomainID"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteStoredProcedure1">
+    <configurationValues name="AllowNullParameter" value="false"/>
+    <configurationValues name="ParameterDefinition" value="CurrentDate=date;DomainID=string"/>
+    <configurationValues name="StoredProcedure" value="sp_updateProductOnlineStatus"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteStoredProcedure.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 6,23 6,25-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 5,26 4,26 4,17-->
+    <nodeSuccessors name="next" next="Join4"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshCache1">
+    <configurationValues name="PersistentClassName_0" value="com.intershop.beehive.xcs.internal.product.ProductPO"/>
+    <configurationValues name="PersistentClassName_1" value="com.intershop.beehive.xcs.internal.catalog.ProductCategoryAssignmentPO"/>
+    <configurationValues name="PersistentClassName_2" value="com.intershop.beehive.xcs.internal.product.DerivedProductPO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+</pipeline:Pipeline>

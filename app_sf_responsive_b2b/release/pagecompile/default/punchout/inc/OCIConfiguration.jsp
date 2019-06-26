@@ -1,0 +1,38 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><div class="section">
+<p><% {out.write(localizeISText("account.punchout.configuration.text","",null,null,null,null,null,null,null,null,null,null,null));} %></p>
+</div><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("ShowSuccessMessage"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",7,e);}if (_boolean_result) { %><div class="alert alert-success alert-fade" data-testing-id="message-punchout-save-success"><% {out.write(localizeISText("account.punchout.configuration.save_success.message","",null,null,null,null,null,null,null,null,null,null,null));} %></div><% } %><% {Object temp_obj = (getObject("CustomerBO:Extension(\"PunchoutConfiguration\"):ConfigurationData")); getPipelineDictionary().put("Configuration", temp_obj);} %><% URLPipelineAction action28 = new URLPipelineAction(context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewOCIConfiguration-Dispatch",null)))),null));String site28 = null;String serverGroup28 = null;String actionValue28 = context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewOCIConfiguration-Dispatch",null)))),null);if (site28 == null){  site28 = action28.getDomain();  if (site28 == null)  {      site28 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup28 == null){  serverGroup28 = action28.getServerGroup();  if (serverGroup28 == null)  {      serverGroup28 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewOCIConfiguration-Dispatch",null)))),null));out.print("\"");out.print(" class=\"");out.print("form-horizontal bv-form");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue28, site28, serverGroup28,true)); %><div class="list-header hidden-xs">
+<div class="col-sm-4 list-header-item"><% {out.write(localizeISText("account.punchout.configuration.table.attribute",null,null,null,null,null,null,null,null,null,null,null,null));} %></div> 
+<div class="col-sm-4 list-header-item"><% {out.write(localizeISText("account.punchout.configuration.table.transform",null,null,null,null,null,null,null,null,null,null,null,null));} %><% {Object temp_obj = (""); getPipelineDictionary().put("PlaceholderIDs", temp_obj);} %><% while (loop("PunchoutPlaceholderFormatterProvider:PlaceholderIds","PlaceholderID",null)) { %><% {Object temp_obj = (context.getFormattedValue(getObject("PlaceholderIDs"),null) + context.getFormattedValue("{",null) + context.getFormattedValue(getObject("PlaceholderID"),null) + context.getFormattedValue("}<br/>",null)); getPipelineDictionary().put("PlaceholderIDs", temp_obj);} %><% } %><% processOpenTag(response, pageContext, "tooltip", new TagParameter[] {
+new TagParameter("placement","bottom"),
+new TagParameter("linkclass","details-tooltip"),
+new TagParameter("headline",localizeText(context.getFormattedValue("account.punchout.configuration.table.available.placeholder",null))),
+new TagParameter("content",getObject("PlaceholderIDs")),
+new TagParameter("contenttype","html")}, 27); %></div> 
+<div class="col-sm-4 list-header-item"><% {out.write(localizeISText("account.punchout.configuration.table.format",null,null,null,null,null,null,null,null,null,null,null,null));} %></div> 
+</div>
+<div class="list-body"><% while (loop("Configuration:ConfigurationFieldsList","Field",null)) { %><% {Object temp_obj = (getObject("Configuration:PunchoutConfigurationDataEntry(Field)")); getPipelineDictionary().put("Entry", temp_obj);} %><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("Entry:Configurable"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",37,e);}if (_boolean_result) { %><% processOpenTag(response, pageContext, "ociconfigurationrow", new TagParameter[] {
+new TagParameter("FieldTransform",getObject("Entry:TransformerConfigurationString")),
+new TagParameter("FieldFormat",getObject("Entry:FormatterConfigurationString")),
+new TagParameter("PunchoutPlaceholderFormatterProvider",getObject("PunchoutPlaceholderFormatterProvider")),
+new TagParameter("FieldName",getObject("Entry:PunchoutCatalogAttributeName"))}, 38); %><% } %><% } %></div>
+<div class="list-item-row">
+<div class="col-sm-offset-4 col-sm-8">
+<div class="row">
+<button 
+class="btn btn-primary" type="submit" 
+name="save"
+value="save" 
+title="<% {out.write(localizeISText("account.punchout.configuration.button.save","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+data-testing-class="button-oci-punchout-configuration-submit"><% {out.write(localizeISText("account.punchout.configuration.button.save","",null,null,null,null,null,null,null,null,null,null,null));} %></button>
+<a class="btn btn-default" 
+title="<% {out.write(localizeISText("account.punchout.configuration.button.cancel","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+href="<% {String value = null;try{value=context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewOCISettings-Start",null)))),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {57}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" 
+data-testing-class="button-oci-punchout-configuration-cancel"><% {out.write(localizeISText("account.punchout.configuration.button.cancel","",null,null,null,null,null,null,null,null,null,null,null));} %></a>
+</div> 
+</div>
+</div><% out.print("</form>"); %><% printFooter(out); %>

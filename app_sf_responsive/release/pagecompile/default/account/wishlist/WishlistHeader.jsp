@@ -1,0 +1,30 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><h1><% {String value = null;try{value=context.getFormattedValue(getObject("WishlistBO:Name"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {3}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></h1>
+<ul class="share-tools">
+<li>
+<a data-dialog
+href="<%=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewWishlist-ShowEditWishlistPropertiesDialog",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("AjaxRequestMarker",null),context.getFormattedValue("true",null))).addURLParameter(context.getFormattedValue("WishlistID",null),context.getFormattedValue(getObject("WishlistBO:ID"),null))),null)%>"
+title="<% {out.write(localizeISText("account.wishlist.header.edit_wishlist.label","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+>
+<span class="glyphicon glyphicon-pencil"></span>
+<span class="share-label"><% {out.write(localizeISText("account.wishlist.header.edit_wishlist.label","",null,null,null,null,null,null,null,null,null,null,null));} %></span>
+</a>
+</li><% _boolean_result=false;try {_boolean_result=((Boolean)((hasLoopElements("WishlistBO:WishlistItemBOs") ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",16,e);}if (_boolean_result) { %><li>
+<a data-dialog
+title="<% {out.write(localizeISText("account.wishlist.header.email_to_friend.label","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+href="<%=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewWishlist-ViewEmailWishlistForm",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("AjaxRequestMarker",null),context.getFormattedValue("true",null))).addURLParameter(context.getFormattedValue("WishlistID",null),context.getFormattedValue(getObject("WishlistBO:ID"),null))),null)%>"
+>
+<span class="glyphicon glyphicon-send"></span><span class="share-label"><% {out.write(localizeISText("account.wishlist.header.email_to_friend.label","",null,null,null,null,null,null,null,null,null,null,null));} %></span>
+</a>
+</li><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) getObject("WishlistBO:Public")).booleanValue() || ((Boolean) getObject("WishlistBO:Shared")).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",25,e);}if (_boolean_result) { %><li><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/CSRFGuardJSToken", null, "27");} %><a data-csrf-guarded
+title="<% {out.write(localizeISText("account.wishlist.header.cancelSharing.label","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+href="<%=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewWishlist-Unshare",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("WishlistID",null),context.getFormattedValue(getObject("WishlistBO:ID"),null)))),null)%>"
+>
+<span class="glyphicon glyphicon-pause"></span><span class="share-label"><% {out.write(localizeISText("account.wishlist.header.cancelSharing.label","",null,null,null,null,null,null,null,null,null,null,null));} %></span>
+</a>
+</li><% } %><% } %></ul>
+<div class="clearfix visible-xs-block"></div><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("WishlistBO:Public"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",39,e);}if (_boolean_result) { %><p><% {out.write(localizeISText("account.wishlist.header.public_wishlist","",null,null,null,null,null,null,null,null,null,null,null));} %> <span class="glyphicon glyphicon-eye-open"></span></p><% } else { %><p><% {out.write(localizeISText("account.wishlist.header.private_wishlist","",null,null,null,null,null,null,null,null,null,null,null));} %> <span class="glyphicon glyphicon-eye-close"></span></p><% } %><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("PreferredWishlistID"),null).equals(context.getFormattedValue(getObject("WishlistBO:ID"),null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",45,e);}if (_boolean_result) { %><p><% {out.write(localizeISText("account.wishlist.header.preferred_wishlist","",null,null,null,null,null,null,null,null,null,null,null));} %></p><% } %><% printFooter(out); %>

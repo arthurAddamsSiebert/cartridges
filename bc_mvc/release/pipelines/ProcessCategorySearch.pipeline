@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline searches for subcategories and products of a given category.
+@Group MVC-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCategorySearch" type="process">
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="EClass" callMode="Private">
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="End6"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6" name="ERROR"/>
+<!--This node finds all categories matching a given search term in a specified catalog, or in all catalogs.
+@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="SearchForCategories"
+      callMode="Private">
+<!--@BendPoints 7,2-->
+    <nodeSuccessors name="next" next="UpdateDictionary4"/>
+<!--To find all categories matching a specific search pattern. -->
+    <parameters name="NameOrID" type="java.lang.String" optional="true"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+    <parameters name="CatalogUUID" type="java.lang.String" optional="true"/>
+    <parameters name="SortBy" type="java.lang.String" optional="true"/>
+    <parameters name="SortDirection" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary4">
+    <configurationValues name="Name_01" value="Domain"/>
+    <configurationValues name="Name_02" value="LocaleInformation"/>
+    <configurationValues name="Name_03" value="SortDirection"/>
+    <configurationValues name="Name_04" value="SortBy"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <parameterBindings name="InDictionary" nullBinding="true"/>
+    <parameterBindings name="Value_01" objectPath="Domain"/>
+    <parameterBindings name="Value_02" objectPath="CurrentSession:Locale"/>
+    <parameterBindings name="Value_03" objectPath="SortDirection"/>
+    <parameterBindings name="Value_04" objectPath="SortBy"/>
+    <returnValueBindings name="OutDictionary" objectPath="CategorySearchParameters"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="NameOrID">
+<!--@BendPoints 7,6 6,6 6,7-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode7"/>
+<!--@BendPoints 8,5 8,7 8,12 7,12-->
+    <nodeSuccessors name="decision_no" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="NameOrID"
+      operator="str_empty">
+<!--@BendPoints 8,7 8,9 8,12 7,12-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode1"/>
+<!--@BendPoints 7,8-->
+    <nodeSuccessors name="decision_no" next="VerifySearchTerm6"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="CatalogUUID">
+<!--@BendPoints 7,14-->
+    <nodeSuccessors name="decision_yes" next="UpdateDictionary3"/>
+<!--@BendPoints 8,13 8,16 7,16-->
+    <nodeSuccessors name="decision_no" next="ExecutePageableQuery1"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary3">
+    <configurationValues name="Name_01" value="CatalogUUID"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+<!--@BendPoints 7,16-->
+    <nodeSuccessors name="next" next="ExecutePageableQuery1"/>
+    <parameterBindings name="InDictionary" objectPath="CategorySearchParameters"/>
+    <parameterBindings name="Value_01" objectPath="CatalogUUID"/>
+    <returnValueBindings name="OutDictionary" objectPath="CategorySearchParameters"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery1">
+    <configurationValues name="DefaultPageSize" value="15"/>
+    <configurationValues name="QueryName" value="catalog/SimpleCategorySearch"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+    <nodeSuccessors name="next" next="EndNode5"/>
+<!--@BendPoints 9,17 9,18-->
+    <nodeSuccessors name="pipelet_error" next="End7"/>
+    <parameterBindings name="Parameters" objectPath="CategorySearchParameters"/>
+    <returnValueBindings name="ErrorCode" objectPath="SearchError"/>
+    <returnValueBindings name="SearchResult" objectPath="Categories"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true">
+    <returnValues name="Categories" type="com.intershop.beehive.core.capi.paging.PageableIterator"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End7" name="ERROR" strict="true"/>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifySearchTerm6">
+    <configurationValues name="AllowFuzzySearch" value="default"/>
+    <configurationValues name="DefaultOperator" value="OR"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifySearchTerm.xml"/>
+<!--@BendPoints 7,10-->
+    <nodeSuccessors name="next" next="UpdateDictionary1"/>
+<!--@BendPoints 8,9 8,12 7,12-->
+    <nodeSuccessors name="pipelet_error" next="DecisionNode1"/>
+    <parameterBindings name="UserSearchTerm" objectPath="NameOrID"/>
+    <returnValueBindings name="ErrorCode" objectPath="NameOrIDError"/>
+    <returnValueBindings name="SearchExpression" objectPath="ExpNameOrID"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary1">
+    <configurationValues name="Name_01" value="NameOrID"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+<!--@BendPoints 7,12-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="InDictionary" objectPath="CategorySearchParameters"/>
+    <parameterBindings name="Value_01" objectPath="ExpNameOrID"/>
+    <returnValueBindings name="OutDictionary" objectPath="CategorySearchParameters"/>
+  </nodes>
+</pipeline:Pipeline>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="A filter query to be included in page/include advanced search where to filter the set of PageletEntryPoint objects by Product/Category/PageletEntryPoint Name/ID.">
+  <parameters>
+    <parameter name="PageletEntryPointTableAlias" type="java.lang.String" optional="false" description="The PageletEntryPoint table alias from the main search where this filter is included."/>
+    <parameter name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the pagelet belongs to."/>
+    <parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false" description="Search in context of the given locale."/>
+    <parameter name="NameOrIDExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="Expression to search for parent pages to be used as filter."/>
+    <parameter name="IncludeSubsequentPages" type="java.lang.String" optional="true" description="Defines if, when applied parent pages filter, the search should be exteded with the indirect parents too."/>
+  </parameters>
+  <processor name="OracleSQL">
+    <processor-preprocessing output="cNameOrID" input="NameOrIDExpression" processing="SearchExpression2Contains"/>
+  </processor>
+  <template>
+    <template-if condition="isDefined(NameOrIDExpression) and NameOrIDExpression:NotEmpty">
+      and exists (
+          select 1
+            from pageletentrypointrelation relation
+            join pageletentrypoint parent
+            left outer join pageletentrypoint_av parent_av
+              on (    parent.uuid = parent_av.ownerid
+                  and parent_av.name = &apos;displayName&apos;
+                  and parent_av.localeid = <template-variable value="Locale:LocaleID"/>)
+              on (relation.parententrypointid = parent.uuid)
+           where (<template-call name="content/inc/SearchExpression2Like">
+                    <call-parameter name="SearchExpression" value="NameOrIDExpression" />
+                    <call-parameter name="ColumnNames" value="'parent.id parent_av.stringvalue'" />
+                    <call-parameter name="CaseInsensitive" value="true()" />
+                  </template-call>)
+      <template-if condition="isDefined(IncludeSubsequentPages)">
+         connect by prior relation.parententryPointID = relation.entryPointID                 
+           start with relation.entrypointid = <template-variable value="PageletEntryPointTableAlias" processing="text"/>.uuid
+      <if-else/>
+             and relation.entrypointid = <template-variable value="PageletEntryPointTableAlias" processing="text"/>.uuid
+      </template-if>
+          )
+    </template-if>
+  </template>
+</query>

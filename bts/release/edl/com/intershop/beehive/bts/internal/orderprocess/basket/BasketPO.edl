@@ -1,0 +1,80 @@
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/basket/Basket.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/basket/BasketAddressPO.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/LineItemCtnrPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+namespace com.intershop.beehive.bts.internal.orderprocess.basket
+{
+    /*
+     * A Basket is a list of product items selected during shopping. During shopping the Basket is said to be OPEN.
+     * 
+     * <P>Upon ordering a Basket's contents is copied to create an Order, which is then used for order processing. After ordering the old Basket is added to the buying User's  basket history by changing its status to ORDERED. A new OPEN Basket is created when required.
+     * 
+     * <P>As a subclass of LineItemCtnr, a Basket can be used as a 'CalculationTarget' in the calculation process.
+     * 
+     * <P>In addition to the basic LineItemCtnr structure, a Basket has a BasketType,  identifying the type of the Basket. This enables each Buyer to hold multiple active Baskets at the same time when this is required.
+     * 
+     * @mssql-hint-fbi(OCA:case oca when -1 then -1 else null end)
+     */
+    orm class BasketPO extends LineItemCtnrPO implements Basket table "Basket"
+    {
+        index(historyDate, ^type);
+
+        /*
+         * The type identifier of this basket. The type is important to distingush
+         * between different baskets of a buyer in one transaction store; the buyer may have a single basket of each type  with status OPEN at any time. Types are defined in state definitions.
+         * 
+         * @see com.intershop.beehive.bts.capi.state.StateDefinition
+         */
+        attribute type : int required;
+
+        /*
+         * The timestamp that indicates when someone has touched the basket the
+         * last time. Is used to manage lifetime of baskets.
+         */
+        attribute lastTouched : datetime;
+
+        /*
+         * The timestamp that indicates when the basket became invalid or was
+         * ordered and is put into the BasketHistory.
+         */
+        attribute historyDate : datetime;
+
+        /*
+         * Whether a split shipment is allowed for an order made from this basket. <br>
+         * 
+         * This attribute is copied from basket into placed order and order, and is thought to allow the storefront buyer to specify whether an order may be delivered in split shipments or not.
+         */
+        attribute splitShipmentAllowed : boolean;
+
+        /*
+         * Whether the basket lifetime is session-based or time-based (these two options are available). <br>
+         * 
+         * The basket lifetime setting is available as a eTS preference setting in the eMC. <br>
+         * 
+         * Pipelet DetermineBasket controls a basket's lifetime, i.e. this pipelet is responsible for insuring that each buyer has only one basket with a status OPEN for the current transaction store and the standard basket type. <br>
+         * 
+         * A session-based basket's lifetime is linked to the session's lifetime. When the session terminates, the open basket is added to the buyer's basket history. If the buyer returns to the system in a new session, the buyer automatically receives an empty basket. <br>
+         * 
+         * A time-based basket's lifetime is as long as the basket time which is available as a eTS preference setting in the eMC. If the buyer returns to the system in a new session, and the basket lifetime is not yet up, the buyer will receive the same basket once again. Job pipelines are responsible for adding time-based baskets to the basket history when the basket lifetime is over.
+         */
+        attribute sessionBased : boolean;
+
+		/*
+		 * This flag indicates if a basket is currently on hold (i. e. locked). A basket on hold is currently being ordered and 
+		 * cannot be ordered again while on hold.
+		 */
+		attribute onHold : boolean = false;
+
+		/*
+		 * This flag indicates if the current calculation results are invalid. If so, the basket needs to be recalculated before
+		 * it can be ordered.
+		 */		
+		attribute calculationInvalid : boolean = true;
+
+		/*
+		 * Collection of addresses created at this basket.
+		 */
+		relation basketAddresses: BasketAddressPO[0..n] inverse basket;
+    }
+}

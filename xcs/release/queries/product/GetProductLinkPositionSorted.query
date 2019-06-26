@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Outgoing" type="java.lang.Boolean" optional="false"/>
+	<parameter name="SortASC" type="java.lang.Boolean" optional="false"/>	
+	<parameter name="UUID" type="java.lang.String" optional="false"/>
+	<parameter name="DomainID" type="java.lang.String" optional="false"/>
+	<parameter name="BaseProductDomainID" type="java.lang.String" optional="false"/>	
+</parameters>
+<return-mappings>
+	<return-mapping name="ProductLinkPosition" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductLinkPositionPO">
+		<return-attribute name="LINKID"/>
+		<return-attribute name="DOMAINID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template>
+	select this.LINKID, this.DOMAINID
+	from productlinkposition this
+	join productlink pl
+	ON this.linkid=pl.uuid 
+	AND pl.<template-if condition="Outgoing">sourceid<if-else/>targetid</template-if>=<template-variable value="UUID"/> AND pl.domainid IN (<template-variable value="DomainID"/>,<template-variable value="BaseProductDomainID"/>) AND
+    (
+      (
+        <template-variable value="DomainID"/> IN (SELECT domainid FROM ProductLinkPosition WHERE linkid=uuid) AND 
+        this.domainid=<template-variable value="DomainID"/>
+      ) 
+      OR 
+      ( 
+        <template-variable value="DomainID"/> NOT IN (SELECT domainid FROM ProductLinkPosition WHERE linkid=uuid) AND 
+        (this.domainid=pl.domainid) 
+      ) 
+    ) 
+    AND 
+    ( 
+       (
+           (
+               ( 
+                   EXISTS 
+                   ( 
+                       SELECT 1 
+                       FROM productsetassignment psa 
+                       RIGHT JOIN productset ps ON (psa.productsetuuid=ps.uuid) 
+                       JOIN productsetdomainassignment psda ON (psda.productsetuuid=ps.uuid) 
+                       JOIN product p ON (p.uuid=psa.productUUID) 
+                       WHERE (psa.productUUID=pl.<template-if condition="NOT Outgoing">sourceid<if-else/>targetid</template-if> OR ps.allflag=1) 
+                       AND psda.domainid=<template-variable value="DomainID"/> AND ps.domainid IN (<template-variable value="DomainID"/>,p.domainid) 
+                   ) 
+               ) 
+               OR
+               ( 
+                   EXISTS 
+                   ( 
+                       SELECT 1 
+                       FROM productset ps 
+                       JOIN productsetdomainassignment psda ON (ps.uuid = psda.productsetuuid) 
+                       JOIN product p ON (p.domainid = ps.domainid) 
+                       WHERE ps.allflag = 1 
+                       AND psda.domainid = <template-variable value="DomainID"/>
+                       AND p.uuid = <template-if condition="NOT Outgoing">sourceid<if-else/>targetid</template-if>
+                   ) 
+               ) 
+           ) 
+           AND 
+           ( 
+               NOT EXISTS (SELECT 1 FROM productset WHERE domainid=<template-variable value="DomainID"/> AND inboundflag=1) 
+               OR pl.<template-if condition="NOT Outgoing">sourceid<if-else/>targetid</template-if> IN 
+               ( 
+                   SELECT psa.productuuid 
+                   FROM productsetassignment psa 
+                   RIGHT JOIN productset ps ON (psa.productsetuuid=ps.uuid) 
+                   WHERE ps.domainid=<template-variable value="DomainID"/> AND ps.inboundflag=1 
+               ) 
+           ) 
+       ) 
+       OR pl.<template-if condition="NOT Outgoing">sourceid<if-else/>targetid</template-if> IN (SELECT uuid FROM product WHERE domainid=<template-variable value="DomainID"/>) 
+    ) 
+    ORDER BY CASE WHEN this.position IS NULL THEN 1 ELSE 0 END ASC, this.position <template-if condition="SortASC">ASC<if-else/>DESC</template-if>
+</template>
+</query>

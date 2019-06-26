@@ -1,0 +1,87 @@
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/payment/PaymentInstrumentInfo.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/LineItemCtnrPO.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/payment/PaymentTransactionPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/Domain.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObjectPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+external User type "com.intershop.beehive.core.capi.user.User";
+
+namespace com.intershop.beehive.bts.internal.payment
+{
+    /*
+     * Each instance of PaymentInstrumentInfo holds the data required by a payment service implementation to carry out the processing of the PaymentTransaction to which the PaymentInstrumentInfo is attached.
+     * 
+     * <P>Such data might include a creditcard number, credit card expiry date, an account number or bank identifier depending upon the data that the payment service implementation requires. Collecting such (often private) information in a single instance means it is easier to make secure when required.
+     * 
+     * <P>PaymentInstrumentInfo is an extensible object so provides an extensible container for data items not provided in the standard implementation. It is easy to add further data items using the extensible object interface (IExtensibleObjectEJB). All values, including the standard data items such as credit card number, are also accessible over the extensible object interface. For example getString(PaymentInstrumentConstants.CREDITCARD_NUMBER) returns the same string value as getCreditCardNumber().
+     * 
+     * <P>The standard data items provided (accessible via both IExtensibleObjectEJB and get/set methods) are:
+     * <BR>Creditcard number (a string)
+     * <BR>Creditcard expiry month (int)
+     * <BR>Creditcard expiry year (int)
+     * <BR>Creditcard owner (string)
+     * <BR>Creditcard type (string)
+     * <BR>Creditcard issue (int)
+     * <BR>Creditcard valid from month (int)
+     * <BR>Creditcard valid from year (int)
+     * <BR>Creditcard verification code (string)
+     * 
+     * <P>It is recommended that payment service implementations which use identical data items (for example CyberCash and direct CreditCard entry both use creditcard numbers and expiry month and year) should use the pre-defined data items. This results in better integration of payment service implementations.
+     * 
+     * <P>The creditcard number is automatically encrypted using an internal encryption tool before being written to the database / decrypted after being read from the database. This encryption depends on the settings of 
+     * encryption.properties (active passphrase, active algorithm, etc). Note if this is changed during the lifetime of a server creditcard numbers encrypted with the old password will be decrypted incorrectly (i.e. Do not change this property unless you know what you are doing!).
+     * 
+     * <P>The method getCreditcardNumberLastDigits provides an easy way to display the last digits of a creditcard number in situations where the full creditcard number should not be viewed.
+     * 
+     * <p>In the orderprocess, pipelet DeterminePaymentInstrumentInfo is responsible for reading payment data from the data entry template (as defined in the selected payment method) into an instance of PaymentInstrumentInfo attached to the Basket. When an Order is created from the Basket, this PaymentInstrumentInfo is copied into the PaymentInstrumentInfo attached to the Order, including all extensible attributes. Pipelet CreatePayment calls IPaymentService method createPaymentTransaction using the Order as a payment origin, and the Order's PaymentInstrumentInfo is integrated into the new PaymentTransaction.
+     */
+    partitionable orm class PaymentInstrumentInfoPO extends ExtensibleObjectPO implements PaymentInstrumentInfo table "PaymentInstrumentInfo"
+    {
+        index(organizationDomainID);
+
+        index(lineItemCtnrID);
+
+        index(originUUID);
+
+        attribute serviceConfigurationDomain : string<256>;
+
+        attribute user : User;
+
+        attribute paymentServiceID : string<256>;
+
+        attribute ^default : boolean;
+
+        /*
+         * This field is used if the payment instrument info belongs to an organization (B2B).
+         */
+        attribute organizationDomainID : uuid;
+
+        attribute lineItemCtnrID : uuid;
+
+        attribute originUUID : uuid searchable;
+
+        attribute serviceConfigurationID : string<256>;
+        
+        attribute tenderBalance : Money;
+        
+        attribute amountForPayment : Money;
+        
+        attribute calculatedPaymentAmount : Money;
+
+        relation paymentTransactionPO : PaymentTransactionPO[0..n] inverse paymentInstrumentInfoPO;
+
+        relation lineItemCtnrPO : LineItemCtnrPO[0..1] inverse paymentInstrumentInfoPO
+        {
+            foreign key(lineItemCtnrID) -> (UUID);
+        }
+
+        /*
+         * Used if the payment instrument info belongs to an organization (B2B).
+         */
+        dependency organizationDomain : Domain handler "com.intershop.beehive.core.capi.domain.DomainMgr"
+        {
+            foreign key(organizationDomainID);
+        }
+    }
+}

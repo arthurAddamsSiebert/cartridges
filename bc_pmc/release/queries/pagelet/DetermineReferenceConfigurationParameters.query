@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="The query determines configuration parameters that may contain references to objects in the specified reference domains or that contain the complete reference provided.">
+<parameters>
+	<parameter name="ConfigurationParameterDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+	<parameter name="ConfigurationParameterDefinitions" type="java.util.Collection" optional="false"/>
+	<parameter name="ReferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+	<parameter name="ReferenceString" type="java.lang.String" optional="true"/>
+	<parameter name="AllLocales" type="java.util.Iterator" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="ConfigurationParameters" type="orm" class="com.intershop.component.pmc.internal.pagelet.ConfigurationParameterPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="objects">
+	SELECT 
+		CONFIG_PARAM.UUID AS UUID 
+	FROM 
+		CONFIGURATIONPARAMETER CONFIG_PARAM 
+	WHERE
+		1 = 1
+		<template-comment>
+			Filter by definition qualified name below. This should significantly reduce
+			the number of the parameters that should be later processed.
+		</template-comment>
+		<template-if condition="hasElements(ConfigurationParameterDefinitions)">
+			AND CONFIG_PARAM.DEFINITIONQUALIFIEDNAME IN 
+			(
+       			<template-loop iterator="ConfigurationParameterDefinitions" alias="ConfigurationParameterDefinition">
+               		<loop-statement>
+               			<template-variable value="ConfigurationParameterDefinition:QualifiedName"/>
+               		</loop-statement>
+               		<loop-separator>, </loop-separator>
+           		</template-loop> 
+			)
+		</template-if>
+		
+		<template-comment>
+			The query may not filter by domain since a search in all domains for a reference
+			might be necessary.
+		</template-comment>
+		<template-if condition="isDefined(ConfigurationParameterDomain)">
+			AND CONFIG_PARAM.DOMAINID = <template-variable value="ConfigurationParameterDomain:UUID"/>
+		</template-if>
+		
+		<template-if condition="(isDefined(ReferenceDomain) OR isDefined(ReferenceString)) AND (hasElements(AllLocales))">
+		AND 
+		(
+			<sql-dialect name="Oracle">
+				<template-loop iterator="AllLocales" alias="ALocale">
+					<loop-statement>
+						<template-comment>
+							Please note that the indices are combined which means for example that 
+							a search in EN_US is equivaluent to search in EN_US and the non localized
+							values column. Also note that searching by both reference domain and 
+							reference string is most likely meaningless but the query will support
+							AND between the two. We won't elaborate to AND them in a single contains
+							since the query is not likely to be used in this way. 1 = 1 simplifies 
+							checks.
+						</template-comment>
+						(	
+							1 = 1
+							<template-if condition="isDefined(ReferenceDomain)">
+	    	            		AND CONTAINS
+								(
+	           	    				attributes_<template-variable value="ALocale:LocaleID" processing="text"/>,
+									&apos;{ &apos; || <template-variable value="ReferenceDomain:DomainName"/> || &apos;} INPATH (//attrs/attr/string)&apos;
+								) &gt; 0
+							</template-if>
+							<template-if condition="isDefined(ReferenceString)">
+	    	            		AND CONTAINS
+								(
+	           	    				attributes_<template-variable value="ALocale:LocaleID" processing="text"/>,
+									&apos;{ &apos; || <template-variable value="ReferenceString"/> || &apos;} INPATH (//attrs/attr/string)&apos;
+								) &gt; 0
+							</template-if>
+						)	
+					</loop-statement>
+					<loop-separator> OR </loop-separator>
+				</template-loop>
+			</sql-dialect>
+			<sql-dialect name="Microsoft">
+				<template-loop iterator="AllLocales" alias="ALocale">
+					<loop-statement>
+						<template-comment>
+							Please see above template-comment!
+						</template-comment>
+						(	
+							1 = 1
+							<template-if condition="isDefined(ReferenceDomain)">
+								AND attributes_<template-variable value="ALocale:LocaleID" processing="text"/>.exist('//attrs/attr/string [contains(., &quot;<template-variable value="ReferenceDomain:DomainName" processing="text"/>&quot;)]') = 1
+							</template-if>
+							<template-if condition="isDefined(ReferenceString)">
+								AND attributes_<template-variable value="ALocale:LocaleID" processing="text"/>.exist('//attrs/attr/string [contains(., &quot;<template-variable value="ReferenceString" processing="text"/>&quot;)]') = 1
+							</template-if>
+						)
+					</loop-statement>
+					<loop-separator> OR </loop-separator>
+				</template-loop>
+			</sql-dialect>
+		)
+		</template-if>
+</template>
+</query>

@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline contains utility methods that may be used to implement the forget login functionality.-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessUserForgotLoginData" overrideMode="Inherit" type="process">
+<!--This pipeline checks if the answer of the secret question is correct.
+@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CheckAnswerOfSecretQuestion"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DetermineUser1"/>
+<!--The user whose secret answer should be checked.-->
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+<!--The answer of the secret question.-->
+    <parameters name="SecretAnswer" type="java.lang.String"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUser1">
+    <pipelet href="enfinity:/core/pipelets/DetermineUser.xml"/>
+    <nodeSuccessors name="next" next="CheckPasswordReminder0"/>
+    <parameterBindings name="UserID" objectPath="UserBO:ID"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckPasswordReminder0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckPasswordReminder.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode2"/>
+    <parameterBindings name="PasswordReminder" objectPath="SecretAnswer"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="ERROR" strict="true"/>
+<!--This node checks if a valid user that matches the input parameter exists. If no such user exist then the error exit is used.
+@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="CheckValidUserExist"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetUserBOByLogin0"/>
+<!--The user repository in which this user is.-->
+    <parameters name="UserBORepository" type="com.intershop.component.user.capi.UserBORepository"/>
+<!--The login name.-->
+    <parameters name="Login" type="java.lang.String"/>
+<!--The first name of the user.-->
+    <parameters name="FirstName" type="java.lang.String" optional="true"/>
+<!--The last name of the user.-->
+    <parameters name="LastName" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserBOByLogin0">
+    <pipelet href="enfinity:/bc_user/pipelets/GetUserBOByLogin.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <nodeSuccessors name="pipelet_error" next="KeyMapper3"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="UserBO:isDisabled"
+      operator="str_neq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="DecisionNode6"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper1"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="FirstName">
+    <nodeSuccessors name="decision_yes" next="DecisionNode1"/>
+<!--@BendPoints 2,14-->
+    <nodeSuccessors name="decision_no" next="EndNode0"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="FirstName"
+      operator="str_eq" conditionItem="UserBO:FirstName">
+    <nodeSuccessors name="decision_yes" next="DecisionNode7"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper0"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="LastName">
+    <nodeSuccessors name="decision_yes" next="DecisionNode2"/>
+    <nodeSuccessors name="decision_no" next="EndNode0"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="LastName"
+      operator="str_eq" conditionItem="UserBO:LastName">
+    <nodeSuccessors name="decision_yes" next="EndNode0"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+<!--The user that matches the input.-->
+    <returnValues name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InValue_1" constant="LastNameDoesNotMatch"/>
+    <returnValueBindings name="OutValue_1" objectPath="ERROR_User"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 7,16-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR" strict="true">
+<!--If the user may not de found. Possible values are: UserDisabled
+UnableToFindMembershipData
+FirstNameDoesNotMatch
+LastNameDoesNotMatch-->
+    <returnValues name="ERROR_User" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InValue_1" constant="FirstNameDoesNotMatch"/>
+    <returnValueBindings name="OutValue_1" objectPath="ERROR_User"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="InValue_1" constant="UserDisabled"/>
+    <returnValueBindings name="OutValue_1" objectPath="ERROR_User"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="InValue_1" constant="UnableToFindMembershipData"/>
+    <returnValueBindings name="OutValue_1" objectPath="ERROR_User"/>
+  </nodes>
+<!--Sends a password remainder/retrieval email.
+@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="SendPasswordRemainderMail"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetCurrentDate0"/>
+<!--The user which will receive the reminder email.-->
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+<!--True if the email sending is synchronous.-->
+    <parameters name="WaitForResult" type="java.lang.Boolean" optional="true"/>
+<!--The password reminder/retrieval link life time, e.g. after the specified time the link is no longer valid.-->
+    <parameters name="PasswordRelatedLinkLifeTime" type="java.lang.Integer"/>
+<!--The sender of the password remainder/retrieval email.-->
+    <parameters name="PasswordRelatedEmailFrom" type="java.lang.String"/>
+<!--The subject of the password remainder/retrieval email.-->
+    <parameters name="PasswordRelatedEmailSubject" type="java.lang.String"/>
+<!--The template used for the password remainder/retrieval email generation.-->
+    <parameters name="PasswordRelatedEmailTemplate" type="java.lang.String"/>
+    <parameters name="DefaultCurrency" type="com.intershop.beehive.core.capi.currency.Currency"
+        optional="true"/>
+<!--The target ApplicationBO used if you want to defines URL to the specific application otherwise URL should contains the default application URL.-->
+    <parameters name="TargetApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="CalculateDate0"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDate0">
+    <configurationValues name="CalculationMethod" value="Add"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CalculateDate.xml"/>
+    <nodeSuccessors name="next" next="CreateSecureCode0"/>
+    <parameterBindings name="Date" objectPath="CurrentDate"/>
+    <parameterBindings name="Hours" objectPath="PasswordRelatedLinkLifeTime"/>
+    <returnValueBindings name="CalculatedDate" objectPath="NewPasswordExpiry"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateSecureCode0">
+    <pipelet href="enfinity:/core/pipelets/CreateSecureCode.xml"/>
+    <nodeSuccessors name="next" next="UpdateUserBOCredentials0"/>
+    <returnValueBindings name="SecureCode" objectPath="SecureHash"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateUserBOCredentials0">
+    <pipelet href="enfinity:/bc_user/pipelets/UpdateUserBOCredentials.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+<!--@BendPoints 17,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="Answer" nullBinding="true"/>
+    <parameterBindings name="IPRange" nullBinding="true"/>
+    <parameterBindings name="IsActive" constant="(Boolean)true"/>
+    <parameterBindings name="LastLoggedInDate" nullBinding="true"/>
+    <parameterBindings name="Login" nullBinding="true"/>
+    <parameterBindings name="NewPasswordExpiry" objectPath="NewPasswordExpiry"/>
+    <parameterBindings name="Password" nullBinding="true"/>
+    <parameterBindings name="ReminderEmail" nullBinding="true"/>
+    <parameterBindings name="SecureCode" objectPath="SecureHash"/>
+    <parameterBindings name="SecurityQuestion" nullBinding="true"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="WaitForResult"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="ProcessMail1"/>
+<!--@BendPoints 15,13-->
+    <nodeSuccessors name="decision_no" next="ProcessMail0"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail1">
+    <configurationValues name="UseErrorConnector" value="true"/>
+    <configurationValues name="WaitForResult" value="true"/>
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="CurrencyCode" objectPath="UserBO:Extension(&quot;UserBOPreferencesExtension&quot;):PreferredCurrency"/>
+    <parameterBindings name="Domain" nullBinding="true"/>
+    <parameterBindings name="LocaleID" objectPath="UserBO:Extension(&quot;UserBOPreferencesExtension&quot;):PreferredLocale:LocaleID"/>
+    <parameterBindings name="MailFrom" objectPath="PasswordRelatedEmailFrom"/>
+    <parameterBindings name="MailSubject" objectPath="PasswordRelatedEmailSubject"/>
+    <parameterBindings name="MailTemplate" objectPath="PasswordRelatedEmailTemplate"/>
+    <parameterBindings name="MailTo" objectPath="UserBO:Email"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="EndNode8"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" strict="true"/>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 8,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="ERROR" strict="true"/>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail0">
+    <configurationValues name="UseErrorConnector" value="true"/>
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+<!--@BendPoints 15,19-->
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="CurrencyCode" objectPath="UserBO:Extension(&quot;UserBOPreferencesExtension&quot;):PreferredCurrency"/>
+    <parameterBindings name="Domain" nullBinding="true"/>
+    <parameterBindings name="LocaleID" objectPath="UserBO:Extension(&quot;UserBOPreferencesExtension&quot;):PreferredLocale:LocaleID"/>
+    <parameterBindings name="MailFrom" objectPath="PasswordRelatedEmailFrom"/>
+    <parameterBindings name="MailSubject" objectPath="PasswordRelatedEmailSubject"/>
+    <parameterBindings name="MailTemplate" objectPath="PasswordRelatedEmailTemplate"/>
+    <parameterBindings name="MailTo" objectPath="UserBO:Email"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--Updates the forgotten password.
+@Location 1,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="UpdateForgottenPassword"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DetermineUser0"/>
+<!--The user whose password should ne updated.-->
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+<!--The new password.-->
+    <parameters name="NewPassword" type="java.lang.String"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUser0">
+    <pipelet href="enfinity:/core/pipelets/DetermineUser.xml"/>
+    <nodeSuccessors name="next" next="VerifyCredential0"/>
+    <parameterBindings name="UserID" objectPath="UserBO:ID"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyCredential0">
+    <configurationValues name="NotEmptyOnly" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/VerifyCredential.xml"/>
+    <nodeSuccessors name="next" next="GetCurrentDate1"/>
+<!--@BendPoints 5,24-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="CurrentLocale" objectPath="CurrentRequest:Locale"/>
+    <parameterBindings name="Domain" nullBinding="true"/>
+    <parameterBindings name="Login" objectPath="UserBO:Login"/>
+    <parameterBindings name="Password" objectPath="NewPassword"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="UpdateUserBOCredentials1"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateUserBOCredentials1">
+    <pipelet href="enfinity:/bc_user/pipelets/UpdateUserBOCredentials.xml"/>
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="IsActive" constant="(Boolean)true"/>
+    <parameterBindings name="Login" objectPath="User:Profile:Credentials:Login"/>
+    <parameterBindings name="NewPasswordExpiry" objectPath="CurrentDate"/>
+    <parameterBindings name="Password" objectPath="NewPassword"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode_9JXjYIUDEeilb9fLYfuwGA"/>
+  </nodes>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_9JXjYIUDEeilb9fLYfuwGA" name="ERROR"
+      strict="true">
+<!--That dictionary value will be set if an error occurs. If the BusinessPartnerNo is not unique an error message 'Error_User' with value 'BusinessPartnerNoNotUnique' will be set. -->
+    <returnValues name="ERROR_User" type="java.lang.String" optional="true"/>
+    <returnValues name="ViolatedRuleDescription" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--Verifies that the provided password reminder hash is valid. The hash is a hashed secred answer. If the hash is not valid then the error exit is used.
+@Location 4,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="VerifyPasswordReminderHash"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CheckSecureCode0"/>
+<!--The user that owns the hash.-->
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+<!--The hash which validity should be checked.-->
+    <parameters name="PasswordReminderHash" type="java.lang.String"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckSecureCode0">
+    <pipelet href="enfinity:/bc_user/pipelets/CheckSecureCode.xml"/>
+    <nodeSuccessors name="next" next="EndNode6"/>
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue0"/>
+    <parameterBindings name="SecureCode" objectPath="PasswordReminderHash"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true"/>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue0">
+    <configurationValues name="Name" value="ERROR_User"/>
+    <configurationValues name="Value" value="ERROR_Consumer_InvalidHash"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="ERROR" strict="true">
+    <returnValues name="ERROR_User" type="java.lang.String"/>
+  </nodes>
+</pipeline:Pipeline>

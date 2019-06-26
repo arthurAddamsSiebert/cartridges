@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline handles the LineItem based cancelation.
+@Group Basket-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessLineItems" type="process">
+<!--@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start6" name="Calculate" callMode="Private">
+<!--@BendPoints 29,2-->
+    <nodeSuccessors name="next" next="NoticeProductLineItemElements1" action="begin"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="NoticeProductLineItemElements1">
+    <configurationValues name="States" value="4;6"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/NoticeProductLineItemElements.xml"/>
+<!--@BendPoints 29,4-->
+    <nodeSuccessors name="next" next="SetupCalculationTarget1"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetupCalculationTarget1">
+    <configurationValues name="Name" value="Requisition"/>
+    <pipelet href="enfinity:/bts/pipelets/SetupCalculationTarget.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 29,8-->
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <startNode referencedName="RequisitionProcessCalculation-Start"/>
+  </nodes>
+<!--@Location 14,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Requisition:SubtotalGrossPricePC:Value"
+      operator="gt" conditionValue="0">
+<!--@BendPoints 29,10-->
+    <nodeSuccessors name="decision_yes" next="RestoreProcuctLineItemElements2"/>
+<!--@BendPoints 31,9 31,10-->
+    <nodeSuccessors name="decision_no" next="RestoreProcuctLineItemElements1"/>
+  </nodes>
+<!--@Location 14,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RestoreProcuctLineItemElements2">
+    <pipelet href="enfinity:/bc_requisition/pipelets/RestoreProcuctLineItemElements.xml"/>
+<!--@BendPoints 29,13-->
+    <nodeSuccessors name="next" next="JoinNode2" action="commit"/>
+  </nodes>
+<!--@Location 14,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 29,16-->
+    <nodeSuccessors name="next" next="End6"/>
+  </nodes>
+<!--@Location 14,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6"/>
+<!--@Location 15,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RestoreProcuctLineItemElements1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/RestoreProcuctLineItemElements.xml"/>
+<!--@BendPoints 31,12-->
+    <nodeSuccessors name="next" next="CallNode3"/>
+  </nodes>
+<!--@Location 15,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+<!--@BendPoints 31,15-->
+    <nodeSuccessors name="next" next="JoinNode2" action="commit"/>
+    <startNode referencedName="RequisitionProcessCalculation-Start"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="CancelLineItem" callMode="Private">
+    <nodeSuccessors name="next" next="GetLineItemByUUID1"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLineItemByUUID1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/GetLineItemByUUID.xml"/>
+    <nodeSuccessors name="next" next="Call3"/>
+    <parameterBindings name="LineItemUUID" objectPath="LineItemID"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call3">
+    <nodeSuccessors name="next" next="Call4"/>
+    <startNode referencedName="ProcessLineItems-DetermineLineItemChilds"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call4">
+    <nodeSuccessors name="next" next="Call5"/>
+    <startNode referencedName="ProcessLineItems-UpdateStatus"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call5">
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="End4"/>
+    <startNode referencedName="ProcessAccountTransactions-OnCancelLineItem"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="DetermineLineItemChilds"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Call2"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+    <nodeSuccessors name="next" next="Loop2"/>
+    <startNode referencedName="ProcessLineItems-QueryLineItemChilds"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="LineItemChilds">
+    <nodeSuccessors name="next" next="End2"/>
+    <entry key="LineItemChild">
+      <nodeSuccessors name="loop_entry_next" next="Decision1"/>
+    </entry>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="LineItemChild:UUID"
+      operator="str_neq" conditionItem="LineItemChild:OriginID">
+    <nodeSuccessors name="decision_yes" next="DetermineOrderByID1"/>
+<!--@BendPoints 13,7-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineOrderByID1">
+    <pipelet href="enfinity:/bts/pipelets/DetermineOrderByID.xml"/>
+    <nodeSuccessors name="next" next="Decision2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="OrderID" objectPath="LineItemChild:LineItemCtnrID"/>
+    <parameterBindings name="OrderIDs" objectPath="NULL"/>
+    <parameterBindings name="OrderRefID" objectPath="NULL"/>
+    <parameterBindings name="OrderRefIDs" objectPath="NULL"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="Order:OrderType"
+      operator="eq" conditionValue="1">
+    <nodeSuccessors name="decision_yes" next="KeyMapper3"/>
+<!--@BendPoints 11,11-->
+    <nodeSuccessors name="decision_no" next="KeyMapper4"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 9,15-->
+    <nodeSuccessors name="next" next="Join2"/>
+    <parameterBindings name="InValue_1" objectPath="LineItemChild"/>
+    <parameterBindings name="InValue_2" objectPath="Order"/>
+    <returnValueBindings name="OutValue_1" objectPath="LineItemSupplierOrder"/>
+    <returnValueBindings name="OutValue_2" objectPath="SupplierOrder"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+<!--@BendPoints 11,16 7,16 7,5-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+    <parameterBindings name="InValue_1" objectPath="LineItemChild"/>
+    <parameterBindings name="InValue_2" objectPath="Order"/>
+    <returnValueBindings name="OutValue_1" objectPath="LineItemSellerOrder"/>
+    <returnValueBindings name="OutValue_2" objectPath="SellerOrder"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 13,15-->
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start8" name="QueryLineItemChilds"
+      callMode="Private">
+<!--@BendPoints 21,2-->
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="LineItemUUID"/>
+    <configurationValues name="QueryName" value="requisition/GetLineItemChilds"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 21,4-->
+    <nodeSuccessors name="next" next="End9"/>
+    <parameterBindings name="ParameterValue_01" objectPath="LineItem:UUID"/>
+    <returnValueBindings name="SearchResult" objectPath="LineItemChilds"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End9"/>
+<!--@Location 8,14-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start7" name="RecalculateOrderStatus"
+      callMode="Private">
+    <nodeSuccessors name="next" next="RemoveDictionaryValue1"/>
+  </nodes>
+<!--@Location 8,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue1">
+    <configurationValues name="Key" value="NoCancelation"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+  </nodes>
+<!--@Location 8,16-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="RecalcOrder:ProductLineItemsIterator">
+    <nodeSuccessors name="next" next="Decision9"/>
+    <entry key="PLI">
+      <nodeSuccessors name="loop_entry_next" next="Decision5"/>
+    </entry>
+  </nodes>
+<!--@Location 8,17-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision5" conditionKey="PLI:Status"
+      operator="str_neq" conditionValue="22">
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue1"/>
+<!--@BendPoints 18,35 18,39-->
+    <nodeSuccessors name="decision_no" next="Join3"/>
+  </nodes>
+<!--@Location 8,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="NoCancelation"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Join3"/>
+  </nodes>
+<!--@Location 8,19-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+<!--@BendPoints 17,40 15,40 15,33-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 9,16-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision9" conditionKey="NoCancelation">
+<!--@BendPoints 21,33-->
+    <nodeSuccessors name="decision_yes" next="End8"/>
+    <nodeSuccessors name="decision_no" next="UpdateOrderStatus1"/>
+  </nodes>
+<!--@Location 10,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End8"/>
+<!--@Location 9,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateOrderStatus1">
+    <configurationValues name="StateGroup" value="OrderStatus"/>
+    <configurationValues name="StateName" value="CANCELLED"/>
+    <pipelet href="enfinity:/bts/pipelets/UpdateOrderStatus.xml"/>
+    <nodeSuccessors name="next" next="End7"/>
+    <parameterBindings name="Order" objectPath="RecalcOrder"/>
+  </nodes>
+<!--@Location 9,19-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End7"/>
+<!--@Location 12,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="RecalculateRequisition"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Call1"/>
+  </nodes>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="End1"/>
+    <startNode referencedName="ProcessLineItems-Calculate"/>
+  </nodes>
+<!--@Location 12,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 16,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="RecalculateTotals"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 16,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JumpNode1"/>
+    <parameterBindings name="InValue_1" constant="true"/>
+    <returnValueBindings name="OutValue_1" objectPath="DisabledProductPriceDetermination"/>
+  </nodes>
+<!--@Location 16,2-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="ProcessLineItems-Calculate"/>
+  </nodes>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="UpdateStatus" callMode="Private">
+    <nodeSuccessors name="next" next="Decision3"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="LineItemSupplierOrder">
+    <nodeSuccessors name="decision_yes" next="UpdateLineItemStatus2"/>
+<!--@BendPoints 17,3-->
+    <nodeSuccessors name="decision_no" next="Join1"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus2">
+    <configurationValues name="StatusGroup" value="Order"/>
+    <configurationValues name="StatusID" value="22"/>
+    <configurationValues name="StatusType" value="Status"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="Decision4"/>
+    <parameterBindings name="InputStatusGroup" objectPath="NULL"/>
+    <parameterBindings name="InputStatusID" objectPath="NULL"/>
+    <parameterBindings name="LineItemID" objectPath="LineItemSupplierOrder:UUID"/>
+    <parameterBindings name="LineItemIDs" objectPath="NULL"/>
+    <parameterBindings name="Order" objectPath="NULL"/>
+    <parameterBindings name="Requisition" objectPath="NULL"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision4" conditionKey="LineItemSellerOrder">
+    <nodeSuccessors name="decision_yes" next="UpdateLineItemStatus3"/>
+    <nodeSuccessors name="decision_no" next="Join1"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus3">
+    <configurationValues name="StatusGroup" value="Order"/>
+    <configurationValues name="StatusID" value="22"/>
+    <configurationValues name="StatusType" value="Status"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="Decision10"/>
+    <parameterBindings name="InputStatusGroup" objectPath="NULL"/>
+    <parameterBindings name="InputStatusID" objectPath="NULL"/>
+    <parameterBindings name="LineItemID" objectPath="LineItemSellerOrder:UUID"/>
+    <parameterBindings name="LineItemIDs" objectPath="NULL"/>
+    <parameterBindings name="Order" objectPath="NULL"/>
+    <parameterBindings name="Requisition" objectPath="NULL"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision10" conditionKey="Order">
+    <nodeSuccessors name="decision_yes" next="UpdateLineItemStatus1"/>
+    <nodeSuccessors name="decision_no" next="Join10"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus1">
+    <configurationValues name="StatusGroup" value="Requisition"/>
+    <configurationValues name="StatusID" value="7"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="Decision7"/>
+    <parameterBindings name="InputStatusGroup" objectPath="NotAvailable"/>
+    <parameterBindings name="InputStatusID" objectPath="NotAvailable"/>
+    <parameterBindings name="LineItemID" objectPath="NotAvailable"/>
+    <parameterBindings name="LineItemIDs" objectPath="NotAvailable"/>
+    <parameterBindings name="Requisition" objectPath="NotAvailable"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision7" conditionKey="SellerOrder">
+    <nodeSuccessors name="decision_yes" next="KeyMapper1"/>
+<!--@BendPoints 16,15 16,21-->
+    <nodeSuccessors name="decision_no" next="Join4"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call6"/>
+    <parameterBindings name="InValue_1" objectPath="SellerOrder"/>
+    <returnValueBindings name="OutValue_1" objectPath="RecalcOrder"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call6">
+    <nodeSuccessors name="next" next="Join4"/>
+    <startNode referencedName="ProcessLineItems-RecalculateOrderStatus"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+<!--@BendPoints 15,25-->
+    <nodeSuccessors name="next" next="Join9"/>
+  </nodes>
+<!--@Location 8,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join9">
+    <nodeSuccessors name="next" next="End5"/>
+  </nodes>
+<!--@Location 8,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5"/>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join10">
+    <nodeSuccessors name="next" next="UpdateProductLineItemStatus1"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductLineItemStatus1">
+    <configurationValues name="StateGroup" value="REQUISITIONProductLineItemStatus"/>
+    <configurationValues name="StateName" value="CANCELLED"/>
+    <pipelet href="enfinity:/bts/pipelets/UpdateProductLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="Decision6"/>
+    <parameterBindings name="ProductLineItem" objectPath="LineItem"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision6" conditionKey="SelectDelegatorID"
+      operator="str_eq" conditionValue="NO_SELECT_DELEGATOR">
+    <nodeSuccessors name="decision_yes" next="GetBasketByID3"/>
+<!--@BendPoints 19,15-->
+    <nodeSuccessors name="decision_no" next="GetBasketByID1"/>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetBasketByID3">
+    <pipelet href="enfinity:/bts/pipelets/GetBasketByID.xml"/>
+    <nodeSuccessors name="next" next="Join7"/>
+<!--@BendPoints 18,17 18,19-->
+    <nodeSuccessors name="pipelet_error" next="Join7"/>
+    <parameterBindings name="BasketID" objectPath="LineItem:LineItemCtnrID"/>
+    <returnValueBindings name="Basket" objectPath="Requisition"/>
+  </nodes>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+    <nodeSuccessors name="next" next="Join5"/>
+  </nodes>
+<!--@Location 8,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+    <nodeSuccessors name="next" next="UpdateLineItemStatus4"/>
+  </nodes>
+<!--@Location 8,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus4">
+    <configurationValues name="StatusGroup" value="Delivery"/>
+    <configurationValues name="StatusID" value="7"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="Join9"/>
+    <parameterBindings name="InputStatusGroup" objectPath="NULL"/>
+    <parameterBindings name="InputStatusID" objectPath="NULL"/>
+    <parameterBindings name="LineItemID" objectPath="NULL"/>
+    <parameterBindings name="LineItemIDs" objectPath="NULL"/>
+    <parameterBindings name="Order" objectPath="NULL"/>
+  </nodes>
+<!--@Location 9,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetBasketByID1">
+    <configurationValues name="CurrentUserOnly" value="false"/>
+    <pipelet href="enfinity:/bts/pipelets/GetBasketByID.xml"/>
+    <nodeSuccessors name="next" next="Join6"/>
+<!--@BendPoints 20,17 20,19-->
+    <nodeSuccessors name="pipelet_error" next="Join6"/>
+    <parameterBindings name="BasketID" objectPath="LineItem:LineItemCtnrID"/>
+    <returnValueBindings name="Basket" objectPath="Requisition"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+<!--@BendPoints 19,21-->
+    <nodeSuccessors name="next" next="Join5"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="Join10"/>
+  </nodes>
+</pipeline:Pipeline>

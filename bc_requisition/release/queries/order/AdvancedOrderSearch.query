@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<query>
+    <parameters>
+        <parameter name="OrderDomains" type="java.util.Iterator" optional="true"/>
+        <parameter name="OrderDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+        <parameter name="OrderStates" type="java.util.Iterator" optional="true"/>
+        <parameter name="OrderStatus" type="java.lang.String" optional="true"/>
+        <parameter name="OrderStateLiteral" type="java.lang.String" optional="true"/>
+        <parameter name="StartDate" type="java.util.Date" optional="true"/>
+        <parameter name="EndDate" type="java.util.Date" optional="true"/>
+        <parameter name="PriceTotalFrom" type="com.intershop.beehive.foundation.quantity.Money" optional="true"/>
+        <parameter name="PriceTotalTo" type="com.intershop.beehive.foundation.quantity.Money" optional="true"/>
+        <parameter name="OrderNumberExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+        <parameter name="RequisitionNumberExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+        <parameter name="CustomerExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+        <parameter name="ConsumerExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+        <parameter name="ProductExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+        <parameter name="ProductItemStatus" type="java.lang.Integer" optional="true"/>
+        <parameter name="SortAttribute" type="java.lang.String" optional="true" />
+        <parameter name="SortDirection" type="java.lang.String" optional="true" />
+        <parameter name="OrderSearchType" type="java.lang.String" optional="true" />
+        <parameter name="RequisitionNumber" type="java.lang.String" optional="true" />
+        <parameter name="SupplierDomainNameExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+        <parameter name="SupplierDocumentNoExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+        <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+        <parameter name="Buyer" type="com.intershop.beehive.core.capi.user.User" optional="true"/>  
+        <parameter name="CustomerID" type="java.lang.String" optional="true" />
+        <parameter name="CustomerTypeID" type="java.lang.String" optional="true" />
+        <parameter name="PaymentTransactionStatusIDs" type="java.util.Iterator" optional="true"/>
+        <parameter name="QuantityOrderPaymentTransactionStatusSelected" type="java.lang.String" optional="true" />
+    </parameters>
+    <return-mappings>
+        <return-mapping name="Order" type="orm" class="com.intershop.beehive.bts.internal.orderprocess.fulfillment.OrderPO">
+            <return-attribute name="UUID" />
+        </return-mapping>
+    </return-mappings>
+    <processor name="OracleSQL">
+        <processor-preprocessing output="SearchExpressionCustomerAV" input="CustomerExpression" processing="SearchExpression2Contains"/>
+    </processor>
+    <template type="countedobjects">
+        
+    <!-- global (customer and consumer expression) or (customer sort) -> UNION -->
+    <template-if condition="((isDefined(OrderSearchType) AND lcase(OrderSearchType) EQ 'global') AND isDefined(CustomerExpression) AND isDefined(ConsumerExpression)) 
+                             OR (isDefined(SortAttribute) AND lcase(SortAttribute) EQ 'customer')">
+
+        SELECT /* BO:AdvancedOrderSearch global: customer and consumer expression or customer sort */ 
+               uuid, 
+               COUNT(uuid) OVER() AS "rowcount", 
+               lastmodified,
+               sorting
+          FROM 
+          (
+
+    </template-if>
+
+              SELECT io.uuid AS uuid, 
+              <!-- NOT global (customer and consumer expression) or (customer sort) -> COUNT(*) OVER() -->
+              <template-if condition="NOT (((isDefined(OrderSearchType) AND lcase(OrderSearchType) EQ 'global') AND isDefined(CustomerExpression) AND isDefined(ConsumerExpression))
+                                      OR (isDefined(SortAttribute) AND lcase(SortAttribute) EQ 'customer'))">
+                     COUNT(io.uuid) OVER() AS "rowcount", 
+              </template-if>
+                     io.lastmodified AS lastmodified,
+              <!-- set order column -->
+              <template-call name="order/AdvancedOrderSearchSetSortingColumn">
+                  <call-parameter name="SortAttribute" value="SortAttribute"/>
+                  <call-parameter name="ConsumerUnion" value="false()"/>
+              </template-call>
+
+                FROM isorder io
+
+              <!-- local customer expression or state or sort -->
+              <template-if condition="isDefined(CustomerExpression) OR (isDefined(SortAttribute) AND lcase(SortAttribute) EQ 'customer')">
+                JOIN isorder_av io_av  ON (io_av.ownerid = io.uuid AND io_av.name = 'SourceOrganisationName'
+                 ) 
+              </template-if>
+              
+              <template-if condition="isDefined(OrderStateLiteral) AND lcase(OrderStateLiteral) EQ 'confirmed'">
+                JOIN isorder_av io_avc      ON (io_avc.ownerid = io.uuid AND io_avc.name = 'OrderConfirmationStatus') 
+              </template-if>
+
+              <!-- local consumer expression or consumer sort -->
+              <template-if condition="isDefined(OrderSearchType) AND lcase(OrderSearchType) EQ 'consumer' AND (isDefined(ConsumerExpression) OR (isDefined(SortAttribute) AND lcase(SortAttribute) EQ 'consumer'))">
+                JOIN staticaddress address  ON ((io.invoicetoaddressurn = address.addressid OR io.invoicetoaddressurn = address.uuid) and io.domainid = address.domainid and address.lineitemctnrid = io.uuid)
+                LEFT JOIN companyprofile cp ON (cp.customerid = io.customerid)
+                LEFT JOIN basicprofile bp   ON (io.userid = bp.uuid)
+                JOIN repository rep         ON (rep.repositorydomainid = io.domainid AND rep.typecode = 52)
+                LEFT JOIN basiccredentials bc ON (bc.basicprofileid = io.userid)
+              <if-elseif condition="isDefined(SortAttribute) AND (lcase(SortAttribute) EQ 'consumer')" />
+                LEFT JOIN basiccredentials bc ON (bc.basicprofileid = io.userid) 
+                LEFT JOIN basicprofile bp ON (bp.uuid = io.userid)  
+              </template-if>
+
+              <!-- sort by domainname -->
+              <template-if condition="isDefined(SortAttribute) AND lcase(SortAttribute) EQ 'domain'">
+                JOIN domaininformation di  ON (di.domainid = io.domainid)
+              </template-if>
+              
+              <!-- sort by requisition no -->
+              <template-if condition="isDefined(SortAttribute) AND lcase(SortAttribute) EQ 'requisitionno'">
+                JOIN basket b ON (b.uuid = io.basketid)  
+              </template-if>
+              
+              <!-- sort by status -->
+              <template-if condition="isDefined(SortAttribute) AND lcase(SortAttribute) EQ 'status'">
+                JOIN stateinformation si on (si.stategroup='OrderStatus' and si.STATEID = io.STATUS)
+				JOIN stateinformation_av si_av on (si_av.ownerid = si.UUID and si_av.NAME='displayName' and si_av.LOCALEID=<template-variable value="LocaleInformation:LocaleID"/>)
+              </template-if>
+              
+               WHERE 
+
+              <!-- expressions -->
+              <template-call name="order/AdvancedOrderSearchExpressions">
+                  <call-parameter name="OrderDomains" value="OrderDomains"/>
+                  <call-parameter name="OrderDomain" value="OrderDomain"/>
+                  <call-parameter name="OrderStates" value="OrderStates"/>
+                  <call-parameter name="OrderStateLiteral" value="OrderStateLiteral"/>
+                  <call-parameter name="StartDate" value="StartDate"/>
+                  <call-parameter name="EndDate" value="EndDate"/>
+                  <call-parameter name="PriceTotalFrom" value="PriceTotalFrom"/>
+                  <call-parameter name="PriceTotalTo" value="PriceTotalTo"/>
+                  <call-parameter name="OrderNumberExpression" value="OrderNumberExpression"/>
+                  <call-parameter name="ProductExpression" value="ProductExpression"/>
+                  <call-parameter name="ProductItemStatus" value="ProductItemStatus"/>
+                  <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+              </template-call>
+              <template-if condition="isDefined(SupplierDomainNameExpression) OR isDefined(SupplierDocumentNoExpression)">
+                  <template-call name="order/AdvancedOrderSearchSupplierOrder">
+                      <call-parameter name="SupplierDomainNameExpression" value="SupplierDomainNameExpression"/>
+                      <call-parameter name="SupplierDocumentNoExpression" value="SupplierDocumentNoExpression"/>
+                      <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+                  </template-call>
+              </template-if>    
+              <!-- requisition number expression -->
+              <template-if condition="isDefined(RequisitionNumberExpression) and RequisitionNumberExpression:NotEmpty">
+              	    AND io.basketid IN
+					(
+						SELECT b.uuid FROM basket b WHERE 
+						<template-call name="inc/SearchExpression2Like">
+                                <call-parameter name="SearchExpression" value="RequisitionNumberExpression"/>
+                                <call-parameter name="ColumnNames" value="&quot;b.documentno&quot;"/>
+                                <call-parameter name="CaseInsensitive" value="true()"/>
+                                <call-parameter name="ConcatenationOperator" value=""/>
+                        </template-call>
+					)          
+			  </template-if>
+			  <!-- status expression -->
+			  <template-if condition="isDefined(OrderStatus)  AND NOT (OrderStatus EQ '')">
+			     AND io.status = <template-variable value="OrderStatus"/>
+			  </template-if>
+			  <template-if condition="isDefined(Buyer:ID) AND NOT (Buyer:ID EQ '')">
+				 AND io.userid = <template-variable value="Buyer:ID"/>
+			  </template-if>
+			  <template-if condition="isDefined(CustomerID) AND NOT (CustomerID EQ '')">
+				 AND io.customerid = <template-variable value="CustomerID"/>
+			  </template-if>
+			  <template-if condition="isDefined(CustomerTypeID) AND NOT (CustomerTypeID EQ '')">
+				 AND io.customertypeid = <template-variable value="CustomerTypeID"/>
+			  </template-if>
+              <!-- customer expression -->
+              <template-if condition="isDefined(CustomerExpression)">
+                 /* local_or_global:customer:expression: io_av(SourceOrganisationName) or staticaddress(FirstName,LastName) */
+                 AND 
+                 (
+                 	<sql-dialect name="Microsoft">
+						CONTAINS(io_av.stringvalue, <template-variable value="SearchExpressionCustomerAV"/>)
+					 </sql-dialect>
+					 <sql-dialect name="Oracle">
+						CONTAINS(io_av.stringvalue, <template-variable value="SearchExpressionCustomerAV"/>) &gt; 0
+					 </sql-dialect>
+                     OR 
+                     EXISTS
+                     (
+                         SELECT 1 
+                           FROM staticaddress address 
+                          WHERE (io.invoicetoaddressurn = address.addressid OR io.invoicetoaddressurn = address.uuid)
+                            AND io.uuid = address.lineitemctnrid
+                            AND EXISTS 
+                                (
+                                    SELECT 1 
+                                      FROM domaininformation di 
+                                     WHERE di.domainname = io_av.stringvalue
+                                )
+                            <template-call name="inc/SearchExpression2Like">
+                                <call-parameter name="SearchExpression" value="CustomerExpression"/>
+                                <call-parameter name="ColumnNames" value="&quot;address.firstname address.lastname&quot;"/>
+                                <call-parameter name="CaseInsensitive" value="true()"/>
+                                <call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+                            </template-call>
+                     )
+                 )
+                                      
+
+              </template-if>
+
+              <!-- consumer expression -->
+              <template-if condition="isDefined(OrderSearchType) AND lcase(OrderSearchType) EQ 'consumer' AND isDefined(ConsumerExpression) AND ConsumerExpression:NotEmpty">
+                 /* local:consumer:expression: staticaddress(FirstName,LastName) */
+                  <template-call name="inc/SearchExpression2Like">
+                      <call-parameter name="SearchExpression" value="ConsumerExpression"/>
+                      <call-parameter name="ColumnNames" value="&quot;address.firstname address.lastname io.companyname io.companyname2 cp.companyname cp.companyname2 bp.lastname bp.firstname io.buyername&quot;"/>
+                      <call-parameter name="CaseInsensitive" value="true()"/>
+                      <call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+                  </template-call>
+              </template-if>
+
+
+			<template-if condition="QuantityOrderPaymentTransactionStatusSelected EQ 'ALLPaymentStatesSelected'">
+				<!-- If all payment states are selected, do not join  -->
+			<if-else />
+	              <template-if condition="isDefined(PaymentTransactionStatusIDs) AND hasElements(PaymentTransactionStatusIDs)">
+	                  AND EXISTS (SELECT * FROM paymenttransaction pt WHERE pt.orderid = io.uuid 
+	                      AND pt.status in (
+	                         <template-loop iterator="PaymentTransactionStatusIDs" alias="s">
+	                              <loop-statement><template-variable value="s"/></loop-statement>
+	                              <loop-separator>,</loop-separator>
+	                          </template-loop>
+	                      )
+	                  )
+	              </template-if>
+			</template-if>
+			<template-if condition="QuantityOrderPaymentTransactionStatusSelected EQ 'NoPaymentStatesSelected'">
+				<!-- If no payment states are selected, make sure nothing will be found.  -->
+				AND 1=2
+			</template-if>
+
+         
+    <!-- global (customer and consumer expression) or (sort) -> UNION -->
+    <template-if condition="(isDefined(OrderSearchType) AND lcase(OrderSearchType) EQ 'global' AND isDefined(CustomerExpression) AND isDefined(ConsumerExpression)) 
+                            OR (isDefined(SortAttribute) AND lcase(SortAttribute) EQ 'customer')">
+
+           UNION ALL
+              SELECT io.uuid AS uuid, 
+                     io.lastmodified AS lastmodified,
+              <!-- set order column -->
+              <template-call name="order/AdvancedOrderSearchSetSortingColumn">
+                  <call-parameter name="SortAttribute" value="SortAttribute"/>
+                  <call-parameter name="ConsumerUnion" value="true()"/>
+              </template-call>
+
+                FROM isorder io
+                
+              <template-if condition="isDefined(OrderStateLiteral) AND lcase(OrderStateLiteral) EQ 'confirmed'">
+                JOIN isorder_av io_avc      ON (io_avc.ownerid = io.uuid AND io_avc.name = 'OrderConfirmationStatus') 
+              </template-if>
+                
+                JOIN staticaddress address  ON ((io.invoicetoaddressurn = address.addressid OR io.invoicetoaddressurn = address.uuid) and io.domainid = address.domainid and address.lineitemctnrid = io.uuid)
+                LEFT JOIN companyprofile cp ON (cp.customerid = io.customerid)
+                LEFT JOIN basicprofile bp   ON (io.userid = bp.uuid) 
+                JOIN repository rep         ON (rep.repositorydomainid = io.domainid AND rep.typecode = 52)
+              
+               <template-if condition="isDefined(SortAttribute) AND (lcase(SortAttribute) EQ 'customer')">
+                LEFT JOIN basiccredentials bc ON (bc.basicprofileid = io.userid) 
+              </template-if>
+                
+              <!-- sort by domainname -->
+              <template-if condition="(isDefined(SortAttribute) AND lcase(SortAttribute) EQ 'domain')">
+                JOIN domaininformation di  ON (di.domainid = io.domainid)
+              </template-if>           
+
+               WHERE
+
+              <!-- expressions -->
+              <template-call name="order/AdvancedOrderSearchExpressions">
+                  <call-parameter name="OrderDomains" value="OrderDomains"/>
+                  <call-parameter name="OrderDomain" value="OrderDomain"/>
+                  <call-parameter name="OrderStates" value="OrderStates"/>
+                  <call-parameter name="OrderStateLiteral" value="OrderStateLiteral"/>
+                  <call-parameter name="StartDate" value="StartDate"/>
+                  <call-parameter name="EndDate" value="EndDate"/>
+                  <call-parameter name="PriceTotalFrom" value="PriceTotalFrom"/>
+                  <call-parameter name="PriceTotalTo" value="PriceTotalTo"/>
+                  <call-parameter name="OrderNumberExpression" value="OrderNumberExpression"/>
+                  <call-parameter name="ProductExpression" value="ProductExpression"/>
+                  <call-parameter name="ProductItemStatus" value="ProductItemStatus"/>
+                  <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+              </template-call>
+
+              <!-- consumer expression -->
+              <template-if condition="isDefined(ConsumerExpression) AND ConsumerExpression:NotEmpty">
+                 /* global:consumer:expression: staticaddress(FirstName,LastName) */
+                  <template-call name="inc/SearchExpression2Like">
+                      <call-parameter name="SearchExpression" value="ConsumerExpression"/>
+                      <call-parameter name="ColumnNames" value="&quot;address.firstname address.lastname io.companyname io.companyname2 cp.companyname cp.companyname2 bp.lastname bp.firstname io.buyername&quot;"/>
+                      <call-parameter name="CaseInsensitive" value="true()"/>
+                      <call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+                  </template-call>
+              </template-if>  
+
+          ) a
+
+    </template-if>
+
+      <!-- sorting by sort attribute -->
+      <sql-dialect name="Oracle"><template-variable value="orderBy('sorting',direction(SortDirection),if(isAscending(SortDirection),nullsLast(),nullsFirst()))" processing="text"/></sql-dialect>
+      <sql-dialect name="Microsoft"><template-variable value="orderBy('sorting',direction(SortDirection))" processing="text"/></sql-dialect> <!-- do not set the NULL FIRST/LAST since it causes issues with the sorting -->
+	  , lastmodified DESC
+
+    </template>
+</query>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<query description="gets the promotions that are currently available for the specified target groups">
+<parameters>
+	<parameter name="UserGroups" type="java.util.Iterator" optional="false" description="an iterator of user groups"/>
+	<parameter name="Enabled" type="java.lang.String" optional="true" description="specify if the promotion is enabled or not."/>
+	<parameter name="Date" type="java.util.Date" optional="true" description="the date to determine if the promotion is active if not specified the current date is taken"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false" description="the domain to search the promotions"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Promotions" type="orm" class="com.intershop.component.marketing.internal.rebate.PromotionPO" description="the found promotions">
+		<return-attribute name="uuid" />
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	select uuid from promotion p
+	where domainid = <template-variable value="Domain:DomainID" />
+	<template-if condition="isDefined(Enabled) AND Enabled EQ 'true'">
+		and enabledflag = 1
+	<if-else/>
+		and enabledflag = 0
+	</template-if>
+	<template-if condition="isDefined(Date)">
+		and startdate &lt; <template-variable value="Date" /> 
+		and <template-variable value="Date" /> &lt; enddate 
+	<if-else/>
+	<sql-dialect name="Oracle">
+		and startdate &lt; UTCTIMESTAMP() and UTCTIMESTAMP() &lt; enddate 
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		and startdate &lt; GETUTCDATE() and GETUTCDATE() &lt; enddate 
+	</sql-dialect>
+	</template-if>
+	and 
+	exists 
+	(
+	select 1 from usergroupassignment 
+	where 
+	    parentusergroupdomainid = p.targetgroupdomainid
+	    and parentusergroupid = p.targetgroupid
+	    and 
+	    (
+	    <template-loop iterator="UserGroups" alias="UserGroup">
+	    <loop-statement>
+	    (childusergroupid = <template-variable value="UserGroup:ID" /> and childusergroupdomainid = <template-variable value="UserGroup:DomainID" />)
+	    </loop-statement>
+	    <loop-separator> OR </loop-separator>
+	    </template-loop>
+	    )
+	)
+</template>
+</query>

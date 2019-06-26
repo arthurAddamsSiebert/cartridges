@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Handles replication processes.
+@Group Replication-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessReplicationProcess" type="process">
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Create"
+      callMode="Private">
+<!--@BendPoints 3,2-->
+    <nodeSuccessors name="next" next="CreateReplicationProcess1" action="begin"/>
+<!--The organization in which one der replication process should be created.-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+<!--The description of replication process.-->
+    <parameters name="Description" type="java.lang.String"/>
+    <parameters name="ReplicationProcessID" type="java.lang.String"/>
+    <parameters name="TargetCluster" type="com.intershop.beehive.core.capi.staging.TargetCluster"/>
+<!--The type of replication.-->
+    <parameters name="ReplicationType" type="java.lang.String"/>
+<!--The replication process start time.-->
+    <parameters name="StartTime" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateReplicationProcess1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateReplicationProcess.xml"/>
+    <nodeSuccessors name="next" next="UpdateReplicationProcess1"/>
+    <parameterBindings name="Domain" objectPath="Organization:Domain"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateReplicationProcess1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationProcess.xml"/>
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="EndNode4" action="commit"/>
+    <parameterBindings name="Description" objectPath="Description"/>
+    <parameterBindings name="Locale" objectPath="CurrentSession:Locale"/>
+    <parameterBindings name="ProcessID" objectPath="ReplicationProcessID"/>
+    <parameterBindings name="State" constant="WAITING"/>
+    <parameterBindings name="TargetCluster" objectPath="TargetCluster"/>
+    <parameterBindings name="Type" objectPath="ReplicationType"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true">
+<!--The desired replication process.-->
+    <returnValues name="ReplicationProcess" type="com.intershop.beehive.core.capi.replication.ReplicationProcess"/>
+  </nodes>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="CreateFromConfiguration"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ReloadReplicationConfiguration1"/>
+<!--The identifier of replication process in properties.-->
+    <parameters name="ReplicationProcessID" type="java.lang.String"/>
+    <parameters name="CorrelatedLockingEnabled" type="java.lang.String" optional="true"/>
+    <parameters name="UserLockingConflictPolicy" type="java.lang.String" optional="true"/>
+    <parameters name="SystemLockingConflictPolicy" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ReloadReplicationConfiguration1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ReloadReplicationConfiguration.xml"/>
+<!--@BendPoints 11,4-->
+    <nodeSuccessors name="next" next="GetReplicationProcessConfig1"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetReplicationProcessConfig1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetReplicationProcessConfig.xml"/>
+<!--@BendPoints 11,6-->
+    <nodeSuccessors name="next" next="GetOrganizationByName2"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByName2">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByName.xml"/>
+<!--@BendPoints 11,8-->
+    <nodeSuccessors name="next" next="CallNode1" action="begin"/>
+    <parameterBindings name="Name" constant="Operations"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="UpdateCustomAttributes0"/>
+    <startNode referencedName="ProcessReplicationProcess-Create"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes0">
+    <configurationValues name="Attribute_1_Name" value="UserLockingConflictPolicy"/>
+    <configurationValues name="Attribute_1_Type" value="String"/>
+    <configurationValues name="Attribute_2_Name" value="SystemLockingConflictPolicy"/>
+    <configurationValues name="Attribute_2_Type" value="String"/>
+    <configurationValues name="Attribute_3_Name" value="CorrelatedLockingEnabled"/>
+    <configurationValues name="Attribute_3_Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="UserLockingConflictPolicy"/>
+    <parameterBindings name="Attribute_2_Value" objectPath="SystemLockingConflictPolicy"/>
+    <parameterBindings name="Attribute_3_Value" objectPath="CorrelatedLockingEnabled"/>
+    <parameterBindings name="ExtensibleObject" objectPath="ReplicationProcess"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="ReplicationTaskNames">
+<!--@BendPoints 14,13-->
+    <nodeSuccessors name="next" next="EndNode2" action="commit"/>
+    <entry key="TaskID">
+<!--@BendPoints 11,14-->
+      <nodeSuccessors name="loop_entry_next" next="GetReplicationTaskConfig1"/>
+    </entry>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetReplicationTaskConfig1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetReplicationTaskConfig.xml"/>
+<!--@BendPoints 11,16-->
+    <nodeSuccessors name="next" next="GetOrganizationByName1"/>
+<!--@BendPoints 15,15-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByName1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByName.xml"/>
+<!--@BendPoints 11,18-->
+    <nodeSuccessors name="next" next="ExecutePipeline1"/>
+<!--@BendPoints 12,17-->
+    <nodeSuccessors name="pipelet_error" next="LogMessage1"/>
+    <parameterBindings name="Name" objectPath="OrganizationID"/>
+    <returnValueBindings name="Organization" objectPath="ReplicationTaskOrganization"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline1">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelineName" value="ProcessReplicationTask"/>
+    <configurationValues name="PipelineStartNode" value="CreateAndAssign"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+<!--@BendPoints 11,21 10,21 10,13-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+<!--@BendPoints 12,19-->
+    <nodeSuccessors name="pipelet_error" next="LogMessage2"/>
+    <parameterBindings name="PipelineDomain" objectPath="ReplicationTaskOrganization:Domain:Site"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage2">
+    <configurationValues name="Level" value="Error"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="MessageParam0" objectPath="ReplicationTaskName"/>
+    <parameterBindings name="MessageText" constant="Error creating replication task with name: {}"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 15,20-->
+    <nodeSuccessors name="next" next="JumpNode1"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="ProcessReplicationProcess-Error"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage1">
+    <configurationValues name="Level" value="Error"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="MessageParam0" objectPath="OrganizationID"/>
+    <parameterBindings name="MessageText" constant="Error finding organization with name: {}"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="next" strict="true">
+<!--The replication group identifiers.-->
+    <returnValues name="ReplicationProcess" type="com.intershop.beehive.core.capi.replication.ReplicationProcess"/>
+  </nodes>
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="Error"
+      callMode="Private">
+<!--@BendPoints 17,2-->
+    <nodeSuccessors name="next" next="EndNode7" action="rollback"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true"/>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="Remove"
+      callMode="Private">
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="RemoveReplicationProcess1" action="begin"/>
+<!--The replication process to be removed.-->
+    <parameters name="ReplicationProcess" type="com.intershop.beehive.core.capi.replication.ReplicationProcess"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveReplicationProcess1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveReplicationProcess.xml"/>
+<!--@BendPoints 3,12-->
+    <nodeSuccessors name="next" next="EndNode1" action="commit"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+</pipeline:Pipeline>

@@ -1,0 +1,116 @@
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObjectPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/workflow/WorkflowActivity.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/workflow/ActivityUserAssignmentPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/workflow/ActivityUserGroupAssignmentPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/workflow/WorkflowProcessPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/workflow/WorkflowThreadPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+primitive time;
+
+namespace com.intershop.beehive.core.internal.workflow
+{
+    /*
+     * This class represents a task of a workflow process. Depending on the state of the activity, it is either the task that needs to be fulfilled in order to continue the execution of the workflow thread or a history activity of the workflow process.<p>
+     */
+    orm class WorkflowActivityPO extends ExtensibleObjectPO implements WorkflowActivity
+    {
+        index(acceptorID);
+
+        index(senderID);
+
+        index(state);
+
+        index(notificationState);
+
+        index(creationDate);
+
+        index(timerDeadline);
+
+        /*
+         * The attribute associates the activity with its workflow process.
+         */
+        attribute processID : uuid;
+
+        /*
+         * This attribute references the workflow thread the activity belongs to. Is <code>null</code> in case of a history activity.
+         */
+        attribute threadID : uuid;
+
+        /*
+         * The id of the user that accepted the activity. Is <code>null</code> if not accepted yet.
+         */
+        attribute acceptorID : uuid searchable;
+
+        /*
+         * The id of the user that created(sent) the activity.
+         */
+        attribute senderID : uuid searchable;
+
+        /*
+         * The state of the activity. Can be <code>WFA_STATE_NOT_STARTED</code>, <code>WFA_STATE_WAITING</code>, <code>WFA_STATE_RUNNING</code> or
+         * <code>WFA_STATE_COMPLETED</code>.
+         * 
+         * @see com.intershop.beehive.core.capi.workflow.WorkflowConstants
+         */
+        attribute state : int;
+
+        /*
+         * The pipeline used to view the activity. Contains always pipeline name and start node (separated by the - character).<p>
+         * Normally the pipeline name will be included as hyperlink in the tasklist so that clicking an item in the tasklist leads to invocation of the pipeline.
+         */
+        attribute pipeline : string<256>;
+
+        /*
+         * Indicates if this is an activity that needs to be processed by the system. System activities are processed by a scheduled job process.
+         */
+        attribute systemActivity : boolean;
+
+        /*
+         * The name of the template that provides the subject of the activity. Normally the template will be directly included in the tasklist, providing the subject of the activity.
+         */
+        attribute subjectTemplate : string<256>;
+
+        /*
+         * The template used to send notifications for the activity. If <code>null</code>, the global notification template of the workflow process is used for notification.
+         */
+        attribute notificationTemplate : string<256>;
+
+        /*
+         * The notification state of the activity. Can be <code>WFA_STATE_NOTIFICATION_NOT_READY</code>, <code>WFA_STATE_NOTIFICATION_PENDING</code>, <code>WFA_STATE_NOTIFICATION_SENT</code> or
+         * <code>WFA_STATE_NOTIFICATION_NOT_REQUIRED</code>.
+         * 
+         * @see com.intershop.beehive.core.capi.workflow.WorkflowConstants
+         */
+        attribute notificationState : int searchable;
+
+        /*
+         * The time at which the activity was created.
+         */
+        attribute creationDate : time;
+
+        /*
+         * The absolute time at which the timerPipeline should be triggered. This attribute will be evaluated by a job pipeline. In case the time stored in this attribute is less than the current time, the timerPipeline will be executed.
+         */
+        attribute timerDeadline : time;
+
+        /*
+         * The pipeline used to trigger an escalation action. Will be invoked by a job pipeline.
+         */
+        attribute timerPipeline : string<256>;
+
+        relation processPO : WorkflowProcessPO[1..1] inverse activities
+        {
+            foreign key(processID) -> (UUID);
+        }
+
+        relation userGroupAssignments : ActivityUserGroupAssignmentPO[0..n] inverse activity;
+
+        relation threadPO : WorkflowThreadPO[0..1] inverse currentActivityPO
+        {
+            foreign key(threadID) -> (UUID);
+        }
+
+        relation userAssignments : ActivityUserAssignmentPO[0..n] inverse activity;
+    }
+}

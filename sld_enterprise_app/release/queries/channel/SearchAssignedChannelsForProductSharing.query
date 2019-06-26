@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Searches all channels the current repository shares products to.">
+<parameters>
+	<parameter name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false"/>
+	<parameter name="Organization" type="com.intershop.component.organization.capi.Organization" optional="true"/>
+	<parameter name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet" optional="true"/>
+	<parameter name="ChannelIDExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Channel" type="orm" class="com.intershop.component.mvc.internal.catalog.RepositoryPO">
+        <return-attribute name="UUID"/>
+    </return-mapping>
+	<return-mapping name="ProductCount" type="rename">
+		<return-attribute name="PRODUCTCOUNT"/>
+	</return-mapping>
+	<return-mapping name="AllProductsCount" type="rename">
+		<return-attribute name="ALLPRODUCTSCOUNT"/>
+	</return-mapping>
+    <return-mapping name="AllProducts" type="rename">
+        <return-attribute name="ALLPRODUCTS"/>
+    </return-mapping>
+    <return-mapping name="NoProducts" type="rename">
+        <return-attribute name="NOPRODUCTS"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-configuration name="readType.PRODUCTCOUNT" value="Long"/>
+	<processor-configuration name="readType.ALLPRODUCTSCOUNT" value="Long"/>
+    <processor-configuration name="readType.ALLPRODUCTS" value="Boolean"/>
+    <processor-configuration name="readType.NOPRODUCTS" value="Boolean"/>
+</processor>
+<template type="countedobjects">
+	SELECT 
+		DISTINCT(r.uuid) AS UUID, 
+		o.id AS SORTING1,
+		r.id AS SORTING2,
+		COUNT(DISTINCT(pa.productuuid)) AS PRODUCTCOUNT, 
+		COUNT(r.uuid) OVER() AS "ROWCOUNT", 
+        ps.allflag AS ALLPRODUCTS,
+        ps.nothingflag AS NOPRODUCTS,
+		(
+			SELECT 
+				COUNT(uuid) 
+			FROM 
+				product 
+			WHERE 
+				domainid = <template-variable value="Repository:RepositoryDomainID"/>
+		) AS ALLPRODUCTSCOUNT
+	FROM 
+		productset ps
+	JOIN 
+        productsetdomainassignment pda ON (pda.productsetuuid = ps.uuid)
+    LEFT OUTER JOIN
+    	productsetassignment pa ON (pa.productsetuuid = ps.uuid AND ps.activeflag = 1)
+	JOIN 
+		repository r ON (pda.domainid = r.repositorydomainid AND r.proxyflag = 0)
+	JOIN 
+		organization o ON (r.domainid = o.organizationdomainid)
+	WHERE 
+		ps.domainid = <template-variable value="Repository:RepositoryDomainID"/>
+		<template-if condition="isdefined(Organization)">
+			AND o.uuid = <template-variable value="Organization:UUID"/>
+		</template-if>
+		<template-if condition="isdefined(ProductSet)">
+			AND ps.uuid = <template-variable value="ProductSet:UUID"/>
+		</template-if>
+		<template-if condition="isDefined(ChannelIDExpression)">
+			<template-call name="inc/SearchExpression2Like">
+				<call-parameter name="SearchExpression" value="ChannelIDExpression"/>
+				<call-parameter name="ColumnNames" value="&quot;r.id&quot;"/>
+				<call-parameter name="CaseInsensitive" value="true()"/>
+				<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+			</template-call>
+		</template-if>
+	GROUP BY
+	    o.id, r.id, r.uuid, ps.allflag, ps.nothingflag
+	ORDER BY
+		SORTING1, SORTING2
+</template>
+</query>

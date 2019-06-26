@@ -1,0 +1,88 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %>
+<% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("ChannelID"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",4,e);}if (_boolean_result) { %><% {Object temp_obj = (context.getFormattedValue("_",null) + context.getFormattedValue(getObject("CurrentChannel:TypeCode"),null)); getPipelineDictionary().put("ChannelTypeCode", temp_obj);} %><% } else { %><% {Object temp_obj = (""); getPipelineDictionary().put("ChannelTypeCode", temp_obj);} %><% } %><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("ChannelID"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",10,e);}if (_boolean_result) { %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue(context.getFormattedValue("ViewBulkOperationUnassignWizard",null) + context.getFormattedValue(getObject("ChannelTypeCode"),null) + context.getFormattedValue("-Dispatch",null),null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ChannelID",null),context.getFormattedValue(getObject("ChannelID"),null))).addURLParameter(context.getFormattedValue("ActionID",null),context.getFormattedValue("UnassignProductLinks",null)).addURLParameter(context.getFormattedValue("PageableID",null),context.getFormattedValue(getObject("PageableID"),null)).addURLParameter(context.getFormattedValue("jumpToStep",null),context.getFormattedValue("4",null)))),
+new TagParameter("wizard","true"),
+new TagParameter("text",localizeText(context.getFormattedValue("UnassignProductLinksConfirmation.Step4UnassignProductCategoryLinksConfirm.text",null)))}, 11); %><% } else { %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewBulkOperationUnassignWizard-Dispatch",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ActionID",null),context.getFormattedValue("UnassignProductLinks",null))).addURLParameter(context.getFormattedValue("PageableID",null),context.getFormattedValue(getObject("PageableID"),null)).addURLParameter(context.getFormattedValue("jumpToStep",null),context.getFormattedValue("4",null)))),
+new TagParameter("wizard","true"),
+new TagParameter("text",localizeText(context.getFormattedValue("UnassignProductLinksConfirmation.Step4UnassignProductCategoryLinksConfirm.text",null)))}, 18); %><% } %><% URLPipelineAction action199 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue(context.getFormattedValue("ViewBulkOperationUnassignWizard",null) + context.getFormattedValue(getObject("ChannelTypeCode"),null) + context.getFormattedValue("-Dispatch",null),null)))),null));String site199 = null;String serverGroup199 = null;String actionValue199 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue(context.getFormattedValue("ViewBulkOperationUnassignWizard",null) + context.getFormattedValue(getObject("ChannelTypeCode"),null) + context.getFormattedValue("-Dispatch",null),null)))),null);if (site199 == null){  site199 = action199.getDomain();  if (site199 == null)  {      site199 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup199 == null){  serverGroup199 = action199.getServerGroup();  if (serverGroup199 == null)  {      serverGroup199 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue(context.getFormattedValue("ViewBulkOperationUnassignWizard",null) + context.getFormattedValue(getObject("ChannelTypeCode"),null) + context.getFormattedValue("-Dispatch",null),null)))),null));out.print("\"");out.print(" name=\"");out.print("UnassignProductLinksConfirmationForm");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue199, site199, serverGroup199,true)); %><table border="0" cellspacing="0" cellpadding="0" width="100%">
+<tr>
+<td class="table_title aldi" colspan="5"><% {out.write(localizeISText("UnassignProductLinksConfirmation.Step4UnassignProductCategoryLinksConfirm.table_title",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+<tr>
+<td class="w e s table_title_description" colspan="5"><% {out.write(localizeISText("UnassignProductLinksConfirmation.Step4Of4.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</BR></BR><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("UnassignmentMap:get(\"link_target\")"),null).equals(context.getFormattedValue("product",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",35,e);}if (_boolean_result) { %><% {out.write(localizeISText("UnassignProductLinksConfirmation.ClickFinishToRemoveAllLinks.table_title_description1",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } else { %><% {out.write(localizeISText("UnassignProductLinksConfirmation.ClickFinishToRemoveAllLinks.table_title_description2",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } %></BR><% {out.write(localizeISText("UnassignProductLinksConfirmation.PleaseNoteThatClickingFinishTriggersABat.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+<tr>
+<td class="w e s table_title2" colspan="5"><% {out.write(localizeISText("UnassignProductLinksConfirmation.YourSelection.table_title2",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table>
+<table class="w e s" width="100%" cellspacing="0" cellpadding="0" border="0">
+<tr>
+<td class="table_detail e s" nowrap="nowrap" width="20%"><% {out.write(localizeISText("UnassignProductLinksConfirmation.SourceProducts.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="table_detail s" nowrap="nowrap"><% {String value = null;try{value=context.getFormattedValue(getObject("SourceProductsCount"),new Integer(INTEGER),null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {52}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr>
+<tr>
+<td class="table_detail e s" nowrap="nowrap" width="20%"><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("UnassignmentMap:get(\"link_target\")"),null).equals(context.getFormattedValue("product",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",57,e);}if (_boolean_result) { %><% {out.write(localizeISText("UnassignProductLinksConfirmation.TargetProducts.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } else { %><% {out.write(localizeISText("UnassignProductLinksConfirmation.TargetCategories.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } %></td>
+<td class="table_detail s" nowrap="nowrap"><% {String value = null;try{value=context.getFormattedValue(getObject("TargetsCount"),new Integer(INTEGER),null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {64}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr>
+<tr>
+<td class="table_detail e s" nowrap="nowrap" width="20%"><% {out.write(localizeISText("UnassignProductLinksConfirmation.LinkTypeS.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="table_detail s"><% while (loop("SelectedProductLinkTypeSummaryDisplayMap:Values:Iterator","SelectedProductLinkTypeSummary","count")) { %><% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) ((hasNext("SelectedProductLinkTypeSummary") ? Boolean.TRUE : Boolean.FALSE))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",73,e);}if (_boolean_result) { %><% _boolean_result=false;try {_boolean_result=((Boolean)((( ((Number) getObject("count")).doubleValue() >((Number)(new Double(1))).doubleValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",74,e);}if (_boolean_result) { %> <% {out.write(localizeISText("ProductParametricSearchMask.And.label",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } %> <% {out.write(localizeISText(context.getFormattedValue(getObject("SelectedProductLinkTypeSummary"),null),"",null,null,null,null,null,null,null,null,null,null,null));} %><% } else { %><% _boolean_result=false;try {_boolean_result=((Boolean)((( ((Number) getObject("count")).doubleValue() >((Number)(new Double(1))).doubleValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",76,e);}if (_boolean_result) { %>, <% } %><% {out.write(localizeISText(context.getFormattedValue(getObject("SelectedProductLinkTypeSummary"),null),"",null,null,null,null,null,null,null,null,null,null,null));} %><% } %><% } %></td>
+</tr>
+<tr>
+<td class="table_detail e" nowrap="nowrap" width="20%"><% {out.write(localizeISText("UnassignProductLinksConfirmation.TotalNumberOfLinksToBeRemoved.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="table_detail" nowrap="nowrap"><% {String value = null;try{value=context.getFormattedValue(getObject("LinksCount"),new Integer(INTEGER),null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {86}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr>
+</table>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="w e" >
+<tr>
+<td colspan="3" class="table_title2 left s"><% {out.write(localizeISText("ReplicationTargetListInc.AffectedItems.table_title2",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% _boolean_result=false;try {_boolean_result=((Boolean)((hasLoopElements("Objects") ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",95,e);}if (_boolean_result) { %><tr>
+<td class="table_header e s" nowrap="nowrap" width="40%"><% {out.write(localizeISText("AssignProductLinksActionSelectTargetProducts.Name.table_header",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="table_header e s" nowrap="nowrap" width="40%"><% {out.write(localizeISText("AssignProductLinksActionSelectTargetProducts.ID.table_header",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="table_header e s" nowrap="nowrap" width="20%"><% {out.write(localizeISText("AssignProductLinksActionSelectTargetProducts.Type.table_header",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% while (loop("Objects","Product",null)) { %><tr>
+<td class="table_detail e s top" ><a href="<%=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductSelectWizard-Details",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ProductID",null),context.getFormattedValue(getObject("Product:UUID"),null)))),null)%>" class="table_detail_link"><% {String value = null;try{value=context.getFormattedValue(getObject("Product:DisplayName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {103}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></a></td>
+<td class="table_detail e s top" nowrap="nowrap"><a href="<%=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductSelectWizard-Details",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ProductID",null),context.getFormattedValue(getObject("Product:UUID"),null)))),null)%>" class="table_detail_link"><% {String value = null;try{value=context.getFormattedValue(getObject("Product:SKU"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {104}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></a></td>
+<td class="table_detail e s top" nowrap="nowrap"><% {out.write(localizeISText("BrowseClassificationCatalog.Product.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% } %><% } %></table>
+<!-- Start Page Cursor -->
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+<tr>
+<td><% processOpenTag(response, pageContext, "pagingbar", new TagParameter[] {
+new TagParameter("pageable","Objects")}, 114); %></td>
+</tr>
+</table>
+<!-- End Page Cursor -->
+<table class="w e s" width="100%" border="0" cellspacing="0" cellpadding="0">
+<tr>
+<td align="left">
+<table border="0" cellspacing="4" cellpadding="0">
+<tr>
+<td class="button"><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/product/bulkwizard/WizardParams", null, "126");} %><input type="submit" name="previousStep" value="&lt;&lt;&nbsp;<%=context.getFormattedValue(localizeText(context.getFormattedValue("PageletSelectComponentSlot.Previous.button",null)),null)%>" class="button"/>
+<input type="hidden" name="ActionID" value="UnassignProductLinks"/>
+<input type="hidden" name="currentStep" value="4"/>
+<input type="hidden" name="IsSearchFired" value="<% {String value = null;try{value=context.getFormattedValue(getObject("IsSearchFired"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {130}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" /><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("UnassignmentMap:get(\"link_target\")"),null).equals(context.getFormattedValue("product",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",131,e);}if (_boolean_result) { %><input type="hidden" name="unassignProductProductLinks" value="true"><% } else { %><input type="hidden" name="unassignProductCategoryLinks" value="true"><% } %><input type="hidden" name="LinkedTargetsPageableIteratorID" value="<%=context.getFormattedValue(getObject("LinkedTargetsPageableIterator:ID"),null)%>"/>
+</td>
+</tr>
+</table>
+</td>
+<td align="right">
+<table border="0" cellspacing="4" cellpadding="0">
+<tr>
+<td class="button">
+<input type="submit" name="finish" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ComponentSelectVisibility.Finish.button",null)),null)%>" class="button"/>
+</td>
+<td class="button">
+<input type="submit" name="cancel" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PageletEntryPointSetParent.Cancel.button",null)),null)%>" class="button"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table><% out.print("</form>"); %><% printFooter(out); %>

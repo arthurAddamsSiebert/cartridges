@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This job executes a given process chain.
+@Group ProcessChain-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ExecuteProcessChain" overrideMode="Inherit" type="Job">
+<!--Process chain execution result:
+
+0 \- Success
+1 \- Warning
+2 \- Failure
+4 \- Error
+8 \- Not Found
+16 \- Interrupted
+@Location 1,5-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_f5QJULiIEeazEea8of6Btg" strict="true"
+      name="Execute" callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO_wLSd8Lq4Eea8XIVoABGDBg"/>
+    <parameters name="ProcessChainID" type="java.lang.String"/>
+    <parameters name="Process" type="com.intershop.beehive.core.capi.locking.Process"
+        optional="true"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO_wLSd8Lq4Eea8XIVoABGDBg">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetProcessChainBOByID_oV0tALiIEeazEea8of6Btg"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProcessChainBOByID_oV0tALiIEeazEea8of6Btg">
+    <pipelet href="enfinity:/bc_processchain/pipelets/GetProcessChainBOByID.xml"/>
+    <nodeSuccessors name="next" next="ExecuteProcessChain_vTks0LiJEeazEea8of6Btg"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode_x35qwLiJEeazEea8of6Btg"/>
+    <parameterBindings name="ProcessChainBOID" objectPath="ProcessChainID"/>
+    <parameterBindings name="ProcessChainBORepository" objectPath="ApplicationBO:Repository(&quot;ProcessChainBORepository&quot;)"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteProcessChain_vTks0LiJEeazEea8of6Btg">
+    <pipelet href="enfinity:/core/pipelets/ExecuteProcessChain.xml"/>
+    <nodeSuccessors name="next" next="UpdateProcessChainBOResult_c7oaQLiLEeazEea8of6Btg"/>
+    <parameterBindings name="ProcessChain" objectPath="ProcessChainBO:Content"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProcessChainBOResult_c7oaQLiLEeazEea8of6Btg">
+    <pipelet href="enfinity:/bc_processchain/pipelets/UpdateProcessChainBOResult.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="ProcessChainResult"
+      operator="gte" conditionValue="2">
+    <nodeSuccessors name="decision_yes" next="DecisionNode0"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="ProcessChainBO:FailureMailTo"
+      operator="str_empty">
+<!--@BendPoints 7,13-->
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper1"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 11,21-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="MailAddresses">
+    <nodeSuccessors name="decision_yes" next="GetDomainPreference0"/>
+<!--@BendPoints 9,23-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference0">
+    <configurationValues name="DefaultPreferenceKey" value="ProcessChain.MailFrom"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <nodeSuccessors name="pipelet_error" next="ToString0"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ProcessChainBO:PersistentObject:Domain"/>
+    <parameterBindings name="PreferenceKey" nullBinding="true"/>
+    <returnValueBindings name="Preference" nullBinding="true"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="SendMail0"/>
+  </nodes>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SendMail0">
+    <configurationValues name="UseErrorConnector" value="false"/>
+    <pipelet href="enfinity:/core/pipelets/SendMail.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="MailFrom" objectPath="MailFrom"/>
+    <parameterBindings name="MailSubject" objectPath="ProcessChainBO:MailSubject"/>
+    <parameterBindings name="MailTemplate" constant="processchain/ProcessChainFinishMail"/>
+    <parameterBindings name="MailTo" objectPath="MailAddresses"/>
+  </nodes>
+<!--@Location 2,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 2,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 9,31 7,31-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ToString0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ToString.xml"/>
+<!--@BendPoints 7,27-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="Object1" constant="tfs@fse.intershop.de"/>
+    <parameterBindings name="Object10" nullBinding="true"/>
+    <parameterBindings name="Object2" nullBinding="true"/>
+    <parameterBindings name="Object3" nullBinding="true"/>
+    <parameterBindings name="Object4" nullBinding="true"/>
+    <parameterBindings name="Object5" nullBinding="true"/>
+    <parameterBindings name="Object6" nullBinding="true"/>
+    <parameterBindings name="Object7" nullBinding="true"/>
+    <parameterBindings name="Object8" nullBinding="true"/>
+    <parameterBindings name="Object9" nullBinding="true"/>
+    <returnValueBindings name="String1" objectPath="MailFrom"/>
+    <returnValueBindings name="String10" nullBinding="true"/>
+    <returnValueBindings name="String2" nullBinding="true"/>
+    <returnValueBindings name="String3" nullBinding="true"/>
+    <returnValueBindings name="String4" nullBinding="true"/>
+    <returnValueBindings name="String5" nullBinding="true"/>
+    <returnValueBindings name="String6" nullBinding="true"/>
+    <returnValueBindings name="String7" nullBinding="true"/>
+    <returnValueBindings name="String8" nullBinding="true"/>
+    <returnValueBindings name="String9" nullBinding="true"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 11,11-->
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="InValue_1" objectPath="ProcessChainBO:FailureMailTo"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailAddresses"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="ProcessChainResult"
+      operator="eq" conditionValue="1">
+    <nodeSuccessors name="decision_yes" next="DecisionNode3"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ProcessChainBO:WarningMailTo"
+      operator="str_empty">
+<!--@BendPoints 7,17-->
+    <nodeSuccessors name="decision_yes" next="JoinNode0"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="InValue_1" objectPath="ProcessChainBO:WarningMailTo"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailAddresses"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ProcessChainBO:SuccessMailTo"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="JoinNode7"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper0"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="InValue_1" objectPath="ProcessChainBO:SuccessMailTo"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailAddresses"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_x35qwLiJEeazEea8of6Btg" name="ERROR"
+      strict="true"/>
+</pipeline:Pipeline>

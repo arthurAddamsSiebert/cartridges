@@ -1,0 +1,163 @@
+<script type="text/javascript">
+$('#'#'#applyRuleConfiguration').click(function () {
+	var $dialog = $('#'#'#ProductValidationDialog'),
+		$ok = $(this),
+		$form = $('form[name="ProductValidationRuleForm"]'),
+		params = $form.serialize(),
+		valid = true;
+		
+	// disable button once clicked
+	$ok.prop('disabled', true);
+	// hide label error class
+	hideLabelErrors();
+
+	$.post('#URL(Action('ViewProductValidationRuleConfiguration-CreateOrUpdateRule'))#', params)
+		.done(function (response) {
+			// this var is used for collecting error container ids of those error containers that should be shown
+			var errorContainerIDs = [],
+			validationRuleNotAvailable = false;
+			$.each(response, function (key, value) {
+			    if (!validationRuleNotAvailable) {
+			        if (key === 'ValidationRuleConfigurationNotFound') {
+				        validationRuleNotAvailable = true;
+				        return;
+				    }
+					var formName = key;
+					$(this).each(function (key, value) {
+						if (value !== '') {
+							valid = false;
+							$('label[for="' + formName + '_' + value + '"]').addClass('label_error');
+							errorContainerIDs.push(formName + '_' + value + '_ErrorContainer');
+						}
+					});    
+			    }
+			});
+			
+			if (!validationRuleNotAvailable) {
+			    var firstErrorContainer;
+			 	// iterate each error container and check if it should be hidden or shown
+				$('.ErrorContainer').each(function () {
+					var id = $(this).attr('id');
+					if (errorContainerIDs.indexOf(id) == -1) {
+						$(this).hide();
+					}
+					else {
+					    if(typeof firstErrorContainer === 'undefined') {
+					        firstErrorContainer = $(this);
+					    }
+						$(this).show();
+					}
+				});
+
+				// if validation is successful, close the dialog
+				if (valid) {
+					$dialog.dialog('close');
+					window.location.href = '#URL(Action('ViewProductValidationRuleList-Refresh'))#';
+				}
+				else if (typeof firstErrorContainer != 'undefined')
+				{
+				    var targetPosition = firstErrorContainer.position();
+				 	var scrolPosition = $('.dialog-content').scrollTop() + targetPosition.top;
+				 	$('.dialog-content').scrollTop(scrolPosition);    
+				}
+			} else {
+			    $dialog.dialog('close');
+			    window.location.href = '#URL(Action('ViewProductValidationRuleList-Refresh'), Parameter('validationRuleNotAvailable', 'true'))#';
+			}
+			// now enable ok button to make it available for submitting new data
+			$ok.prop('disabled', false);
+		});
+});
+
+// open dialog
+$('#'#'#ProductValidationDialog').on('dialogopen', function () {
+	<isif condition="#NOT isDefined(CurrentChannelPermissionMap:SLD_MANAGE_PRODUCTS)#">
+		$('.rule_configuration_input').prop('disabled', true);
+	</isif>
+});
+
+// close dialog
+$('#'#'#ProductValidationDialog').on('dialogclose', function () {
+	resetFormInputs();
+	hideAllRuleDivs();
+	enableRuleDivsElements();
+	hideLabelErrors();
+	hideErrors();
+	// enable rule type select box
+	$('#'#'#ValidationRuleConfigurationForm_RuleType').prop('disabled', false);
+});
+
+// binds change callback function for rule type selection box
+$('#'#'#ValidationRuleConfigurationForm_RuleType').on('change', function (ev) {
+	var value = $(this).val();
+	if (value === '') {
+		// hide all rule divs
+		$('.RuleDescriptorDiv').each(function () {
+			$(this).hide();
+		});
+		return;
+	}
+
+	// show the currently active rule div and enable inputs in it
+	var ruleDescriptorID = '#'#'#RuleDescriptorDiv_' + value;
+	var ruleDiv = $(ruleDescriptorID);
+	ruleDiv.find('input,select').each(function () {
+		$(this).prop('disabled', false);
+	});
+	ruleDiv.show();
+
+	// disable inactive rule divs inputs		
+	disableInactiveRuleDivsInputs(value);
+});
+
+// reset all form inputs that meet the conditions
+function resetFormInputs() {
+	$(':input', '#'#'#ProductValidationRuleForm').each(function () {
+		var name = $(this).attr('name');
+		var type = $(this).attr('type');
+		if (!((type === 'hidden' && (name === 'SynchronizerToken' || name === 'AllLocales' || name === 'AllCurrencies')) || type === 'button')) {
+			if (!$(this).is('input:checkbox')) {
+				$(this).val('');
+			}
+			$(this).removeAttr('checked').removeAttr('selected');
+		}
+	});
+
+	$('#'#'#assignedLocales').children().empty();
+}
+
+// disable inputs of all currently inactive rule divs and hide the divs
+function disableInactiveRuleDivsInputs(value) {
+	$('.RuleDescriptorDiv').each(function () {
+		if (('RuleDescriptorDiv_' + value) !== $(this).attr('id')) {
+			$(this).find('input,select').prop('disabled', 'disabled');
+			$(this).hide();
+		}
+	});
+}
+
+// hides all rule divs
+function hideAllRuleDivs() {
+	$('.RuleDescriptorDiv').hide();
+}
+
+// enables all elements in the rule divs
+function enableRuleDivsElements() {
+	$('.RuleDescriptorDiv').find('*').prop('disabled', false);
+}
+
+// remove label_error class
+function hideLabelErrors() {
+	$('label.label_error').removeClass('label_error');
+}
+
+// hide errors
+function hideErrors() {
+	$('.ErrorContainer').hide();
+}
+
+// replaces all occurances of find with replace in the given str
+function replaceAll(find, replace, str) {
+	return str.replace(new RegExp(find, 'g'), replace);
+}
+</script>

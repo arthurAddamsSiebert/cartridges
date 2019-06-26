@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Determines if a derived product exists with a type different to the given type in the given locale or non-localized.">
+<parameters>
+	<parameter name="AttributeName" type="java.lang.String" optional="false"/>
+	<parameter name="Multiple" type="java.lang.Boolean" optional="false"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="Type" type="java.lang.String" optional="false"/>
+	<parameter name="Product" type="com.intershop.beehive.xcs.capi.product.Product" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Domain" type="orm" class="com.intershop.beehive.core.internal.domain.DomainPO">
+	  <return-attribute name="DOMAINID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+<sql-dialect name="Oracle">
+  SELECT dp.domainid AS DOMAINID
+    FROM derivedproduct dp
+   WHERE dp.baseproductid = <template-variable value="Product:UUID"/>
+     AND EXISTS
+  (
+    SELECT 1 FROM derivedproduct WHERE baseproductid = dp.baseproductid
+       AND contains(attributes,
+       'HASPATH (//attrs/attr[@name="' || <template-variable value="AttributeName"/> || '"' ||
+       <template-if condition="Multiple">
+         ' AND (@multiple="true") ' ||
+       </template-if>
+       ' AND NOT (' || <template-variable value="Type"/> || ')])') &gt; 0
+    UNION
+    SELECT 1 FROM derivedproduct WHERE baseproductid = dp.baseproductid
+       AND contains(attributes_<template-variable value="Locale:LocaleID" processing="text"/>,
+       'HASPATH (//attrs/attr[@name="' || <template-variable value="AttributeName"/> || '"' ||
+       <template-if condition="Multiple">
+         ' AND (@multiple="true") ' ||
+       </template-if>
+       ' AND NOT (' || <template-variable value="Type"/> || ')])') > 0
+  )
+</sql-dialect>
+<sql-dialect name="Microsoft">
+	DECLARE @templateValue VARCHAR(300);
+	SET  @templateValue = <template-variable value="AttributeName"/>;
+	DECLARE @templateType VARCHAR(300);
+	SET @templateType = <template-variable value="Type"/>;
+  SELECT dp.domainid AS DOMAINID
+    FROM derivedproduct dp
+   WHERE dp.baseproductid = <template-variable value="Product:UUID"/>
+     AND EXISTS
+  (
+    SELECT 1 FROM derivedproduct WHERE baseproductid = dp.baseproductid
+       AND 
+	   attributes.exist('//attrs/attr[@name=sql:variable("@templateValue") 
+       <template-if condition="Multiple">
+          and (@multiple="true") 
+       </template-if>
+        and not (@name=sql:variable("@templateType"))]') &gt; 0
+    UNION
+    SELECT 1 FROM derivedproduct WHERE baseproductid = dp.baseproductid
+       AND 
+	   attributes_<template-variable value="Locale:LocaleID" processing="text"/>.exist('//attrs/attr[@name=sql:variable("@templateValue")
+       <template-if condition="Multiple">
+          and (@multiple="true") 
+       </template-if>
+        and not (@name=sql:variable("@templateType"))]') &gt; 0
+  )
+</sql-dialect>
+</template>
+</query>

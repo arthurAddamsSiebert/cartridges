@@ -1,0 +1,63 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><!-- Page Navigator --><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/PreferencesBreadcrumb", null, "4");} %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductEditingPreferences-Start",null))))),
+new TagParameter("text",localizeText(context.getFormattedValue("sld_enterprise_app.ProductEditing.text",null)))}, 5); %><!-- EO Page Navigator -->
+<!-- Working Area --><% URLPipelineAction action120 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductEditingPreferences-Update",null)))),null));String site120 = null;String serverGroup120 = null;String actionValue120 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductEditingPreferences-Update",null)))),null);if (site120 == null){  site120 = action120.getDomain();  if (site120 == null)  {      site120 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup120 == null){  serverGroup120 = action120.getServerGroup();  if (serverGroup120 == null)  {      serverGroup120 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductEditingPreferences-Update",null)))),null));out.print("\"");out.print(" name=\"");out.print("ProductEditingForm");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue120, site120, serverGroup120,true)); %><table border="0" cellspacing="0" cellpadding="0" width="100%">
+<tr>
+<td>
+<input name="webform-id" type="hidden" value="ProductEditingForm"/>
+<table cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr>
+<td class="table_title w e s n"><% {out.write(localizeISText("sld_enterprise_app.ProductEditing.table_title",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+<tr>
+<td class="table_title_description w e s"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_PRODUCTS_PREFERENCES"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",20,e);}if (_boolean_result) { %><% {out.write(localizeISText("sld_enterprise_app.PleaseSpecifiyIfProductDescriptionsAreEditedAsPlai.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %><br/><% } else { %><% {out.write(localizeISText("sld_enterprise_app.DefineIfProductDescriptionsAreEditedAsPlainTextOrH.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %><br/><% } %></td>
+</tr>
+<tr>
+<td class="w e">
+<img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="1" height="6" border="0" alt=""/>
+</td>
+</tr>
+<tr>
+<td>
+<table border="0" cellspacing="0" cellpadding="0" width="100%" class="w e s">
+<tr>
+<td nowrap="nowrap" class="label_checkbox"><label class="label label_checkbox"><% {out.write(localizeISText("sld_enterprise_app.ShortDescription.label",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</label></td>
+<td class="input_checkbox"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_PRODUCTS_PREFERENCES"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",38,e);}if (_boolean_result) { %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (((((Boolean) getObject("ProductEditingForm:isSubmitted")).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("ProductEditingForm:ProductShortDescriptionEditMode:Value"),null).equals(context.getFormattedValue("HTML",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue() || ((Boolean) ((((context.getFormattedValue(getObject("ProductShortDescriptionEditMode"),null).equals(context.getFormattedValue("HTML",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",39,e);}if (_boolean_result) { %><input type="checkbox" name="ProductEditingForm_ProductShortDescriptionEditMode" id="ProductEditingForm_ProductShortDescriptionEditMode" value="HTML" checked="checked"/><% } else { %><input type="checkbox" name="ProductEditingForm_ProductShortDescriptionEditMode" id="ProductEditingForm_ProductShortDescriptionEditMode" value="HTML"/><% } %><% } else { %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (((((Boolean) getObject("ProductEditingForm:isSubmitted")).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("ProductEditingForm:ProductShortDescriptionEditMode:Value"),null).equals(context.getFormattedValue("HTML",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue() || ((Boolean) ((((context.getFormattedValue(getObject("ProductShortDescriptionEditMode"),null).equals(context.getFormattedValue("HTML",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",45,e);}if (_boolean_result) { %><input type="checkbox" name="ProductEditingForm_ProductShortDescriptionEditMode" id="ProductEditingForm_ProductShortDescriptionEditMode" value="HTML" disabled="disabled" checked="checked"/><% } else { %><input type="checkbox" name="ProductEditingForm_ProductShortDescriptionEditMode" id="ProductEditingForm_ProductShortDescriptionEditMode" value="HTML" disabled="disabled"/><% } %><% } %></td>
+<td class="label_checkbox_text" width="100%"><label class="label label_checkbox_text label_light" for="ProductEditingForm_ProductShortDescriptionEditMode"><% {out.write(localizeISText("sld_enterprise_app.EnableHTMLEditing.label",null,null,null,null,null,null,null,null,null,null,null,null));} %></label></td>
+</tr>
+<tr>
+<td nowrap="nowrap" class="label_checkbox"><label class="label label_checkbox"><% {out.write(localizeISText("sld_enterprise_app.LongDescription.label",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</label></td>
+<td class="input_checkbox"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_PRODUCTS_PREFERENCES"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",57,e);}if (_boolean_result) { %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (((((Boolean) getObject("ProductEditingForm:isSubmitted")).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("ProductEditingForm:ProductLongDescriptionEditMode:Value"),null).equals(context.getFormattedValue("HTML",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue() || ((Boolean) ((((context.getFormattedValue(getObject("ProductLongDescriptionEditMode"),null).equals(context.getFormattedValue("HTML",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",58,e);}if (_boolean_result) { %><input type="checkbox" name="ProductEditingForm_ProductLongDescriptionEditMode" id="ProductEditingForm_ProductLongDescriptionEditMode" value="HTML" checked="checked"/><% } else { %><input type="checkbox" name="ProductEditingForm_ProductLongDescriptionEditMode" id="ProductEditingForm_ProductLongDescriptionEditMode" value="HTML"/><% } %><% } else { %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (((((Boolean) getObject("ProductEditingForm:isSubmitted")).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("ProductEditingForm:ProductLongDescriptionEditMode:Value"),null).equals(context.getFormattedValue("HTML",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue() || ((Boolean) ((((context.getFormattedValue(getObject("ProductLongDescriptionEditMode"),null).equals(context.getFormattedValue("HTML",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",64,e);}if (_boolean_result) { %><input type="checkbox" name="ProductEditingForm_ProductLongDescriptionEditMode" id="ProductEditingForm_ProductLongDescriptionEditMode" value="HTML" disabled="disabled" checked="checked"/><% } else { %><input type="checkbox" name="ProductEditingForm_ProductLongDescriptionEditMode" id="ProductEditingForm_ProductLongDescriptionEditMode" value="HTML" disabled="disabled"/><% } %><% } %></td>
+<td class="label_checkbox_text" width="100%"><label class="label label_checkbox_text label_light" for="ProductEditingForm_ProductLongDescriptionEditMode"><% {out.write(localizeISText("sld_enterprise_app.EnableHTMLEditing.label",null,null,null,null,null,null,null,null,null,null,null,null));} %></label></td>
+</tr>
+<tr>
+<td colspan="3">
+<img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="1" height="6" alt="" border="0"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_PRODUCTS_PREFERENCES"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",82,e);}if (_boolean_result) { %><table width="100%" border="0" cellspacing="0" cellpadding="0" class="w e s">
+<tr>
+<td align="right">
+<table cellpadding="0" cellspacing="4" border="0">
+<tr>
+<td class="button">
+<input type="submit" name="update" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("sld_enterprise_app.Apply.button",null)),null)%>" class="button"/>
+</td>
+<td class="button">
+<input type="reset" name="reset" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("sld_enterprise_app.Reset.button",null)),null)%>" class="button"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table><% } %></td>
+</tr>
+</table><% out.print("</form>"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/Back", null, "104");} %><!-- EO Working Area --><% printFooter(out); %>

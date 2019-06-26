@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="SourceProductUUID" type="java.lang.String" optional="false"/>
+	<parameter name="TargetOfferUUID" type="java.lang.String" optional="false"/>
+	<parameter name="TargetDomainID" type="java.lang.String" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template sqlDialect="Oracle">
+BEGIN
+   <!--  process VVAs--> 
+     FOR i IN (
+       select
+         srcvva.uuid as srcvvaUUID,
+         srcvva.name as vvaNAME,
+         srcvva.localizedflag as vvaLOCALIZEDFLAG,
+         srcvva.valuetype as vvaVALUETYPE,
+         srcvva.position as vvaPOSITION,
+         srcvva.presentationoption as vvaPRESENTATIONOPTION,
+         srcvva.presentationprodattrname as vvaPRESENTATIONPRODATTRNAME,
+         'VVA_'||sf_create_uuid('A', 24) as vvaUUID
+       from
+         variablevariationattribute srcvva
+       where
+         srcvva.productmasterid = <template-variable value="SourceProductUUID"/>
+     )
+     LOOP
+       insert into variablevariationattribute (UUID, DOMAINID, LASTMODIFIED, NAME, LOCALIZEDFLAG, VALUETYPE, POSITION, PRESENTATIONOPTION, PRESENTATIONPRODATTRNAME, PRODUCTMASTERID, OCA )
+          values (i.vvaUUID, <template-variable value="TargetDomainID"/>, UTCTIMESTAMP(), i.vvaNAME, i.vvaLOCALIZEDFLAG, i.vvaVALUETYPE, i.vvaPOSITION, i.vvaPRESENTATIONOPTION, i.vvaPRESENTATIONPRODATTRNAME, <template-variable value="TargetOfferUUID"/>, 1);
+   <!--process AVs of VVAs, depending on the VVAs--> 
+       FOR j IN(
+         select
+           srcvva_av.name as vva_avNAME,
+           srcvva_av.localeid as vva_avLOCALEID,
+           srcvva_av.localizedflag as vva_avLOCALIZEDFLAG,
+           srcvva_av.type as vva_avTYPE,
+           srcvva_av.intvalue as vva_avINTVALUE,
+           srcvva_av.doublevalue as vva_avDOUBLEVALUE,
+           srcvva_av.stringvalue as vva_avSTRINGVALUE,
+           srcvva_av.objectvalue as vva_avOBJECTVALUE,
+           srcvva_av.objecttype as vva_avOBJECTTYPE
+         from
+           variablevariationatt_av srcvva_av
+         where
+           srcvva_av.ownerid = i.srcvvaUUID
+       )
+       LOOP
+         insert into variablevariationatt_av (OWNERID, NAME, LOCALEID, LOCALIZEDFLAG, TYPE, INTVALUE, DOUBLEVALUE, STRINGVALUE, OBJECTVALUE, OBJECTTYPE, LASTMODIFIED, OCA)
+           values (i.vvaUUID, j.vva_avNAME, j.vva_avLOCALEID, j.vva_avLOCALIZEDFLAG, j.vva_avTYPE, j.vva_avINTVALUE, j.vva_avDOUBLEVALUE, j.vva_avSTRINGVALUE, j.vva_avOBJECTVALUE, j.vva_avOBJECTTYPE, UTCTIMESTAMP(), 1);
+       END LOOP;
+   <!-- process PVVs, also depending on the VVAs--> 
+       FOR k in (
+         select
+           srcpvv.uuid as srcpvvUUID,
+           'PVV_'||sf_create_uuid('A', 24) as pvvUUID
+         from
+           productvariationvalue srcpvv
+         where
+           srcpvv.variablevariationattributeid = i.srcvvaUUID
+       )
+       LOOP
+         insert into productvariationvalue (UUID, DOMAINID, VARIABLEVARIATIONATTRIBUTEID, LASTMODIFIED, OCA)
+           values (k.pvvUUID, <template-variable value="TargetDomainID"/>, i.vvaUUID, UTCTIMESTAMP(), 1);
+   <!--process AVs of PVVs, depending on the PVVs--> 
+         FOR l IN (
+           select
+             srcpvv_av.name as pvv_avNAME,
+             srcpvv_av.localeid as pvv_avLOCALEID,
+             srcpvv_av.localizedflag as pvv_avLOCALIZEDFLAG,
+             srcpvv_av.type as pvv_avTYPE,
+             srcpvv_av.intvalue as pvv_avINTVALUE,
+             srcpvv_av.doublevalue as pvv_avDOUBLEVALUE,
+             srcpvv_av.stringvalue as pvv_avSTRINGVALUE,
+             srcpvv_av.objectvalue as pvv_avOBJECTVALUE,
+             srcpvv_av.objecttype as pvv_avOBJECTTYPE
+           from
+             productvariationvalu_av srcpvv_av
+           where
+             srcpvv_av.ownerid = k.srcpvvUUID
+         )
+         LOOP
+           insert into productvariationvalu_av (OWNERID, NAME, LOCALEID, LOCALIZEDFLAG, TYPE, INTVALUE, DOUBLEVALUE, STRINGVALUE, OBJECTVALUE, OBJECTTYPE, LASTMODIFIED, OCA)
+             values (k.pvvUUID, l.pvv_avNAME, l.pvv_avLOCALEID, l.pvv_avLOCALIZEDFLAG, l.pvv_avTYPE, l.pvv_avINTVALUE, l.pvv_avDOUBLEVALUE, l.pvv_avSTRINGVALUE, l.pvv_avOBJECTVALUE, l.pvv_avOBJECTTYPE, UTCTIMESTAMP(), 1);
+         END LOOP;
+   <!--process PVAssignments, also depending on the PVVs--> 
+         FOR m IN (
+           select
+             pv.uuid as pvUUID
+           from
+             productvariation pv
+           where
+             pv.productmasterid = <template-variable value="TargetOfferUUID"/>
+         )
+         LOOP
+           insert into productvariationassignment (PRODUCTVARIATIONVALUEID, PRODUCTVARIATIONID, LASTMODIFIED, OCA)
+             values (k.pvvUUID, m.pvUUID, UTCTIMESTAMP(), 1);
+         END LOOP;
+       END LOOP;
+     END LOOP;
+   END;
+</template>
+<template sqlDialect="Microsoft">
+BEGIN
+	DECLARE @counter INT = 1,
+			@count	INT;
+	DECLARE @srcvva TABLE
+	(
+		ID INT IDENTITY,
+		srcvvaUUID NVARCHAR(30),
+		vvaNAME NVARCHAR(256),
+		vvaLOCALIZEDFLAG NUMERIC(1,0),
+		vvaVALUETYPE NUMERIC(11,0),
+		vvaPOSITION FLOAT,
+		vvaPRESENTATIONOPTION NVARCHAR(256),
+		vvaPRESENTATIONPRODATTRNAME NVARCHAR(256),
+		vvaUUID NVARCHAR(30)
+		
+	)
+	INSERT INTO @srcvva
+	SELECT
+         srcvva.uuid as srcvvaUUID,
+         srcvva.name as vvaNAME,
+         srcvva.localizedflag as vvaLOCALIZEDFLAG,
+         srcvva.valuetype as vvaVALUETYPE,
+         srcvva.position as vvaPOSITION,
+         srcvva.presentationoption as vvaPRESENTATIONOPTION,
+         srcvva.presentationprodattrname as vvaPRESENTATIONPRODATTRNAME,
+         ''
+       FROM
+         variablevariationattribute srcvva
+       WHERE
+         srcvva.productmasterid = <template-variable value="SourceProductUUID"/>
+	SELECT @counter = COUNT(1) FROM @srcvva
+	WHILE @counter &lt;= @count
+	BEGIN
+		DECLARE @srcvvaUUID NVARCHAR(30),
+				@vvaUUID NVARCHAR(30);
+
+		SET @vvaUUID = CONCAT('VVA_', dbo.sf_create_uuid())
+		UPDATE @srcvva SET vvaUUID = @vvaUUID WHERE ID = @counter
+		
+		SELECT @srcvvaUUID = srcvvaUUID FROM @srcvva WHERE ID = @counter
+
+		INSERT INTO variablevariationattribute (UUID, DOMAINID, LASTMODIFIED, NAME, LOCALIZEDFLAG, VALUETYPE, POSITION, PRESENTATIONOPTION, PRESENTATIONPRODATTRNAME, PRODUCTMASTERID, OCA )
+        SELECT i.vvaUUID, <template-variable value="TargetDomainID"/>
+		, GETUTCDATE(), vvaNAME, i.vvaLOCALIZEDFLAG, i.vvaVALUETYPE, i.vvaPOSITION, i.vvaPRESENTATIONOPTION, i.vvaPRESENTATIONPRODATTRNAME, 
+		<template-variable value="TargetOfferUUID"/> 
+		,1
+		FROM @srcvva i;
+
+		DECLARE @srcvva_av TABLE
+		(
+			ID INT IDENTITY,
+			vva_avNAME NVARCHAR(256),
+			vva_avLOCALEID NVARCHAR(10),
+			vva_avLOCALIZEDFLAG NUMERIC(1,0),
+			vva_avTYPE NUMERIC(11,0),
+			vva_avINTVALUE NUMERIC(11,0),
+			vva_avDOUBLEVALUE FLOAT,
+			vva_avSTRINGVALUE NVARCHAR(4000),
+			vva_avOBJECTVALUE NVARCHAR(28),
+			vva_avOBJECTTYPE NVARCHAR(256)
+		)
+		INSERT INTO @srcvva_av
+		SELECT
+			srcvva_av.name as vva_avNAME,
+			srcvva_av.localeid as vva_avLOCALEID,
+			srcvva_av.localizedflag as vva_avLOCALIZEDFLAG,
+			srcvva_av.type as vva_avTYPE,
+			srcvva_av.intvalue as vva_avINTVALUE,
+			srcvva_av.doublevalue as vva_avDOUBLEVALUE,
+			srcvva_av.stringvalue as vva_avSTRINGVALUE,
+			srcvva_av.objectvalue as vva_avOBJECTVALUE,
+			srcvva_av.objecttype as vva_avOBJECTTYPE
+        FROM
+        variablevariationatt_av srcvva_av
+        WHERE
+        srcvva_av.ownerid = @srcvvaUUID;--i.srcvvaUUID;
+		
+		DECLARE @srcvva_avcounter INT = 1,
+				@srcvva_avcount	 INT;
+		SELECT @srcvva_avcount = COUNT(1) FROM @srcvva_av
+		WHILE @srcvva_avcounter &lt;=@srcvva_avcount
+		BEGIN
+		   INSERT INTO variablevariationatt_av (OWNERID, NAME, LOCALEID, LOCALIZEDFLAG, TYPE, INTVALUE, DOUBLEVALUE, STRINGVALUE, OBJECTVALUE, OBJECTTYPE, LASTMODIFIED, OCA)
+           SELECT @vvaUUID, j.vva_avNAME, j.vva_avLOCALEID, j.vva_avLOCALIZEDFLAG, j.vva_avTYPE, j.vva_avINTVALUE, j.vva_avDOUBLEVALUE, j.vva_avSTRINGVALUE, j.vva_avOBJECTVALUE, j.vva_avOBJECTTYPE, GETUTCDATE(), 1
+		   FROM @srcvva_av j;
+		   SET @srcvva_avcounter = @srcvva_avcounter + 1;
+		END
+
+		DECLARE @srcpvv TABLE
+		(
+			ID INT IDENTITY,
+			srcpvvUUID NVARCHAR(30),
+			pvvUUID NVARCHAR(30)
+		);
+		DECLARE @srcpvvcounter INT = 1,
+				@srcpvv_count INT;
+		INSERT INTO @srcpvv
+		SELECT
+           srcpvv.uuid as srcpvvUUID,
+           ''
+         FROM
+           productvariationvalue srcpvv
+         WHERE
+           srcpvv.variablevariationattributeid = @srcvvaUUID;--i.srcvvaUUID
+		SELECT @srcpvv_count = COUNT(1) FROM @srcpvv
+		WHILE @srcpvvcounter &lt;= @srcpvv_count
+		BEGIN
+			DECLARE @kpvvUUID NVARCHAR(30),
+					@srcpvvUUID NVARCHAR(30);
+
+			SET @kpvvUUID = CONCAT('PVV_', dbo.sf_create_uuid());
+			UPDATE @srcpvv SET pvvUUID = @kpvvUUID WHERE ID = @srcpvvcounter;
+
+			SELECT @srcpvvUUID = srcpvvUUID FROM @srcpvv WHERE ID = @srcpvvcounter;
+
+			INSERT INTO productvariationvalue (UUID, DOMAINID, VARIABLEVARIATIONATTRIBUTEID, LASTMODIFIED, OCA)
+			VALUES (@kpvvUUID, <template-variable value="TargetDomainID"/>
+			, @vvaUUID, GETUTCDATE(), 1);
+			SET @srcpvvcounter = @srcpvvcounter + 1;
+			DECLARE @srcpvv_av TABLE
+			(
+				ID INT IDENTITY,
+				pvv_avNAME NVARCHAR(256),
+				pvv_avLOCALEID NVARCHAR(10),
+				pvv_avLOCALIZEDFLAG NUMERIC(1,0),
+				pvv_avTYPE NUMERIC(11,0),
+				pvv_avINTVALUE NUMERIC(11,0),
+				pvv_avDOUBLEVALUE FLOAT,
+				pvv_avSTRINGVALUE NVARCHAR(4000),
+				pvv_avOBJECTVALUE NVARCHAR(30),
+				pvv_avOBJECTTYPE NVARCHAR(256)
+			);
+			DECLARE @srcpvv_avcounter INT = 1,
+					@srcpvv_avcount	INT;
+
+			INSERT INTO @srcpvv_av
+			SELECT
+             srcpvv_av.name as pvv_avNAME,
+             srcpvv_av.localeid as pvv_avLOCALEID,
+             srcpvv_av.localizedflag as pvv_avLOCALIZEDFLAG,
+             srcpvv_av.type as pvv_avTYPE,
+             srcpvv_av.intvalue as pvv_avINTVALUE,
+             srcpvv_av.doublevalue as pvv_avDOUBLEVALUE,
+             srcpvv_av.stringvalue as pvv_avSTRINGVALUE,
+             srcpvv_av.objectvalue as pvv_avOBJECTVALUE,
+             srcpvv_av.objecttype as pvv_avOBJECTTYPE
+           FROM
+             productvariationvalu_av srcpvv_av
+           WHERE
+             srcpvv_av.ownerid = @srcpvvUUID;
+
+			SELECT @srcpvv_avcount = COUNT(1) FROM @srcpvv_av;
+
+			WHILE @srcpvv_avcounter &lt;= @srcpvv_avcount
+			BEGIN
+				INSERT INTO productvariationvalu_av (OWNERID, NAME, LOCALEID, LOCALIZEDFLAG, TYPE, INTVALUE, DOUBLEVALUE, STRINGVALUE, OBJECTVALUE, OBJECTTYPE, LASTMODIFIED, OCA)
+				SELECT @kpvvUUID, l.pvv_avNAME, l.pvv_avLOCALEID, l.pvv_avLOCALIZEDFLAG, l.pvv_avTYPE, l.pvv_avINTVALUE, l.pvv_avDOUBLEVALUE, l.pvv_avSTRINGVALUE, l.pvv_avOBJECTVALUE, l.pvv_avOBJECTTYPE, GETUTCDATE(), 1
+				FROM @srcpvv_av l WHERE ID = @srcpvv_avcounter;
+				SET @srcpvv_avcounter = @srcpvv_avcounter + 1
+			END
+			DECLARE @pvcounter INT = 1,
+					@pvcount INT = 0;
+			DECLARE @pv TABLE
+			(
+				ID INT IDENTITY,
+				pvUUID NVARCHAR(30)
+			)
+			INSERT INTO @pv
+			SELECT
+             pv.uuid as pvUUID
+           FROM
+             productvariation pv
+           WHERE
+             pv.productmasterid = <template-variable value="TargetOfferUUID"/>;
+			SELECT @pvcount = COUNT(1) FROM @pv
+			WHILE @pvcounter &lt;= @pvcount
+			BEGIN
+				INSERT INTO productvariationassignment (PRODUCTVARIATIONVALUEID, PRODUCTVARIATIONID, LASTMODIFIED, OCA)
+				SELECT @kpvvUUID, m.pvUUID, GETUTCDATE(), 1 FROM @pv m WHERE ID = @pvcounter;
+				SET @pvcounter = @pvcounter + 1
+			END
+		END
+		SET @counter = @counter + 1
+	END
+END
+</template>
+</query>

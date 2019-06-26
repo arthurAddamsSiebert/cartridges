@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query refreshes the assignments of products to a product set.">
+<parameters>
+	<parameter name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+<template-comment>
+Notes for the "inline" hint:
+    The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+    of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+    not a good practice.
+Solved problems:
+    Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+    if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+    data were not subsequently deleted.
+</template-comment>
+	<sql-dialect name="Oracle">
+		DECLARE
+			currentTime productset.lastmodified%TYPE := UTCTIMESTAMP();
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		DECLARE @currentTime DATETIME = GETUTCDATE();
+	</sql-dialect>
+	BEGIN
+	    <template-if condition="hasElements(ProductSet:ProductSelectionRule:AssignedManufacturers)">
+		        MERGE INTO productsetassignment psa
+		        USING (SELECT uuid AS pid, <template-variable value="ProductSet:UUID"/> AS psid FROM product WHERE manufacturername IN (
+		            <template-loop iterator="ProductSet:ProductSelectionRule:AssignedManufacturers" alias="MName"><loop-statement>
+				                <template-variable value="MName"/>
+				                </loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>
+		            )
+		            AND domainid = <template-variable value="ProductSet:DomainID"/>
+		            UNION 
+		            SELECT p.uuid AS pid, <template-variable value="ProductSet:UUID"/> AS psid FROM product pb, product p, bundleassignment ba WHERE pb.manufacturername IN (
+		            <template-loop iterator="ProductSet:ProductSelectionRule:AssignedManufacturers" alias="MName"><loop-statement>
+				                <template-variable value="MName"/>
+				                </loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>
+		            )
+		            AND ba.bundleid  = pb.uuid 
+		            AND ba.productid = p.uuid
+		            AND ba.domainid  = <template-variable value="ProductSet:DomainID"/>
+		            UNION 
+		            SELECT p.uuid AS pid, <template-variable value="ProductSet:UUID"/> AS psid FROM product pm, product p, productvariation pv WHERE pm.manufacturername IN (
+		            <template-loop iterator="ProductSet:ProductSelectionRule:AssignedManufacturers" alias="MName"><loop-statement>
+				                <template-variable value="MName"/>
+				                </loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>
+		            )
+		            AND pv.productmasterid  = pm.uuid 
+		            AND pv.productid = p.uuid
+		            AND pv.domainid  = <template-variable value="ProductSet:DomainID"/>
+		        ) p
+		        ON (psa.productuuid = p.pid AND psa.productsetuuid = p.psid)
+				<sql-dialect name="Oracle">
+					WHEN MATCHED THEN
+						UPDATE SET psa.lastmodified = UTCTIMESTAMP()
+					WHEN NOT MATCHED THEN
+						INSERT (psa.productuuid, psa.productsetuuid, psa.oca, psa.lastmodified) VALUES (p.pid, p.psid, 0, UTCTIMESTAMP());
+				</sql-dialect>
+				<sql-dialect name="Microsoft">
+					WHEN MATCHED THEN
+						UPDATE SET lastmodified = GETUTCDATE()
+					WHEN NOT MATCHED THEN
+						INSERT (productuuid, productsetuuid, oca, lastmodified) VALUES (p.pid, p.psid, 0, GETUTCDATE());
+				</sql-dialect>
+		    </template-if>
+	    <template-if condition="hasElements(ProductSet:ProductSelectionRule:AssignedManufacturerAliases)">
+		        MERGE INTO productsetassignment psa
+		        USING ( SELECT pr.uuid AS pid, <template-variable value="ProductSet:UUID"/> AS psid FROM product pr,manufacturernamealias mfa, manufacturername m WHERE mfa.namealias IN (
+		            <template-loop iterator="ProductSet:ProductSelectionRule:AssignedManufacturerAliases" alias="AName"><loop-statement>
+				                <template-variable value="AName"/>
+				                </loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>
+		            )
+		            AND pr.manufacturername = m.name 
+		            AND m.manufacturernamealiasid = mfa.uuid
+		            AND pr.domainid = <template-variable value="ProductSet:DomainID"/>
+		            AND m.domainid = pr.domainid
+		            AND mfa.domainid = pr.domainid
+		            UNION 
+		            SELECT p.uuid AS pid, <template-variable value="ProductSet:UUID"/> AS psid FROM product pb, product p, bundleassignment ba, manufacturernamealias mfa, manufacturername m WHERE mfa.namealias IN (
+		            <template-loop iterator="ProductSet:ProductSelectionRule:AssignedManufacturerAliases" alias="AName"><loop-statement>
+				                <template-variable value="AName"/>
+				                </loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>
+		            )
+		            AND ba.bundleid  = pb.uuid 
+		            AND ba.productid = p.uuid
+		            AND ba.domainid  = <template-variable value="ProductSet:DomainID"/>
+		            AND pb.manufacturername = m.name 
+		            AND m.manufacturernamealiasid = mfa.uuid
+		            AND m.domainid = p.domainid
+		            AND mfa.domainid = p.domainid
+		            UNION 
+		            SELECT p.uuid AS pid, <template-variable value="ProductSet:UUID"/> AS psid FROM product pm, product p, productvariation pv, manufacturernamealias mfa, manufacturername m WHERE mfa.namealias IN (
+		            <template-loop iterator="ProductSet:ProductSelectionRule:AssignedManufacturerAliases" alias="AName"><loop-statement>
+				                <template-variable value="AName"/>
+				                </loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>
+		            )
+		            AND pv.productmasterid  = pm.uuid 
+		            AND pv.productid = p.uuid
+		            AND pv.domainid  = <template-variable value="ProductSet:DomainID"/>
+		            AND pm.manufacturername = m.name 
+		            AND m.manufacturernamealiasid = mfa.uuid
+		            AND m.domainid = p.domainid
+		            AND mfa.domainid = p.domainid
+		        ) p
+		        ON (psa.productuuid = p.pid AND psa.productsetuuid = p.psid)
+				<sql-dialect name="Oracle">
+					WHEN MATCHED THEN
+						UPDATE SET psa.lastmodified = UTCTIMESTAMP()
+					WHEN NOT MATCHED THEN
+						INSERT (psa.productuuid, psa.productsetuuid, psa.oca, psa.lastmodified) VALUES (p.pid, p.psid, 0, UTCTIMESTAMP());
+				</sql-dialect>
+				<sql-dialect name="Microsoft">
+					WHEN MATCHED THEN
+						UPDATE SET lastmodified = GETUTCDATE()
+					WHEN NOT MATCHED THEN
+						INSERT (productuuid, productsetuuid, oca, lastmodified) VALUES (p.pid, p.psid, 0, GETUTCDATE());
+				</sql-dialect>
+		    </template-if>
+	    <template-if condition="hasElements(ProductSet:AssignedCategories)">
+			<sql-dialect name="Microsoft">
+				WITH abc(uuid) AS
+				(
+					SELECT uuid FROM CATALOGCATEGORY 
+					WHERE uuid IN (
+						<template-loop iterator="ProductSet:AssignedCategories" alias="CategoryUUID"><loop-statement>
+																<template-variable value="CategoryUUID"/>
+																</loop-statement>
+								<loop-separator>,</loop-separator>
+							</template-loop>
+					)
+					UNION ALL
+					SELECT cc.uuid FROM CATALOGCATEGORY cc
+					INNER JOIN abc a on a.uuid = cc.PARENTCATEGORYID
+				)
+				, AssignedProducts AS
+				(
+					SELECT /*+ inline - to avoid massive not released temporary tablespace data */ distinct iepca.productid AS pid
+					FROM ieproductcategoryassignment iepca
+					WHERE iepca.productdomainid = '<template-variable value="ProductSet:DomainID" processing="text"/>'
+					AND iepca.categoryid IN
+					(
+						<template-if condition="ProductSet:IncludeSubCategories EQ &apos;true&apos;">
+								(SELECT uuid FROM abc)
+						<if-else/>
+							<template-loop iterator="ProductSet:AssignedCategories" alias="CategoryUUID"><loop-statement>
+										<template-variable value="CategoryUUID"/>
+										</loop-statement>
+								<loop-separator>,</loop-separator>
+							</template-loop>
+						</template-if>
+					)
+				)
+			</sql-dialect>
+		        MERGE INTO productsetassignment psa
+		        USING (
+				<sql-dialect name="Oracle">
+		        	WITH AssignedProducts AS
+		        	(
+		            SELECT /*+ inline - to avoid massive not released temporary tablespace data */ distinct iepca.productid AS pid
+		            FROM ieproductcategoryassignment iepca
+		            WHERE iepca.productdomainid = <template-variable value="ProductSet:DomainID"/>
+		            AND iepca.categoryid IN
+		            (
+		                <template-if condition="ProductSet:IncludeSubCategories EQ &apos;true&apos;">
+			                    SELECT r.uuid
+			                    FROM catalogcategory r
+			                    CONNECT BY PRIOR r.uuid = r.parentcategoryid
+			                    START WITH r.uuid IN (
+			                        <template-loop iterator="ProductSet:AssignedCategories" alias="CategoryUUID"><loop-statement>
+					                            <template-variable value="CategoryUUID"/>
+					                            </loop-statement>
+				<loop-separator>,</loop-separator>
+			</template-loop>
+			                    )
+			                <if-else/>
+			                    <template-loop iterator="ProductSet:AssignedCategories" alias="CategoryUUID"><loop-statement>
+					                        <template-variable value="CategoryUUID"/>
+					                        </loop-statement>
+				<loop-separator>,</loop-separator>
+			</template-loop>
+			                </template-if>
+		            )
+		            )
+				</sql-dialect>
+		            SELECT
+		  ap.*,
+		  <template-variable value="ProductSet:UUID"/> AS psid
+		FROM
+		  AssignedProducts ap
+		UNION
+		SELECT
+		  pv.productid AS pid,
+		  <template-variable value="ProductSet:UUID"/> AS psid
+		FROM
+		  AssignedProducts ap
+		  JOIN ProductVariation pv ON (ap.pid = pv.productmasterid)
+		WHERE
+		  pv.domainid = <template-variable value="ProductSet:DomainID"/>
+		UNION
+		SELECT
+		  ba.productid AS pid,
+		  <template-variable value="ProductSet:UUID"/> AS psid
+		FROM
+		  AssignedProducts ap
+		  JOIN BundleAssignment ba ON (ap.pid = ba.bundleid)
+		WHERE
+		  ba.domainid = <template-variable value="ProductSet:DomainID"/>
+		        ) p
+		        ON (psa.productuuid = p.pid AND psa.productsetuuid = p.psid)
+			<sql-dialect name="Oracle">
+		        WHEN MATCHED THEN
+		            UPDATE SET psa.lastmodified = UTCTIMESTAMP()
+		        WHEN NOT MATCHED THEN
+		            INSERT (psa.productuuid, psa.productsetuuid, psa.oca, psa.lastmodified) VALUES (p.pid, p.psid, 0, UTCTIMESTAMP());
+			</sql-dialect>
+			<sql-dialect name="Microsoft">
+		        WHEN MATCHED THEN
+		            UPDATE SET lastmodified = GETUTCDATE()
+		        WHEN NOT MATCHED THEN
+		            INSERT (productuuid, productsetuuid, oca, lastmodified) VALUES (p.pid, p.psid, 0, GETUTCDATE());
+			</sql-dialect>
+		    </template-if>
+	
+	    DELETE FROM productsetassignment WHERE productsetuuid = <template-variable value="ProductSet:UUID"/> AND lastmodified &lt; 	<sql-dialect name="Microsoft">@</sql-dialect>currentTime;
+	
+		<template-comment>
+			(Un)fortunately we do not support sharing chains, e.g. 
+			sharing from channel A to channel B and then from B to C. 
+			@see IS-7572. Thus we filter
+			the shared products and use only locals...
+		</template-comment>
+		<sql-dialect name="Oracle">
+			DELETE FROM productsetassignment psa 
+		</sql-dialect>
+		<sql-dialect name="Microsoft">
+			DELETE psa FROM productsetassignment psa 
+		</sql-dialect>
+			WHERE
+				psa.productsetuuid = <template-variable value="ProductSet:UUID"/> AND 
+			NOT EXISTS 
+			(
+				SELECT 1 FROM PRODUCT p WHERE psa.productuuid = p.uuid and p.domainid = <template-variable value="ProductSet:DomainID"/>
+			);
+	
+	    COMMIT;
+	END;
+</template>
+</query>

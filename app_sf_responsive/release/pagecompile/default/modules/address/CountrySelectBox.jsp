@@ -1,0 +1,32 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><%@page import="com.intershop.component.foundation.capi.localization.LocalizedCountryNamesProvider"%><%@page import="com.intershop.beehive.core.capi.naming.NamingMgr"%><%@page import="java.util.Locale"%><%@page import="java.util.Map"%><%@page import="com.intershop.beehive.core.capi.pipeline.PipelineDictionary"%><%
+	PipelineDictionary dict = getPipelineDictionary();
+
+	String country = (String)dict.get("countrycode");
+
+    // if 'All' selected to not use it with the method getCountryNamesAndCodes
+    // otherwise it will be add to the countries map
+    if ((country != null) && ("All".equals(country)))
+    {
+        country = null;
+    }
+
+	LocalizedCountryNamesProvider namesProvider 
+                = NamingMgr.getProvider(LocalizedCountryNamesProvider.class);
+
+	Map<String,String> countries = namesProvider.getCountryNamesAndCodes((String)country);
+	dict.put("Countries", countries);
+%><select 
+aria-required="true" 
+data-validate="required" 
+data-validate-error-message="<% {out.write(localizeISText("store.country.error.required","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+name="<% {String value = null;try{value=context.getFormattedValue(getObject("formparameter"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {30}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" 
+id="<% {String value = null;try{value=context.getFormattedValue(getObject("formparameter"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {31}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" 
+size="1" 
+class="form-control"
+<% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("reloadonchange"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",34,e);}if (_boolean_result) { %>onchange="this.form.submit();"<% } %> 
+><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) ((((context.getFormattedValue("",null).equals(context.getFormattedValue(getObject("countrycode"),null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue() || ((Boolean) ((((Boolean) (disableErrorMessages().isDefined(getObject("countrycode")))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",36,e);}if (_boolean_result) { %><option value="" selected="selected" disabled><% {out.write(localizeISText("account.option.select.text","",null,null,null,null,null,null,null,null,null,null,null));} %></option><% } %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("showalloption")))).booleanValue() && ((Boolean) ((((context.getFormattedValue((context.getFormattedValue(getObject("showalloption"),null).toLowerCase()),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",39,e);}if (_boolean_result) { %><option value="All"<% _boolean_result=false;try {_boolean_result=((Boolean)(((((context.getFormattedValue(getObject("countrycode"),null).equals(context.getFormattedValue("All",null)))) ? Boolean.TRUE : Boolean.FALSE)))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",40,e);}if (_boolean_result) { %> selected = "selected"<% } %>><% {out.write(localizeISText("account.option.select_all.text","",null,null,null,null,null,null,null,null,null,null,null));} %></option><% } %><% while (loop("Countries:EntrySet","Country",null)) { %><option value="<% {String value = null;try{value=context.getFormattedValue(getObject("Country:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {43}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"<% _boolean_result=false;try {_boolean_result=((Boolean)(((((context.getFormattedValue(getObject("Country:Value"),null).equals(context.getFormattedValue(getObject("countrycode"),null)))) ? Boolean.TRUE : Boolean.FALSE)))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",43,e);}if (_boolean_result) { %> selected = "selected"<% } %> ><% {String value = null;try{value=context.getFormattedValue(getObject("Country:Key"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {44}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></option><% } %></select><% printFooter(out); %>

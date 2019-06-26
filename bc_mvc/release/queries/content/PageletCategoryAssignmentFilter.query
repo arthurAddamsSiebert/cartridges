@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="AssignmentFilter" type="com.intershop.component.foundation.capi.assignment.filter.AssignmentFilter" optional="false"/>
+</parameters>
+
+<processor name="OracleSQL"/>
+
+<template type="objects">
+	<template-if condition="AssignmentFilter:ResponsibleFor('PageletCategoryAssignmentFilter')">
+  		<sql-dialect name="Microsoft">
+			With catalogCategoryCte(uuid) as
+				(
+				 select uuid from  catalogcategory cc where UUID = <template-variable value="AssignmentFilter:SelectedCategoryUUID"/>
+				 union all
+				 select cte.uuid from  catalogcategory cc 
+					inner join catalogCategoryCte cte   on cte.uuid=cc.PARENTCATEGORYID
+					inner join catalogcategory_pa ccpa  on ccpa.categoryid=cc.uuid
+				)  
+				<template-if condition = "isDefined(AssignmentFilter:IncludeSubCategories)">
+					select ccpa.UUID as UUID from catalogCategoryCte ccpa
+				<if-else/>
+					select distinct ccpa.pageletid from catalogcategory_pa ccpa
+					where ccpa.categoryid = <template-variable value="AssignmentFilter:SelectedCategoryUUID"/>
+           		</template-if>
+		</sql-dialect>
+		<sql-dialect name="Oracle">
+	       select distinct ccpa.pageletid
+	       from catalogcategory_pa ccpa
+	       where
+		       <template-if condition = "isDefined(AssignmentFilter:IncludeSubCategories)">
+		         ccpa.categoryid in 
+		           (select cc.uuid
+	                  from catalogcategory cc
+	               connect by prior cc.uuid = cc.parentcategoryid
+	                 start with cc.uuid = <template-variable value="AssignmentFilter:SelectedCategoryUUID"/>
+	               )
+	           <if-else/>
+	             ccpa.categoryid = <template-variable value="AssignmentFilter:SelectedCategoryUUID"/>
+	           </template-if>
+		 </sql-dialect>
+  </template-if>
+</template>
+</query>

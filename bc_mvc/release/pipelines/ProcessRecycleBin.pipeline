@@ -1,0 +1,832 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline manages recycle bin processes like delete or restore products from the recycle bin.
+@Group Product-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessRecycleBin" type="process">
+<!--Recycle bin works only with base products!
+@Location 23,4-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode2"/>
+<!--Recycle bin works only with base products!
+@Location 4,3-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="BatchDeleteToRecycleBin"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet10"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet10">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStack.xml"/>
+    <nodeSuccessors name="next" next="Pipelet18"/>
+    <returnValueBindings name="Stack" objectPath="ProductStack"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet18">
+    <configurationValues name="DefaultPreferenceKey" value="RecycleBinOfferPropagation"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Organization:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="RecycleBinOfferPropagation"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Objects">
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <entry key="Product">
+      <nodeSuccessors name="loop_entry_next" next="CallNode10"/>
+    </entry>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+<!--@BendPoints 17,13 15,13 15,9-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <startNode referencedName="ProcessRecycleBin-MoveProductToRecycleBin"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 24,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="DeleteFromRecycleBin"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainPreference3"/>
+  </nodes>
+<!--@Location 24,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference3">
+    <configurationValues name="DefaultPreferenceKey" value="RecycleBinOfferPropagation"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="DetermineSelectedProducts1"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Organization:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="RecycleBinOfferPropagation"/>
+  </nodes>
+<!--@Location 24,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineSelectedProducts1">
+    <configurationValues name="Prefix" value="ProductID_"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/DetermineSelectedBaseProducts.xml"/>
+<!--@BendPoints 49,6-->
+    <nodeSuccessors name="next" next="JumpNode1"/>
+    <returnValueBindings name="Products" objectPath="ToDeletedProducts"/>
+  </nodes>
+<!--@Location 24,3-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="ProcessRecycleBin-DeleteRecycleBinProducts"/>
+  </nodes>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start6" name="DeleteOfferToRecycleBin"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet1"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="RepositoryDomain" objectPath="Offer:Domain"/>
+    <returnValueBindings name="Repository" objectPath="OfferRepository"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="OfferRepository:TypeCode"
+      operator="eq" conditionValue="22">
+    <nodeSuccessors name="decision_yes" next="JoinNode3"/>
+<!--@BendPoints 23,5-->
+    <nodeSuccessors name="decision_no" next="DecisionNode8"/>
+  </nodes>
+<!--@Location 10,19-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--@Location 10,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="End6"/>
+  </nodes>
+<!--@Location 10,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6"/>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="Organization:Domain:DomainID"
+      operator="str_eq" conditionItem="OfferRepository:OwningDomain:DomainID">
+    <nodeSuccessors name="decision_yes" next="Pipelet2"/>
+<!--@BendPoints 27,7-->
+    <nodeSuccessors name="decision_no" next="AssignOfferedProduct1"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRecycleBinByRepository.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameterBindings name="Repository" objectPath="OfferRepository"/>
+    <returnValueBindings name="RecycleBin" objectPath="OfferRecycleBin"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="OfferRepository:TypeCode"
+      operator="eq" conditionValue="21">
+    <nodeSuccessors name="decision_yes" next="Pipelet24"/>
+<!--@BendPoints 25,13-->
+    <nodeSuccessors name="decision_no" next="Pipelet19"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet24">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByDomain.xml"/>
+    <nodeSuccessors name="next" next="Pipelet8"/>
+    <parameterBindings name="OrganizationDomain" objectPath="OfferRepository:OwningDomain"/>
+    <returnValueBindings name="Organization" objectPath="PreferenceOrganization"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet8">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="InValue_1" objectPath="PreferenceOrganization:Domain"/>
+    <parameterBindings name="InValue_2" objectPath="Offer"/>
+    <returnValueBindings name="OutValue_1" objectPath="PreferenceDomain"/>
+    <returnValueBindings name="OutValue_2" objectPath="Product"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="CallNode4"/>
+  </nodes>
+<!--@Location 11,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <startNode referencedName="ProcessProductHistory-PrepareData"/>
+  </nodes>
+<!--@Location 11,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="Pipelet6"/>
+    <startNode referencedName="ProcessProductHistory-AddDeleteEntry"/>
+  </nodes>
+<!--@Location 11,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateObjectWithDomain.xml"/>
+    <nodeSuccessors name="next" next="LoopNode3"/>
+    <parameterBindings name="Domain" objectPath="OfferRecycleBin:Domain"/>
+    <parameterBindings name="Object" objectPath="Offer"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+  </nodes>
+<!--@Location 11,13-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="Offer:MasteredProducts">
+<!--@BendPoints 24,27 24,30-->
+    <nodeSuccessors name="next" next="LoopNode4"/>
+    <entry key="OfferMasteredProduct">
+      <nodeSuccessors name="loop_entry_next" next="RemoveProductFromVariation1"/>
+    </entry>
+  </nodes>
+<!--@Location 11,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveProductFromVariation1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveProductFromVariation.xml"/>
+<!--@BendPoints 23,30 22,30 22,27-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+    <parameterBindings name="MasterProduct" objectPath="Offer"/>
+    <parameterBindings name="Product" objectPath="OfferMasteredProduct"/>
+  </nodes>
+<!--@Location 11,15-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode4" loop="Offer:BundledProducts">
+<!--@BendPoints 25,31-->
+    <nodeSuccessors name="next" next="Pipelet30"/>
+    <entry key="OfferBundledProduct">
+<!--@BendPoints 23,32-->
+      <nodeSuccessors name="loop_entry_next" next="RemoveProductFromBundle1"/>
+    </entry>
+  </nodes>
+<!--@Location 11,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveProductFromBundle1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveProductFromBundle.xml"/>
+<!--@BendPoints 23,34 22,34 22,31-->
+    <nodeSuccessors name="next" next="LoopNode4_Entry"/>
+    <parameterBindings name="SourceProduct" objectPath="Offer"/>
+    <parameterBindings name="TargetProduct" objectPath="OfferBundledProduct"/>
+  </nodes>
+<!--@Location 12,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet30">
+    <pipelet href="enfinity:/bc_mvc/pipelets/ConvertOffers.xml"/>
+<!--@BendPoints 25,39-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="Product" objectPath="Offer"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet19">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 25,19-->
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="InValue_1" objectPath="Offer:Domain"/>
+    <parameterBindings name="InValue_2" objectPath="Offer"/>
+    <returnValueBindings name="OutValue_1" objectPath="PreferenceDomain"/>
+    <returnValueBindings name="OutValue_2" objectPath="Product"/>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignOfferedProduct1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/AssignOfferedProduct.xml"/>
+<!--@BendPoints 27,41-->
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <parameterBindings name="Offer" objectPath="Offer"/>
+    <parameterBindings name="OfferedProduct" objectPath="Offer"/>
+  </nodes>
+<!--@Location 28,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="DeleteRecycleBinProducts"
+      callMode="Private">
+<!--@BendPoints 57,2-->
+    <nodeSuccessors name="next" next="Loop7"/>
+  </nodes>
+<!--@Location 28,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop7" loop="ToDeletedProducts">
+    <nodeSuccessors name="next" next="End2"/>
+    <entry key="DeletionProduct">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode0"/>
+    </entry>
+  </nodes>
+<!--@Location 28,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="DeletionProduct:Extension(&quot;PersistentObjectBOExtension&quot;)">
+<!--@BendPoints 59,5-->
+    <nodeSuccessors name="decision_yes" next="KeyMapper0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 29,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 59,9-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InValue_1" objectPath="DeletionProduct:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <returnValueBindings name="OutValue_1" objectPath="DeletionProduct"/>
+  </nodes>
+<!--@Location 28,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="Decision2"/>
+  </nodes>
+<!--@Location 28,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="RecycleBinOfferPropagation"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="Decision7"/>
+<!--@BendPoints 59,11-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 28,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision7" conditionKey="DeletionProduct:UUID"
+      operator="str_neq" conditionItem="DeletionProduct:OfferedProductID">
+    <nodeSuccessors name="decision_yes" next="Loop8"/>
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 28,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop8" loop="DeletionProduct:Offers">
+    <nodeSuccessors name="next" next="Join6"/>
+    <entry key="Product">
+      <nodeSuccessors name="loop_entry_next" next="Call4"/>
+    </entry>
+  </nodes>
+<!--@Location 28,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call4">
+<!--@BendPoints 57,18 56,18 56,15-->
+    <nodeSuccessors name="next" next="Loop8_Entry"/>
+    <parameterBindings name="DeletionPreferenceDomain" objectPath="Organization:Domain"/>
+    <startNode referencedName="ProcessProductDeletion-Delete"/>
+  </nodes>
+<!--@Location 29,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 29,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call2"/>
+    <parameterBindings name="InValue_1" objectPath="DeletionProduct"/>
+    <returnValueBindings name="OutValue_1" objectPath="Product"/>
+  </nodes>
+<!--@Location 29,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+<!--@BendPoints 59,14 54,14 54,3-->
+    <nodeSuccessors name="next" next="Loop7_Entry"/>
+    <parameterBindings name="DeletionPreferenceDomain" objectPath="Organization:Domain"/>
+    <startNode referencedName="ProcessProductDeletion-Delete"/>
+  </nodes>
+<!--@Location 29,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 29,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="DeleteToRecycleBin"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet15"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet15">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStack.xml"/>
+    <nodeSuccessors name="next" next="Pipelet16"/>
+    <returnValueBindings name="Stack" objectPath="ProductStack"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet16">
+    <configurationValues name="DefaultPreferenceKey" value="RecycleBinOfferPropagation"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="Pipelet17"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Organization:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="RecycleBinOfferPropagation"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet17">
+    <configurationValues name="Prefix" value="ProductID_"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/DetermineSelectedBaseProducts.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <returnValueBindings name="Products" objectPath="ToDeletedProducts"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="ToDeletedProducts">
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <entry key="Product">
+<!--@BendPoints 11,10-->
+      <nodeSuccessors name="loop_entry_next" next="CallNode9"/>
+    </entry>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+<!--@BendPoints 11,12 10,12 10,9-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <startNode referencedName="ProcessRecycleBin-MoveProductToRecycleBin"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="MoveProductToRecycleBin"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Decision4"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision4" conditionKey="RecycleBinOfferPropagation"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="Pipelet11"/>
+<!--@BendPoints 7,3-->
+    <nodeSuccessors name="decision_no" next="ConvertOffers1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet11">
+    <configurationValues name="ProcessMethod" value="PUSH"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="LoopNode5"/>
+    <parameterBindings name="AddElement" objectPath="Product"/>
+    <parameterBindings name="Stack" objectPath="ProductStack"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode5" loop="Product:MasteredProducts">
+<!--@BendPoints 4,7 4,10-->
+    <nodeSuccessors name="next" next="LoopNode6"/>
+    <entry key="Product">
+      <nodeSuccessors name="loop_entry_next" next="RemoveProductFromVariation2"/>
+    </entry>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveProductFromVariation2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveProductFromVariation.xml"/>
+<!--@BendPoints 3,10 2,10 2,7-->
+    <nodeSuccessors name="next" next="LoopNode5_Entry"/>
+    <parameterBindings name="MasterProduct" objectPath="Product"/>
+    <parameterBindings name="Product" objectPath="ProductMasteredProduct"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode6" loop="Product:BundledProducts">
+<!--@BendPoints 5,11 5,15 3,15-->
+    <nodeSuccessors name="next" next="Loop4"/>
+    <entry key="ProductBundledProduct">
+<!--@BendPoints 3,12-->
+      <nodeSuccessors name="loop_entry_next" next="RemoveProductFromBundle2"/>
+    </entry>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveProductFromBundle2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveProductFromBundle.xml"/>
+<!--@BendPoints 3,14 2,14 2,11-->
+    <nodeSuccessors name="next" next="LoopNode6_Entry"/>
+    <parameterBindings name="SourceProduct" objectPath="Product"/>
+    <parameterBindings name="TargetProduct" objectPath="ProductBundledProduct"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop4" loop="Product:Offers">
+    <nodeSuccessors name="next" next="Pipelet12"/>
+    <entry key="Offer">
+      <nodeSuccessors name="loop_entry_next" next="Call6"/>
+    </entry>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call6">
+<!--@BendPoints 3,22 1,22 1,17-->
+    <nodeSuccessors name="next" next="Loop4_Entry"/>
+    <startNode referencedName="ProcessRecycleBin-DeleteOfferToRecycleBin"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet12">
+    <configurationValues name="ProcessMethod" value="POP"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="Stack" objectPath="ProductStack"/>
+    <returnValueBindings name="GetElement" objectPath="Product"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="Pipelet27"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet27">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+    <parameterBindings name="RepositoryDomain" objectPath="Product:Domain"/>
+    <returnValueBindings name="Repository" objectPath="ProductRepository"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="ProductRepository:TypeCode"
+      operator="eq" conditionValue="21">
+    <nodeSuccessors name="decision_yes" next="Pipelet25"/>
+<!--@BendPoints 9,21-->
+    <nodeSuccessors name="decision_no" next="Pipelet26"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet25">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByDomain.xml"/>
+    <nodeSuccessors name="next" next="Pipelet5"/>
+    <parameterBindings name="OrganizationDomain" objectPath="ProductRepository:OwningDomain"/>
+    <returnValueBindings name="Organization" objectPath="PreferenceOrganization"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="InValue_1" objectPath="PreferenceOrganization:Domain"/>
+    <returnValueBindings name="OutValue_1" objectPath="PreferenceDomain"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="CallNode3"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <startNode referencedName="ProcessProductHistory-PrepareData"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="Pipelet7"/>
+    <startNode referencedName="ProcessProductHistory-AddDeleteEntry"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet7">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateObjectWithDomain.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <parameterBindings name="Domain" objectPath="RecycleBin:Domain"/>
+    <parameterBindings name="Object" objectPath="Product"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+  </nodes>
+<!--@Location 3,17-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3"/>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet26">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 9,27-->
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="InValue_1" objectPath="Product:Domain"/>
+    <returnValueBindings name="OutValue_1" objectPath="PreferenceDomain"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConvertOffers1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/ConvertOffers.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 23,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" name="RemoveDuplicateExistingProducts"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DetermineSelectedProducts2"/>
+  </nodes>
+<!--@Location 23,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineSelectedProducts2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/DetermineSelectedBaseProducts.xml"/>
+    <nodeSuccessors name="next" next="Loop11"/>
+    <returnValueBindings name="Products" objectPath="ProductsToRestore"/>
+  </nodes>
+<!--@Location 23,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop11" loop="ProductsToRestore">
+<!--@BendPoints 48,15-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <entry key="ProductToRestore">
+      <nodeSuccessors name="loop_entry_next" next="GetProductBySKU2"/>
+    </entry>
+  </nodes>
+<!--@Location 23,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductBySKU2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductBySKU.xml"/>
+<!--@BendPoints 47,18-->
+    <nodeSuccessors name="next" next="Call1"/>
+<!--@BendPoints 48,17 48,21-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode15"/>
+    <parameterBindings name="Domain" objectPath="Repository:Domain"/>
+    <parameterBindings name="SKU" objectPath="ProductToRestore:SKU"/>
+    <returnValueBindings name="Product" objectPath="Product"/>
+  </nodes>
+<!--@Location 23,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="JoinNode15"/>
+    <parameterBindings name="DeletionPreferenceDomain" objectPath="Organization:Domain"/>
+    <startNode referencedName="ProcessProductDeletion-Delete"/>
+  </nodes>
+<!--@Location 23,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+<!--@BendPoints 46,21 46,15-->
+    <nodeSuccessors name="next" next="Loop11_Entry"/>
+  </nodes>
+<!--@Location 24,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4"/>
+<!--@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="RestoreFromRecycleBin"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Loop2"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="ProductUUIDs">
+    <nodeSuccessors name="next" next="End4"/>
+    <entry key="ProductUUID">
+      <nodeSuccessors name="loop_entry_next" next="GetProductByUUID1"/>
+    </entry>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetBaseProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+    <nodeSuccessors name="pipelet_error" next="Pipelet28"/>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="Product:DomainID"
+      operator="str_neq" conditionItem="Repository:DomainID">
+    <nodeSuccessors name="decision_yes" next="GetProductBySKU1"/>
+    <nodeSuccessors name="decision_no" next="Pipelet29"/>
+  </nodes>
+<!--@Location 14,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductBySKU1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductBySKU.xml"/>
+    <nodeSuccessors name="next" next="JoinNode13"/>
+<!--@BendPoints 30,9 30,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode13"/>
+    <parameterBindings name="Domain" objectPath="Repository:Domain"/>
+    <parameterBindings name="SKU" objectPath="Product:SKU"/>
+    <returnValueBindings name="Product" objectPath="ExistingProduct"/>
+  </nodes>
+<!--@Location 14,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="Decision3"/>
+  </nodes>
+<!--@Location 14,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="ExistingProduct"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="Decision5"/>
+    <nodeSuccessors name="decision_no" next="Pipelet31"/>
+  </nodes>
+<!--@Location 14,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision5" conditionKey="Product:isOffer"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="DecisionNode2"/>
+<!--@BendPoints 33,15-->
+    <nodeSuccessors name="decision_no" next="Pipelet9"/>
+  </nodes>
+<!--@Location 14,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Product:DomainID"
+      operator="str_neq" conditionItem="Product:OfferedProduct:DomainID">
+    <nodeSuccessors name="decision_yes" next="GetRepositoryByRepositoryDomain1"/>
+<!--@BendPoints 31,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 14,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="Decision8"/>
+    <parameterBindings name="RepositoryDomain" objectPath="Product:OfferedProduct:Domain"/>
+    <returnValueBindings name="Repository" objectPath="OfferedProductRepository"/>
+  </nodes>
+<!--@Location 14,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision8" conditionKey="OfferedProductRepository:TypeCode"
+      operator="eq" conditionValue="22">
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 14,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="RestoreFailed_ProductInRecycleBin"/>
+    <configurationValues name="Value" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Join3"/>
+  </nodes>
+<!--@Location 14,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+    <nodeSuccessors name="next" next="Join7"/>
+  </nodes>
+<!--@Location 14,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+    <nodeSuccessors name="next" next="CallNode11"/>
+  </nodes>
+<!--@Location 14,16-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <startNode referencedName="ProcessProductDeletion-ProcessProductAlertUndo"/>
+  </nodes>
+<!--@Location 14,17-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 28,35 28,3-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+  </nodes>
+<!--@Location 15,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+  </nodes>
+<!--@Location 15,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call3"/>
+    <parameterBindings name="InValue_1" objectPath="Product"/>
+    <returnValueBindings name="OutValue_1" objectPath="Offer"/>
+  </nodes>
+<!--@Location 15,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call3">
+<!--@BendPoints 31,27-->
+    <nodeSuccessors name="next" next="Join3"/>
+    <startNode referencedName="ProcessRecycleBin-RestoreOfferFromRecycleBin"/>
+  </nodes>
+<!--@Location 16,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet9">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateObjectWithDomain.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+    <parameterBindings name="Domain" objectPath="Repository:Domain"/>
+    <parameterBindings name="Object" objectPath="Product"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+  </nodes>
+<!--@Location 16,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="Repository:TypeCode"
+      operator="eq" conditionValue="21">
+    <nodeSuccessors name="decision_yes" next="Pipelet23"/>
+<!--@BendPoints 35,19-->
+    <nodeSuccessors name="decision_no" next="Pipelet21"/>
+  </nodes>
+<!--@Location 16,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet23">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByDomain.xml"/>
+    <nodeSuccessors name="next" next="Pipelet13"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Repository:OwningDomain"/>
+    <returnValueBindings name="Organization" objectPath="PreferenceOrganization"/>
+  </nodes>
+<!--@Location 16,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet13">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <parameterBindings name="InValue_1" objectPath="PreferenceOrganization:Domain"/>
+    <returnValueBindings name="OutValue_1" objectPath="PreferenceDomain"/>
+  </nodes>
+<!--@Location 16,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="CallNode6"/>
+  </nodes>
+<!--@Location 16,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <startNode referencedName="ProcessProductHistory-PrepareData"/>
+  </nodes>
+<!--@Location 16,14-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+<!--@BendPoints 33,31-->
+    <nodeSuccessors name="next" next="Join7"/>
+    <startNode referencedName="ProcessProductHistory-AddInsertEntry"/>
+  </nodes>
+<!--@Location 17,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet21">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 35,25-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <parameterBindings name="InValue_1" objectPath="Repository:Domain"/>
+    <returnValueBindings name="OutValue_1" objectPath="PreferenceDomain"/>
+  </nodes>
+<!--@Location 15,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet31">
+    <configurationValues name="Name" value="RestoreFailed_ProductSKUsExists"/>
+    <configurationValues name="Value" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+  </nodes>
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="RemoveDictionaryValue1"/>
+    <parameterBindings name="InVector" objectPath="ExistingProducts"/>
+    <parameterBindings name="Object" objectPath="Product"/>
+    <returnValueBindings name="Iterator" objectPath="ConflictingProducts"/>
+    <returnValueBindings name="OutVector" objectPath="ExistingProducts"/>
+  </nodes>
+<!--@Location 17,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue1">
+    <configurationValues name="Key" value="ExistingProduct"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+<!--@Location 18,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+<!--@BendPoints 37,35-->
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet29">
+    <configurationValues name="Name" value="RestoreFailed_ProductRestored"/>
+    <configurationValues name="Value" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 18,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet28">
+    <configurationValues name="Name" value="RestoreFailed_ProductDeleted"/>
+    <configurationValues name="Value" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 37,5-->
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 19,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="RestoreOfferFromRecycleBin"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet3"/>
+  </nodes>
+<!--@Location 19,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="Decision1"/>
+    <parameterBindings name="RepositoryDomain" objectPath="Offer:Domain"/>
+    <returnValueBindings name="Repository" objectPath="RecycleBin"/>
+  </nodes>
+<!--@Location 19,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="RecycleBin:TypeCode"
+      operator="eq" conditionValue="22">
+    <nodeSuccessors name="decision_yes" next="GetRepositoryByRecycleBin1"/>
+<!--@BendPoints 43,5 43,23-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 19,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRecycleBin1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRecycleBin.xml"/>
+    <nodeSuccessors name="next" next="Pipelet4"/>
+    <returnValueBindings name="Repository" objectPath="SourceRepository"/>
+  </nodes>
+<!--@Location 19,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateObjectWithDomain.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <parameterBindings name="Domain" objectPath="SourceRepository:Domain"/>
+    <parameterBindings name="Object" objectPath="Offer"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+  </nodes>
+<!--@Location 19,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="SourceRepository:TypeCode"
+      operator="eq" conditionValue="21">
+    <nodeSuccessors name="decision_yes" next="Pipelet22"/>
+<!--@BendPoints 41,11-->
+    <nodeSuccessors name="decision_no" next="Pipelet20"/>
+  </nodes>
+<!--@Location 19,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet22">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByDomain.xml"/>
+    <nodeSuccessors name="next" next="Pipelet14"/>
+    <parameterBindings name="OrganizationDomain" objectPath="SourceRepository:OwningDomain"/>
+    <returnValueBindings name="Organization" objectPath="PreferenceOrganization"/>
+  </nodes>
+<!--@Location 19,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet14">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="InValue_1" objectPath="PreferenceOrganization:Domain"/>
+    <parameterBindings name="InValue_2" objectPath="Offer"/>
+    <returnValueBindings name="OutValue_1" objectPath="PreferenceDomain"/>
+    <returnValueBindings name="OutValue_2" objectPath="Product"/>
+  </nodes>
+<!--@Location 19,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="CallNode8"/>
+  </nodes>
+<!--@Location 19,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <startNode referencedName="ProcessProductHistory-PrepareData"/>
+  </nodes>
+<!--@Location 19,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <startNode referencedName="ProcessProductHistory-AddInsertEntry"/>
+  </nodes>
+<!--@Location 19,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="End3"/>
+  </nodes>
+<!--@Location 19,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+<!--@Location 20,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet20">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 41,17-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="InValue_1" objectPath="SourceRepository:Domain"/>
+    <parameterBindings name="InValue_2" objectPath="Offer"/>
+    <returnValueBindings name="OutValue_1" objectPath="PreferenceDomain"/>
+    <returnValueBindings name="OutValue_2" objectPath="Product"/>
+  </nodes>
+</pipeline:Pipeline>

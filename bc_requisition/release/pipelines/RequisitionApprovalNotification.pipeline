@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline sends notification email to approvers and their delegates for new requisition approval activities and to buyers for completed requisition approval workflows. The notification pipeline is tyically started from a scheduled job.
+@Group Approval-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="RequisitionApprovalNotification" type="process">
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="GetApprovers" callMode="Private">
+    <nodeSuccessors name="next" next="DetermineUsersForNotification2"/>
+    <parameters name="CurrentActivity" type="com.intershop.beehive.core.capi.workflow.WorkflowActivity"
+        optional="true"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUsersForNotification2">
+    <pipelet href="enfinity:/core/pipelets/DetermineUsersForNotification.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameterBindings name="WorkflowActivity" objectPath="CurrentActivity"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Loop2"/>
+    <parameterBindings name="InValue_1" objectPath="Users"/>
+    <returnValueBindings name="OutValue_1" objectPath="DirectUsers"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="DirectUsers">
+<!--@BendPoints 11,7 11,8-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <entry key="User">
+      <nodeSuccessors name="loop_entry_next" next="GetActiveUserDelegationUsers1"/>
+    </entry>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetActiveUserDelegationUsers1">
+    <configurationValues name="DelegationType" value="2"/>
+    <configurationValues name="GetMethod" value="Get Delegated"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetActiveUserDelegationUsers.xml"/>
+    <nodeSuccessors name="next" next="CombineIterators2"/>
+    <returnValueBindings name="Users" objectPath="DelegatedUsers"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CombineIterators2">
+    <configurationValues name="ProcessMethod" value="Concatenate Iterators and Remove Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CombineIterators.xml"/>
+<!--@BendPoints 9,12 7,12 7,7-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+    <parameterBindings name="Iterator1" objectPath="Users"/>
+    <parameterBindings name="Iterator2" objectPath="DelegatedUsers"/>
+    <returnValueBindings name="Iterator" objectPath="Users"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 11,10-->
+    <nodeSuccessors name="next" next="End1"/>
+    <startNode referencedName="ProcessUserActivationCheck-FilterForActiveUsers"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="NotifyApprovers" callMode="Private">
+    <nodeSuccessors name="next" next="DetermineUnit1"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUnit1">
+    <pipelet href="enfinity:/core/pipelets/DetermineUnit.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="GetApprovalActivities1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApprovalActivities1">
+    <configurationValues name="DefaultApprovalType" value="2"/>
+    <pipelet href="enfinity:/bc_approval/pipelets/GetApprovalActivities.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="Activities">
+    <nodeSuccessors name="next" next="End2"/>
+    <entry key="CurrentActivity">
+      <nodeSuccessors name="loop_entry_next" next="Decision1"/>
+    </entry>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="CurrentActivity:NotificationTemplate">
+    <nodeSuccessors name="decision_yes" next="Call1"/>
+<!--@BendPoints 5,11 5,41-->
+    <nodeSuccessors name="decision_no" next="Join1"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="GetApprovalLastNotifiedUsers1"/>
+    <startNode referencedName="RequisitionApprovalNotification-GetApprovers"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApprovalLastNotifiedUsers1">
+    <pipelet href="enfinity:/bc_approval/pipelets/GetApprovalLastNotifiedUsers.xml"/>
+    <nodeSuccessors name="next" next="CombineIterators1"/>
+  </nodes>
+<!--NewUsers=Users\-NotifiedUsers
+@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CombineIterators1">
+    <configurationValues name="ProcessMethod" value="Subtract Iterators and Remove Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CombineIterators.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="Iterator1" objectPath="Users"/>
+    <parameterBindings name="Iterator2" objectPath="NotifiedUsers"/>
+    <returnValueBindings name="Iterator" objectPath="NewUsers"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="NewUsers"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue1"/>
+<!--@BendPoints 4,19 4,37-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="MailTo"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="DetermineMailNotificationData2"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineMailNotificationData2">
+    <configurationValues name="DefaultEmailFrom" value="INTERSHOP_Enfinity_MultiSite"/>
+    <configurationValues name="Mode" value="Multiple"/>
+    <pipelet href="enfinity:/core/pipelets/DetermineMailNotificationData.xml"/>
+<!--@BendPoints 3,24-->
+    <nodeSuccessors name="next" next="GetDomainPreference2"/>
+    <parameterBindings name="Users" objectPath="NewUsers"/>
+    <parameterBindings name="WorkflowActivity" objectPath="CurrentActivity"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference2">
+    <configurationValues name="DefaultPreferenceKey" value="EMailNotificationFromAddress"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+<!--@BendPoints 3,27-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+<!--@BendPoints 5,25 5,26-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue2"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Unit"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="GetApprovalObjects1"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApprovalObjects1">
+    <pipelet href="enfinity:/bc_approval/pipelets/GetApprovalObjects.xml"/>
+    <nodeSuccessors name="next" next="GetLineItemsFromApprovalObject1"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLineItemsFromApprovalObject1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/GetLineItemsFromApprovalObject.xml"/>
+    <nodeSuccessors name="next" next="ProcessMail1"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail1">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="Domain" objectPath="CurrentOrganization:OwningDomain"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="SetApprovalLastNotifiedUsers1"/>
+  </nodes>
+<!--@Location 1,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetApprovalLastNotifiedUsers1">
+    <pipelet href="enfinity:/bc_approval/pipelets/SetApprovalLastNotifiedUsers.xml"/>
+    <nodeSuccessors name="next" next="Join1"/>
+    <parameterBindings name="NotifiedUsers" objectPath="Users"/>
+  </nodes>
+<!--@Location 1,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+<!--@BendPoints 1,40 1,9-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="MailFrom"/>
+    <configurationValues name="Value" value="INTERSHOP_Procurement_Solution"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 5,29-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="NotifyApproversB2B" callMode="Private">
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="NotifyBuyer" callMode="Private">
+    <nodeSuccessors name="next" next="GetOrganizationByUser1"/>
+    <parameters name="Requisition" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"
+        optional="true"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="GetDomainPreference1"/>
+    <nodeSuccessors name="pipelet_error" next="End5"/>
+    <parameterBindings name="User" objectPath="Requisition:User"/>
+    <returnValueBindings name="OrganizationDomain" objectPath="PreferenceDomain"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference1">
+    <configurationValues name="DefaultPreferenceKey" value="EMailNotification"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="Decision2"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="EMailNotification"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="EMailNotification"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="GetDomainPreference13"/>
+    <nodeSuccessors name="decision_no" next="End4"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference13">
+    <configurationValues name="DefaultPreferenceKey" value="EMailNotificationFromAddress"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+<!--@BendPoints 13,11-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+<!--@BendPoints 15,9 15,10-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue4"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 13,14-->
+    <nodeSuccessors name="next" next="SetDictionaryValue3"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue3">
+    <configurationValues name="Name" value="MailTemplate"/>
+    <configurationValues name="Value" value="RequisitionAWFCompletedMail"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="ProcessMail2"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail2">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="End3"/>
+    <parameterBindings name="Domain" objectPath="CurrentOrganization:OwningDomain"/>
+    <parameterBindings name="MailTo" objectPath="Requisition:User:Profile:AddressBook:DefaultAddress:EMail"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue4">
+    <configurationValues name="Name" value="MailFrom"/>
+    <configurationValues name="Value" value="INTERSHOP_Procurement_Solution"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 15,13-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5"/>
+</pipeline:Pipeline>

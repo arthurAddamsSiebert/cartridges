@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--ORM implementation of ProcessCategoryProducts.
+@Group Catalog-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCategoryProducts" overrideMode="Inherit" type="process">
+<!--Retrieves the products implicitly or explicitly assigned to a category.
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="GetAssignedProducts"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainByUUID0"/>
+<!--The category to search assigned products for.-->
+    <parameters name="CatalogCategoryBO" type="com.intershop.component.catalog.capi.CatalogCategoryBO"/>
+<!--The ProductBORepository where the searched products are contained.-->
+    <parameters name="ProductBORepository" type="com.intershop.component.product.capi.ProductBORepository"/>
+<!--The (optional) desired locale.-->
+    <parameters name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation"
+        optional="true"/>
+<!--The (optional) currency code of desired currency.-->
+    <parameters name="CurrencyCode" type="java.lang.String" optional="true"/>
+<!--Optional catalog filters.-->
+    <parameters name="CatalogFilters" type="java.util.Iterator&lt;com.intershop.component.mvc.capi.filter.CatalogFilter>"
+        optional="true"/>
+<!--Name of the attribute to sort products by.-->
+    <parameters name="SortAttribute" type="java.lang.String" optional="true"/>
+<!--Type of the sorting attribute.-->
+    <parameters name="SortAttributeType" type="java.lang.String" optional="true"/>
+<!--Direction for sorting (ascending/descending).-->
+    <parameters name="SortDirection" type="java.lang.String" optional="true"/>
+<!--A flag indicating whether the sorting attribute is localized.-->
+    <parameters name="SortAttributeLocalizedFlag" type="java.lang.Integer" optional="true"/>
+<!--An optional flag indicating if only online products must be returned (1) or all (0).-->
+    <parameters name="OnlineFlag" type="java.lang.Integer" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="GetCategoryByUUID0"/>
+<!--@BendPoints 7,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="DomainUUID" objectPath="ProductBORepository:RepositoryID"/>
+    <returnValueBindings name="Domain" objectPath="ProductDomain"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoryByUUID0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoryByUUID.xml"/>
+    <nodeSuccessors name="next" next="AddMultipleEntriesToMap0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="CatalogCategoryID" objectPath="CatalogCategoryBO:ID"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddMultipleEntriesToMap0">
+    <configurationValues name="Mode" value="OverwriteValue"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddMultipleEntriesToMap.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="InMap" nullBinding="true"/>
+    <parameterBindings name="Key1" constant="ProductDomain"/>
+    <parameterBindings name="Key2" constant="CatalogCategory"/>
+    <parameterBindings name="Key3" constant="LocaleInformation"/>
+    <parameterBindings name="Key4" nullBinding="true"/>
+    <parameterBindings name="Value1" objectPath="ProductDomain"/>
+    <parameterBindings name="Value2" objectPath="Category"/>
+    <parameterBindings name="Value3" objectPath="LocaleInformation"/>
+    <parameterBindings name="Value4" nullBinding="true"/>
+    <returnValueBindings name="OutMap" objectPath="QueryParams"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="CurrencyCode">
+    <nodeSuccessors name="decision_yes" next="AddEntryToMap0"/>
+<!--@BendPoints 4,9 4,13-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InMap" objectPath="QueryParams"/>
+    <parameterBindings name="Key" constant="Currency"/>
+    <parameterBindings name="Value" objectPath="CurrencyCode"/>
+    <returnValueBindings name="OutMap" objectPath="QueryParams"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="SortAttribute">
+    <nodeSuccessors name="decision_yes" next="AddEntryToMap1"/>
+<!--@BendPoints 4,15 4,19-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InMap" objectPath="QueryParams"/>
+    <parameterBindings name="Key" constant="SortAttribute"/>
+    <parameterBindings name="Value" objectPath="SortAttribute"/>
+    <returnValueBindings name="OutMap" objectPath="QueryParams"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="SortAttributeType">
+    <nodeSuccessors name="decision_yes" next="AddEntryToMap2"/>
+<!--@BendPoints 4,21 4,25-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="InMap" objectPath="QueryParams"/>
+    <parameterBindings name="Key" constant="SortAttributeType"/>
+    <parameterBindings name="Value" objectPath="SortAttributeType"/>
+    <returnValueBindings name="OutMap" objectPath="QueryParams"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="SortDirection">
+    <nodeSuccessors name="decision_yes" next="AddEntryToMap3"/>
+<!--@BendPoints 4,27 4,31-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="InMap" objectPath="QueryParams"/>
+    <parameterBindings name="Key" constant="SortDirection"/>
+    <parameterBindings name="Value" objectPath="SortDirection"/>
+    <returnValueBindings name="OutMap" objectPath="QueryParams"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="SortAttributeLocalized">
+    <nodeSuccessors name="decision_yes" next="AddEntryToMap4"/>
+<!--@BendPoints 4,33 4,37-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="InMap" objectPath="QueryParams"/>
+    <parameterBindings name="Key" constant="SortAttributeLocalizedFlag"/>
+    <parameterBindings name="Value" objectPath="SortAttributeLocalizedFlag"/>
+    <returnValueBindings name="OutMap" objectPath="QueryParams"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+  </nodes>
+<!--@Location 1,19-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="CatalogFilters">
+    <nodeSuccessors name="decision_yes" next="AddEntryToMap6"/>
+<!--@BendPoints 4,39 4,43-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 1,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="InMap" objectPath="QueryParams"/>
+    <parameterBindings name="Key" constant="Filters"/>
+    <parameterBindings name="Value" objectPath="CatalogFilters"/>
+    <returnValueBindings name="OutMap" objectPath="QueryParams"/>
+  </nodes>
+<!--@Location 1,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+  </nodes>
+<!--@Location 1,22-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="OnlineFlag">
+    <nodeSuccessors name="decision_yes" next="AddEntryToMap7"/>
+<!--@BendPoints 4,45 4,49-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 1,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap7">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="InMap" objectPath="QueryParams"/>
+    <parameterBindings name="Key" constant="Online"/>
+    <parameterBindings name="Value" objectPath="OnlineFlag"/>
+    <returnValueBindings name="OutMap" objectPath="QueryParams"/>
+  </nodes>
+<!--@Location 1,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="GetProductBinding0"/>
+  </nodes>
+<!--@Location 1,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductBinding0">
+    <pipelet href="enfinity:/bc_product/pipelets/GetProductBinding.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+    <parameterBindings name="CategoryBO" objectPath="CatalogCategoryBO"/>
+  </nodes>
+<!--@Location 1,26-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Binding:ProductBindingType"
+      operator="eq" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="ExecuteObjectsQuery0"/>
+<!--@BendPoints 5,53-->
+    <nodeSuccessors name="decision_no" next="AddMultipleEntriesToMap1"/>
+  </nodes>
+<!--@Location 1,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery0">
+    <configurationValues name="QueryName" value="product/GetAssignedProductBOs"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+<!--@BendPoints 4,57 4,59 5,59-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="Parameters" objectPath="QueryParams"/>
+    <returnValueBindings name="SearchResult" objectPath="ProductBOIterator"/>
+  </nodes>
+<!--@Location 1,30-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="CreateCollectionFromIterator0"/>
+  </nodes>
+<!--@Location 1,31-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateCollectionFromIterator0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateCollectionFromIterator.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <parameterBindings name="ObjectIterator" objectPath="ProductBOIterator"/>
+    <returnValueBindings name="ObjectCollection" objectPath="ProductBOs"/>
+  </nodes>
+<!--@Location 1,32-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+<!--The assigned products found.-->
+    <returnValues name="ProductBOs" type="java.util.Collection&lt;com.intershop.component.product.capi.ProductBO>"
+        optional="true"/>
+  </nodes>
+<!--@Location 3,29-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 3,32-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="Error" strict="true"/>
+<!--@Location 2,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddMultipleEntriesToMap1">
+    <configurationValues name="Mode" value="OverwriteValue"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddMultipleEntriesToMap.xml"/>
+<!--@BendPoints 5,56-->
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+    <parameterBindings name="InMap" objectPath="QueryParams"/>
+    <parameterBindings name="Key1" constant="BindingAttribute"/>
+    <parameterBindings name="Key2" constant="BindingValue"/>
+    <parameterBindings name="Key3" constant=""/>
+    <parameterBindings name="Key4" constant=""/>
+    <parameterBindings name="Value1" objectPath="CategoryBO:ProductBindingAttribute"/>
+    <parameterBindings name="Value2" objectPath="CategoryBO:ProductBindingValue"/>
+    <parameterBindings name="Value4" constant=""/>
+    <returnValueBindings name="OutMap" objectPath="QueryParams"/>
+  </nodes>
+<!--@Location 2,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="QueryName" value="product/GetImplicitlyAssignedProductBOs"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 5,59 5,61-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+<!--@BendPoints 6,57 6,59-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="Parameters" objectPath="QueryParams"/>
+    <returnValueBindings name="SearchResult" objectPath="ProductBOIterator"/>
+  </nodes>
+<!--@Location 3,25-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+</pipeline:Pipeline>

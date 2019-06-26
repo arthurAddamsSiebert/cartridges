@@ -1,0 +1,294 @@
+import "enfinity:/core/edl/com/intershop/beehive/core/bos/util/CoreServiceImpl.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+external BreakpointCtnr type "com.intershop.beehive.core.internal.bos.pxi.BreakpointCtnr";
+external DictionaryItemCtnr type "com.intershop.beehive.core.internal.bos.pxi.DictionaryItemCtnr";
+external ExceptionCtnr type "com.intershop.beehive.core.internal.bos.pxi.ExceptionCtnr";
+external ObjectMemberCtnr type "com.intershop.beehive.core.internal.bos.pxi.ObjectMemberCtnr";
+external PXIBOHandlingException type "com.intershop.beehive.core.internal.bos.pxi.PXIBOHandlingException";
+external PXIBORegisterException type "com.intershop.beehive.core.internal.bos.pxi.PXIBORegisterException";
+external PositionCtnr type "com.intershop.beehive.core.internal.bos.pxi.PositionCtnr";
+
+namespace com.intershop.beehive.core.internal.bos.pxi
+{
+    /*
+     * The PXI service interface declares all the methods that
+     * are necessary for the interaction with the pipeline execution control interface
+     * by a debugging (back-office) client.
+     */
+    soap binary remote interface PXIServiceImpl extends CoreServiceImpl
+    {
+        /*
+         * Registers a debugging client with PXI.
+         * 
+         * @param clientName Printable name of the client
+         * @param timeout Timeout in seconds until the client gets unregistered automatically
+         * @return Id of the PXI client or -1 on error
+         * @throws PXIBOException on error
+         */
+        operation registerClient(clientName : string, timeout : int) : int throws PXIBORegisterException;
+
+        /*
+         * Unregisters a debugging client.
+         * Also clears all breakpoints the client has set and cancels the execution of all pipelines
+         * that have been halted by the client.
+         * 
+         * @param clientId Id of the PXI client
+         * @throws PXIBOException on error
+         */
+        operation unregisterClient(clientId : int) : void throws PXIBORegisterException;
+
+        /*
+         * Unregisters all debugging clients that are currently registered with PXI.
+         * Also clears all breakpoints the client has set and cancels the execution of all pipelines
+         * that have been halted by the client.
+         * 
+         * @throws PXIBOException on error
+         */
+        operation unregisterAllClients() : void throws PXIBORegisterException;
+
+        /*
+         * Returns all breakpoints that have been set by this client.
+         * 
+         * @param clientId Id of the PXI client
+         * @return An array of breakpoints or null if there are no breakpoints defined.
+         * @throws PXIBOException on error
+         */
+        operation getBreakpoints(clientId : int) : BreakpointCtnr[] throws PXIBORegisterException;
+
+        /*
+         * Sets breakpoints.
+         * The method creates a new bp if the bp doesn't exist yet or updates the state of the bp.
+         * 
+         * @param clientId Id of the PXI client
+         * @param breakpoints Array of breakpoints to set
+         * @throws PXIBOException on error
+         */
+        operation setBreakpoints(clientId : int, breakpoints : BreakpointCtnr[]) : void throws PXIBORegisterException, PXIBOHandlingException;
+
+        /*
+         * Removes breakpoints.
+         * 
+         * @param clientId Id of the PXI client
+         * @param breakpoints Array of breakpoints to remove
+         * @throws PXIBOException on error
+         */
+        operation clearBreakpoints(clientId : int, breakpoints : BreakpointCtnr[]) : void throws PXIBORegisterException;
+
+        /*
+         * Clears all breakpoints that have been set by the client.
+         * 
+         * @param clientId Id of the PXI client
+         * @throws PXIBOException on error
+         */
+        operation clearAllBreakpoints(clientId : int) : void throws PXIBORegisterException;
+
+        /*
+         * Enables all breakpoints that have been set by the client.
+         * 
+         * @param clientId Id of the PXI client
+         * @throws PXIBOException on error
+         */
+        operation enableAllBreakpoints(clientId : int) : void throws PXIBORegisterException;
+
+        /*
+         * Disables all breakpoints that have been set by the client.
+         * 
+         * @param clientId Id of the PXI client
+         * @throws PXIBOException on error
+         */
+        operation disableAllBreakpoints(clientId : int) : void throws PXIBORegisterException;
+
+        /*
+         * Sets an excpetion to catch for this client.
+         * If an exception is to be caught, the pipeline will be halted and the
+         * client will be notified of the exception.
+         * However, the pipeline cannot be continued after the exception and will be
+         * terminated if the client issues a run command then.
+         * 
+         * @param clientId Id of the PXI client
+         * @param pipelineName Name of the pipeline; null to catch exceptions in all pipelines
+         * @param exceptionClassName Name of the excpeption; null to catch all exceptions
+         * @throws PXIBOException on error
+         */
+        operation catchException(clientId : int, pipelineName : string, exceptionClassName : string) : void throws PXIBORegisterException;
+
+        /*
+         * Ignores an excpetion to catch for this client.
+         * If the exception occurs within the pipeline, it will be handled as usual
+         * after this method call.
+         * 
+         * @param clientId Id of the PXI client
+         * @param pipelineName Name of the pipeline; null to catch exceptions in all pipelines
+         * @param exceptionClassName Name of the excpeption; null to catch all exceptions
+         * @throws PXIBOException on error
+         */
+        operation ignoreException(clientId : int, pipelineName : string, exceptionClassName : string) : void throws PXIBORegisterException;
+
+        /*
+         * Steps until the next node of a halted pipeline.
+         * Stops before the next node.
+         * 
+         * @param clientId Id of the PXI client
+         * @throws PXIBOException on error
+         */
+        operation stepNext(clientId : int) : void throws PXIBORegisterException;
+
+        /*
+         * Steps into the current node of a halted pipeline.
+         * Stops after the node if the current position is before the node or
+         * before the next node if the current position is after the node.
+         * If the current node is a call or jump node, the pipeline will be halted before
+         * the start node if the called pipeline.
+         * 
+         * @param clientId Id of the PXI client
+         * @throws PXIBOException on error
+         */
+        operation stepInto(clientId : int) : void throws PXIBORegisterException;
+
+        /*
+         * Steps over the current node of a halted pipeline.
+         * Stops after the node if the current position is before the node or
+         * before the next node if the current position is after the node.
+         * 
+         * @param clientId Id of the PXI client
+         * @throws PXIBOException on error
+         */
+        operation stepOver(clientId : int) : void throws PXIBORegisterException;
+
+        /*
+         * Continues a halted pipeline until a particular node.
+         * Stops before the specified node.
+         * 
+         * @param clientId Id of the PXI client
+         * @param targetPipelineName Pipeline that contains the target node
+         * @param targetNodeId Node to run to
+         * @throws PXIBOException on error
+         */
+        operation stepNode(clientId : int, targetPipelineName : string, targetNodeId : string) : void throws PXIBORegisterException;
+
+        /*
+         * Steps out of a halted pipeline.
+         * Stops before the end node of the pipeline.
+         * 
+         * @param clientId Id of the PXI client
+         * @throws PXIBOException on error
+         */
+        operation stepOut(clientId : int) : void throws PXIBORegisterException;
+
+        /*
+         * Continues a halted pipeline.
+         * Stops at the next breakpoint.
+         * 
+         * @param clientId Id of the PXI client
+         * @throws PXIBOException on error
+         */
+        operation run(clientId : int) : void throws PXIBORegisterException;
+
+        /*
+         * Stops a halted pipeline.
+         * This method will cause a PipelineExecutionException to be thrown in the halted pipeline.
+         * 
+         * @param clientId Id of the PXI client
+         * @throws PXIBOException on error
+         */
+        operation stop(clientId : int) : void throws PXIBORegisterException;
+
+        /*
+         * Returns information on the pipeline that has been halted by this client.
+         * 
+         * @param clientId Id of the debugging client
+         * @return Position of the halted pipeline or null if there is no halted pipeline.
+         * @throws PXIBOException on error
+         */
+        operation getHaltedPipelinePosition(clientId : int) : PositionCtnr throws PXIBORegisterException;
+
+        /*
+         * Returns information on the call stack of the pipeline that has been halted by this client.
+         * 
+         * @param clientId Id of the debugging client
+         * @return An array of positions of the halted pipeline and it's calling pipelines
+         * or null if there is no halted pipeline.
+         * @throws PXIBOException on error
+         */
+        operation getHaltedPipelineCallStack(clientId : int) : PositionCtnr[] throws PXIBORegisterException;
+
+        /*
+         * Returns information on an exception that caused the pipeline to stop.
+         * 
+         * @param clientId Id of the debugging client
+         * @return Information on the exception that occured in the halted pipeline
+         * or null if there is no halted pipeline or no exception occured.
+         * @throws PXIBOException on error
+         */
+        operation getHaltedPipelineException(clientId : int) : ExceptionCtnr throws PXIBORegisterException;
+
+        /*
+         * Returns the contents of the pipeline dictionary of the pipeline that has been
+         * halted by this client.
+         * 
+         * @param clientId Id of the debugging client
+         * @return An array of dictionary contents or null if there is no halted pipeline
+         * @throws PXIBOException on error
+         */
+        operation getDictionaryContents(clientId : int) : DictionaryItemCtnr[] throws PXIBORegisterException;
+
+        /*
+         * Returns an array of ObjectMemberCtnr that describe all the childs of the node that is specified by
+         * @param expression
+         * @exception PXIBOHandlingException if the described node isn't accessible
+         */
+        operation getObjectMembers(clientId : int, expression : string, mode : int) : ObjectMemberCtnr[] throws PXIBORegisterException, PXIBOHandlingException;
+
+        /*
+         * Turn the "break on exception" feature on or off. If on, the pipeline
+         * will be halted in case of an exception and the client can request additional
+         * information (exception name, stack trace).
+         * 
+         * @param clientId Id of the client retrieved by @lm registerClient
+         * @param doBreak True to activate, false to deactivate.
+         * ONLY ONE CLIENT CAN ACTIVATE THIS GLOBAL FEATURE AT ANY TIME.
+         */
+        operation setBreakOnException(clientId : int, flag : boolean) : void throws PXIBOHandlingException, PXIBORegisterException;
+
+        /*
+         * Request if the client that makes the call has turned the "break on exception" feature
+         * on.
+         * 
+         * @param clientId Id of the client retrieved by @lm registerClient
+         */
+        operation getBreakOnException(clientId : int) : boolean throws PXIBORegisterException;
+
+        /*
+         * Turn the "break on top-level pipeline" feature on or off. If on,
+         * the pipeline will be halted at its start if it is a top-level pipeline.
+         * 
+         * @param clientId Id of the client retrieved by @lm registerClient
+         * @param doBreak True to activate, false to deactivate.
+         * ONLY ONE CLIENT CAN ACTIVATE THIS GLOBAL FEATURE AT ANY TIME.
+         */
+        operation setBreakOnToplevelPipeline(clientId : int, flag : boolean) : void throws PXIBOHandlingException, PXIBORegisterException;
+
+        /*
+         * Request if the client that makes the call has turned the "break on top-level pipeline"
+         * feature on.
+         * 
+         * @param clientId Id of the client retrieved by @lm registerClient
+         */
+        operation getBreakOnToplevelPipeline(clientId : int) : boolean throws PXIBORegisterException;
+
+        /*
+         * Returns information about a node within the object hierarchy that starts with the pipeline dictionary. The desired node is described by
+         * @param expression
+         * @return an ObjectMemberCtnr with information about the desired node
+         */
+        operation getExpressionValue(clientId : int, expression : string) : ObjectMemberCtnr throws PXIBORegisterException;
+
+        /*
+         * Sets the current site of the client. Only pipelines that run in the context of the current site will be stopped if a breakpoint is encountered.
+         * 
+         * @throws PXIBORegisterException on error
+         */
+        operation setCurrentSite(clientId : int, siteName : string) : void throws PXIBORegisterException;
+    }
+}

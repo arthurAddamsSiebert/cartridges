@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Pipeline to browse the auction catalog.
+@Group Auction-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessAuctionCatalog" type="process">
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetAssignedRunningAuctions"
+      callMode="Private">
+<!--@BendPoints 3,2-->
+    <nodeSuccessors name="next" next="ExecutePageableQuery2"/>
+    <parameters name="SearchCategoryUUID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery2">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="DefaultPageSize" value="15"/>
+    <configurationValues name="ParameterName_02" value="Locale"/>
+    <configurationValues name="QueryName" value="auction/GetAuctionsByParametricSearch"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+<!--@BendPoints 5,3 5,4-->
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Category:UUID"/>
+    <parameterBindings name="ParameterValue_02" objectPath="CurrentRequest:Locale"/>
+    <returnValueBindings name="SearchResult" objectPath="Auctions"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="Auctions" type="com.intershop.beehive.core.capi.paging.PageableIterator"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR" strict="true">
+<!--When the error connector is used then the ErrorCode contains a hint about the reason.-->
+    <returnValues name="ErrorCode" type="java.lang.String"/>
+  </nodes>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="GetCategoryPath" callMode="Private">
+    <nodeSuccessors name="next" next="DetermineCatalogCategory1"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineCatalogCategory1">
+    <pipelet href="enfinity:/xcs/pipelets/DetermineCatalogCategory.xml"/>
+    <nodeSuccessors name="next" next="DetermineCatalogCategoriesPath1"/>
+<!--@BendPoints 11,3-->
+    <nodeSuccessors name="pipelet_error" next="End2"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineCatalogCategoriesPath1">
+    <pipelet href="enfinity:/xcs/pipelets/DetermineCatalogCategoriesPath.xml"/>
+    <nodeSuccessors name="next" next="End4"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2" name="ERROR"/>
+</pipeline:Pipeline>

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Defines a virtual delete transaction upon an BMEcat catalog. The pipeline can be used to delete BMEcat articles previously imported using the standard BMEcat transactions.
+@Group BMEcat-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="BME_T_CLEAN_CATALOG" type="process">
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="Categories" callMode="Private">
+    <nodeSuccessors name="next" next="GetSubCategories1"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSubCategories1">
+    <configurationValues name="Online" value="All"/>
+    <configurationValues name="Pagesize" value="100000"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetSubCategories.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+    <parameterBindings name="Category" objectPath="Catalog:Root"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="SubCategories">
+    <nodeSuccessors name="next" next="End2"/>
+    <entry key="SubCategory">
+      <nodeSuccessors name="loop_entry_next" next="RemoveCatalogCategory2"/>
+    </entry>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveCatalogCategory2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveCatalogCategory.xml"/>
+    <nodeSuccessors name="next" next="Join1"/>
+<!--@BendPoints 18,9 18,11-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+    <parameterBindings name="Category" objectPath="SubCategory"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+<!--@BendPoints 17,12 15,12 15,7-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="CleanBMEInformation"
+      callMode="Private">
+    <nodeSuccessors name="next" next="RemoveAllCustomAttributes1"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAllCustomAttributes1">
+    <configurationValues name="Prefix" value="BME"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAllCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="End1"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Catalog"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="Finish" callMode="Private">
+    <nodeSuccessors name="next" next="End11"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End11"/>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="Products" callMode="Private">
+<!--@BendPoints 11,4-->
+    <nodeSuccessors name="next" next="Pipelet10"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet10">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 11,6-->
+    <nodeSuccessors name="next" next="GetLocale1"/>
+    <parameterBindings name="InValue_1" objectPath="Organization:UUID"/>
+    <returnValueBindings name="OutValue_1" objectPath="OrganizationUUID"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+<!--@BendPoints 11,8-->
+    <nodeSuccessors name="next" next="UpdateDictionary4"/>
+    <parameterBindings name="LocaleId" nullBinding="true"/>
+    <returnValueBindings name="Locale" objectPath="LocaleInformation"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary4">
+    <configurationValues name="Name_01" value="DomainUUID"/>
+    <configurationValues name="Name_02" value="AttributeName"/>
+    <configurationValues name="Name_03" value="AttributeValue"/>
+    <configurationValues name="Name_04" value="LocaleInformation"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+<!--@BendPoints 11,10-->
+    <nodeSuccessors name="next" next="ExecutePageableQuery1"/>
+    <parameterBindings name="InDictionary" objectPath="ProductParameters"/>
+    <parameterBindings name="Value_01" objectPath="Repository:RepositoryDomain:UUID"/>
+    <parameterBindings name="Value_02" constant="BME_CATALOG_ID"/>
+    <parameterBindings name="Value_03" objectPath="Catalog:BME_CATALOG_ID"/>
+    <parameterBindings name="Value_04" objectPath="LocaleInformation"/>
+    <returnValueBindings name="OutDictionary" objectPath="ProductParameters"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery1">
+    <configurationValues name="DefaultPageSize" value="25"/>
+    <configurationValues name="QueryName" value="product/GetProductsByAVs"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+<!--@BendPoints 11,12-->
+    <nodeSuccessors name="next" next="Pipelet17"/>
+<!--@BendPoints 13,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="Parameters" objectPath="ProductParameters"/>
+    <returnValueBindings name="SearchResult" objectPath="Objects"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet17">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableSequence.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="PageableIterator" objectPath="Objects"/>
+    <returnValueBindings name="PageableSequence" objectPath="Objects"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="CallNode2" action="begin"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="Pipelet15" action="commit"/>
+    <startNode referencedName="BatchProcessProducts-DeleteProducts"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet15">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SwitchToNextPage.xml"/>
+<!--@BendPoints 11,21 9,21 9,15-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="PageableIterator" objectPath="Objects"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="Call1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+<!--@BendPoints 2,7 3,7-->
+    <nodeSuccessors name="next" next="Call4"/>
+    <nodeSuccessors name="ERROR" next="Call6"/>
+    <startNode referencedName="BME_T_CLEAN_CATALOG-Products"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call4">
+    <nodeSuccessors name="next" next="Call3"/>
+    <startNode referencedName="BME_T_CLEAN_CATALOG-Categories"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call3">
+    <nodeSuccessors name="next" next="Call2"/>
+    <startNode referencedName="BME_T_CLEAN_CATALOG-CleanBMEInformation"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+    <nodeSuccessors name="next" next="End5"/>
+<!--@BendPoints 3,17-->
+    <nodeSuccessors name="ERROR" next="Join13"/>
+    <startNode referencedName="BME_T_CLEAN_CATALOG-Finish"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5" name="OK"/>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join13">
+    <nodeSuccessors name="next" next="End10"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End10" name="ERROR"/>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call6">
+    <nodeSuccessors name="next" next="Join13"/>
+    <startNode referencedName="BME_T_CLEAN_CATALOG-Finish"/>
+  </nodes>
+</pipeline:Pipeline>

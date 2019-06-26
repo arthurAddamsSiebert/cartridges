@@ -1,0 +1,37 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (getObject("CurrentSession:LoggedIn"))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",3,e);}if (_boolean_result) { %><% {Object temp_obj = (getObject("CurrentCartBO:Extension(\"CompanyCustomer\")")); getPipelineDictionary().put("BasketBOCompanyCustomerExtension", temp_obj);} %><div class="form-group <% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CheckoutAddressCompanyInformationForm:Department:isInvalid"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",5,e);}if (_boolean_result) { %> has-error<% } %>">
+<label class="control-label col-sm-4" for="<% {String value = null;try{value=context.getFormattedValue(context.getFormattedValue(getObject("CheckoutAddressCompanyInformationForm:Department:QualifiedName"),null) + context.getFormattedValue(getObject("idSuffix"),null),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {6}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("checkout.addresses.department.label","",null,null,null,null,null,null,null,null,null,null,null));} %></label>
+<div class="col-sm-8">
+<input type="text" 
+id="<% {String value = null;try{value=context.getFormattedValue(getObject("CheckoutAddressCompanyInformationForm:Department:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {11}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+name="<% {String value = null;try{value=context.getFormattedValue(getObject("CheckoutAddressCompanyInformationForm:Department:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {12}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+<% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CheckoutAddressCompanyInformationForm:Department:Value"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",13,e);}if (_boolean_result) { %>
+value="<% {String value = null;try{value=context.getFormattedValue(getObject("CheckoutAddressCompanyInformationForm:Department:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {14}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+<% } else { %>
+value="<% {String value = null;try{value=context.getFormattedValue(getObject("BasketBOCompanyCustomerExtension:Department"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {16}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+<% } %>
+class="form-control"
+maxlength="60"
+/>
+</div>
+</div>
+<div class="form-group <% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CheckoutAddressCompanyInformationForm:TaxationID:isInvalid"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",24,e);}if (_boolean_result) { %> has-error<% } %>">
+<label class="control-label col-sm-4" for="<% {String value = null;try{value=context.getFormattedValue(context.getFormattedValue(getObject("CheckoutAddressCompanyInformationForm:TaxationID:QualifiedName"),null) + context.getFormattedValue(getObject("idSuffix"),null),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {25}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("checkout.addresses.taxation.label","",null,null,null,null,null,null,null,null,null,null,null));} %></label>
+<div class="col-sm-8">
+<input type="text" 
+id="<% {String value = null;try{value=context.getFormattedValue(getObject("CheckoutAddressCompanyInformationForm:TaxationID:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {30}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+name="<% {String value = null;try{value=context.getFormattedValue(getObject("CheckoutAddressCompanyInformationForm:TaxationID:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {31}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+<% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CheckoutAddressCompanyInformationForm:TaxationID:Value"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",32,e);}if (_boolean_result) { %>
+value="<% {String value = null;try{value=context.getFormattedValue(getObject("CheckoutAddressCompanyInformationForm:TaxationID:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {33}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+<% } else { %>
+value="<% {String value = null;try{value=context.getFormattedValue(getObject("BasketBOCompanyCustomerExtension:TaxationID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {35}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+<% } %>
+class="form-control"
+maxlength="60" 
+/>
+</div>
+</div><% } %><% printFooter(out); %>

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group User-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessUserLogin" overrideMode="Inherit" type="process">
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="IsCustomerAllowedToLogin"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <parameters name="Configuration" type="com.intershop.beehive.configuration.capi.common.Configuration"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="SplitString1"/>
+    <parameterBindings name="InValue_1" objectPath="Configuration:String(&quot;intershop.application.login&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ConfiguredCustomerTypes"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SplitString1">
+    <pipelet href="enfinity:/core/pipelets/SplitString.xml"/>
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <parameterBindings name="Delimeter" constant=";"/>
+    <parameterBindings name="ValuesString" objectPath="ConfiguredCustomerTypes"/>
+    <returnValueBindings name="ValuesIterator" objectPath="AllowedCustomerTypes"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="AllowedCustomerTypes">
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <entry key="CustomerTypeID">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode2"/>
+    </entry>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="CustomerBO:CustomerType:CustomerTypeID"
+      operator="str_eq" conditionItem="CustomerTypeID">
+    <nodeSuccessors name="decision_yes" next="EndNode1"/>
+<!--@BendPoints 10,11 10,9-->
+    <nodeSuccessors name="decision_no" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="ERROR" strict="true">
+    <returnValues name="ERROR_User" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="Start"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetUserBOByLogin0"/>
+<!--The login name of the user (is get from webform)-->
+    <parameters name="Login" type="java.lang.String"/>
+    <parameters name="UserBORepository" type="com.intershop.component.user.capi.UserBORepository"/>
+    <parameters name="Configuration" type="com.intershop.beehive.configuration.capi.common.Configuration"/>
+    <parameters name="CustomerBORepository" type="com.intershop.component.customer.capi.CustomerBORepository"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserBOByLogin0">
+    <pipelet href="enfinity:/bc_user/pipelets/GetUserBOByLogin.xml"/>
+    <nodeSuccessors name="next" next="GetCustomerBO0"/>
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCustomerBO0">
+    <pipelet href="enfinity:/bc_customer/pipelets/GetCustomerBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+    <nodeSuccessors name="ERROR" next="JoinNode2"/>
+    <startNode referencedName="ProcessUserLogin-IsCustomerAllowedToLogin"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameterBindings name="InValue_1" objectPath="CustomerBO:Extension(&quot;CompanyCustomer&quot;)"/>
+    <parameterBindings name="InValue_10" objectPath="CustomerBO:Extension(&quot;PrivateCustomer&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="CompanyCustomer"/>
+    <returnValueBindings name="OutValue_10" objectPath="PrivateCustomer"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="CompanyCustomer">
+    <nodeSuccessors name="decision_yes" next="DecisionNode1"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode3"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="CompanyCustomer:isActive"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+    <returnValues name="ERROR_User" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="SetDictionaryValue2"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="ERROR_User"/>
+    <configurationValues name="Value" value="DisabledCustomer"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="PrivateCustomer">
+    <nodeSuccessors name="decision_yes" next="DecisionNode4"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="PrivateCustomer:isActive"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="SetDictionaryValue0"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue0">
+    <configurationValues name="Name" value="ERROR_User"/>
+    <configurationValues name="Value" value="UnableToFindMembershipData"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 7,21-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 7,9-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+</pipeline:Pipeline>

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Returns all product category assignments of given catalog category and product domain. It performs fallback to master repository assignments in case of non existing assignments the channel.">
+<parameters>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="CatalogCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+<template-comment>
+Notes for the "inline" hint:
+    The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+    of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+    not a good practice.
+Solved problems:
+    Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+    if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+    data were not subsequently deleted.
+</template-comment>
+WITH epcas AS (
+	SELECT /*+ inline - to avoid massive not released temporary tablespace data */ pca.catalogcategoryid AS categoryid,
+	    pca.productid,
+	    pca.domainid AS productdomainid,
+	    NULL         AS productbindingattribute,
+	    pca.position AS position
+	  FROM productcategoryassignment pca
+	  WHERE NOT EXISTS
+	    (SELECT cat_data.*, d.siteid as site_id, sqd.domainid as sqd_domain_UUID
+	     FROM (SELECT cat_dom.*, r.repositorydomainid AS repo_domain_uuid, r.domainid AS org_domain_uuid
+	        FROM (
+	          SELECT cc.uuid AS category_uuid, cc.searchquerydefinitionname as sqd_name, c.domainid AS catalog_domain_uuid
+	          FROM catalogcategory cc, catalog c
+	          WHERE cc.domainid = c.catalogdomainid
+	          AND cc.searchquerydefinitionname IS NOT NULL) cat_dom
+	       JOIN repository r
+	          ON r.repositorydomainid = cat_dom.catalog_domain_uuid
+	            OR (r.typecode = 21 AND r.domainid = cat_dom.catalog_domain_uuid )
+	      ) cat_data
+	     JOIN domain d
+	        ON repo_domain_uuid = d.uuid
+	     JOIN SearchQueryDefinition sqd
+	        ON sqd.name = sqd_name
+	          AND (
+	           sqd.domainid = d.siteid
+	              OR
+	           sqd.domainid IN (SELECT d.siteid FROM domain d WHERE d.uuid = org_domain_uuid)
+	          )
+	     WHERE pca.catalogcategoryid = category_uuid
+	        AND pca.domainid = repo_domain_uuid
+	    )
+)
+<template-if condition="Sharing:Enabled">
+, c_pcas AS (
+    SELECT /*+ inline - to avoid massive not released temporary tablespace data */ *
+    FROM
+        epcas
+    WHERE
+        categoryid = <template-variable value="CatalogCategory:UUID"/>
+    AND
+        productdomainid = <template-variable value="ProductDomain:UUID"/>
+)
+SELECT * FROM c_pcas
+UNION ALL
+SELECT *
+FROM
+    epcas
+WHERE
+    epcas.categoryid = <template-variable value="CatalogCategory:UUID"/>
+AND
+	epcas.productdomainid IN (
+	    SELECT ps.domainid
+	    FROM
+	        productsetdomainassignment psda
+	    JOIN
+	        productset ps ON (ps.uuid = psda.productsetuuid)
+	    WHERE
+	        psda.domainid = <template-variable value="ProductDomain:UUID"/>
+	)
+AND
+    NOT EXISTS (
+        SELECT 1
+        FROM c_pcas
+        WHERE c_pcas.categoryid = <template-variable value="CatalogCategory:UUID"/>
+        AND c_pcas.productdomainid = <template-variable value="ProductDomain:UUID"/>
+        AND c_pcas.productid=epcas.productid
+    )
+<if-else/>
+SELECT *
+FROM
+    epcas
+WHERE
+    categoryid = <template-variable value="CatalogCategory:UUID"/>
+AND
+    productdomainid = <template-variable value="ProductDomain:UUID"/>
+</template-if>
+</template>
+</query>

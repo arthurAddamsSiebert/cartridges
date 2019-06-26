@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query returns aggregate ratings based on channel restriction.">
+<parameters>
+	<parameter name="ProductID" type="java.lang.String" optional="false"/>
+	<parameter name="Statuses" type="java.util.Collection" optional="false"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="ProductDomain" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="AggregatedRating" type="constructor" class="com.intershop.component.product.rating.orm.internal.businessobject.AggregatedRatingImpl">
+		<return-attribute name="totalratingcount"/>
+		<return-attribute name="averagerating"/>
+		<return-attribute name="minimalrating"/>
+		<return-attribute name="maximalrating"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+SELECT
+	<sql-dialect name="Oracle">
+		count(*) as totalratingcount,
+		case when count(*) &gt; 0 then avg(rating) else 0 end as averagerating,
+		case when count(*) &gt; 0 then min(rating) else 0 end as minimalrating,
+		case when count(*) &gt; 0 then max(rating) else 0 end as maximalrating
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		cast(count(*) as decimal) as totalratingcount,
+		case when count(*) &gt; 0 then cast(avg(rating) as decimal) else 0 end as averagerating,
+		case when count(*) &gt; 0 then cast(min(rating) as decimal) else 0 end as minimalrating,
+		case when count(*) &gt; 0 then cast(max(rating) as decimal) else 0 end as maximalrating
+	</sql-dialect>
+FROM RatingComment rc, ProductRatingAssignment pra
+WHERE 
+	rc.uuid = pra.ratingCommentUUID
+	AND pra.productUUID = <template-variable value="ProductID"/>
+	<template-if condition="isDefined(ProductDomain)">
+	AND
+	rc.domainid = <template-variable value="ProductDomain"/>
+	</template-if>
+	<template-if condition="hasLoopElements(Statuses)">
+	AND
+	(
+		<template-loop alias="Status" iterator="Statuses">
+			<loop-statement>
+				<template-if condition="Status:Name EQ 'NEW'">
+					rc.approvalStatus=0 OR rc.approvalStatus IS NULL
+				<if-elseif condition="Status:Name EQ 'APPROVED'"/>
+					rc.approvalStatus=1
+				<if-elseif condition="Status:Name EQ 'REJECTED'"/>
+					rc.approvalStatus=2
+				<if-else/>
+					<template-comment>Ensures that we don't get an error if the status is unknown</template-comment>
+					1=2
+				</template-if>		
+			</loop-statement>
+			<loop-separator> OR </loop-separator>
+		</template-loop>
+	)
+	</template-if>
+	
+	<template-if condition="isDefined(Locale)">
+		AND rc.localeID = <template-variable value="Locale:LocaleID"/>
+	</template-if>
+</template>
+</query>

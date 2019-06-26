@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="SKU" type="java.lang.String" optional="false"/>
+    <parameter name="DomainUUID" type="java.lang.String" optional="false"/>    
+    <parameter name="InboundProductSetUUID" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Product" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+        <return-attribute name="UUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+    SELECT
+        p.uuid, count(*) over() as "ROWCOUNT"
+    FROM
+        product p
+    WHERE sku=<template-variable value="SKU"/> 
+    AND NOT EXISTS (SELECT 1 FROM derivedproduct WHERE baseproductid=uuid AND domainid=<template-variable value="DomainUUID"/> AND sku IS NOT NULL)
+    AND (domainid IN (SELECT ps.domainid FROM productset ps JOIN productsetdomainassignment psda ON (ps.uuid=psda.productsetUUID) WHERE psda.domainid=<template-variable value="DomainUUID"/> AND ps.allflag=1)
+    OR uuid IN (SELECT psa.productUUID FROM productsetassignment psa JOIN productset ps ON (ps.uuid=psa.productsetUUID) JOIN productsetdomainassignment psda 
+	<sql-dialect name="Oracle">
+		USING (productsetUUID) 
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		ON psda.PRODUCTSETUUID = psa.PRODUCTSETUUID 
+	</sql-dialect>
+	WHERE psda.domainid=<template-variable value="DomainUUID"/> AND ps.activeflag=1))
+    <template-if condition="isDefined(InboundProductSetUUID)">
+    	AND uuid IN (SELECT psa.productUUID FROM productsetassignment psa WHERE psa.productsetUUID=<template-variable value="InboundProductSetUUID"/>)
+    </template-if>     
+</template>
+</query>

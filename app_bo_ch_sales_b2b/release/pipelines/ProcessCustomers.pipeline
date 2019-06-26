@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This process pipeline is responsible for providing mechanism for manipulation of customers.
+@Group Search-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCustomers" overrideMode="Inherit" type="process">
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="Delete"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+<!--The collection of customer ids that need to be deleted.-->
+    <parameters name="CustomerIDs" type="java.util.Collection&lt;java.lang.String>"/>
+<!--The repository for customers.-->
+    <parameters name="CustomerBORepository" type="com.intershop.component.customer.capi.CustomerBORepository"/>
+    <parameters name="CurrentChannel" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="CustomerIDs">
+<!--@BendPoints 9,5-->
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <entry key="CustomerID">
+      <nodeSuccessors name="loop_entry_next" next="GetCustomerBOByID0"/>
+    </entry>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCustomerBOByID0">
+    <pipelet href="enfinity:/bc_customer/pipelets/GetCustomerBOByID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="CustomerBO:Extension(&quot;Contract&quot;)">
+    <nodeSuccessors name="decision_yes" next="DecisionNode1"/>
+<!--@BendPoints 7,9 7,13-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="CustomerBO:Extension(&quot;Contract&quot;):Erasable"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="JoinNode0"/>
+    <nodeSuccessors name="decision_no" next="AddObjectToVector0"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+<!--@BendPoints 1,15-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <startNode referencedName="ProcessCustomer-Delete"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 1,5-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector0">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="InVector" objectPath="CustomerNotErasableList"/>
+    <parameterBindings name="Object" objectPath="CustomerBO"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CustomerNotErasable"/>
+    <returnValueBindings name="OutVector" objectPath="CustomerNotErasableList"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+    <returnValues name="CustomerNotErasable" type="java.util.Iterator&lt;E>" optional="true"/>
+  </nodes>
+</pipeline:Pipeline>

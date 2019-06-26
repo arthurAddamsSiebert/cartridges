@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex" optional="false" description="The search index"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="CurrentDate" type="java.util.Date" optional="true"/>
+	<parameter name="LastIndexStartTime" type="java.util.Date" optional="true"/>
+</parameters>
+<return-mappings>
+<return-mapping name="Product" type="provider" class="ProductViewProvider">
+    <return-attribute name="UUID"/>
+    <return-attribute name="DOMAINID"/>
+</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	    SELECT 
+	        uuid,
+	        <template-variable value="Domain:UUID"/> AS DOMAINID,
+	        COUNT(uuid) OVER() AS "ROWCOUNT" 
+	    FROM
+	    (
+	    <template-comment>If the OnlineFlag is configured - index all products otherwise only online products</template-comment>
+	    
+	    <template-if condition="isDefined(SearchIndex:Configuration:AttributeByName(&apos;OnlineFlag&apos;))">
+	    
+	   		SELECT UUID, SKU, LASTMODIFIED, SORTING
+     		  FROM (
+				    <template-call name="product/GetProductsByAdvancedSearch">
+				    	<call-parameter name="ProductDomain" value="Domain"/>
+				    	<!-- TODO remove localeinfo if it is not required from SharedProductAdvancedSearch anymore -->
+				    	<call-parameter name="LocaleInformation" value="SearchIndex:Configuration:Locale"/>
+			    		<call-parameter name="SortAttribute" value="'sku'"/>
+				    </template-call>
+		    	   ) a
+	    <if-else/>
+	   		SELECT UUID, SKU, LASTMODIFIED, SORTING
+     		  FROM (
+				    <template-call name="product/GetProductsByAdvancedSearch">
+				    	<call-parameter name="ProductDomain" value="Domain"/>
+				    	<!-- TODO remove localeinfo if it is not required from SharedProductAdvancedSearch anymore -->
+				    	<call-parameter name="LocaleInformation" value="SearchIndex:Configuration:Locale"/>
+			    		<call-parameter name="Online" value="'(Integer)1'"/>
+			    		<call-parameter name="SortAttribute" value="'sku'"/>
+				    </template-call>
+		    	   ) a	    
+	    </template-if>
+	    ) p
+	    <template-if condition="isDefined(LastIndexStartTime)">
+	    WHERE
+	        p.lastmodified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>
+	        OR EXISTS (
+	        	SELECT 1 FROM derivedproductlistprice dplp
+	        	WHERE dplp.productid = p.uuid
+	        	AND dplp.domainid = <template-variable value="Domain:UUID"/>
+	        	AND dplp.lastModified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>
+	        )
+	        OR EXISTS(
+	        	SELECT 1 FROM productlistprice plp
+        		LEFT OUTER JOIN derivedproductlistprice dplp
+        		ON plp.productid = dplp.productid AND dplp.domainid = <template-variable value="Domain:UUID"/>
+        		WHERE dplp.value is null
+        		AND plp.productid = p.uuid
+        		AND plp.lastModified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>
+	        )
+			OR EXISTS (
+				SELECT 1 FROM pricescaletableassignment psta
+				JOIN pricescaletable pst
+				ON pst.uuid = psta.pricescaletableuuid
+				WHERE psta.productuuid = p.uuid
+				AND psta.domainid = <template-variable value="Domain:UUID"/>
+				AND pst.lastModified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>
+			)
+	        <template-if condition="SearchIndex:Configuration:DataProviderName('ProductRating')">
+		        OR EXISTS(
+					SELECT 1 FROM productratingassignment pra
+		        	WHERE pra.productuuid = p.uuid
+		        	AND pra.lastModified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>	        
+		        )
+	        </template-if>
+	    </template-if>
+	    ORDER BY SORTING
+</template>
+</query>

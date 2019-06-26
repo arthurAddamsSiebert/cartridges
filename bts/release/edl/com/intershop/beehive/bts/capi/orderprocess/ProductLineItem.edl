@@ -1,0 +1,640 @@
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/BundledProductLineItem.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/LineItem.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/LineItemCtnr.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/LineItemGroup.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/Domain.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/localization/LocaleInformation.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/ServiceLineItem.edl";
+
+external Address type "com.intershop.beehive.core.capi.profile.Address";
+external ProductRef type "com.intershop.beehive.xcs.common.ProductRef";
+
+namespace com.intershop.beehive.bts.capi.orderprocess
+{
+    cartridge interface ProductLineItem extends LineItem
+    {
+        /*
+         * Name of product, copied when product is added to LineItemCtnr.
+         */
+        attribute productName : string required;
+
+        /*
+         * Short description of product, copied when product is added to LineItemCtnr.
+         */
+        attribute productShortDescription : string required;
+
+        /*
+         * Image used to represent the product thumbnail,  copied when product is added to LineItemCtnr.
+         */
+        attribute productThumbnail : string required;
+
+        /*
+         * Quantity of product represented by this ProductLineItem.
+         * 
+         * <P>Note: the quantity of a ProductLineItem must obey the limits set by the ProductLineItem's attributes 'MinOrderQuantity' and 'StepQuantity', i.e. for a 'MinOrderQuantity' of 2.0 and a 'StepQuantity' of 2.5 then values 2.0, 4.5, 7.0... are allowed values.
+         */
+        attribute quantity : Quantity required;
+
+        /*
+         * The selected quantity may be used to process quantity changes in a LineItemCtnr in which the quantity before and quantity-to-be need to be known.
+         */
+        attribute selectedQuantity : Quantity required;
+
+        /*
+         * Minimal order quantity allowed for the product represented by the ProductLineItem (copied from product on initialization).
+         * 
+         * <P>Note: the quantity of a ProductLineItem must obey the limits set by the ProductLineItem's attributes 'MinOrderQuantity' and 'StepQuantity', i.e. for a 'MinOrderQuantity' of 2.0 and a 'StepQuantity' of 2.5 then values 2.0, 4.5, 7.0... are allowed values.
+         */
+        attribute minOrderQuantity : Quantity required;
+        
+        /*
+         * Maximal item quantity allowed for one order.
+    	*/
+        attribute maxOrderQuantity : Quantity;
+
+        /*
+         * Step quantity allowed for the product represented by the ProductLineItem (copied from product on initialization).
+         * 
+         * <P>Note: the quantity of a ProductLineItem must obey the limits set by the ProductLineItem's attributes 'MinOrderQuantity' and 'StepQuantity', i.e. for a 'MinOrderQuantity' of 2.0 and a 'StepQuantity' of 2.5 then values 2.0, 4.5, 7.0... are allowed values.
+         */
+        attribute stepQuantity : Quantity required;
+
+        /*
+         * The position within the LineItemCtnr assigned to the ProductLineItem upon its creation, may be used as a sort-order.
+         * 
+         * <br>The position is updated in the following way:
+         * <br>When a ProductLineItem is added to the LineItemCtnr, it is assigned the next available position, based on the current count
+         * <br>When a ProductLineItem is removed from the LineItemCtnr then LineItemCtnr method reassignPositions is called, so that the 'gap' left by the removed line-item is refilled. This method is dependent on no 2 ProductLineItem having the same position.
+         * 
+         * <br>When a LineItemCtnr is copied (e.g. when a PlacedOrder is created from a Basket), no special position handling is necessary as the ProductLineItems are added according to the current position ordering in the source LineItemCtnr.
+         */
+        attribute position : int required;
+
+        /*
+         * Decimal tax rate to be applied to the product represented by this ProductLineItem. A value  of 0.175 represents a percentage of 17.5%.
+         */
+        attribute taxRate : decimal required;
+
+        /*
+         * In situations where multiple pricing systems are used to provide product prices, this flag is used to indicate whether the SingleBasePricePC may be overwritten or not (a value 'true' indicates the price may not be overwritten).
+         */
+        attribute basePriceFixed : boolean required;
+
+        /*
+         * Whether the SingleBasePricePC is gross or net of tax. The calculation process uses the value of this flag to control how tax and tax-dependent prices are calculated from the SingleBasePricePC.
+         */
+        attribute basedOnNetPrice : boolean required;
+
+        /*
+         * Whether this ProductLineItem represents a product bundle or not. If true, this ProductLineItem will have BundledProductLineItems attached.
+         */
+        attribute bundle : boolean required;
+
+        /*
+         * Price of a single unit before applying a discount, in the purchase currency, may be net or gross of tax depending on the value of flag BasedOnNetPrice.
+         */
+        attribute singleBasePricePC : Money required;
+
+        /*
+         * Price of a single unit after applying a discount, in the purchase currency, may be net or gross of tax depending on the value of flag BasedOnNetPrice.
+         */
+        attribute singlePricePC : Money required;
+
+        /*
+         * Price net of tax in purchase currency.
+         * 
+         * <P>Note: this attribute and all LineItem price attributes have a subclass-dependent contents  (for instance in subclass ProductLineItem this is the price net of tax paid for the given quantity of a product, in subclass Subtotal this is the price net of tax summed for all products held in the LineItemCtnr).
+         */
+        attribute netPriceLC : Money required;
+
+        /*
+         * See class description - tracking ProductLineItems between Basket, PlacedOrder & Order
+         */
+        attribute originID : string required;
+
+        /*
+         * UUID of LineItemCtnr to which this ProductLineItem belongs
+         */
+        attribute lineItemCtnrID : string required readonly;
+
+        /*
+         * UUID of quote which this ProductLineItem belongs to
+         */
+        attribute quoteID : string;
+
+        /*
+         * The ProductRef instance identifying the <i>offer</i> represented by this ProductLineItem.
+         * 
+         * <br>Whereas the  <i>offered Product</i> is defined by one unit, and identified by the <i>DefinitionProductRef</i>, the <i>offer</i> may be owned by a 2nd selling unit, and is identified by the <i>sellerProductRef</i>.
+         * 
+         * @return The ProductRef instance identifying the offer
+         * @see com.intershop.beehive.capi.bts.ProductLineItem#getSellingDomain()
+         * @see com.intershop.beehive.capi.bts.ProductLineItem#getDefinitionProductRef()
+         * @see com.intershop.beehive.capi.bts.ProductLineItem#getProductDefiningDomain()
+         */
+        attribute offerProductRef : ProductRef required;
+
+        /*
+         * The ProductRef instance identifying the <i>offered Product</i> represented by this ProductLineItem.
+         * 
+         * <br>Whereas the  <i>offered Product</i> is defined by one unit, and identified by the <i>DefinitionProductRef</i>, the <i>Offer</i> may be owned by a 2nd selling unit, and is identified by the <i>sellerProductRef</i>.
+         * 
+         * @return The ProductRef instance identifying the offered Product
+         * @see com.intershop.beehive.capi.bts.ProductLineItem#getSellerProductRef()
+         * @see com.intershop.beehive.capi.bts.ProductLineItem#getSellingDomain()
+         * @see com.intershop.beehive.capi.bts.ProductLineItem#getProductDefiningDomain()
+         */
+        attribute definitionProductRef : ProductRef required;
+
+        /*
+         * The code of the TaxClass assigned to this Product line-item
+         */
+        attribute taxClassCode : string required;
+
+        attribute supplierDomainID : string required;
+
+        /*
+         * AddressID of ship to address assigned to this Product line-item, see also LineItemCtnr class documentation: address handling
+         * @deprecated Deprecated since 7.8. Use "shipToAddressURN" instead.
+         */
+        attribute shipToAddressID : string;
+
+        /*
+         * AddressID of ship from address assigned to this Product line-item, see also LineItemCtnr class documentation: address handling
+         * @deprecated Deprecated since 7.8. Use "shipFromAddressURN" instead.
+         */
+        attribute shipFromAddressID : string;
+
+		/*
+		 * URN of line item's ship-from address. 
+		 */
+        attribute shipFromAddressURN : string;
+
+        attribute lineItemGroupID : string required readonly;
+
+        attribute status : int required;
+
+        attribute status2 : int required;
+
+        /*
+         * Whether the ProductLineItem is 'Adhoc' or not, i.e. a ProductLineItem is 'Adhoc' if it does not directly represent a product in the system.
+         */
+        attribute adhoc : boolean required;
+
+        /*
+         * Returns BigDecimal instance representing the quantity of item for  which the set price applies. By default set to 1.0
+         * 
+         * <br>e.g. if price quantity for nails is set to 100 then the given price is per 100 nails. A price of 2USD would imply each nail costs 0.02USD and 250 nails cost 5USD.
+         * 
+         * <br>Method <code>isPriceQuantityAvailable()</code> can be used to check whether a valid non-default value has been set.
+         */
+        attribute priceQuantityValue : decimal required;
+
+        /*
+         * This attribute allows to add multiple product line items to a basket  pointing to the same product even if the 'BasketAddProductBehaviour' is set to 'MergeQuantities' or 'DisallowRepeats'.
+         */
+        attribute mergeGroup : int required;
+        
+        attribute desiredDeliveryDate : datetime;
+
+        relation dependentProductLineItems : ProductLineItem[0..n];
+
+        relation offerDomain : Domain[0..1] readonly;
+
+        relation lineItemGroup : LineItemGroup[0..1];
+
+        relation productDefiningDomain : Domain[0..1] readonly;
+
+		/*
+		 * @deprecated Deprecated since 7.8. Use {@link com.intershop.component.address.capi.resolver.AddressBOResolver} instead.
+		 */
+        relation shipFromAddress : Address[0..1] readonly;
+
+        relation lineItemCtnr : LineItemCtnr[0..1];
+
+        relation parentProductLineItem : ProductLineItem[0..1];
+
+        relation bundledProductLineItems : BundledProductLineItem[0..n];
+        
+        relation dependentServiceLineItems: ServiceLineItem[0..n];
+        
+		relation parentServiceLineItem: ServiceLineItem[0..1];
+
+        /*
+         * Returns an iterator of BundledProductLineItems held by this ProductLineItem, i.e. the
+         * resulting iterator includes all bundled items directly or indirectly belonging to the ProductLineItem.
+         * 
+         * @return iterator of BundledProductLineItems held
+         */
+        operation createRecursiveBundledProductLineItemsIterator() : Iterator;
+
+        /*
+         * Returns the value of attribute 'basePricePC'.<p>
+         * Price for this ProductLineItem before discount application in
+         * purchase currency (i.e. SingleBasePricePC times quantity). May be net
+         * or gross of tax depending upon the BasedOnNetPrice flag.
+         * <P>Note: This attribute calculated dynamically and is not directly used
+         * in the calculation process but is made available for discount assignment.
+         * 
+         * @return the value of the attribute 'basePricePC'
+         */
+        operation getBasePricePC() : Money;
+
+        /*
+         * Returns Quantity instance representing the quantity of item for which the set price applies. Unit is identical to QuantityUnit attribute. By default set to 1.0
+         * 
+         * <br>e.g. if price quantity for nails is set to 100 then the given price is per 100 nails. A price of 2USD would imply each nail costs 0.02USD and 250 nails cost 5USD.
+         * 
+         * <br>Method <code>isPriceQuantityAvailable()</code> can be used to check whether a valid non-default value has been set.
+         */
+        operation getPriceQuantity() : Quantity;
+
+        /*
+         * @deprecated Use getOfferProductRef()
+         */
+        operation getSellerProductRef() : ProductRef;
+
+        /*
+         * @deprecated Use getOfferProductRefNull()
+         */
+        operation getSellerProductRefNull() : boolean;
+
+        /*
+         * Generic access to an integer state value. Note reserved value -1 is returned if no stateId is defined for the given stateGroup.
+         * 
+         * @param stateGroup The stateGroup
+         * @return The integer stateId, or -1 if none is set
+         */
+        operation getState(stateGroup : string) : int;
+
+        /*
+         * Generic access to a localized display name in current locale for a state value. Null is returned if no state value defined.
+         * 
+         * @param stateGroup The stateGroup
+         * @return The localized display name in current locale, null if no value is set
+         */
+        operation getStateDisplayName(stateGroup : string) : string;
+
+        /*
+         * Generic access to a localized display name in given locale for a state value. Null is returned if no state value defined.
+         * 
+         * @param stateGroup The stateGroup
+         * @param locale The locale
+         * @return The localized display name in current locale, null if no value is set
+         */
+        operation getStateDisplayName(stateGroup : string, locale : LocaleInformation) : string;
+
+        /*
+         * Generic access to a non-localized name for a state value. Null is returned if no state value defined.
+         * 
+         * @param stateGroup The stateGroup
+         * @return The state name, or null if no value is set
+         */
+        operation getStateName(stateGroup : string) : string;
+
+        /*
+         * Returns <i>localized</i> string representation of the instance's
+         * 2nd status attribute in the current session locale.
+         * 
+         * @return localized status2 value
+         * @see com.intershop.beehive.bts.capi.orderprocess.ProductLineItem#getStatus2
+         * @see com.intershop.beehive.bts.capi.orderprocess.ProductLineItem#getStatus2StateName
+         * @see com.intershop.beehive.bts.capi.state.StateDefinitionMgr
+         * @isattribute Status2DisplayName
+         */
+        operation getStatus2DisplayName() : string;
+
+        /*
+         * Returns <i>non-localized</i> string representation of the instance's
+         * 2nd status attribute.
+         * 
+         * @return non-localized status2 name
+         * @see com.intershop.beehive.bts.capi.orderprocess.ProductLineItem#getStatus2
+         * @see com.intershop.beehive.bts.capi.orderprocess.ProductLineItem#getStatus2DisplayName
+         * @see com.intershop.beehive.bts.capi.state.StateDefinitionMgr
+         * @isattribute Status2StateName
+         */
+        operation getStatus2StateName() : string;
+
+        /*
+         * Returns <i>localized</i> string representation of the instance's
+         * status in the current session locale.
+         * 
+         * @return localized status value
+         * @see com.intershop.beehive.bts.capi.orderprocess.ProductLineItem#getStatus
+         * @see com.intershop.beehive.bts.capi.orderprocess.ProductLineItem#getStatusStateName
+         * @see com.intershop.beehive.bts.capi.state.StateDefinitionMgr
+         * @isattribute StatusDisplayName
+         */
+        operation getStatusDisplayName() : string;
+
+        /*
+         * Returns <i>non-localized</i> string representation of the instance's
+         * status.
+         * 
+         * @return non-localized status name
+         * @see com.intershop.beehive.bts.capi.orderprocess.ProductLineItem#getStatus
+         * @see com.intershop.beehive.bts.capi.orderprocess.ProductLineItem#getStatusDisplayName
+         * @see com.intershop.beehive.bts.capi.state.StateDefinitionMgr
+         * @isattribute StatusStateName
+         */
+        operation getStatusStateName() : string;
+
+        /*
+         * Method can be used to check whether a non-default value has been set for the price quantity, i.e. the method returns true if price quantity is
+         * <br>NOT null  (null is an invalid value)
+         * <br>AND >0   (<=0 is an invalid value)
+         * <br>AND !=1  (1 is the default value)
+         * 
+         * @return whether price quantity of the product is not null, >0 and !=1
+         * @isattribute isPriceQuantityAvailable
+         */
+        operation isPriceQuantityAvailable() : boolean;
+
+        /*
+         * Whether a custom integer state value is defined for the given stateGroup.
+         * 
+         * @param stateGroup The stateGroup
+         * @return Whether a custom integer state value is defined for the given stateGroup.
+         */
+        operation isStateDefined(stateGroup : string) : boolean;
+
+        /*
+         * Remove a custom integer state value using extensible object mechanism
+         * 
+         * @param stateGroup The stateGroup
+         */
+        operation removeState(stateGroup : string) : void;
+
+        /*
+         * @deprecated Use setOfferProductRef(ProductRef ref)
+         */
+        operation setSellerProductRef(ref : ProductRef) : void;
+
+        /*
+         * @deprecated Use setOfferProductRef(ProductRef ref)
+         */
+        operation setSellerProductRefNull(aFlag : boolean) : void;
+
+        /*
+         * Set an integer state value. Note value -1 is reserved.
+         * 
+         * @param stateGroup The stateGroup
+         * @param value The value to set
+         */
+        operation setState(stateGroup : string, value : int) : void;
+
+        /*
+         * Checks whether the value of the attribute 'PriceQuantityValue' is null.<p>
+         */
+        operation getPriceQuantityValueNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'PriceQuantityValue' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setPriceQuantityValueNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'ProductName' is null.<p>
+         */
+        operation getProductNameNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'ProductName' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setProductNameNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'ProductShortDescription' is null.<p>
+         */
+        operation getProductShortDescriptionNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'ProductShortDescription' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setProductShortDescriptionNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'ProductThumbnail' is null.<p>
+         */
+        operation getProductThumbnailNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'ProductThumbnail' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setProductThumbnailNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'Quantity' is null.<p>
+         */
+        operation getQuantityNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'Quantity' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setQuantityNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'DefinitionProductRef' is null.<p>
+         */
+        operation getDefinitionProductRefNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'DefinitionProductRef' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setDefinitionProductRefNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'LineItemCtnrID' is null.<p>
+         */
+        operation getLineItemCtnrIDNull() : boolean;
+
+        /*
+         * Checks whether the value of the attribute 'LineItemGroupID' is null.<p>
+         */
+        operation getLineItemGroupIDNull() : boolean;
+
+        /*
+         * Checks whether the value of the attribute 'MinOrderQuantity' is null.<p>
+         */
+        operation getMinOrderQuantityNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'MinOrderQuantity' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setMinOrderQuantityNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'NetPriceLC' is null.<p>
+         */
+        operation getNetPriceLCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'NetPriceLC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setNetPriceLCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'OfferProductRef' is null.<p>
+         */
+        operation getOfferProductRefNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'OfferProductRef' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setOfferProductRefNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'OriginID' is null.<p>
+         */
+        operation getOriginIDNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'OriginID' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setOriginIDNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'Position' is null.<p>
+         */
+        operation getPositionNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'Position' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setPositionNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'SelectedQuantity' is null.<p>
+         */
+        operation getSelectedQuantityNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'SelectedQuantity' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setSelectedQuantityNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'SingleBasePricePC' is null.<p>
+         */
+        operation getSingleBasePricePCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'SingleBasePricePC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setSingleBasePricePCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'SinglePricePC' is null.<p>
+         */
+        operation getSinglePricePCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'SinglePricePC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setSinglePricePCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'Status2' is null.<p>
+         */
+        operation getStatus2Null() : boolean;
+
+        /*
+         * Sets the value of the attribute 'Status2' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setStatus2Null(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'Status' is null.<p>
+         */
+        operation getStatusNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'Status' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setStatusNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'StepQuantity' is null.<p>
+         */
+        operation getStepQuantityNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'StepQuantity' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setStepQuantityNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'SupplierDomainID' is null.<p>
+         */
+        operation getSupplierDomainIDNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'SupplierDomainID' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setSupplierDomainIDNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'TaxClassCode' is null.<p>
+         */
+        operation getTaxClassCodeNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'TaxClassCode' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setTaxClassCodeNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'TaxRate' is null.<p>
+         */
+        operation getTaxRateNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'TaxRate' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setTaxRateNull(aFlag : boolean) : void;
+
+        operation setSupplyingDomain(aDomain : Domain) : void;
+    }
+}

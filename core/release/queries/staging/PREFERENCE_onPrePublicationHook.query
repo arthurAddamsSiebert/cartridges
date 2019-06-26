@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Query used during replication of PREFERENCE entries.">
+<parameters>
+	<parameter name="DomainIDs" type="java.util.Collection" optional="false" description="The involved DomainIDs."/>
+</parameters>
+<processor name="OracleSQL">
+	<processor-preprocessing output="PREFERENCE_EditingName" input="&apos;PREFERENCE&apos;" processing="StagingNamingHelper"/>
+	<processor-preprocessing output="PREFERENCEDEFINITION_EditingName" input="&apos;PREFERENCEDEFINITION&apos;" processing="StagingNamingHelper"/>
+</processor>
+<template>
+	MERGE INTO preference dst
+	USING (
+	  select p.* 
+	    from <template-variable value="PREFERENCE_EditingName:EditTableName" processing="text"/> p 
+	    join <template-variable value="PREFERENCEDEFINITION_EditingName:EditTableName" processing="text"/> pd on (pd.uuid = p.PREFERENCEDEFINITIONID) 
+	   where pd.replicatableflag = 1
+	     AND p.domainid IN
+	     (
+	          <template-loop iterator="DomainIDs" alias="DomainID"><loop-statement>
+			          <template-variable value="DomainID"/>
+			          </loop-statement>
+		<loop-separator>,</loop-separator>
+	</template-loop>
+	      )
+	) src
+	   ON (dst.domainid = src.domainid AND dst.PREFERENCENAME = src.PREFERENCENAME)
+	 WHEN MATCHED     THEN UPDATE SET dst.intvalue = src.intvalue, 
+	                                  dst.doublevalue = src.doublevalue,
+	                                  dst.stringvalue = src.stringvalue,
+	                                  dst.preferencedefinitionid = src.preferencedefinitionid,
+	                                  dst.oca = src.oca+1,
+	                                  dst.lastmodified = src.lastmodified
+	<sql-dialect name="Oracle">
+	 WHEN NOT MATCHED THEN INSERT (dst.domainid, dst.PREFERENCENAME,
+	                               dst.intvalue, dst.doublevalue,
+	                               dst.stringvalue, dst.preferencedefinitionid,
+	                               dst.oca, dst.lastmodified)
+	                       VALUES (src.domainid, src.PREFERENCENAME,
+	                               src.intvalue, src.doublevalue,
+	                               src.stringvalue, src.preferencedefinitionid,
+	                               src.oca+1, src.lastmodified)
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+	 WHEN NOT MATCHED THEN INSERT (domainid, PREFERENCENAME,
+	                               intvalue, doublevalue,
+	                               stringvalue, preferencedefinitionid,
+	                               oca, lastmodified)
+	                       VALUES (src.domainid, src.PREFERENCENAME,
+	                               src.intvalue, src.doublevalue,
+	                               src.stringvalue, src.preferencedefinitionid,
+	                               src.oca+1, src.lastmodified);
+	</sql-dialect>
+</template>
+</query>

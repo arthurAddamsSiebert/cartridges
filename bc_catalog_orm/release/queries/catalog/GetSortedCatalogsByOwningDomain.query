@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query retrieves sorted catalogs owned by the domain.">
+<parameters>
+	<parameter name="CatalogOwningDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="CatalogTypeDefinitions" type="java.util.Collection" optional="true" description="An iterator containing CatalogTypeDefinitions. Only catalogs with a type code matching a value in the iterator are included in the result."/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="SortAttributeType" type="java.lang.String" optional="true"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="CurrentDate" type="java.util.Date" optional="true" description="If provided the catalogs will be filtered by maintenance date and status."/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Catalog" type="orm" class="com.intershop.component.mvc.internal.catalog.CatalogPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+    SELECT 
+       c.position,
+        <template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'id')">
+            c.id as SORTING, 
+        <if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')" />
+            c_av.intvalue as SORTING,
+        <if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')" />
+            c_av.doublevalue as SORTING,
+        <if-else/>
+            c_av.stringvalue as SORTING,
+        </template-if>
+        c.uuid AS UUID, count(*) over() as "ROWCOUNT"
+    FROM catalog c
+    <template-if condition="NOT (isDefined(SortAttribute) AND (SortAttribute EQ 'id'))">
+    	LEFT OUTER JOIN catalog c1 ON
+    		(c.catalogdomainid = c1.catalogdomainid)
+    		AND c1.proxyflag = 0
+        LEFT OUTER JOIN catalog_av c_av ON 
+            (c1.uuid=c_av.ownerid)                       
+             AND c_av.localeid  = <template-variable value="Locale:LocaleID"/>         
+            <template-if condition="isDefined(SortAttribute)">               
+                AND c_av.name  = <template-variable value="SortAttribute"/>
+            <if-else/>                
+                AND c_av.name = 'displayName'
+            </template-if>
+    </template-if>  
+    WHERE c.domainid=<template-variable value="CatalogOwningDomain:UUID"/>
+    <template-if condition="hasElements(CatalogTypeDefinitions)">
+        AND c.typecode IN (
+        <template-loop iterator="CatalogTypeDefinitions" alias="CatalogTypeDefinition"><loop-statement><template-variable value="CatalogTypeDefinition:Type"/></loop-statement>
+            <loop-separator>,</loop-separator>
+        </template-loop>)
+    </template-if>  
+    <template-if condition="isDefined(CurrentDate)">  
+      AND 
+      ( 
+        (C.STATUS = 1 AND (C.STARTMAINTENANCE IS NULL AND C.ENDMAINTENANCE IS NULL))
+        
+        OR ((C.STARTMAINTENANCE IS NOT NULL AND C.ENDMAINTENANCE IS NOT NULL)
+             AND ( (C.STATUS = 1 AND C.ENDMAINTENANCE >= <template-variable value="CurrentDate"/> AND  <template-variable value="CurrentDate"/> >= C.STARTMAINTENANCE )
+                     OR  (C.STATUS = 0 AND ( C.STARTMAINTENANCE >= <template-variable value="CurrentDate"/> OR <template-variable value="CurrentDate"/> >= C.ENDMAINTENANCE))  )
+            )
+                 
+        OR ((C.STARTMAINTENANCE IS NOT NULL AND C.ENDMAINTENANCE IS  NULL)
+             AND (( C.STATUS = 1 AND  <template-variable value="CurrentDate"/> >= C.STARTMAINTENANCE) OR  (C.STATUS = 0 AND  C.STARTMAINTENANCE >= <template-variable value="CurrentDate"/>)) )
+                
+        OR ((C.STARTMAINTENANCE IS NULL AND C.ENDMAINTENANCE IS NOT NULL)
+             AND  ((C.STATUS = 1 AND C.ENDMAINTENANCE >= <template-variable value="CurrentDate"/>) OR (C.STATUS = 0 AND <template-variable value="CurrentDate"/> >= C.ENDMAINTENANCE)))
+                     
+      )
+	</template-if>  
+	<sql-dialect name="Oracle">
+		ORDER BY c.position ASC, SORTING
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			DESC NULLS FIRST
+		<if-else/>
+			ASC NULLS LAST
+		</template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		ORDER BY c.position ASC, 
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'id')">
+            CASE WHEN c.id IS NULL THEN 1 ELSE 0 END
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+				DESC,  c.id DESC
+			<if-else/>
+				ASC, c.id ASC
+			</template-if>
+        <if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')" />
+            CASE WHEN c_av.intvalue IS NULL THEN 1 ELSE 0 END
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+				DESC,  c_av.intvalue DESC
+			<if-else/>
+				ASC, c_av.intvalue ASC
+			</template-if>
+        <if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')" />
+            CASE WHEN c_av.doublevalue IS NULL THEN 1 ELSE 0 END
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+				DESC, c_av.doublevalue DESC
+			<if-else/>
+				ASC, c_av.doublevalue ASC
+			</template-if>
+        <if-else/>
+            CASE WHEN c_av.stringvalue IS NULL THEN 1 ELSE 0 END
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+				DESC, c_av.stringvalue DESC
+			<if-else/>
+				ASC, c_av.stringvalue ASC
+			</template-if>
+        </template-if>
+	</sql-dialect>
+</template>
+</query>

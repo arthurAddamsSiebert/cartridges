@@ -1,0 +1,786 @@
+import edl;
+extension util::EDLUtil;
+
+/*
+ * Transforms an (incomplete) EDL model into a complete EDL ORM model
+ * that can be used for code generation.
+ * Currently only copies the model, but expands the attribute value 
+ * and role assignment beans.
+ */
+
+/******************************************************************************
+ *                                  Model
+ *****************************************************************************/
+
+/*
+EDLModel transformModel(EDLModel m):
+	m;
+*/
+
+create EDLModel transformModel(EDLModel m):
+	setOrigin(m) ->
+	imports.addAll(m.imports.transformImport()) ->
+	primitiveTypes.addAll(m.primitiveTypes.transformPrimitiveType()) ->
+	externalTypes.addAll(m.externalTypes.transformExternalType()) ->
+	externalTypes.addAll(m.eAllContents.typeSelect(EDLORMType).select(t |
+		!t.modifiers.contains(EDLORMTypeModifier::abstract) &&
+		t.isImplementor("com.intershop.beehive.core.capi.security.AuthorizationObject")).createRAInterface()) ->	
+	namespaces.addAll(m.namespaces.transformNamespace()) ->
+	(m.eAllContents.typeSelect(EDLORMType).exists(t | 
+		!t.modifiers.contains(EDLORMTypeModifier::abstract) &&
+		t.isSubClass("com.intershop.beehive.core.capi.domain.ExtensibleObjectPO")) ?
+		(primitiveTypes.addAll({"uuid", "string", "boolean", "int", "double"}.createPrimitiveType()) ->
+		imports.addAll({
+			createImport("enfinity:/core/edl/com/intershop/beehive/core/capi/domain/AttributeValue.edl"),
+			createImport("enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObject.edl")})) : null) ->
+	(m.eAllContents.typeSelect(EDLORMType).exists(t |
+		!t.modifiers.contains(EDLORMTypeModifier::abstract) &&
+		t.isImplementor("com.intershop.beehive.core.capi.security.AuthorizationObject")) ?
+		(primitiveTypes.addAll({"uuid", "string"}.createPrimitiveType()) ->
+		imports.addAll({
+			createImport("enfinity:/core/edl/com/intershop/beehive/core/capi/security/AuthorizationObject.edl")})) : null) ->
+	(m.eAllContents.typeSelect(EDLORMType).exists(t |
+		!t.modifiers.contains(EDLORMTypeModifier::abstract) &&
+		t.isImplementor("com.intershop.beehive.core.capi.replication.ReplicationObject")) ?
+		(primitiveTypes.addAll({"uuid", "string"}.createPrimitiveType()) ->
+		imports.addAll({
+			createImport("enfinity:/core/edl/com/intershop/beehive/core/capi/replication/AbstractReplicationTimePO.edl")})) : null) ->			
+	setOrigins(getOrigins()) ->
+	this;
+
+EDLImport transformImport(EDLImport i):
+	let this = createImport(i.importURI) :
+	setOrigin(i) ->
+	this;
+
+create EDLImport createImport(String uri):
+	setImportURI(uri) ->
+	this;
+
+create EDLNamespace transformNamespace(EDLNamespace n):
+	setOrigin(n) ->
+	setComment(n.comment) ->
+	setName(n.name) ->
+	types.addAll(n.types.transformNamespaceType()) ->
+	types.addAll(n.types.typeSelect(EDLORMType).select(t | 
+		!t.modifiers.contains(EDLORMTypeModifier::abstract) &&
+		t.isSubClass("com.intershop.beehive.core.capi.domain.ExtensibleObjectPO")).createAttributeValue()) ->
+	types.addAll(n.types.typeSelect(EDLORMType).select(t |
+		!t.modifiers.contains(EDLORMTypeModifier::abstract) &&
+		t.isImplementor("com.intershop.beehive.core.capi.security.AuthorizationObject")).createRoleAssignment()) ->
+	types.addAll(n.types.typeSelect(EDLORMType).select(t |
+		!t.modifiers.contains(EDLORMTypeModifier::abstract) &&
+		t.isImplementor("com.intershop.beehive.core.capi.replication.ReplicationObject")).createReplicationAssignment()) ->
+	namespaces.addAll(n.namespaces.transformNamespace()) ->
+	this;
+
+EDLType transformType(EDLType t):
+	null;
+	
+EDLType transformType(EDLPrimitiveType p):
+	transformPrimitiveType(p);
+
+EDLType transformType(EDLNamespaceType n):
+	transformNamespaceType(n);
+	
+EDLType transformType(EDLExternalType e):
+	transformExternalType(e);
+
+EDLNamespaceType transformNamespaceType(EDLNamespaceType n):
+	null;
+
+EDLNamespaceType transformNamespaceType(EDLORMType o):
+	transformORMType(o);
+
+EDLNamespaceType transformNamespaceType(EDLCAPIType c):
+	transformCAPIType(c);
+	
+EDLNamespaceType transformNamespaceType(EDLRAPIType r):
+	transformRAPIType(r);
+	
+EDLNamespaceType transformNamespaceType(EDLXMLType x):
+	transformXMLType(x);
+
+EDLPrimitiveType transformPrimitiveType(EDLPrimitiveType p):
+	let this = createPrimitiveType(p.name) :
+	setComment(p.comment) ->
+	setName(p.name) ->
+	setOrigin(p) ->
+	this; 
+
+create EDLPrimitiveType createPrimitiveType(String name):
+	setName(name) ->
+	this; 
+
+/******************************************************************************
+ *                              External (Java) Type
+ *****************************************************************************/
+
+create EDLExternalType transformExternalType(EDLExternalType e):
+	setOrigin(e) ->
+	setComment(e.comment) ->
+	setName(e.name) ->
+	setType(e.type) ->
+	this;
+
+EDLCAPIJavaType transformCAPIJavaType(EDLCAPIJavaType c):
+	null;
+	
+EDLCAPIJavaType transformCAPIJavaType(EDLCAPIType c):
+	transformCAPIType(c);
+	
+EDLCAPIJavaType transformCAPIJavaType(EDLExternalType e):
+	transformExternalType(e);
+
+EDLRAPIJavaType transformRAPIJavaType(EDLRAPIJavaType r):
+	null;
+	
+EDLRAPIJavaType transformRAPIJavaType(EDLRAPIType r):
+	transformRAPIType(r);
+
+EDLRAPIJavaType transformRAPIJavaType(EDLExternalType e):
+	transformExternalType(e);
+  
+/******************************************************************************
+ *                              ORM Type
+ *****************************************************************************/
+
+create EDLORMType transformORMType(EDLORMType o):
+	setOrigin(o) ->
+	setComment(o.comment) ->
+	modifiers.addAll(o.modifiers) ->
+	setName(o.name) ->
+	(o.superClass != null ? setSuperClass(o.superClass.transformORMType()) : null) ->
+	interfaces.addAll(o.interfaces.transformCAPIJavaType()) ->
+	(o.tableName != null ? setTableName(o.tableName) : 
+		(o.modifiers.contains(EDLORMTypeModifier::abstract) ? null : setTableName(o.getTableName()))) ->
+	(o.referenceType != null ? setReferenceType(o.referenceType) : null) ->
+	(o.primaryKey != null ? setPrimaryKey(o.primaryKey.transformORMPrimaryKey()) : null) ->
+	(o.semanticKey != null ? setSemanticKey(o.semanticKey.transformORMSemanticKey()) : null) ->
+	(o.alternateKey != null ? setAlternateKey(o.alternateKey.transformORMAlternateKey()) : null) ->
+	indexes.addAll(o.indexes.transformORMIndex()) ->
+	members.addAll(o.members.transformORMMember()) ->
+	this;
+
+create EDLORMIndex transformORMIndex(EDLORMIndex o):
+	setOrigin(o) ->
+	setComment(o.comment) ->
+  	modifiers.addAll(o.modifiers) ->
+  	indexAttributes.addAll(o.indexAttributes.transformORMAttribute()) ->
+  	this;
+
+create EDLORMPrimaryKey transformORMPrimaryKey(EDLORMPrimaryKey o):
+	setOrigin(o) ->
+	setComment(o.comment) ->
+  	primaryKeyAttributes.addAll(o.primaryKeyAttributes.transformORMAttribute()) ->
+  	this;
+
+create EDLORMSemanticKey transformORMSemanticKey(EDLORMSemanticKey o):
+	setOrigin(o) ->
+	setComment(o.comment) ->
+  	semanticKeyAttributes.addAll(o.semanticKeyAttributes.transformORMAttribute()) ->
+  	this; 
+
+create EDLORMAlternateKey transformORMAlternateKey(EDLORMAlternateKey o):
+	setOrigin(o) ->
+	setComment(o.comment) ->
+	attributes.addAll(o.attributes.transformORMAttribute()) ->
+	this;
+
+EDLORMMember transformORMMember(EDLORMMember o):
+	null;
+
+EDLORMAttribute transformORMMember(EDLORMAttribute o):
+	transformORMAttribute(o);
+  
+EDLORMRelation transformORMMember(EDLORMRelation o):
+  	transformORMRelation(o);
+  
+EDLORMDependency transformORMMember(EDLORMDependency o):
+  	transformORMDependency(o);
+
+create EDLORMAttribute transformORMAttribute(EDLORMAttribute o):
+	setOrigin(o) ->
+	setComment(o.comment) ->
+  	modifiers.addAll(o.modifiers) ->
+  	setName(o.name) ->
+  	(o.type != null ? setType(o.type.transformORMAttributeType()): null) ->
+  	(o.length != 0 ? setLength(o.length) : null) ->
+  	(o.length == 0 && null != o.type && o.type.metaType == EDLPrimitiveType && ((EDLPrimitiveType)o.type).name == "string"? setLength(256) : null) ->
+  	(o.length == 0 && null != o.type && o.type.metaType == EDLExternalType && ((EDLExternalType)o.type).name == "String"? setLength(256) : null) ->
+  	(o.defaultValue != null ? setDefaultValue(o.defaultValue.transformLiteral()) : null) ->
+  	(o.columnName != null ? setColumnName(o.columnName) : null) ->
+  	(o.columnType != null ? setColumnType(o.columnType) : null) ->
+  	(o.referenceType != null ? setReferenceType(o.referenceType) : null) ->
+  	(o.handler != null ? setHandler(o.handler) : null) ->
+  	this; 
+
+EDLORMAttributeType transformORMAttributeType(EDLORMAttributeType o):
+	null;
+
+EDLPrimitiveType transformORMAttributeType(EDLPrimitiveType p):
+   transformPrimitiveType(p);
+ 
+EDLExternalType transformORMAttributeType(EDLExternalType e):
+	transformExternalType(e);
+
+create EDLORMDependency transformORMDependency(EDLORMDependency o):
+	setOrigin(o) ->
+	setComment(o.comment) ->
+  	setName(o.name) ->
+  	(o.type != null? setType(o.type.transformORMDependencyType()): null) ->
+  	(o.handler != null ? setHandler(o.handler) : null) ->
+  	(o.foreignKeyAttribute != null ? setForeignKeyAttribute(o.foreignKeyAttribute.transformORMAttribute()) : null) ->
+  	this;
+
+EDLORMDependencyType transformORMDependencyType(EDLORMDependencyType o):
+	null;
+
+EDLORMType transformORMDependencyType(EDLORMType o):
+  	transformORMType(o);
+  
+EDLCAPIType transformORMDependencyType(EDLCAPIType o):
+  	transformCAPIType(o);
+
+create EDLORMRelation transformORMRelation(EDLORMRelation o):
+	setOrigin(o) ->
+	setComment(o.comment) ->
+  	modifiers.addAll(o.modifiers) ->
+  	setName(o.name) ->
+  	(o.type != null? setType(o.type.transformORMRelationType()): null) ->
+  	setCardinality(o.cardinality) ->
+  	(o.inverseRelation != null ? setInverseRelation(o.inverseRelation.transformORMRelation()) : null) ->
+  	(o.capiRelation != null ? setCapiRelation(o.capiRelation.transformCAPIRelation()) : null) ->
+  	(o.referenceType != null ? setReferenceType(o.referenceType) : null) ->
+  	(o.deleteAction != null ? setDeleteAction(o.deleteAction) : null) ->
+  	(o.foreignKey != null ? setForeignKey(o.foreignKey.transformORMForeignKey()) : null) ->
+  	this;
+
+create EDLORMForeignKey transformORMForeignKey(EDLORMForeignKey o):
+	setOrigin(o) ->
+	setComment(o.comment) ->
+  	sourceAttributes.addAll(o.sourceAttributes.transformORMAttribute()) ->
+  	targetAttributes.addAll(o.targetAttributes.transformORMAttribute()) ->
+  	this;
+
+EDLORMRelationType transformORMRelationType(EDLORMRelationType o):
+	null;
+	
+EDLORMRelationType transformORMRelationType(EDLORMType o):
+  	transformORMType(o);   
+
+
+/******************************************************************************
+ *                                  CAPI Type
+ *****************************************************************************/
+
+EDLCAPIType transformCAPIType(EDLCAPIType c):
+	null;
+
+EDLCAPIType transformCAPIType(EDLCAPIClass c):
+	transformCAPIClass(c);
+  
+EDLCAPIType transformCAPIType(EDLCAPIInterface c):
+	transformCAPIInterface(c);
+
+
+create EDLCAPIClass transformCAPIClass(EDLCAPIClass c):
+	setOrigin(c) ->
+	setComment(c.comment) ->
+  	modifiers.addAll(c.modifiers) ->
+  	setName(c.name) ->
+  	(c.superClass != null ? setSuperClass(c.superClass.transformCAPIClassSuperType()) : null) ->
+	interfaces.addAll(c.interfaces.transformCAPIJavaType()) ->
+	members.addAll(c.members.transformCAPIMember()) ->
+	this;
+
+EDLCAPIClassSuperType transformCAPIClassSuperType(EDLCAPIClassSuperType c):
+	null;
+
+EDLCAPIClassSuperType transformCAPIClassSuperType(EDLCAPIClass c):
+	transformCAPIClass(c);
+
+EDLCAPIClassSuperType transformCAPIClassSuperType(EDLExternalType c):
+	transformExternalType(c);
+
+create EDLCAPIInterface transformCAPIInterface(EDLCAPIInterface c):
+	setOrigin(c) ->
+	setComment(c.comment) ->
+	setName(c.name) ->
+	superClasses.addAll(c.superClasses.transformCAPIJavaType()) ->
+  	members.addAll(c.members.transformCAPIMember()) ->
+  	this;
+
+EDLCAPIMember transformCAPIMember(EDLCAPIMember c):
+	null;
+	
+EDLCAPIMember transformCAPIMember(EDLCAPIAttribute c):
+	transformCAPIAttribute(c);
+  
+EDLCAPIMember transformCAPIMember(EDLCAPIConstant c):
+	transformCAPIConstant(c);
+  
+EDLCAPIMember transformCAPIMember(EDLCAPIRelation c):
+	transformCAPIRelation(c);
+  
+EDLCAPIMember transformCAPIMember(EDLCAPIOperation c):
+	transformCAPIOperation(c);
+
+create EDLCAPIAttribute transformCAPIAttribute(EDLCAPIAttribute c):
+	setOrigin(c) ->
+	setComment(c.comment) ->
+	modifiers.addAll(c.modifiers) ->
+	setName(c.name) ->
+	setType(c.type.transformCAPIAttributeType()) ->
+	dimension.addAll(c.dimension) ->
+	this;
+
+create EDLCAPIClassAttribute transformCAPIAttribute(EDLCAPIClassAttribute c):
+	setOrigin(c) ->
+	setComment(c.comment) ->
+	modifiers.addAll(c.modifiers) ->
+	setName(c.name) ->
+	setType(c.type.transformCAPIAttributeType()) ->
+	dimension.addAll(c.dimension) ->
+	(c.defaultValue != null ? setDefaultValue(c.defaultValue.transformLiteral()) : null) ->
+	this;
+
+EDLCAPIAttributeType transformCAPIAttributeType(EDLCAPIAttributeType c):
+	null;
+	
+EDLCAPIAttributeType transformCAPIAttributeType(EDLPrimitiveType c):
+	transformPrimitiveType(c);
+
+EDLCAPIAttributeType transformCAPIAttributeType(EDLExternalType c):
+  	transformExternalType(c);
+
+create EDLCAPIConstant transformCAPIConstant(EDLCAPIConstant c):
+	setOrigin(c) ->
+	setComment(c.comment) ->
+	setName(c.name) ->
+	setType(c.type.transformCAPIConstantType()) ->
+	setDefaultValue(c.defaultValue.transformLiteral()) ->
+	this;
+
+EDLCAPIConstantType transformCAPIConstantType(EDLCAPIConstantType c):
+	null;
+
+EDLCAPIConstantType transformCAPIConstantType(EDLPrimitiveType c):
+	transformPrimitiveType(c);
+  
+EDLCAPIConstantType transformCAPIConstantType(EDLExternalType c):
+  	transformExternalType(c);
+
+create EDLCAPIRelation transformCAPIRelation(EDLCAPIRelation c):
+	setOrigin(c) ->
+	setComment(c.comment) ->
+	modifiers.addAll(c.modifiers) ->
+	setName(c.name) ->
+	setType(c.type.transformCAPIRelationType()) ->
+	setCardinality(c.cardinality) ->
+	this;
+
+EDLCAPIRelationType transformCAPIRelationType():
+    null;
+  
+EDLCAPIRelationType transformCAPIRelationType(EDLCAPIRelationType c):
+	null;
+
+EDLCAPIRelationType transformCAPIRelationType(EDLCAPIType c):
+  	transformCAPIType(c);
+  
+EDLCAPIRelationType transformCAPIRelationType(EDLExternalType c):
+	transformExternalType(c);
+
+create EDLCAPIOperation transformCAPIOperation(EDLCAPIOperation c):
+	setOrigin(c) ->
+	setComment(c.comment) ->
+	setName(c.name) ->
+	parameters.addAll(c.parameters.transformCAPIOperationParameter()) ->
+	setType(c.type.transformCAPIOperationType()) ->
+	dimension.addAll(c.dimension) ->
+	exceptions.addAll(c.exceptions.transformCAPIExceptionType()) ->
+	this;
+
+create EDLCAPIOperationParameter transformCAPIOperationParameter(EDLCAPIOperationParameter c):
+	setOrigin(c) ->
+  	setName(c.name) ->
+  	setType(c.type.transformCAPIOperationType()) ->
+  	dimension.addAll(c.dimension) ->
+  	this;
+
+EDLCAPIOperationType transformCAPIOperationType(EDLCAPIOperationType c):
+	null;
+
+EDLCAPIOperationType transformCAPIOperationType(EDLPrimitiveType c):
+  	transformPrimitiveType(c);
+
+EDLCAPIOperationType transformCAPIOperationType(EDLCAPIType c):
+	transformCAPIType(c);
+	
+EDLCAPIOperationType transformCAPIOperationType(EDLExternalType c):
+	transformExternalType(c);
+
+EDLCAPIExceptionType transformCAPIExceptionType(EDLCAPIExceptionType c):
+	null;
+
+EDLCAPIExceptionType transformCAPIExceptionType(EDLExternalType c):
+	transformExternalType(c); 
+
+
+/******************************************************************************
+ *                                  XML Type
+ *****************************************************************************/
+
+create EDLXMLType transformXMLType(EDLXMLType x):
+	setOrigin(x) ->
+	setComment(x.comment) ->
+	modifiers.addAll(x.modifiers) ->
+	setName(x.name) ->
+	setXmlName(x.xmlName) ->
+	(x.superClass != null ? setSuperClass(x.superClass.transformXMLType()) : null) ->
+	interfaces.addAll(x.interfaces.transformCAPIType()) ->
+	members.addAll(x.members.transformXMLMember()) ->
+	this;
+
+EDLXMLMember transformXMLMember(EDLXMLMember x):
+	null;
+	
+EDLXMLMember transformXMLMember(EDLXMLAttribute x):
+	transformXMLAttribute(x);
+	
+EDLXMLMember transformXMLMember(EDLXMLContainment x):
+  	transformXMLContainment(x);
+
+create EDLXMLAttribute transformXMLAttribute(EDLXMLAttribute x):
+	setOrigin(x) ->
+	setComment(x.comment) ->
+	setName(x.name) ->
+	setType(x.type.transformXMLAttributeType()) ->
+	dimension.addAll(x.dimension) ->
+	(x.defaultValue != null ? setDefaultValue(x.defaultValue.transformLiteral()) : null) ->
+	setXmlName(x.xmlName) ->
+	setXmlFormat(x.xmlFormat) ->
+	setXmlPattern(x.xmlPattern) ->
+	this;	
+
+EDLXMLAttributeType transformXMLAttributeType(EDLXMLAttributeType x):
+	null;
+	
+EDLXMLAttributeType transformXMLAttributeType(EDLPrimitiveType x):
+	transformPrimitiveType(x);
+	
+EDLXMLAttributeType transformXMLAttributeType(EDLExternalType x):
+	transformExternalType(x); 
+
+create EDLXMLContainment transformXMLContainment(EDLXMLContainment x):
+	setOrigin(x) ->
+	setComment(x.comment) ->
+	setName(x.name) ->
+	setType(x.type.transformXMLType()) ->
+	setCardinality(x.cardinality) ->
+	setXmlName(x.xmlName) ->
+	setXmlFormat(x.xmlFormat) ->
+	this; 
+
+  
+/******************************************************************************
+ *                                  RAPI Type
+ *****************************************************************************/
+
+create EDLRAPIType transformRAPIType(EDLRAPIType r):
+	setOrigin(r) ->
+	setComment(r.comment) ->
+	modifiers.addAll(r.modifiers) ->
+	setName(r.name) ->
+	superClasses.addAll(r.superClasses.transformRAPIJavaType()) ->
+	members.addAll(r.members.transformRAPIMember()) ->
+	this;
+
+EDLRAPIMember transformRAPIMember(EDLRAPIMember r):
+	null;
+	
+EDLRAPIMember transformRAPIMember(EDLRAPIOperation r):
+  	transformRAPIOperation(r);
+
+create EDLRAPIOperation transformRAPIOperation(EDLRAPIOperation r):
+	setOrigin(r) ->
+	setComment(r.comment) ->
+	setName(r.name) ->
+	parameters.addAll(r.parameters.transformRAPIOperationParameter()) ->
+	setType(r.type.transformRAPIOperationType()) ->
+	dimension.addAll(r.dimension) ->
+	exceptions.addAll(r.exceptions.transformRAPIExceptionType()) ->
+	this;
+
+create EDLRAPIOperationParameter transformRAPIOperationParameter(EDLRAPIOperationParameter r):
+	setOrigin(r) ->
+	setName(r.name) ->
+	setType(r.type.transformRAPIOperationType()) ->
+	dimension.addAll(r.dimension) ->
+	this;
+
+EDLRAPIOperationType transformRAPIOperationType(EDLRAPIOperationType r):
+	null;
+
+EDLRAPIOperationType transformRAPIOperationType(EDLPrimitiveType p):
+  	transformPrimitiveType(p);
+  	
+EDLRAPIOperationType transformRAPIOperationType(EDLXMLType x):
+  	transformXMLType(x);
+  	
+EDLRAPIOperationType transformRAPIOperationType(EDLCAPIType c):
+  	transformCAPIType(c);
+
+EDLRAPIOperationType transformRAPIOperationType(EDLExternalType e):
+  	transformExternalType(e);
+
+EDLRAPIExceptionType transformRAPIExceptionType(EDLRAPIExceptionType r):
+	null;
+
+EDLRAPIExceptionType transformRAPIExceptionType(EDLExternalType e):
+  	transformExternalType(e); 
+
+
+/******************************************************************************
+ *                                  Literals
+ *****************************************************************************/
+
+EDLLiteral transformLiteral(EDLLiteral l):
+	null;
+
+EDLLiteral transformLiteral(EDLIntLiteral i):
+  	transformIntLiteral(i);
+  
+EDLLiteral transformLiteral(EDLFloatLiteral f):
+	transformFloatLiteral(f);
+	
+EDLLiteral transformLiteral(EDLStringLiteral s):
+	transformStringLiteral(s);
+
+EDLLiteral transformLiteral(EDLBooleanLiteral b):
+	transformBooleanLiteral(b);
+
+EDLLiteral transformLiteral(EDLNullLiteral n):
+	transformNullLiteral(n);
+
+create EDLFloatLiteral transformFloatLiteral(EDLFloatLiteral f):
+	setOrigin(f) ->
+	setValue(f.value) ->
+	this;
+
+create EDLIntLiteral transformIntLiteral(EDLIntLiteral i):
+	setOrigin(i) ->
+	setValue(i.value) ->
+	this;
+	
+create EDLStringLiteral transformStringLiteral(EDLStringLiteral s):
+	setOrigin(s) ->
+	setValue(s.value) ->
+	this;
+
+create EDLBooleanLiteral transformBooleanLiteral(EDLBooleanLiteral b):
+	setOrigin(b) ->
+	setValue(b.value) ->
+	this;
+
+create EDLNullLiteral transformNullLiteral(EDLNullLiteral n):
+	setOrigin(n) ->
+	this;
+
+
+/******************************************************************************
+ *					Dynamic generation of Attribute Value beans
+ *****************************************************************************/
+
+create EDLORMType createAttributeValue(EDLORMType t):
+	setOrigin(t) ->
+	setName(t.name + "AttributeValuePO") ->
+	setSuperClass((EDLORMType)getEDLType(getModel(t), "com.intershop.beehive.core.capi.domain.AttributeValuePO").transformType()) -> 
+	setTableName((t.getTableName().length <= 20 ? t.getTableName() : t.getTableName().subString(0, 20)) + "_AV") ->
+	(t.modifiers.contains(EDLORMTypeModifier::partitionable) ? members.add(createAVDomainID(t)) : null) ->
+	(let po_av = createAVAttributeValues(t, this) :
+		(let av_po = createAVOwner(t, this):
+			av_po.setInverseRelation(po_av) ->
+			po_av.setInverseRelation(av_po) ->
+			this.members.add(av_po) ->
+			t.transformORMType().members.add(po_av) ->
+			av_po
+		) ->
+		po_av
+	) ->
+	this;
+	
+create EDLORMRelation createAVOwner(EDLORMType po, EDLORMType av):
+	setOrigin(po) ->
+	setName("owner") ->
+	setType(po.transformORMType()) ->
+	setCardinality(EDLORMRelationCardinality::oneToOne) ->
+	setReferenceType(EDLORMReferenceType::soft) ->
+	setForeignKey(let f = new EDLORMForeignKey : 
+	    f.sourceAttributes.add(getAllPrimaryKeyAttributes(av).select(a | a.name == "ownerID").first()) -> 
+		f.targetAttributes.add(po.getAllAttributes().select(a | a.name == "UUID").first().transformORMAttribute()) -> f) ->
+	setComment("The relation to the owning extensible object.") ->
+	this;
+
+create EDLORMRelation createAVAttributeValues(EDLORMType po, EDLORMType av):
+	setOrigin(po) ->
+	setName("attributeValuePOs") ->
+	setType(av) ->
+	setCardinality(EDLORMRelationCardinality::zeroToMany) ->
+	setReferenceType(EDLORMReferenceType::strong) ->
+	setCapiRelation(po.getAllCAPIInterfaces().select(i |
+		i.getClassName() == "com.intershop.beehive.core.capi.domain.ExtensibleObject").getRelations().select(r |
+	 	r.name == "attributeValues").first().transformCAPIRelation()) ->
+	setComment("The attribute values of an extensible object.") ->
+	this;
+	
+create EDLORMAttribute createAVDomainID(EDLORMType t):
+	setOrigin(t) ->
+	setName("domainID") ->
+	setType(createPrimitiveType("uuid")) ->
+	setComment("The domain identifier for establishing database partitions.") ->
+	this;
+
+
+/******************************************************************************
+ *					Dynamic generation of Role Assignment beans
+ *****************************************************************************/
+
+create EDLORMType createRoleAssignment(EDLORMType t):
+	setOrigin(t) ->
+	setName(t.name + "RoleAssignmentPO") ->
+	interfaces.add(createRAInterface(t)) ->
+	setTableName((t.getTableName().length <= 20 ? t.getTableName() : t.getTableName().subString(0, 20)) + "_RA") ->
+	modifiers.add(EDLORMTypeModifier::timestamp) ->
+	modifiers.add(EDLORMTypeModifier::oca) ->
+	setPrimaryKey(createRAPrimaryKey(t)) ->
+	members.add(createRAUserGroupID(t)) ->
+	members.add(createRAUserGroupDomainID(t)) ->
+	members.add(createRARoleID(t)) ->
+	(t.modifiers.contains(EDLORMTypeModifier::partitionable) ? members.add(createRADomainID(t)) : null) ->
+	members.addAll(t.getAllPrimaryKeyAttributes().createRAKey(t)) ->
+	members.add(createRAAuthorizationObject(t)) ->
+	 t.transformORMType().members.add(createRARoleAssignments(t)) ->
+	this;
+	
+create EDLExternalType createRAInterface(EDLORMType t):
+	setName("RoleAssignment") ->
+    setType("com.intershop.beehive.core.capi.security.RoleAssignment") ->
+	this;
+
+create EDLORMPrimaryKey createRAPrimaryKey(EDLORMType t):
+	setOrigin(t) ->
+	primaryKeyAttributes.add(createRAUserGroupID(t)) ->
+	primaryKeyAttributes.add(createRAUserGroupDomainID(t)) ->
+	primaryKeyAttributes.add(createRARoleID(t)) ->
+	primaryKeyAttributes.addAll(t.getAllPrimaryKeyAttributes().createRAKey(t)) ->
+	setComment("@mssql-hint(NONCLUSTERED)") ->
+	this;
+
+create EDLORMAttribute createRAUserGroupID(EDLORMType t):
+	setOrigin(t) ->
+	setName("userGroupID") ->
+	setType(createPrimitiveType("string")) ->
+	setLength(256) ->
+	setComment("Identifies the user group associated with the role assignment.") ->
+	this;
+
+create EDLORMAttribute createRAUserGroupDomainID(EDLORMType t):
+	setOrigin(t) ->
+	setName("userGroupDomainID") ->
+	setType(createPrimitiveType("uuid")) ->
+	setComment("Identifies the domain of the user group associated with the role assignment.") ->
+	this;
+
+create EDLORMAttribute createRARoleID(EDLORMType t):
+	setOrigin(t) ->
+	setName("roleID") ->
+	setType(createPrimitiveType("string")) ->
+	setLength(256) ->
+	setComment("Identifies the role associated with the role assignment.") ->
+	this;
+
+create EDLORMAttribute createRADomainID(EDLORMType t):
+	setOrigin(t) ->
+	setName("domainID") ->
+	setType(createPrimitiveType("uuid")) ->
+	setComment("Identifies the domain of the role assignment.") ->
+	this;
+
+create EDLORMAttribute createRAKey(EDLORMAttribute pk, EDLORMType t):
+	setOrigin(t) ->
+	setName("aO_" + pk.name) ->
+	setType(pk.type.transformORMAttributeType()) ->
+	setLength(pk.length) ->
+	setComment("Part of the foreign key on the relation to the authorization object.") ->
+	this;
+
+create EDLORMRelation createRAAuthorizationObject(EDLORMType t):
+	setOrigin(t) ->
+	setName("authorizationObject") ->
+	setType(t.transformORMType()) ->
+	setCardinality(EDLORMRelationCardinality::oneToOne) ->
+	setComment(t.comment) ->
+	setForeignKey(createRAAuthorizationObjectFK(t)) ->
+	setInverseRelation(createRARoleAssignments(t)) ->
+	this;
+
+create EDLORMRelation createRARoleAssignments(EDLORMType t):
+	setOrigin(t) ->
+	setName("roleAssignments") ->
+	setType(t.createRoleAssignment()) ->
+	setCardinality(EDLORMRelationCardinality::zeroToMany) ->
+	setInverseRelation(createRAAuthorizationObject(t)) ->
+	setComment("The role assignments of an authorization object.") ->
+	this;
+
+create EDLORMForeignKey createRAAuthorizationObjectFK(EDLORMType t):
+	setOrigin(t) ->
+	sourceAttributes.addAll(t.getAllPrimaryKeyAttributes().createRAKey(t)) ->
+	targetAttributes.addAll(t.getAllPrimaryKeyAttributes().transformORMAttribute()) ->
+	this;
+	
+create EDLORMType createReplicationAssignment(EDLORMType t):
+	setOrigin(t) ->
+	setComment("Stores the last replication times of particular objects.")->
+	setName(t.name + "ReplicationTimePO") ->
+	setSuperClass((EDLORMType)getEDLType(getModel(t), "com.intershop.beehive.core.capi.replication.AbstractReplicationTimePO", "enfinity:/core/edl/com/intershop/beehive/core/capi/replication/AbstractReplicationTimePO.edl").transformType()) ->
+	setTableName((t.getTableName().length <= 20 ? t.getTableName() : t.getTableName().subString(0, 20)) + "_RT") ->
+	
+	(let replicationTimePOs = createReplicationTimePOsRelation((EDLORMType)t.transformType(), this) :
+		(let replicationTimePO = createReplicationTimePORelation(this, (EDLORMType)t.transformType()) :
+		setInverseRelations(replicationTimePOs, replicationTimePO)
+	))->
+	
+	this;	
+
+create EDLORMRelation createReplicationTimePOsRelation(EDLORMType t, EDLORMType targetT):
+	setOrigin(t) ->
+	setName("replicationTimePOs") ->
+	setType(targetT.transformORMType()) ->
+	setCardinality(EDLORMRelationCardinality::zeroToMany) ->
+	t.members.add(this)->
+	this;
+
+create EDLORMRelation createReplicationTimePORelation(EDLORMType t, EDLORMType targetT):
+	setOrigin(t) ->
+	setName("replicationTimePO") ->
+	setType(targetT) ->
+	setCardinality(EDLORMRelationCardinality::oneToOne) ->
+	setComment(t.comment) ->
+	setForeignKey(createReplicationTimePOFK(t, targetT)) ->
+	t.members.add(this)->
+	this;
+	
+create EDLORMForeignKey createReplicationTimePOFK(EDLORMType t, EDLORMType targetT):
+	setOrigin(t) ->
+	sourceAttributes.add(t.getAllAttributes().first()) ->
+	targetAttributes.addAll(targetT.getAllPrimaryKeyAttributes()) ->
+	this;	
+
+EDLORMRelation setInverseRelations(EDLORMRelation rel1, EDLORMRelation rel2):
+	rel1.setInverseRelation(rel2)->
+	rel2.setInverseRelation(rel1)->
+	rel1;
+

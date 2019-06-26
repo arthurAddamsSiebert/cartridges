@@ -1,0 +1,674 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="UpdateProductAssignmentSnapshot" type="job">
+<!--In this case
+we are on
+organization level
+@Location 6,12-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--Shared == "true"
+means we are on
+channel level
+in a
+shared catalog
+@Location 5,11-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--In this case
+we are on
+channel level
+in a
+local catalog
+@Location 7,12-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2"/>
+<!--check if a search server responds for the search index and store the result in a map, subsequent requests will check the map first. Logs a error message if a search server is not available.
+@Location 18,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="CheckSearchServerAvailability"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ConcatenateStrings0"/>
+    <parameters name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex"/>
+    <parameters name="SearchServerAvailabilityMap" type="java.util.Map" optional="true"/>
+  </nodes>
+<!--@Location 18,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+    <parameterBindings name="String0" objectPath="SearchIndex:Domain:DomainName"/>
+    <parameterBindings name="String1" constant="--"/>
+    <parameterBindings name="String2" objectPath="SearchIndex:IndexID"/>
+    <returnValueBindings name="Concatenated" objectPath="SearchIndexKey"/>
+  </nodes>
+<!--@Location 18,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="SearchServerAvailabilityMap">
+    <nodeSuccessors name="decision_yes" next="DecisionNode14"/>
+<!--@BendPoints 35,24 35,29-->
+    <nodeSuccessors name="decision_no" next="CheckSearchServerAvailability0"/>
+  </nodes>
+<!--@Location 18,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="SearchServerAvailabilityMap:get(SearchIndexKey)">
+    <nodeSuccessors name="decision_yes" next="DecisionNode12"/>
+    <nodeSuccessors name="decision_no" next="CheckSearchServerAvailability0"/>
+  </nodes>
+<!--@Location 19,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="SearchServerAvailabilityMap:get(SearchIndexKey)"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="EndNode1"/>
+<!--@BendPoints 41,28-->
+    <nodeSuccessors name="decision_no" next="EndNode0"/>
+  </nodes>
+<!--@Location 18,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="SearchServerAvailabilityMap" type="java.util.Map"/>
+  </nodes>
+<!--@Location 20,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="ERROR" strict="true">
+    <returnValues name="SearchServerAvailabilityMap" type="java.util.Map"/>
+  </nodes>
+<!--@Location 18,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckSearchServerAvailability0">
+    <pipelet href="enfinity:/bc_search/pipelets/CheckSearchServerAvailability.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode13"/>
+    <parameterBindings name="CurrentDomain" objectPath="SearchIndex:Domain"/>
+    <parameterBindings name="SearchFeatureID" objectPath="SearchIndex:Configuration:FeatureID"/>
+  </nodes>
+<!--@Location 18,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="SearchServerAvailable"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="AddEntryToMap0"/>
+    <nodeSuccessors name="decision_no" next="LogMessage0"/>
+  </nodes>
+<!--@Location 18,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <parameterBindings name="InMap" objectPath="SearchServerAvailabilityMap"/>
+    <parameterBindings name="Key" objectPath="SearchIndexKey"/>
+    <parameterBindings name="Value" constant="true"/>
+    <returnValueBindings name="OutMap" objectPath="SearchServerAvailabilityMap"/>
+  </nodes>
+<!--@Location 19,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage0">
+    <configurationValues name="Level" value="Error"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="AddEntryToMap1"/>
+    <parameterBindings name="MessageParam0" objectPath="SearchIndex:IndexID"/>
+    <parameterBindings name="MessageParam1" objectPath="SearchIndex:Domain:DomainName"/>
+    <parameterBindings name="MessageText" constant="No search server is available for search index {} in domain {}. Check the search service configuration."/>
+  </nodes>
+<!--@Location 19,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <parameterBindings name="InMap" objectPath="SearchServerAvailabilityMap"/>
+    <parameterBindings name="Key" objectPath="SearchIndexKey"/>
+    <parameterBindings name="Value" constant="false"/>
+    <returnValueBindings name="Keys" nullBinding="true"/>
+    <returnValueBindings name="OutMap" objectPath="SearchServerAvailabilityMap"/>
+  </nodes>
+<!--Gets all the category\-domain pairs for which that category has defined SearchQueryDefinitionName and the repository domain is the channel's repository domain in which the category's catalog is shared.
+
+Loops thru these Category\-Domain pairs and calls UpdateCategoryAssignments for each.
+
+NOTE: having SearchQueryDefinitionName doesn't necessarily mean that the category has dynamic binding \- there also need to be a SearchQueryDefinition defined for the respective domain the category is shared to.
+@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="RefreshPCA"
+      callMode="Private">
+<!--@BendPoints 9,4-->
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery2"/>
+    <parameters name="shadowTableName" type="java.lang.String"/>
+    <parameters name="SetDefaultCategory" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--No filter used in order to get all dynamic bindings.
+@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery2">
+    <configurationValues name="QueryName" value="category/GetCategoryDynamicBindingByFilter"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="ExchangeSessionObject0"/>
+    <returnValueBindings name="SearchResult" objectPath="CategoryDynamicBindingsIterator"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject0">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="ProductOnlineIgnored"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameterBindings name="SaveObject" constant="true"/>
+    <parameterBindings name="SessionObjectName" nullBinding="true"/>
+    <parameterBindings name="TargetSession" nullBinding="true"/>
+    <parameterBindings name="TargetSessionDomain" nullBinding="true"/>
+    <parameterBindings name="TargetSessionID" nullBinding="true"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="CategoryDynamicBindingsIterator">
+    <nodeSuccessors name="decision_yes" next="LoopNode2"/>
+<!--@BendPoints 11,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode8"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="CategoryDynamicBindingsIterator">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <entry key="categoryDynamicBinding">
+      <nodeSuccessors name="loop_entry_next" next="GetDomainByUUID0"/>
+    </entry>
+  </nodes>
+<!--@displayNearNode@RepositoryDomain :=
+categoryDynamicBinding:RepositoryDomainUUID
+@Location 4,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="GetRepositoryByRepositoryDomain0"/>
+    <parameterBindings name="DomainUUID" objectPath="categoryDynamicBinding:RepositoryDomainUUID"/>
+    <returnValueBindings name="Domain" objectPath="RepositoryDomain"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="GetDomainPreference0"/>
+  </nodes>
+<!--@displayNearNode@ProcessOrganizationLevelDynamicProductAssignments :=
+"ProcessOrganizationLevelDynamicProductAssignments"
+(Repository:OwningDomain);
+Repository:OwningDomain is always the enterprise (or partner) org, regardless if the repository is a master repository or a channel repository.
+@Location 4,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference0">
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Repository:OwningDomain"/>
+    <parameterBindings name="PreferenceKey" constant="ProcessOrganizationLevelDynamicProductAssignments"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="ProcessOrganizationLevelDynamicProductAssignments"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ProcessOrganizationLevelDynamicProductAssignments"
+      operator="str_eq" conditionValue="AllLevels">
+    <nodeSuccessors name="decision_yes" next="JoinNode3"/>
+<!--@BendPoints 11,19 11,20-->
+    <nodeSuccessors name="decision_no" next="DecisionNode6"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="GetDomainByUUID2"/>
+  </nodes>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+<!--@BendPoints 9,34-->
+    <nodeSuccessors name="next" next="ExecutePipeline1"/>
+    <parameterBindings name="DomainUUID" objectPath="categoryDynamicBinding:SiteUUID"/>
+    <returnValueBindings name="Domain" objectPath="Site"/>
+  </nodes>
+<!--@Location 4,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline1">
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <parameterBindings name="Application" objectPath="Site:DefaultApplication"/>
+    <parameterBindings name="PipelineName" constant="UpdateProductAssignmentSnapshot"/>
+    <parameterBindings name="PipelineStartNode" constant="UpdateCategoryAssignments"/>
+  </nodes>
+<!--@Location 4,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="InValue_1" objectPath="PipelineResult:PipelineDictionary:SearchServerAvailabilityMap"/>
+    <returnValueBindings name="OutValue_1" objectPath="SearchServerAvailabilityMap"/>
+  </nodes>
+<!--@Location 4,19-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 8,39 8,11-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 5,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="categoryDynamicBinding:Shared"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 11,23-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode0"/>
+<!--@BendPoints 13,21-->
+    <nodeSuccessors name="decision_no" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 5,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="ProcessOrganizationLevelDynamicProductAssignments"
+      operator="str_eq" conditionValue="ChannelLevelOnly">
+    <nodeSuccessors name="decision_yes" next="JoinNode1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 5,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 8,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 17,39-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="categoryDynamicBinding:CatalogDomainUUID"
+      operator="str_eq" conditionItem="categoryDynamicBinding:OrganizationUUID">
+<!--@BendPoints 13,25-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode5"/>
+<!--@BendPoints 15,23 15,31-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 6,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="ProcessOrganizationLevelDynamicProductAssignments"
+      operator="str_eq" conditionValue="OrganizationLevelOnly">
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+<!--@BendPoints 17,27-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 6,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 11,14-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@displayNearNode@This pipeline implements the 'Update Product Assignments' Job.
+Summary:
+ \- Acquires lock on the database resources (Products & Catalogs). So that they won't be changed during the execution of the job.
+ \- Gets both table's names behind the synonym 'IPRODUCTCATEGORYASSIGNMENT'
+(alive is the one currently referenced by the synonym, and the shadow is the other one).
+ \- Clears the shadow table (which will be updated later with the current assignments).
+ \- Calls the branch which actually updates the assignments (see the branch RefreshPCA)
+ \- Switches the alive & shadow tables so that now the synonym will point to the current shadow table \- the one that was just updated with the assignments.
+(so for the next excecution of the job the current shadow table will be the alive one, and the currently alive one will be the shadow)
+ \- Releases the lock on the database resources.
+@Location 0,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode_rf3bgMFbEeiXhKYrZqayhg"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_rf3bgMFbEeiXhKYrZqayhg"
+      conditionKey="PublishingCatalogFilter">
+<!--@BendPoints 3,5-->
+    <nodeSuccessors name="decision_yes" next="AcquireResourcesForProcess_7xj60MF7Eei8KsHleaz8lQ"/>
+    <nodeSuccessors name="decision_no" next="AcquireResourcesForProcess1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AcquireResourcesForProcess_7xj60MF7Eei8KsHleaz8lQ">
+    <configurationValues name="ResourceIDs" value="Products;Categories"/>
+    <pipelet href="enfinity:/core/pipelets/AcquireResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="AcquireResourcesForProcess_8BOHcMF7Eei8KsHleaz8lQ"/>
+<!--@BendPoints 5,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode_OrfroMI0EeipAJpcbt5iiA"/>
+    <parameterBindings name="AcquisitionTimeout" constant="(Integer)600"/>
+    <parameterBindings name="ResourceDomain" objectPath="CurrentChannel:Domain"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AcquireResourcesForProcess_8BOHcMF7Eei8KsHleaz8lQ">
+    <configurationValues name="ResourceIDs" value="Products;Categories"/>
+    <pipelet href="enfinity:/core/pipelets/AcquireResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_E8pxYMF8Eei8KsHleaz8lQ"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode_OrfroMI0EeipAJpcbt5iiA"/>
+    <parameterBindings name="AcquisitionTimeout" constant="(Integer)600"/>
+    <parameterBindings name="ResourceDomain" objectPath="CurrentMasterRepository:Domain"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_E8pxYMF8Eei8KsHleaz8lQ">
+    <nodeSuccessors name="next" next="SetDictionaryValue1"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="IPCASynonym"/>
+    <configurationValues name="Value" value="IPRODUCTCATEGORYASSIGNMENT"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 1,12-->
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="Synonym"/>
+    <configurationValues name="QueryName" value="staging/GetStagingTableNames"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 1,14-->
+    <nodeSuccessors name="next" next="GetFirstElementOfIterator1"/>
+<!--@BendPoints 2,13 2,15-->
+    <nodeSuccessors name="pipelet_error" next="LogMessage1"/>
+    <parameterBindings name="ParameterValue_01" objectPath="IPCASynonym"/>
+    <returnValueBindings name="SearchResult" objectPath="TableNamesIterator"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFirstElementOfIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFirstElementOfIterator.xml"/>
+<!--@BendPoints 1,16-->
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <nodeSuccessors name="pipelet_error" next="LogMessage1"/>
+    <parameterBindings name="Iterator" objectPath="TableNamesIterator"/>
+    <returnValueBindings name="FirstElement" objectPath="TableNames"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 1,18-->
+    <nodeSuccessors name="next" next="ExecuteStoredProcedure2"/>
+    <parameterBindings name="InValue_1" objectPath="TableNames:shadow_tablename"/>
+    <parameterBindings name="InValue_2" objectPath="TableNames:alive_tablename"/>
+    <returnValueBindings name="OutValue_1" objectPath="shadowTableName"/>
+    <returnValueBindings name="OutValue_2" objectPath="aliveTableName"/>
+  </nodes>
+<!--@Location 0,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteStoredProcedure2">
+    <configurationValues name="ParameterDefinition" value="shadowTableName=string"/>
+    <configurationValues name="StoredProcedure" value="ddl.clear_table"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteStoredProcedure.xml"/>
+<!--@BendPoints 1,20-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <nodeSuccessors name="pipelet_error" next="LogMessage3"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 1,22-->
+    <nodeSuccessors name="next" next="ExecuteStoredProcedure1"/>
+    <startNode referencedName="UpdateProductAssignmentSnapshot-RefreshPCA"/>
+  </nodes>
+<!--@Location 0,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteStoredProcedure1">
+    <configurationValues name="ParameterDefinition" value="IPCASynonym=string;shadowTableName=string"/>
+    <configurationValues name="StoredProcedure" value="ddl.replace_synonym"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteStoredProcedure.xml"/>
+    <nodeSuccessors name="next" next="ReleaseResourcesForProcess1"/>
+    <nodeSuccessors name="pipelet_error" next="LogMessage2"/>
+  </nodes>
+<!--@Location 0,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ReleaseResourcesForProcess1">
+    <pipelet href="enfinity:/core/pipelets/ReleaseResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_7IN5QMIzEeipAJpcbt5iiA"/>
+  </nodes>
+<!--@Location 0,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_7IN5QMIzEeipAJpcbt5iiA"
+      conditionKey="PublishingCatalogFilter">
+    <nodeSuccessors name="decision_yes" next="ReleaseResourcesForProcess_9i6aEMIzEeipAJpcbt5iiA"/>
+<!--@BendPoints 2,27 2,31-->
+    <nodeSuccessors name="decision_no" next="JoinNode__GAkgMIzEeipAJpcbt5iiA"/>
+  </nodes>
+<!--@Location 0,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ReleaseResourcesForProcess_9i6aEMIzEeipAJpcbt5iiA">
+    <pipelet href="enfinity:/core/pipelets/ReleaseResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="JoinNode__GAkgMIzEeipAJpcbt5iiA"/>
+  </nodes>
+<!--@Location 0,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode__GAkgMIzEeipAJpcbt5iiA">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 0,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage2">
+    <configurationValues name="Level" value="Error"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="MessageText" objectPath="Could not switch the shadow and alive tables for IEProductCategoryAssignment!"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 5,24-->
+    <nodeSuccessors name="next" next="ReleaseResourcesForProcess1"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage3">
+    <configurationValues name="Level" value="Error"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="MessageText" objectPath="Could not clear the shadow table for IEProductCategoryAssignment!"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage1">
+    <configurationValues name="Level" value="Error"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_Nf1w0MI0EeipAJpcbt5iiA"/>
+    <parameterBindings name="MessageText" objectPath="Could not get the alive and shadow table names for IEProductCategoryAssignment!"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_Nf1w0MI0EeipAJpcbt5iiA">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_OrfroMI0EeipAJpcbt5iiA">
+    <nodeSuccessors name="next" next="JoinNode_Nf1w0MI0EeipAJpcbt5iiA"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AcquireResourcesForProcess1">
+    <configurationValues name="ResourceIDs" value="Products;Categories"/>
+    <pipelet href="enfinity:/core/pipelets/AcquireResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_E8pxYMF8Eei8KsHleaz8lQ"/>
+    <parameterBindings name="AcquisitionTimeout" constant="(Integer)600"/>
+    <parameterBindings name="ResourceDomain" nullBinding="true"/>
+  </nodes>
+<!--Looks for the SearchQueryDefinition (SQD) for the given Category and Repository domain (the SQD is actually in RepositoryDomain:Site:Domain).
+If the SQD is found (meaning there is indeed a dynamic binding for this category), 
+loops thru the Locales (since there could be SearchIndexes for each locale), 
+and tries to get that SearchIndex.
+If the SearchIndex is found executes the Query defined by the SearchQueryDefinition against the configured search server to get the products that are dynamically bound to the category.
+
+Lastly with the found products calls the pipelet, which inserts the needed records for the Product\-Category\-Assignments in the shadow table (see the Start branch) using jdbc\-batch.
+@Location 10,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="UpdateCategoryAssignments"
+      callMode="Private">
+<!--@BendPoints 21,4-->
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+    <parameters name="shadowTableName" type="java.lang.String"/>
+    <parameters name="categoryDynamicBinding" type="com.intershop.component.productbinding.capi.CategoryDynamicBinding"/>
+    <parameters name="SearchServerAvailabilityMap" type="java.util.Map" optional="true"/>
+    <parameters name="SetDefaultCategory" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="categoryDynamicBinding:SQDName"
+      operator="str_empty">
+<!--@BendPoints 27,5-->
+    <nodeSuccessors name="decision_yes" next="JoinNode13"/>
+<!--@BendPoints 21,6-->
+    <nodeSuccessors name="decision_no" next="CallNode8"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 13,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+<!--@BendPoints 27,36-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 13,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true">
+    <returnValues name="SearchServerAvailabilityMap" type="java.util.Map" optional="true"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+<!--@BendPoints 21,10-->
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <nodeSuccessors name="NotFound" next="JoinNode13"/>
+    <parameterBindings name="DomainUUID" objectPath="categoryDynamicBinding:SqdDomainUUID"/>
+    <parameterBindings name="SQDName" objectPath="categoryDynamicBinding:SQDName"/>
+    <startNode referencedName="ProcessSearchQueryDefinitionBySearchIndex-GetSQDByName"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="SearchQueryDefinition">
+<!--@BendPoints 21,12-->
+    <nodeSuccessors name="decision_yes" next="DetermineLocales2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode9"/>
+  </nodes>
+<!--@Location 10,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineLocales2">
+    <pipelet href="enfinity:/core/pipelets/DetermineLocales.xml"/>
+<!--@BendPoints 21,14-->
+    <nodeSuccessors name="next" next="LoopNode4"/>
+  </nodes>
+<!--@Location 10,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode4" loop="Locales">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <entry key="Locale">
+<!--@BendPoints 21,16-->
+      <nodeSuccessors name="loop_entry_next" next="GetDomainByUUID1"/>
+    </entry>
+  </nodes>
+<!--@Location 10,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+<!--@BendPoints 21,18-->
+    <nodeSuccessors name="next" next="CallNode10"/>
+    <parameterBindings name="DomainUUID" objectPath="categoryDynamicBinding:RepositoryDomainUUID"/>
+    <returnValueBindings name="Domain" objectPath="RepositoryDomain"/>
+  </nodes>
+<!--@Location 10,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+    <parameterBindings name="Domain" objectPath="RepositoryDomain"/>
+    <startNode referencedName="ProcessSearchQueryDefinitionBySearchIndex-GetProductSearchIndex"/>
+  </nodes>
+<!--@Location 10,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="SearchIndex">
+    <nodeSuccessors name="decision_yes" next="CallNode0"/>
+<!--@BendPoints 25,23-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 10,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="VerifyInteger4"/>
+    <nodeSuccessors name="ERROR" next="JoinNode5"/>
+    <startNode referencedName="UpdateProductAssignmentSnapshot-CheckSearchServerAvailability"/>
+  </nodes>
+<!--@Location 10,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyInteger4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyInteger.xml"/>
+<!--@BendPoints 21,28-->
+    <nodeSuccessors name="next" next="VerifyInteger3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode14"/>
+    <parameterBindings name="LocalizedString" constant="1"/>
+    <returnValueBindings name="IntegerObject" objectPath="Page"/>
+  </nodes>
+<!--currently gets all Products in 1 page (limited by MAX_INTEGER)
+@Location 10,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyInteger3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyInteger.xml"/>
+<!--@BendPoints 21,30-->
+    <nodeSuccessors name="next" next="GetCategoryByUUID1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode14"/>
+    <parameterBindings name="LocalizedString" constant="2147483647"/>
+    <returnValueBindings name="IntegerObject" objectPath="PageSize"/>
+  </nodes>
+<!--@Location 10,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoryByUUID1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoryByUUID.xml"/>
+<!--@BendPoints 21,32-->
+    <nodeSuccessors name="next" next="DecisionNode11"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode16"/>
+    <parameterBindings name="CatalogCategoryID" objectPath="categoryDynamicBinding:CategoryUUID"/>
+  </nodes>
+<!--@Location 10,16-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="Category">
+    <nodeSuccessors name="decision_yes" next="CallNode7"/>
+    <nodeSuccessors name="decision_no" next="JoinNode16"/>
+  </nodes>
+<!--@Location 10,17-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+<!--@BendPoints 21,36-->
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <nodeSuccessors name="ERROR" next="JoinNode12"/>
+    <parameterBindings name="Domain" objectPath="Category:Domain"/>
+    <parameterBindings name="IgnoreMasteredCondition" constant="true"/>
+    <parameterBindings name="SearchParameter" constant="@P.query.Context=ProductBinding"/>
+    <startNode referencedName="ProcessSearchQueryDefinitionBySearchIndex-ExecuteSearchQuery"/>
+    <returnValueBindings name="Objects" objectPath="Products"/>
+  </nodes>
+<!--@Location 10,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="Products">
+    <nodeSuccessors name="decision_yes" next="DecisionNode15"/>
+    <nodeSuccessors name="decision_no" next="JoinNode12"/>
+  </nodes>
+<!--@Location 10,19-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode15" conditionKey="SetDefaultCategory">
+    <nodeSuccessors name="decision_yes" next="DecisionNode16"/>
+    <nodeSuccessors name="decision_no" next="JoinNode15"/>
+  </nodes>
+<!--@Location 11,19-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode16" conditionKey="SetDefaultCategory"
+      operator="str_eq" conditionValue="Yes">
+    <nodeSuccessors name="decision_yes" next="UpdateCustomAttribute0"/>
+<!--@BendPoints 24,39 24,40 24,43-->
+    <nodeSuccessors name="decision_no" next="JoinNode15"/>
+  </nodes>
+<!--@Location 11,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttribute0">
+    <configurationValues name="DefaultAttributeName" value="SetDefaultCategory"/>
+    <configurationValues name="DefaultAttributeType" value="String"/>
+    <configurationValues name="DefaultAttributeValue" value="Yes"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttribute.xml"/>
+    <nodeSuccessors name="next" next="RefreshDynamicProductAssignments0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode17"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Category"/>
+  </nodes>
+<!--@Location 11,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshDynamicProductAssignments0">
+    <pipelet href="enfinity:/bc_productbinding/pipelets/RefreshDynamicProductAssignments.xml"/>
+    <nodeSuccessors name="next" next="RemoveCustomAttribute0"/>
+    <parameterBindings name="AssignmentDomain" objectPath="RepositoryDomain"/>
+  </nodes>
+<!--@Location 11,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveCustomAttribute0">
+    <configurationValues name="DefaultAttributeName" value="SetDefaultCategory"/>
+    <pipelet href="enfinity:/core/pipelets/RemoveCustomAttribute.xml"/>
+<!--@BendPoints 23,49-->
+    <nodeSuccessors name="next" next="JoinNode18"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Category"/>
+  </nodes>
+<!--@Location 10,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+    <nodeSuccessors name="next" next="Touch_sDkwgOJeEeaLSNBSW0Oe7w"/>
+  </nodes>
+<!--@Location 10,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Touch_sDkwgOJeEeaLSNBSW0Oe7w">
+    <pipelet href="enfinity:/core/pipelets/Touch.xml"/>
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <parameterBindings name="Object" objectPath="Category"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+  </nodes>
+<!--@Location 10,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 19,53 19,43 19,15-->
+    <nodeSuccessors name="next" next="LoopNode4_Entry"/>
+  </nodes>
+<!--@Location 12,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+<!--@BendPoints 25,53-->
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 10,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="RefreshDynamicProductAssignments2"/>
+  </nodes>
+<!--@Location 10,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshDynamicProductAssignments2">
+    <pipelet href="enfinity:/bc_productbinding/pipelets/RefreshDynamicProductAssignments.xml"/>
+    <nodeSuccessors name="next" next="JoinNode18"/>
+    <parameterBindings name="AssignmentDomain" objectPath="RepositoryDomain"/>
+  </nodes>
+<!--@Location 12,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="JoinNode17"/>
+  </nodes>
+<!--@Location 12,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--@Location 12,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+    <nodeSuccessors name="next" next="JoinNode16"/>
+  </nodes>
+<!--@Location 12,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+</pipeline:Pipeline>

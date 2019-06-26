@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="PriceList" type="com.intershop.component.pricing.capi.pricelist.PriceList" optional="false"/>
+    <parameter name="Currency" type="com.intershop.beehive.core.capi.currency.Currency" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+    <parameter name="SearchExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="SortByProduct" type="java.lang.String" optional="true"/>
+    <parameter name="SortByListPrice" type="java.lang.String" optional="true"/>
+    <parameter name="SortByPrice" type="java.lang.String" optional="true"/>
+    <parameter name="SortByTable" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="count" type="rename">
+        <return-attribute name="count"/>
+    </return-mapping>
+    <return-mapping name="Product" type="provider" class="ProductViewProvider">
+        <return-attribute name="UUID"/>
+        <return-attribute name="DOMAINID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="SearchExpressionc" input="SearchExpression" processing="SearchExpression2Contains"/>
+</processor>
+
+<template type="count">
+    SELECT count(p.uuid) as count 
+    FROM ( 
+    <template-call name="product/GetProductsByAdvancedSearch">
+        <call-parameter name="ProductDomain" value="PriceList:Domain"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+        <call-parameter name="NameOrID" value="SearchExpression"/>
+    </template-call>
+    ) p
+</template>
+<template type="objects">
+SELECT
+    p.uuid AS UUID,
+    <template-variable value="PriceList:DomainID"/> AS DOMAINID,
+    <template-if condition="isDefined(SortByTable)">
+        <template-if condition="(SortByTable EQ 'ValidFrom')">            
+            ps.ValidFrom AS SORTING
+        <if-elseif condition="(SortByTable EQ 'ValidTo')"/>                
+            ps.ValidTo AS SORTING
+        </template-if>    
+    <if-elseif condition="isDefined(SortByPrice)"/>
+        en.SINGLEBASEPRICEVALUE AS SORTING
+    <if-elseif condition="isDefined(SortByListPrice)"/>
+        pl.VALUE AS SORTING
+    <if-else/>
+        p.sorting AS SORTING
+    </template-if>
+FROM
+    (
+    <template-call name="product/GetProductsByAdvancedSearch">
+        <call-parameter name="ProductDomain" value="PriceList:Domain"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+        <call-parameter name="NameOrID" value="SearchExpression"/>
+        <call-parameter name="SortAttribute" value="SortByProduct"/>
+    </template-call>
+    ) p    
+    <template-if condition="isDefined(SortByTable)">
+        LEFT OUTER JOIN
+        pricescaletableassignment psa 
+        ON psa.PRICELISTUUID = <template-variable value="PriceList:UUID"/>
+        and psa.PRODUCTUUID = p.uuid
+        LEFT OUTER JOIN
+        pricescaletable ps
+        ON ps.uuid = psa.PRICESCALETABLEUUID  
+        and ps.CURRENCYCODE = <template-variable value="Currency:Mnemonic"/>
+    <if-elseif condition="isDefined(SortByListPrice)" />
+        LEFT OUTER JOIN
+        (
+            <template-call name="price/GetListPricesByDomain">
+                <call-parameter name="ProductDomain" value="PriceList:Domain"/>
+            </template-call>
+        ) pl 
+        ON pl.PRODUCTID = p.uuid AND pl.CURRENCY = <template-variable value="Currency:Mnemonic"/> 
+    <if-elseif condition="isDefined(SortByPrice)"/>
+        LEFT OUTER JOIN
+        pricescaletableassignment psa
+        ON psa.PRICELISTUUID = <template-variable value="PriceList:UUID"/>
+        and psa.PRODUCTUUID = p.uuid
+        LEFT OUTER JOIN
+        pricescaletable ps
+        ON ps.uuid = psa.PRICESCALETABLEUUID  
+        and ps.CURRENCYCODE = <template-variable value="Currency:Mnemonic"/>
+        LEFT OUTER JOIN
+        pricescaleentry en
+        ON en.PRICESCALETABLEID = ps.UUID
+    </template-if>    
+    <template-if condition="isDefined(SortByListPrice)">
+WHERE   1=1 
+    <if-elseif condition="isDefined(SortByTable)"/>
+WHERE         
+        ps.ValidFrom = (select  min(ps1.ValidFrom) from pricescaletable ps1,pricescaletableassignment psa1 
+                                   where ps1.uuid = psa1.PRICESCALETABLEUUID 
+                                   and ps1.CURRENCYCODE = <template-variable value="Currency:Mnemonic"/>
+                                 and psa1.PRICELISTUUID =  <template-variable value="PriceList:UUID"/>
+                                 and psa1.PRODUCTUUID = p.uuid
+             ) or ps.ValidFrom is null 
+    <if-elseif condition="isDefined(SortByPrice)"/>
+WHERE 
+        en.SINGLEBASEPRICEVALUE = (select  min(en1.SINGLEBASEPRICEVALUE) from pricescaletable ps1,pricescaletableassignment psa1, pricescaleentry en1
+                                              where ps1.uuid = psa1.PRICESCALETABLEUUID
+                                                  and ps1.CURRENCYCODE =  <template-variable value="Currency:Mnemonic"/>    
+                                            and psa1.PRICELISTUUID = <template-variable value="PriceList:UUID"/>      
+                                            and psa1.PRODUCTUUID = p.uuid
+                                            and en1.PRICESCALETABLEID = ps1.UUID
+            ) or en.SINGLEBASEPRICEVALUE is null
+    </template-if>	
+	<sql-dialect name="Oracle">
+		ORDER BY SORTING 
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+			desc NULLS LAST
+		<if-else />
+			asc NULLS LAST
+		</template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		ORDER BY 
+		<template-if condition="isDefined(SortByTable)">
+			<template-if condition="(SortByTable EQ 'ValidFrom')">            
+				CASE WHEN ps.ValidFrom IS NULL THEN 1 ELSE 0 END ASC, ps.ValidFrom 
+			<if-elseif condition="(SortByTable EQ 'ValidTo')"/>                
+				CASE WHEN ps.ValidTo IS NULL THEN 1 ELSE 0 END ASC, ps.ValidTo 
+			</template-if>    
+		<if-elseif condition="isDefined(SortByPrice)"/>
+			CASE WHEN en.SINGLEBASEPRICEVALUE IS NULL THEN 1 ELSE 0 END ASC, en.SINGLEBASEPRICEVALUE 
+		<if-elseif condition="isDefined(SortByListPrice)"/>
+			CASE WHEN pl.VALUE IS NULL THEN 1 ELSE 0 END ASC, pl.VALUE 
+		<if-else/>
+			CASE WHEN p.sorting IS NULL THEN 1 ELSE 0 END ASC, p.sorting
+		</template-if>
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+			desc 
+		<if-else />
+			asc 
+		</template-if>
+	</sql-dialect>
+</template>
+</query>

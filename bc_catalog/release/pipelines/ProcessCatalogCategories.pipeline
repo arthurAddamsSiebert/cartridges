@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@deprecated since 7.4.5, use ProcessCatalogCategory pipeline instead
+Features Pipelines to process basic Catalog Category taks.
+@Group DEPRECATED-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCatalogCategories" overrideMode="Inherit" type="process">
+<!--@deprecated since 7.4.5, 
+see node description.
+@Location 1,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--Retrieves the CategoryBO of a 
+Catalog by various input parameters.
+Those are either:
+1. via CategoryUUID
+2. via CategoryID + CategoryDomainName
+3. via CategoryID + CategoryDomain
+@Location 2,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@deprecated since 7.4.5, use ProcessCatalogCategory pipeline instead
+Retrieves the CategoryBO of a Catalog by various input parameters.
+Those are either:
+1. via CategoryUUID
+2. via CategoryID + CategoryDomainName
+3. via CategoryID + CategoryDomain
+@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="GetCatalogCategoryBO"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+<!--The UUID of the Category.
+Needs no further optional inputs.-->
+    <parameters name="CategoryUUID" type="java.lang.String" optional="true"/>
+<!--The CategoryID, that is given in the backoffice. e.g. "1307"
+Used in in conjuntion with either CategoryDomainName or CategoryDomain.-->
+    <parameters name="CategoryID" type="java.lang.String" optional="true"/>
+<!--The Domain name of the Category. e.g. "PrimeTech\-Computers"
+Used in conjunction with CategoryID.-->
+    <parameters name="CategoryDomainName" type="java.lang.String" optional="true"/>
+<!--The Domain of the Category. e.g. "Computers"
+Used in conjunction with CategoryID.-->
+    <parameters name="CategoryDomain" type="java.lang.String" optional="true"/>
+<!--The used App context.-->
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--The used Organization context.-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="CategoryUUID">
+<!--@BendPoints 1,7-->
+    <nodeSuccessors name="decision_yes" next="JoinNode0"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="DetermineCatalogCategory0"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineCatalogCategory0">
+    <pipelet href="enfinity:/xcs/pipelets/DetermineCatalogCategory.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="CatalogCategoryID" objectPath="CategoryUUID"/>
+    <parameterBindings name="CategoryName" objectPath="CategoryID"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetCatalogBOByCatalogRepositoryBOID0"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Extension(&quot;Catalog&quot;):CatalogBORepository"/>
+    <returnValueBindings name="OutValue_1" objectPath="CatalogBORepository"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogBOByCatalogRepositoryBOID0">
+    <pipelet href="enfinity:/bc_catalog/pipelets/GetCatalogBOByCatalogRepositoryBOID.xml"/>
+    <nodeSuccessors name="next" next="GetCatalogCategoryBOByID0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="CatalogRepositoryBOID" objectPath="Category:DomainID"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogCategoryBOByID0">
+    <pipelet href="enfinity:/bc_catalog/pipelets/GetCatalogCategoryBOByID.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="ID" objectPath="Category:UUID"/>
+    <returnValueBindings name="CatalogCategoryBO" objectPath="CategoryBO"/>
+  </nodes>
+<!--Returns the CatalogCategoryBO.
+@Location 1,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+<!--The retrieved CategoryBO.-->
+    <returnValues name="CategoryBO" type="com.intershop.component.catalog.capi.CatalogCategoryBO"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--Returns nothing, if a CategoryBO could not be resolved.
+@Location 3,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="Error" strict="true"/>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="CategoryID">
+    <nodeSuccessors name="decision_yes" next="DecisionNode0"/>
+<!--@BendPoints 7,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="CategoryDomainName">
+    <nodeSuccessors name="decision_yes" next="JoinNode0"/>
+    <nodeSuccessors name="decision_no" next="GetCatalog0"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalog0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalog.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="CatalogID" objectPath="CategoryDomain"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Organization:OwningDomain"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InValue_1" objectPath="Catalog:Domain:DomainName"/>
+    <returnValueBindings name="OutValue_1" objectPath="CategoryDomainName"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+</pipeline:Pipeline>

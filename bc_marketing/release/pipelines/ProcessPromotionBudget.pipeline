@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Handles promotion budgets
+@Group OnlineMarketing-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessPromotionBudget" type="process">
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" strict="true" name="CalculateRemainingBudget"
+      callMode="Private">
+<!--@BendPoints 3,2-->
+    <nodeSuccessors name="next" next="GetBudgetByUUID1"/>
+    <parameters name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"/>
+<!--Optional parameter, default is false;
+\-\-\-
+false: If no Budget Period can be matched at the given "Date", Money.NOT_AVAILABLE will be returned. 
+true: If no Period can be matched, the closest Period will be taken:
+If "Date" is before any Budget Period, take the first one. If it is later, take the latest passed Period.-->
+    <parameters name="NonStrictPeriodMatching" type="java.lang.Boolean" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetBudgetByUUID1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetBudgetByUUID.xml"/>
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="GetCurrentDate1"/>
+<!--@BendPoints 4,3-->
+    <nodeSuccessors name="pipelet_error" next="EndNode5"/>
+    <parameterBindings name="BudgetUUID" objectPath="Promotion:BudgetID"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="CalculateBudget1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateBudget1">
+    <pipelet href="enfinity:/bc_organization/pipelets/CalculateBudget.xml"/>
+    <nodeSuccessors name="next" next="EndNode10"/>
+    <parameterBindings name="Date" objectPath="CurrentDate"/>
+    <returnValueBindings name="Amount" objectPath="BudgetAmount"/>
+    <returnValueBindings name="Remaining" objectPath="BudgetRemaining"/>
+    <returnValueBindings name="Spending" objectPath="BudgetSpending"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name="Budget" strict="true">
+    <returnValues name="BudgetAmount" type="com.intershop.beehive.foundation.quantity.Money"/>
+    <returnValues name="BudgetRemaining" type="com.intershop.beehive.foundation.quantity.Money"/>
+    <returnValues name="BudgetSpending" type="com.intershop.beehive.foundation.quantity.Money"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="NoBudget" strict="true"/>
+<!--@displayNearNode@This node checks, if a promotion is allowed to be activated.
+A promotion with budget, where the budget is exhausted
+cannot be activated, again, until the budget is increased.
+@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode25" strict="true" name="CheckPromotionActivationAllowed"
+      callMode="Private">
+<!--@BendPoints 17,2-->
+    <nodeSuccessors name="next" next="DecisionNode19"/>
+    <parameters name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"/>
+    <parameters name="BudgetAmountNew" type="com.intershop.beehive.foundation.quantity.Money"
+        optional="true"/>
+    <parameters name="Enabled" type="java.lang.Boolean"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode19" conditionKey="Enabled"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode33" action="begin"/>
+<!--@BendPoints 15,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode_vMaHsBDXEee_N_3Bn_BYTg"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode33">
+<!--@BendPoints 17,6-->
+    <nodeSuccessors name="next" next="DecisionNode4" action="rollback"/>
+    <parameterBindings name="NonStrictPeriodMatching" constant="(Boolean)true"/>
+    <startNode referencedName="ProcessPromotionBudget-CalculateRemainingBudget"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="BudgetRemaining">
+<!--@BendPoints 17,8-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode20"/>
+    <nodeSuccessors name="decision_no" next="JoinNode_vMaHsBDXEee_N_3Bn_BYTg"/>
+  </nodes>
+<!--@displayNearNode@The remaining budget on the promotion is exhausted, if it is not greater 0.
+@Location 8,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode20" conditionKey="BudgetRemaining:Value"
+      operator="gt" conditionValue="0.0">
+    <nodeSuccessors name="decision_yes" next="JoinNode26"/>
+<!--@BendPoints 19,9 19,12-->
+    <nodeSuccessors name="decision_no" next="EndNode17"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode26">
+<!--@BendPoints 17,12-->
+    <nodeSuccessors name="next" next="EndNode16"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" name="YES" strict="true"/>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" name="NO" strict="true"/>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_vMaHsBDXEee_N_3Bn_BYTg">
+<!--@BendPoints 15,11-->
+    <nodeSuccessors name="next" next="JoinNode26"/>
+  </nodes>
+<!--@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode15" strict="true" name="GetBudgetSources"
+      callMode="Private">
+<!--@BendPoints 23,2-->
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+    <parameters name="Connection" type="java.sql.Connection" optional="true"/>
+    <parameters name="CurrentDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="Parameters" type="java.util.Map" optional="true"/>
+    <parameters name="Query" type="com.intershop.beehive.core.capi.query.Query" optional="true"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+    <parameters name="SortBy" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="ParameterName_01" value="Domain"/>
+    <configurationValues name="ParameterName_02" value="Locale"/>
+    <configurationValues name="ParameterName_03" value="SortBy"/>
+    <configurationValues name="QueryName" value="budget/GetBudgetSources"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+<!--@BendPoints 24,3 24,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Domain"/>
+    <parameterBindings name="ParameterValue_02" objectPath="Locale"/>
+    <parameterBindings name="ParameterValue_03" objectPath="SortBy"/>
+    <returnValueBindings name="SearchResult" objectPath="BudgetSources"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 23,6-->
+    <nodeSuccessors name="next" next="EndNode14"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" strict="true">
+    <returnValues name="BudgetSources" type="java.util.Iterator" optional="true"/>
+<!--When the error connector is used then the ErrorCode contains a hint about the reason.-->
+    <returnValues name="ErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@displayNearNode@Sets the promotion's budget.
+@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" strict="true" name="SetBudget"
+      callMode="Private">
+<!--@BendPoints 9,2-->
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameters name="AccountTypeCode" type="java.lang.String" optional="true"/>
+    <parameters name="BudgetTypeCode" type="java.lang.String" optional="true"/>
+    <parameters name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"
+        optional="true"/>
+    <parameters name="Scope" type="com.intershop.beehive.core.capi.domain.PersistentObject"
+        optional="true"/>
+    <parameters name="ScopeType" type="java.lang.String" optional="true"/>
+    <parameters name="EndDate" type="java.util.Date" optional="true"/>
+    <parameters name="StartDate" type="java.util.Date" optional="true"/>
+    <parameters name="BudgetSource" type="java.lang.String" optional="true"/>
+    <parameters name="Unlimited" type="java.lang.Boolean" optional="true"/>
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+    <parameters name="BudgetNotificationThreshold" type="java.lang.Double" optional="true"/>
+    <parameters name="BudgetAmount" type="com.intershop.beehive.foundation.quantity.Money"
+        optional="true"/>
+    <parameters name="BudgetNotificationEmail" type="java.lang.String" optional="true"/>
+    <parameters name="SendMailIfBudgetReached" type="java.lang.Boolean" optional="true"/>
+    <parameters name="SendMailIfThresholdReached" type="java.lang.Boolean" optional="true"/>
+    <parameters name="DisableByBudget" type="java.lang.Boolean" optional="true"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Promotion:BudgetID"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="DecisionNode1"/>
+<!--@BendPoints 13,3-->
+    <nodeSuccessors name="decision_no" next="KeyMapper4"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Unlimited"
+      operator="str_eq" conditionValue="false">
+<!--@BendPoints 9,6-->
+    <nodeSuccessors name="decision_yes" next="CreateAccount2"/>
+<!--@BendPoints 12,5 12,7-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateAccount2">
+    <configurationValues name="DefaultTypeCode" value="80"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/CreateAccount.xml"/>
+<!--@BendPoints 9,8-->
+    <nodeSuccessors name="next" next="CreateBudget2"/>
+<!--@BendPoints 11,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="Owner" objectPath="Promotion"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateBudget2">
+    <configurationValues name="DefaultTypeCode" value="1"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/CreateBudget.xml"/>
+<!--@BendPoints 9,10-->
+    <nodeSuccessors name="next" next="CreateBudgetPeriod2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateBudgetPeriod2">
+    <configurationValues name="DefaultDateTimes" value="false"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/CreateBudgetPeriod.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="FromDate" objectPath="StartDate"/>
+    <parameterBindings name="ToDate" objectPath="EndDate"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 9,14-->
+    <nodeSuccessors name="next" next="UpdatePromotionBudget2"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePromotionBudget2">
+    <pipelet href="enfinity:/bc_marketing/pipelets/UpdatePromotionBudget.xml"/>
+<!--@BendPoints 9,16-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <parameterBindings name="BudgetID" objectPath="Budget:UUID"/>
+    <parameterBindings name="BudgetSource" objectPath="Promotion:BudgetSource:ID"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 11,12-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="ERROR" strict="true"/>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 13,14-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InValue_1" objectPath="Promotion:BudgetID"/>
+    <returnValueBindings name="OutValue_1" objectPath="BudgetID"/>
+  </nodes>
+<!--@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="VerifyBudgetData"
+      callMode="Private">
+<!--@BendPoints 29,2-->
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+    <parameters name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"
+        optional="true"/>
+    <parameters name="CurrencyMnemonic" type="java.lang.String"/>
+    <parameters name="Unlimited" type="java.lang.Boolean"/>
+    <parameters name="BudgetAmount" type="com.intershop.beehive.foundation.quantity.Money"
+        optional="true"/>
+<!--The budget amount as a localized string.-->
+    <parameters name="BudgetAmountAsLocalizedString" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="CurrencyMnemonic"
+      operator="str_eq" conditionValue=".All.">
+    <nodeSuccessors name="decision_yes" next="JoinNode6"/>
+<!--@BendPoints 30,3-->
+    <nodeSuccessors name="decision_no" next="DecisionNode9"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 29,10-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 14,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="NoBudget" strict="true"/>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="Unlimited"
+      operator="str_eq" conditionValue="false">
+<!--@BendPoints 32,3 32,6 31,6-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode7"/>
+<!--@BendPoints 31,5-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="CurrencyMnemonic"
+      operator="str_empty">
+<!--@BendPoints 31,8-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode5"/>
+<!--@BendPoints 33,7 33,8-->
+    <nodeSuccessors name="decision_no" next="KeyMapper3"/>
+  </nodes>
+<!--@Location 15,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="Promotion:Currency:Mnemonic"
+      operator="str_empty">
+<!--@BendPoints 31,10 29,10-->
+    <nodeSuccessors name="decision_yes" next="EndNode6"/>
+<!--@BendPoints 32,9 32,10 33,10-->
+    <nodeSuccessors name="decision_no" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 33,12-->
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <parameterBindings name="InValue_1" objectPath="Promotion:Currency:Mnemonic"/>
+    <returnValueBindings name="OutValue_1" objectPath="CurrencyMnemonic"/>
+  </nodes>
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="BudgetAmountAsLocalizedString"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="EndNode3"/>
+<!--@BendPoints 35,13-->
+    <nodeSuccessors name="decision_no" next="VerifyMoney1"/>
+  </nodes>
+<!--@Location 16,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="Error" strict="true"/>
+<!--@Location 17,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyMoney1">
+    <configurationValues name="MinValue" value="0.01"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyMoney.xml"/>
+<!--@BendPoints 35,16-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+<!--@BendPoints 36,15 36,16 33,16-->
+    <nodeSuccessors name="pipelet_error" next="EndNode3"/>
+    <parameterBindings name="LocalizedString" objectPath="BudgetAmountAsLocalizedString"/>
+    <returnValueBindings name="MoneyValue" objectPath="BudgetAmount"/>
+  </nodes>
+<!--@Location 17,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="Budget" strict="true">
+    <returnValues name="BudgetAmount" type="com.intershop.beehive.foundation.quantity.Money"
+        optional="true"/>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 34,10 34,12 33,12-->
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <parameterBindings name="InValue_1" objectPath="PromotionForm:Currency:Value"/>
+    <returnValueBindings name="OutValue_1" objectPath="CurrencyMnemonic"/>
+  </nodes>
+</pipeline:Pipeline>

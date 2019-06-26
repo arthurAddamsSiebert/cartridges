@@ -1,0 +1,851 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Tries to notify users to their alerts.
+@Group Process-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessProductNotification" type="process">
+<!--@Deprecated since IS 7.4.4
+Replaced by SendNotificationEMails
+@Location 2,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--TODO Rework:
+"SyncRecord" parameter is defacto
+non\-optional and this pipeline
+should be private (Visibility)
+@Location 10,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--TODO subject should be
+defined as localized string
+@Location 8,3-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2"/>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="SendNotificationEMails"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainPreference1"/>
+    <parameters name="ChannelRepository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="TriggeredManually" type="java.lang.Boolean" optional="true"/>
+    <parameters name="ProductBORepository" type="com.intershop.component.product.capi.ProductBORepository"/>
+    <parameters name="JobStartTime" type="java.util.Date"/>
+    <parameters name="UserBORepository" type="com.intershop.component.user.capi.UserBORepository"/>
+    <parameters name="Interval" type="java.lang.Long" optional="true"/>
+    <parameters name="JobUUID" type="java.lang.String" optional="true"/>
+    <parameters name="Status" type="java.lang.Integer" optional="true"/>
+    <parameters name="StopTime" type="java.util.Date" optional="true"/>
+    <parameters name="StartTime" type="java.util.Date" optional="true"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference1">
+    <configurationValues name="DefaultPreferenceKey" value="ProductNotificationEmailFrom"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+<!--@BendPoints 13,6-->
+    <nodeSuccessors name="next" next="GetDomainPreference7"/>
+<!--@BendPoints 15,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference7">
+    <configurationValues name="DefaultPreferenceKey" value="ProductNotificationEmailSubject"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+<!--@BendPoints 13,8-->
+    <nodeSuccessors name="next" next="GetDomainPreference3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailSubject"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference3">
+    <configurationValues name="DefaultPreferenceKey" value="ProductNotificationEmailTemplate"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="GetDomainPreference0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailMainTemplate"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference0">
+    <configurationValues name="DefaultPreferenceKey" value="ProductNotificationEmailDeleteTemplate"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="ObtainSyncRecordContainer0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode13"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailDeleteTemplate"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ObtainSyncRecordContainer0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/ObtainSyncRecordContainer.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="ExtensibleObject" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="SynchRecordContainer" objectPath="Container"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="TriggeredManually">
+    <nodeSuccessors name="decision_yes" next="DecisionNode2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode14"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="TriggeredManually"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 16,15 16,21-->
+    <nodeSuccessors name="decision_yes" next="JoinNode15"/>
+<!--@BendPoints 15,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode14"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="GetCurrentDate0"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate0">
+    <configurationValues name="ForceApplicationServerTimeZone" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="UpdateSyncRecord0"/>
+    <returnValueBindings name="CurrentDate" objectPath="StartTime"/>
+  </nodes>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateSyncRecord0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateSyncRecord.xml"/>
+    <nodeSuccessors name="next" next="GetAlertsByDomain0"/>
+    <parameterBindings name="StartTime" objectPath="StartTime"/>
+    <parameterBindings name="TargetObject" objectPath="Container"/>
+  </nodes>
+<!--@Location 6,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAlertsByDomain0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetAlertsByDomain.xml"/>
+    <nodeSuccessors name="next" next="CheckForEmptyIterator0"/>
+    <parameterBindings name="AlertDomain" objectPath="ChannelRepository:Domain"/>
+  </nodes>
+<!--@Location 6,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyIterator0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyIterator.xml"/>
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode7"/>
+    <parameterBindings name="FilledIterator" objectPath="DomainAlerts"/>
+  </nodes>
+<!--@Location 6,15-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="DomainAlerts">
+    <nodeSuccessors name="next" next="GetCurrentDate1"/>
+    <entry key="Alert">
+<!--@BendPoints 13,32-->
+      <nodeSuccessors name="loop_entry_next" next="GetCustomAttributes0"/>
+    </entry>
+  </nodes>
+<!--@Location 6,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCustomAttributes0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="GetLocale0"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Alert"/>
+  </nodes>
+<!--@Location 6,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale0">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+    <parameterBindings name="LocaleId" objectPath="AttributeValuesMap:NotificationMailAddress:LocaleID"/>
+  </nodes>
+<!--@Location 6,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="Alert:Product:UUID">
+    <nodeSuccessors name="decision_yes" next="GetProductBOByID1"/>
+<!--@BendPoints 16,37 16,41-->
+    <nodeSuccessors name="decision_no" next="JoinNode31"/>
+  </nodes>
+<!--@Location 6,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductBOByID1">
+    <pipelet href="enfinity:/bc_product/pipelets/GetProductBOByID.xml"/>
+<!--@BendPoints 15,39-->
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode31"/>
+    <parameterBindings name="ID" objectPath="Alert:Product:UUID"/>
+  </nodes>
+<!--@Location 7,21-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="ProductBO:isEndOfLife"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="JoinNode30"/>
+<!--@BendPoints 17,43-->
+    <nodeSuccessors name="decision_no" next="DecisionNode7"/>
+  </nodes>
+<!--@Location 7,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode30">
+    <nodeSuccessors name="next" next="JoinNode16"/>
+  </nodes>
+<!--@Location 6,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 6,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode20"/>
+    <parameterBindings name="InValue_1" objectPath="MailDeleteTemplate"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTemplate"/>
+  </nodes>
+<!--@Location 7,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+    <nodeSuccessors name="next" next="GetUserBO0"/>
+  </nodes>
+<!--@Location 7,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserBO0">
+    <pipelet href="enfinity:/bc_user/pipelets/GetUserBO.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+    <parameterBindings name="UserID" objectPath="Alert:User:ID"/>
+  </nodes>
+<!--@Location 7,25-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="AttributeValuesMap:Value">
+    <nodeSuccessors name="decision_yes" next="GetCurrency0"/>
+<!--@BendPoints 17,51-->
+    <nodeSuccessors name="decision_no" next="ProcessMail3"/>
+  </nodes>
+<!--@Location 7,26-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrency0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrency.xml"/>
+    <nodeSuccessors name="next" next="ProcessMail0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode23"/>
+    <parameterBindings name="Mnemonic" objectPath="AttributeValuesMap:Value:StringValue"/>
+  </nodes>
+<!--@Location 7,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail0">
+    <configurationValues name="WaitForResult" value="true"/>
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="JoinNode19"/>
+    <parameterBindings name="CurrencyCode" objectPath="Currency:Mnemonic"/>
+    <parameterBindings name="Domain" nullBinding="true"/>
+    <parameterBindings name="LocaleID" objectPath="AttributeValuesMap:NotificationMailAddress:LocaleID"/>
+    <parameterBindings name="MailTo" objectPath="AttributeValuesMap:NotificationMailAddress:StringValue"/>
+  </nodes>
+<!--@Location 7,28-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+  </nodes>
+<!--@Location 7,29-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="MailResult"
+      operator="str_eq" conditionValue="ok">
+    <nodeSuccessors name="decision_yes" next="RemoveAlert0"/>
+<!--@BendPoints 16,59-->
+    <nodeSuccessors name="decision_no" next="GetPropertyValue0"/>
+  </nodes>
+<!--@Location 7,30-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAlert0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveAlert.xml"/>
+    <nodeSuccessors name="next" next="JoinNode18"/>
+  </nodes>
+<!--@Location 7,31-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+<!--@BendPoints 11,63-->
+    <nodeSuccessors name="next" next="JoinNode23"/>
+  </nodes>
+<!--@Location 5,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode23">
+<!--@BendPoints 11,53 11,49-->
+    <nodeSuccessors name="next" next="JoinNode22"/>
+  </nodes>
+<!--@Location 5,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode22">
+<!--@BendPoints 11,31-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 8,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPropertyValue0">
+    <configurationValues name="DefaultPropertyValue" value=":"/>
+    <configurationValues name="PropertyName" value="intershop.SMTPServer"/>
+    <configurationValues name="PropertyType" value="Global"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPropertyValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode17"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode21"/>
+    <returnValueBindings name="PropertyValue" objectPath="ServerName"/>
+  </nodes>
+<!--@Location 9,29-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+<!--@BendPoints 19,63-->
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 8,31-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode21">
+    <nodeSuccessors name="next" next="JoinNode18"/>
+  </nodes>
+<!--@Location 8,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail3">
+    <configurationValues name="WaitForResult" value="true"/>
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+<!--@BendPoints 17,57-->
+    <nodeSuccessors name="next" next="JoinNode19"/>
+    <parameterBindings name="Domain" nullBinding="true"/>
+    <parameterBindings name="LocaleID" objectPath="AttributeValuesMap:NotificationMailAddress:LocaleID"/>
+    <parameterBindings name="MailTo" objectPath="AttributeValuesMap:NotificationMailAddress:StringValue"/>
+  </nodes>
+<!--@Location 8,22-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="Alert:Satisfied"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 17,46-->
+    <nodeSuccessors name="decision_yes" next="KeyMapper1"/>
+<!--@BendPoints 19,45-->
+    <nodeSuccessors name="decision_no" next="JoinNode17"/>
+  </nodes>
+<!--@Location 8,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode20"/>
+    <parameterBindings name="InValue_1" objectPath="MailMainTemplate"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTemplate"/>
+  </nodes>
+<!--@Location 6,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode31">
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+  </nodes>
+<!--AlertProductName is used in the mail template
+@Location 6,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode16"/>
+    <parameterBindings name="InValue_1" objectPath="AttributeValuesMap:AlertProductName:StringValue"/>
+    <parameterBindings name="InValue_10" objectPath="AttributeValuesMap:ProductImagePath:StringValue"/>
+    <returnValueBindings name="OutValue_1" objectPath="AlertProductName"/>
+    <returnValueBindings name="OutValue_10" objectPath="ProductImagePath"/>
+  </nodes>
+<!--@Location 9,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <configurationValues name="ForceApplicationServerTimeZone" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="UpdateSyncRecord2"/>
+    <returnValueBindings name="CurrentDate" objectPath="StopTime"/>
+  </nodes>
+<!--@Location 9,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateSyncRecord2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateSyncRecord.xml"/>
+    <nodeSuccessors name="next" next="CalculateDate0"/>
+    <parameterBindings name="StopTime" objectPath="StopTime"/>
+    <parameterBindings name="TargetObject" objectPath="Container"/>
+  </nodes>
+<!--@Location 9,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDate0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CalculateDate.xml"/>
+    <nodeSuccessors name="next" next="UpdateSyncRecord4"/>
+    <parameterBindings name="Date" objectPath="StopTime"/>
+    <parameterBindings name="Milliseconds" objectPath="SyncRecord:Interval"/>
+    <returnValueBindings name="CalculatedDate" objectPath="NextStartDate"/>
+  </nodes>
+<!--@Location 9,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateSyncRecord4">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateSyncRecord.xml"/>
+    <nodeSuccessors name="next" next="EndNode8"/>
+    <parameterBindings name="StartTime" objectPath="NextStartDate"/>
+    <parameterBindings name="TargetObject" objectPath="Container"/>
+  </nodes>
+<!--@Location 9,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" strict="true"/>
+<!--@Location 7,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true"/>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="No" next="EndNode6"/>
+    <nodeSuccessors name="Yes" next="JoinNode15"/>
+    <startNode referencedName="ProcessProductNotification-ShouldNotificationsBeProcessed"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true"/>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+<!--@BendPoints 15,12-->
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="ERROR" strict="true"/>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="JoinNode13"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--@Deprecated since IS 7.4.4
+Replaced by SendNotificationEMails
+@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="SendNotifications" callMode="Private">
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="GetDomainPreference6"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference6">
+    <configurationValues name="DefaultPreferenceKey" value="ProductNotificationEmailFrom"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="GetDomainPreference5"/>
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference5">
+    <configurationValues name="DefaultPreferenceKey" value="ProductNotificationEmailSubject"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+<!--@BendPoints 3,8-->
+    <nodeSuccessors name="next" next="GetDomainPreference4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailSubject"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference4">
+    <configurationValues name="DefaultPreferenceKey" value="ProductNotificationEmailTemplate"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="GetDomainPreference2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailMainTemplate"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference2">
+    <configurationValues name="DefaultPreferenceKey" value="ProductNotificationEmailDeleteTemplate"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="ObtainSyncRecordContainer1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailDeleteTemplate"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ObtainSyncRecordContainer1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/ObtainSyncRecordContainer.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameterBindings name="ExtensibleObject" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="SynchRecordContainer" objectPath="Container"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="TriggeredManually"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="CallNode1"/>
+<!--@BendPoints 5,15 5,19-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 4,18 7,18-->
+    <nodeSuccessors name="No" next="EndNode5"/>
+    <nodeSuccessors name="Yes" next="JoinNode0"/>
+    <startNode referencedName="ProcessProductNotification-ShouldNotificationsBeProcessed"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5"/>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="GetCurrentDate2"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate2">
+    <configurationValues name="ForceApplicationServerTimeZone" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="UpdateSyncRecord1"/>
+    <returnValueBindings name="CurrentDate" objectPath="StartTime"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateSyncRecord1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateSyncRecord.xml"/>
+    <nodeSuccessors name="next" next="GetAlertsByDomain2"/>
+    <parameterBindings name="StartTime" objectPath="StartTime"/>
+    <parameterBindings name="TargetObject" objectPath="Container"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAlertsByDomain2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetAlertsByDomain.xml"/>
+    <nodeSuccessors name="next" next="Pipelet1"/>
+    <parameterBindings name="AlertDomain" objectPath="ChannelRepository:Domain"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyIterator.xml"/>
+    <nodeSuccessors name="next" next="Loop4"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+    <parameterBindings name="FilledIterator" objectPath="DomainAlerts"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop4" loop="DomainAlerts">
+    <nodeSuccessors name="next" next="GetCurrentDate3"/>
+    <entry key="Alert">
+<!--@BendPoints 3,30-->
+      <nodeSuccessors name="loop_entry_next" next="GetCustomAttributes3"/>
+    </entry>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCustomAttributes3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="GetLocale1"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Alert"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper4"/>
+    <parameterBindings name="LocaleId" objectPath="AttributeValuesMap:NotificationMailAddress:LocaleID"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DetermineProduct0"/>
+    <parameterBindings name="InValue_1" objectPath="Alert:ProductRef"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProductRef"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineProduct0">
+    <pipelet href="enfinity:/xcs/pipelets/DetermineProduct.xml"/>
+<!--@BendPoints 5,37-->
+    <nodeSuccessors name="next" next="Decision3"/>
+    <nodeSuccessors name="pipelet_error" next="KeyMapper9"/>
+  </nodes>
+<!--@Location 2,19-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="Product:isEndOfLife"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="KeyMapper5"/>
+<!--@BendPoints 7,39-->
+    <nodeSuccessors name="decision_no" next="Decision1"/>
+  </nodes>
+<!--@Location 2,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 5,43-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="InValue_1" objectPath="Product:Name(Locale)"/>
+    <returnValueBindings name="OutValue_1" objectPath="AlertProductName"/>
+  </nodes>
+<!--@Location 1,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="KeyMapper3"/>
+  </nodes>
+<!--@Location 1,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InValue_1" objectPath="MailDeleteTemplate"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTemplate"/>
+  </nodes>
+<!--@Location 2,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="ProcessMail2"/>
+  </nodes>
+<!--@Location 2,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail2">
+    <configurationValues name="WaitForResult" value="true"/>
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+<!--@BendPoints 6,47 6,49-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="Domain" nullBinding="true"/>
+    <parameterBindings name="LocaleID" objectPath="AttributeValuesMap:NotificationMailAddress:LocaleID"/>
+    <parameterBindings name="MailTo" objectPath="AttributeValuesMap:NotificationMailAddress:StringValue"/>
+  </nodes>
+<!--@Location 2,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="Decision4"/>
+  </nodes>
+<!--@Location 2,25-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision4" conditionKey="MailResult"
+      operator="str_eq" conditionValue="ok">
+    <nodeSuccessors name="decision_yes" next="RemoveAlert2"/>
+<!--@BendPoints 6,51-->
+    <nodeSuccessors name="decision_no" next="GetPropertyValue1"/>
+  </nodes>
+<!--@Location 2,26-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAlert2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveAlert.xml"/>
+    <nodeSuccessors name="next" next="Join5"/>
+  </nodes>
+<!--@Location 2,27-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+<!--@BendPoints 1,55 1,29-->
+    <nodeSuccessors name="next" next="Loop4_Entry"/>
+  </nodes>
+<!--@Location 3,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPropertyValue1">
+    <configurationValues name="DefaultPropertyValue" value=":"/>
+    <configurationValues name="PropertyName" value="intershop.SMTPServer"/>
+    <configurationValues name="PropertyType" value="Global"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPropertyValue.xml"/>
+    <nodeSuccessors name="next" next="Join6"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <returnValueBindings name="PropertyValue" objectPath="ServerName"/>
+  </nodes>
+<!--@Location 4,25-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+<!--@BendPoints 9,55-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 3,27-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="Join5"/>
+  </nodes>
+<!--@Location 3,21-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="Alert:Satisfied"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 7,44-->
+    <nodeSuccessors name="decision_yes" next="KeyMapper8"/>
+<!--@BendPoints 9,43-->
+    <nodeSuccessors name="decision_no" next="Join6"/>
+  </nodes>
+<!--@Location 3,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper8">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InValue_1" objectPath="MailMainTemplate"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTemplate"/>
+  </nodes>
+<!--AlertProductName is used in the mail template
+@Location 1,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper9">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="InValue_1" objectPath="AttributeValuesMap:AlertProductName:StringValue"/>
+    <returnValueBindings name="OutValue_1" objectPath="AlertProductName"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate3">
+    <configurationValues name="ForceApplicationServerTimeZone" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="UpdateSyncRecord6"/>
+    <returnValueBindings name="CurrentDate" objectPath="StopTime"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateSyncRecord6">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateSyncRecord.xml"/>
+    <nodeSuccessors name="next" next="CalculateDate2"/>
+    <parameterBindings name="StopTime" objectPath="StopTime"/>
+    <parameterBindings name="TargetObject" objectPath="Container"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDate2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CalculateDate.xml"/>
+    <nodeSuccessors name="next" next="UpdateSyncRecord3"/>
+    <parameterBindings name="Date" objectPath="StopTime"/>
+    <parameterBindings name="Milliseconds" objectPath="SyncRecord:Interval"/>
+    <returnValueBindings name="CalculatedDate" objectPath="NextStartDate"/>
+  </nodes>
+<!--@Location 3,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateSyncRecord3">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateSyncRecord.xml"/>
+    <nodeSuccessors name="next" next="End3"/>
+    <parameterBindings name="StartTime" objectPath="NextStartDate"/>
+    <parameterBindings name="TargetObject" objectPath="Container"/>
+  </nodes>
+<!--@Location 3,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 5,12-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="ERROR"/>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 13,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="SendUnsubscribeNotificationEMail"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode12"/>
+    <parameters name="ChannelRepository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="ProductBO" type="com.intershop.component.product.capi.ProductBO"
+        optional="true"/>
+    <parameters name="AlertUUID" type="java.lang.String"/>
+    <parameters name="UserBORepository" type="com.intershop.component.user.capi.UserBORepository"/>
+  </nodes>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="ProductBO">
+    <nodeSuccessors name="decision_yes" next="GetDomainPreference10"/>
+<!--@BendPoints 31,5-->
+    <nodeSuccessors name="decision_no" next="JoinNode25"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference10">
+    <configurationValues name="DefaultPreferenceKey" value="ProductNotificationEmailFrom"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+<!--@BendPoints 27,8-->
+    <nodeSuccessors name="next" next="GetDomainPreference11"/>
+<!--@BendPoints 29,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode24"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference11">
+    <configurationValues name="DefaultPreferenceKey" value="ProductNotificationEmailSubject"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+<!--@BendPoints 27,10-->
+    <nodeSuccessors name="next" next="GetDomainPreference9"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode24"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailSubject"/>
+  </nodes>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference9">
+    <configurationValues name="DefaultPreferenceKey" value="ProductNotificationEmailTemplate"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode26"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailMainTemplate"/>
+  </nodes>
+<!--@Location 13,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue0">
+    <configurationValues name="Name" value="Unsubscribe"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="GetAlertByUUID0"/>
+  </nodes>
+<!--@Location 13,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAlertByUUID0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetAlertByUUID.xml"/>
+    <nodeSuccessors name="next" next="GetUserBO2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode25"/>
+  </nodes>
+<!--@Location 13,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserBO2">
+    <pipelet href="enfinity:/bc_user/pipelets/GetUserBO.xml"/>
+    <nodeSuccessors name="next" next="GetCustomAttributes1"/>
+    <parameterBindings name="UserID" objectPath="Alert:User:ID"/>
+  </nodes>
+<!--@Location 13,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCustomAttributes1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="GetLocale2"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Alert"/>
+  </nodes>
+<!--@Location 13,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale2">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="ProcessMail1"/>
+    <parameterBindings name="LocaleId" objectPath="AttributeValuesMap:NotificationMailAddress:LocaleID"/>
+  </nodes>
+<!--@Location 13,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail1">
+    <configurationValues name="WaitForResult" value="true"/>
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode11"/>
+    <parameterBindings name="Domain" nullBinding="true"/>
+    <parameterBindings name="LocaleID" objectPath="AttributeValuesMap:NotificationMailAddress:LocaleID"/>
+    <parameterBindings name="MailTemplate" objectPath="MailMainTemplate"/>
+    <parameterBindings name="MailTo" objectPath="AttributeValuesMap:NotificationMailAddress:StringValue"/>
+  </nodes>
+<!--@Location 13,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="MailResult"
+      operator="str_eq" conditionValue="ok">
+<!--@BendPoints 27,31-->
+    <nodeSuccessors name="decision_yes" next="JoinNode28"/>
+<!--@BendPoints 28,27-->
+    <nodeSuccessors name="decision_no" next="GetPropertyValue2"/>
+  </nodes>
+<!--@Location 15,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode28">
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 15,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" strict="true"/>
+<!--@Location 14,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPropertyValue2">
+    <configurationValues name="DefaultPropertyValue" value=":"/>
+    <configurationValues name="PropertyName" value="intershop.SMTPServer"/>
+    <configurationValues name="PropertyType" value="Global"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPropertyValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode29"/>
+<!--@BendPoints 29,29-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode27"/>
+    <returnValueBindings name="PropertyValue" objectPath="ServerName"/>
+  </nodes>
+<!--@Location 15,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode29">
+    <nodeSuccessors name="next" next="JoinNode27"/>
+  </nodes>
+<!--@Location 15,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode27">
+    <nodeSuccessors name="next" next="JoinNode28"/>
+  </nodes>
+<!--@Location 15,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode25">
+    <nodeSuccessors name="next" next="JoinNode29"/>
+  </nodes>
+<!--@Location 14,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode26">
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 14,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="ERROR" strict="true"/>
+<!--@Location 14,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode24">
+    <nodeSuccessors name="next" next="JoinNode26"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="ShouldNotificationsBeProcessed"
+      callMode="Private">
+<!--@BendPoints 19,4-->
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameters name="SyncRecord" type="com.intershop.component.mvc.capi.catalog.SyncRecord"
+        optional="true"/>
+    <parameters name="JobStartTime" type="java.util.Date"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="SyncRecord:StartTime">
+    <nodeSuccessors name="decision_yes" next="DecisionNode4"/>
+<!--@BendPoints 21,5-->
+    <nodeSuccessors name="decision_no" next="JoinNode9"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="SyncRecord:Interval">
+    <nodeSuccessors name="decision_yes" next="DecisionNode5"/>
+    <nodeSuccessors name="decision_no" next="JoinNode9"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="SyncRecord:Interval"
+      operator="gt" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="IsDateBefore1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="IsDateBefore1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/IsDateBefore.xml"/>
+<!--@BendPoints 19,12-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="Date1" objectPath="SyncRecord:StartTime"/>
+    <parameterBindings name="Date2" objectPath="JobStartTime"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="Yes" strict="true"/>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 21,12-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 10,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="No" strict="true"/>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+</pipeline:Pipeline>

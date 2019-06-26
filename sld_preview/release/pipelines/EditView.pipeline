@@ -1,0 +1,1565 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Pagelet-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="EditView" type="view">
+<!--GetPreviewChannel can surely be removed as this has been replaced by the Application Context.
+@Location 4,6-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--UpdateTargetURL \- 3 different start node calles:
+\- Start: the cookie may exist, and we can get the URL from it
+\- CleanStart: getting the cookie url is never called
+\- Update: getting the cookie url is never called
+@Location 11,27-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1" width="2"/>
+<!--Check if edited channel site belongs to 
+current enterprise organization.
+
+Removing the call to this pipeline,
+because it's unclear how to present this
+error case to the Backoffice User.
+@Location 19,17-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode2" height="1" width="2"/>
+<!--Has to be overridden by sld_enterprise_app
+@Location 15,2-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode3"/>
+<!--Force the Storefront\-Application to use 
+the same protocols as the Backoffice, 
+which is https
+@Location 2,28-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode4" width="1"/>
+<!--An internal private start node
+to verify that required values
+are in the pipeline dictionary.
+
+consider making this strict
+@Location 10,18-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode5"/>
+<!--@Location 17,16-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" strict="true" name="CheckEditedSite"
+      callMode="Private">
+<!--@BendPoints 35,34-->
+    <nodeSuccessors name="next" next="GetStringSubstitution1"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="TargetSite" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 17,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetStringSubstitution1">
+    <configurationValues name="DefaultPattern" value="-.*"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetStringSubstitution.xml"/>
+<!--@BendPoints 35,36-->
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+<!--@BendPoints 37,35-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+    <parameterBindings name="InputString" objectPath="TargetSite:DomainName"/>
+    <parameterBindings name="Pattern" nullBinding="true"/>
+    <parameterBindings name="SubstitutionPattern" nullBinding="true"/>
+    <returnValueBindings name="OutputString" objectPath="TargetSiteOwnerOrganization"/>
+  </nodes>
+<!--@Location 17,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="TargetSiteOwnerOrganization"
+      operator="str_eq" conditionItem="CurrentOrganization:Domain:DomainName">
+    <nodeSuccessors name="decision_yes" next="EndNode6"/>
+    <nodeSuccessors name="decision_no" next="JoinNode7"/>
+  </nodes>
+<!--@Location 17,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true">
+    <returnValues name="ErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 18,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="SetDictionaryValue1"/>
+  </nodes>
+<!--@Location 18,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="IncorrectTargetSite"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 37,40-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 4,23-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="CleanCookies" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode15"/>
+  </nodes>
+<!--@Location 4,24-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode15" conditionKey="CurrentRequest:Secure"
+      operator="str_eq" conditionValue="false">
+    <nodeSuccessors name="decision_yes" next="CreateURL0"/>
+    <nodeSuccessors name="decision_no" next="CreateURL1"/>
+  </nodes>
+<!--@Location 4,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateURL0">
+    <configurationValues name="SessionLess" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateURL.xml"/>
+    <nodeSuccessors name="next" next="JoinNode29"/>
+    <parameterBindings name="Action" constant="EditView-Start"/>
+    <parameterBindings name="CurrencyMnemonic" objectPath="CurrentRequest:Currency:Mnemonic"/>
+    <parameterBindings name="DomainName" objectPath="CurrentDomain:DomainName"/>
+    <parameterBindings name="LocaleID" objectPath="CurrentRequest:Locale:LocaleID"/>
+    <parameterBindings name="Params" nullBinding="true"/>
+    <parameterBindings name="Protocol" constant="http"/>
+  </nodes>
+<!--@Location 4,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode29">
+    <nodeSuccessors name="next" next="PipeletNode0"/>
+  </nodes>
+<!--@Location 4,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PipeletNode0">
+    <pipelet href="enfinity:/sld_preview/pipelets/GetCookiePath.xml"/>
+    <nodeSuccessors name="next" next="UpdateDictionary1"/>
+    <parameterBindings name="URLString" objectPath="CreatedURL"/>
+    <returnValueBindings name="Path" objectPath="CookiePath"/>
+  </nodes>
+<!--@Location 4,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary1">
+    <configurationValues name="Name_01" value="sfe-application-state-app-url"/>
+    <configurationValues name="Name_02" value="sfe-application-state-panel-url"/>
+    <configurationValues name="Name_03" value="sfe-application-state-tree-id"/>
+    <configurationValues name="Name_04" value="sfe-application-state-component-id"/>
+    <configurationValues name="Name_05" value="sfe-application-state-ew-percent"/>
+    <configurationValues name="Name_06" value="sfe-application-state-ns-px"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="ConcatenateStrings0"/>
+    <parameterBindings name="Value_01" constant=""/>
+    <parameterBindings name="Value_02" constant=""/>
+    <parameterBindings name="Value_03" constant=""/>
+    <parameterBindings name="Value_04" constant=""/>
+    <parameterBindings name="Value_05" constant=""/>
+    <parameterBindings name="Value_06" constant=""/>
+    <returnValueBindings name="OutDictionary" objectPath="CookiesMap"/>
+  </nodes>
+<!--@Location 4,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings0">
+    <configurationValues name="DefaultString1" value="/"/>
+    <configurationValues name="DefaultString3" value="/"/>
+    <configurationValues name="DefaultString5" value="/"/>
+    <configurationValues name="DefaultString7" value="/"/>
+    <configurationValues name="DefaultString9" value="/"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <parameterBindings name="String1" nullBinding="true"/>
+    <parameterBindings name="String2" objectPath="URLInformation:ServerGroup"/>
+    <parameterBindings name="String3" nullBinding="true"/>
+    <parameterBindings name="String4" objectPath="URLInformation:DomainName"/>
+    <parameterBindings name="String5" nullBinding="true"/>
+    <parameterBindings name="String6" objectPath="URLInformation:LangID"/>
+    <parameterBindings name="String7" nullBinding="true"/>
+    <returnValueBindings name="Concatenated" objectPath="CookieName"/>
+  </nodes>
+<!--@Location 4,30-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="CookiesMap:KeySet">
+<!--@BendPoints 11,61-->
+    <nodeSuccessors name="next" next="EndNode8"/>
+    <entry key="CookieKey">
+      <nodeSuccessors name="loop_entry_next" next="Pipelet1"/>
+    </entry>
+  </nodes>
+<!--@Location 4,31-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="SetCookie3"/>
+    <parameterBindings name="String0" objectPath="CookieKey"/>
+    <parameterBindings name="String1" constant="_"/>
+    <parameterBindings name="String2" objectPath="ContentRepositoryUUID"/>
+    <returnValueBindings name="Concatenated" objectPath="CookieName"/>
+  </nodes>
+<!--@Location 4,32-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetCookie3">
+    <configurationValues name="MaxAge" value="0"/>
+    <configurationValues name="Value" value="&quot;&quot;"/>
+    <pipelet href="enfinity:/core/pipelets/SetCookie.xml"/>
+<!--@BendPoints 9,66 8,61-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <parameterBindings name="Name" objectPath="CookieName"/>
+    <parameterBindings name="Path" objectPath="CookiePath"/>
+    <parameterBindings name="Value" nullBinding="true"/>
+  </nodes>
+<!--@Location 5,32-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8"/>
+<!--@Location 5,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateURL1">
+    <configurationValues name="SessionLess" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateURL.xml"/>
+    <nodeSuccessors name="next" next="JoinNode29"/>
+    <parameterBindings name="Action" constant="EditView-Start"/>
+    <parameterBindings name="CurrencyMnemonic" objectPath="CurrentRequest:Currency:Mnemonic"/>
+    <parameterBindings name="DomainName" objectPath="CurrentDomain:DomainName"/>
+    <parameterBindings name="LocaleID" objectPath="CurrentRequest:Locale:LocaleID"/>
+    <parameterBindings name="Params" nullBinding="true"/>
+    <parameterBindings name="Protocol" constant="https"/>
+  </nodes>
+<!--@Location 15,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode21" name="Dispatch">
+<!--@BendPoints 31,3-->
+    <nodeSuccessors name="next" next="JoinNode39"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode39">
+    <nodeSuccessors name="next" next="InteractionNode5"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode5">
+    <template referencedName="inc/Dummy"/>
+  </nodes>
+<!--@Location 22,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode13" strict="true" name="GetApplicationAuhorizationObject"
+      callMode="Private">
+    <nodeSuccessors name="next" next="EndNode15"/>
+  </nodes>
+<!--@Location 22,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true">
+    <returnValues name="ApplicationAuthorizationObject" type="com.intershop.beehive.core.capi.security.AuthorizationObject"/>
+  </nodes>
+<!--@Location 24,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode29" strict="true" name="GetContentRepositoryByApplicationBO"
+      callMode="Private">
+    <nodeSuccessors name="next" next="EndNode22"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--@Location 24,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode22" strict="true">
+    <returnValues name="ContentRepository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--Get the URL from the value of the cookie sfe\-application\-state\-app\-url_[ContentRepositoryUUID] cookie.
+
+@Location 17,23-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="GetCookieURL"
+      callMode="Private">
+<!--@BendPoints 35,48-->
+    <nodeSuccessors name="next" next="Pipelet8"/>
+    <parameters name="ContentRepositoryUUID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 17,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet8">
+    <configurationValues name="DefaultString0" value="sfe-application-state-app-url"/>
+    <configurationValues name="DefaultString1" value="_"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="GetCookie2"/>
+    <parameterBindings name="String2" objectPath="ContentRepositoryUUID"/>
+    <returnValueBindings name="Concatenated" objectPath="CookieName"/>
+  </nodes>
+<!--@Location 17,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCookie2">
+    <pipelet href="enfinity:/core/pipelets/GetCookie.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+<!--@BendPoints 37,51-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode20"/>
+    <parameterBindings name="Name" objectPath="CookieName"/>
+  </nodes>
+<!--@Location 17,26-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="Cookie">
+    <nodeSuccessors name="decision_yes" next="DecodeHTMLString2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode20"/>
+  </nodes>
+<!--@Location 17,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DecodeHTMLString2">
+    <pipelet href="enfinity:/core/pipelets/DecodeHTMLString.xml"/>
+    <nodeSuccessors name="next" next="JoinNode21"/>
+    <parameterBindings name="Encoded" objectPath="Cookie:Value"/>
+    <returnValueBindings name="Decoded" objectPath="CookieUrl"/>
+  </nodes>
+<!--@Location 17,28-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode21">
+<!--@BendPoints 35,58-->
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 17,29-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" strict="true">
+    <returnValues name="CookieUrl" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 18,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+<!--@BendPoints 37,57-->
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 5,18-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode27" strict="true" visibility="Private"
+      name="GetCurrentApplication" callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+  </nodes>
+<!--@Location 5,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper5"/>
+  </nodes>
+<!--@Location 5,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode20"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Extension(&quot;(Class)com.intershop.beehive.core.capi.domain.PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <returnValueBindings name="OutValue_1" objectPath="CurrentApplication"/>
+  </nodes>
+<!--@Location 5,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode20" strict="true">
+    <returnValues name="CurrentApplication" type="com.intershop.beehive.core.capi.domain.Application"
+        optional="true"/>
+  </nodes>
+<!--@Location 25,16-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="GetDefaultApplication"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode1"/>
+<!--The domain of the applications.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 25,17-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Domain:Applications">
+<!--@BendPoints 54,35-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <entry key="DefaultApplication">
+<!--@BendPoints 51,36 50,37-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode4"/>
+    </entry>
+  </nodes>
+<!--@Location 25,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="DefaultApplication:Default"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 54,37-->
+    <nodeSuccessors name="decision_yes" next="EndNode1"/>
+<!--@BendPoints 51,38 49,35-->
+    <nodeSuccessors name="decision_no" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 27,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+<!--The collection of applications.-->
+    <returnValues name="DefaultApplication" type="com.intershop.beehive.core.capi.domain.Application"/>
+  </nodes>
+<!--@Location 27,17-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="ERROR" strict="true"/>
+<!--@Location 23,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode30" strict="true" name="GetPermissionMap"
+      callMode="Private">
+    <nodeSuccessors name="next" next="EndNode23"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 23,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode23" strict="true">
+    <returnValues name="PermissionMap" type="java.util.HashMap"/>
+  </nodes>
+<!--@Location 15,31-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode24" strict="true" name="GetPreferredPreviewContextBO"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+  </nodes>
+<!--@Location 15,32-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode35"/>
+  </nodes>
+<!--@Location 15,33-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode35">
+    <nodeSuccessors name="next" next="CallNode38"/>
+    <startNode referencedName="EditView-GetTargetApplicationBO"/>
+    <returnValueBindings name="TargetApplicationBO" objectPath="PreferredApplicationBO"/>
+  </nodes>
+<!--@Location 15,34-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode38">
+<!--@BendPoints 31,70-->
+    <nodeSuccessors name="next" next="EndNode19"/>
+    <nodeSuccessors name="ERROR" next="JoinNode8"/>
+    <parameterBindings name="ApplicationBO" objectPath="PreferredApplicationBO"/>
+    <startNode referencedName="ProcessPreviewContext-Get"/>
+    <returnValueBindings name="PreviewContextBO" objectPath="PreferredPreviewContextBO"/>
+  </nodes>
+<!--@Location 15,35-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode19" name="" strict="true">
+    <returnValues name="PreferredPreviewContextBO" type="com.intershop.component.preview.capi.context.PreviewContextBO"/>
+  </nodes>
+<!--@Location 16,34-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="EndNode24"/>
+  </nodes>
+<!--@Location 16,35-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode24" name="Error" strict="true"/>
+<!--@Location 25,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode28" strict="true" name="GetPreviewChannel"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+    <parameters name="CurrentChannel" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+    <parameters name="OrganizationDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+  </nodes>
+<!--@Location 25,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Repository">
+<!--@BendPoints 55,21-->
+    <nodeSuccessors name="decision_yes" next="KeyMapper8"/>
+<!--@BendPoints 51,22-->
+    <nodeSuccessors name="decision_no" next="DecisionNode7"/>
+  </nodes>
+<!--@Location 27,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper8">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode17"/>
+    <parameterBindings name="InValue_1" objectPath="Repository"/>
+    <returnValueBindings name="OutValue_1" objectPath="PreviewChannel"/>
+  </nodes>
+<!--@Location 26,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+    <nodeSuccessors name="next" next="JoinNode16"/>
+  </nodes>
+<!--@Location 25,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+    <nodeSuccessors name="next" next="EndNode21"/>
+  </nodes>
+<!--@Location 25,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode21" strict="true">
+    <returnValues name="PreviewChannel" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 25,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="CurrentChannel">
+<!--@BendPoints 51,24-->
+    <nodeSuccessors name="decision_yes" next="KeyMapper3"/>
+<!--@BendPoints 53,23 53,24-->
+    <nodeSuccessors name="decision_no" next="CallNode20"/>
+  </nodes>
+<!--@Location 25,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode16"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentChannel"/>
+    <returnValueBindings name="OutValue_1" objectPath="PreviewChannel"/>
+  </nodes>
+<!--@Location 26,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode20">
+    <nodeSuccessors name="next" next="JoinNode17"/>
+    <startNode referencedName="PreviewLinks-GetPreviewRepository"/>
+    <returnValueBindings name="Repository" objectPath="PreviewChannel"/>
+  </nodes>
+<!--@Location 1,27-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode19" strict="true" name="GetStorefrontEditingParameters"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet4"/>
+<!--Represents the management application (context)-->
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_SecureURL"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="Pipelet5"/>
+    <parameterBindings name="SaveObject" constant="https"/>
+    <returnValueBindings name="LoadObject" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_InsecureURL"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+    <parameterBindings name="SaveObject" constant="https"/>
+    <returnValueBindings name="LoadObject" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,31-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="ApplicationBO">
+    <nodeSuccessors name="decision_yes" next="JoinNode27"/>
+    <nodeSuccessors name="decision_no" next="GetApplicationBO2"/>
+  </nodes>
+<!--@Location 1,32-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode27">
+    <nodeSuccessors name="next" next="CallNode49"/>
+  </nodes>
+<!--@Location 1,33-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode49">
+    <nodeSuccessors name="next" next="EndNode12"/>
+    <startNode referencedName="EditView-GetContentRepositoryByApplicationBO"/>
+  </nodes>
+<!--@Location 1,34-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" strict="true">
+    <returnValues name="BackofficeUserID" type="java.lang.String" optional="true"/>
+    <returnValues name="ContentRepository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 2,31-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO2">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="JoinNode27"/>
+  </nodes>
+<!--@Location 21,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode17" strict="true" name="GetTargetApplicationBO"
+      callMode="Private">
+    <nodeSuccessors name="next" next="EndNode11"/>
+<!--The backoffice application BO (to get the application BO repository from).-->
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--@Deprecated use ApplicationBO only-->
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="PreviewContextID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 21,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" strict="true">
+    <returnValues name="TargetApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--@Location 25,22-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="HasPreviewPermission"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode24"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 25,23-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode24">
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+    <startNode referencedName="EditView-GetPermissionMap"/>
+  </nodes>
+<!--@Location 25,24-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="PermissionMap:SLD_CONFIGURE_DESIGN_VIEW">
+    <nodeSuccessors name="decision_yes" next="EndNode13"/>
+<!--@BendPoints 53,49 53,50-->
+    <nodeSuccessors name="decision_no" next="EndNode14"/>
+  </nodes>
+<!--@Location 25,25-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" name="YES" strict="true"/>
+<!--@Location 26,25-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" name="NO" strict="true"/>
+<!--@Location 28,22-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode12" strict="true" name="HasStorefrontEditPermission"
+      callMode="Private">
+<!--@BendPoints 57,46-->
+    <nodeSuccessors name="next" next="CallNode25"/>
+  </nodes>
+<!--@Location 28,23-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode25">
+<!--@BendPoints 57,48-->
+    <nodeSuccessors name="next" next="DecisionNode13"/>
+    <startNode referencedName="EditView-GetPermissionMap"/>
+  </nodes>
+<!--@Location 28,24-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="PermissionMap:SLD_MANAGE_CONTENT">
+<!--@BendPoints 57,50-->
+    <nodeSuccessors name="decision_yes" next="EndNode16"/>
+<!--@BendPoints 59,49 59,50-->
+    <nodeSuccessors name="decision_no" next="EndNode17"/>
+  </nodes>
+<!--@Location 28,25-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" name="YES" strict="true"/>
+<!--@Location 29,25-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" name="NO" strict="true"/>
+<!--@Location 21,13-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" strict="true" name="InitializeStorefrontEditingContext"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateStorefrontEditingContext0"/>
+    <parameters name="ContentRepositoryUUID" type="java.lang.String" optional="true"/>
+    <parameters name="BackofficeUserID" type="java.lang.String" optional="true"/>
+    <parameters name="PageAssignment" type="com.intershop.component.pmc.capi.pagelet.assignment.PageletAssignment&lt;?>"
+        optional="true"/>
+    <parameters name="ContextDate" type="java.util.Date"/>
+    <parameters name="InsecureURL" type="java.lang.String" optional="true"/>
+    <parameters name="SecureURL" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 21,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStorefrontEditingContext0">
+    <configurationValues name="StorefrontEditingContextType" value="com.intershop.sellside.preview.internal.sfe.StorefrontEditingContextImpl"/>
+    <pipelet href="enfinity:/sld_preview/pipelets/CreateStorefrontEditingContext.xml"/>
+    <nodeSuccessors name="next" next="ExchangeSessionObject1"/>
+  </nodes>
+<!--@Location 21,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject1">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_StorefrontEditingContext"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+<!--@BendPoints 43,32-->
+    <nodeSuccessors name="next" next="ExchangeSessionObject3"/>
+    <parameterBindings name="SaveObject" objectPath="StorefrontEditingContext"/>
+    <parameterBindings name="SessionObjectName" nullBinding="true"/>
+  </nodes>
+<!--@Location 21,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject3">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_InsecureURL"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+<!--@BendPoints 43,34-->
+    <nodeSuccessors name="next" next="ExchangeSessionObject2"/>
+    <parameterBindings name="SaveObject" objectPath="InsecureURL"/>
+    <parameterBindings name="SessionObjectName" nullBinding="true"/>
+  </nodes>
+<!--@Location 21,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject2">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_SecureURL"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="EndNode7"/>
+    <parameterBindings name="SaveObject" objectPath="SecureURL"/>
+    <parameterBindings name="SessionObjectName" nullBinding="true"/>
+  </nodes>
+<!--@Location 21,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true"/>
+<!--@Location 8,18-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode16" name="InternalStart" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode9"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="TargetSite" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--The backoffice application BO containing the App and Site from which the form definitions can be loaded.-->
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBORepository"/>
+<!--The locale (of the backoffice), the form should be created for.-->
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="CookieUrl" type="java.lang.String" optional="true"/>
+    <parameters name="ContentObjectsCount" type="java.lang.Integer"/>
+  </nodes>
+<!--@Location 8,19-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="CallNode6"/>
+    <startNode referencedName="EditView-GetApplicationAuhorizationObject"/>
+  </nodes>
+<!--@Location 8,20-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="CallNode10"/>
+    <nodeSuccessors name="ERROR" next="JoinNode5"/>
+    <startNode referencedName="ProcessPreviewAttributeContext-CreateConfigurationAttributesMap"/>
+  </nodes>
+<!--@Location 8,21-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <nodeSuccessors name="ERROR" next="JoinNode11"/>
+    <parameterBindings name="ApplicationBO" objectPath="TargetApplicationBO"/>
+    <parameterBindings name="PreviewContextID" objectPath="CurrentSession:SessionID"/>
+    <startNode referencedName="ProcessPreviewContext-GetOrCreate"/>
+  </nodes>
+<!--@Location 8,22-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+<!--@BendPoints 19,46-->
+    <nodeSuccessors name="next" next="CallNode12"/>
+<!--@BendPoints 15,47 15,48-->
+    <nodeSuccessors name="NO" next="ExchangeSessionObject5"/>
+    <parameterBindings name="Repository" objectPath="ContentRepository"/>
+    <startNode referencedName="This:HasPreviewPermission"/>
+  </nodes>
+<!--@Location 9,23-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode12">
+<!--@BendPoints 19,48-->
+    <nodeSuccessors name="next" next="AddEntryToMap3"/>
+    <parameterBindings name="ApplicationBO" objectPath="TargetApplicationBO"/>
+    <startNode referencedName="ProcessConfigurationPanelWebform-Create"/>
+  </nodes>
+<!--@Location 9,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+<!--@BendPoints 19,50 18,51-->
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+    <parameterBindings name="InMap" nullBinding="true"/>
+    <parameterBindings name="Key" constant="rerender"/>
+    <parameterBindings name="Value" constant="true"/>
+    <returnValueBindings name="OutMap" objectPath="URLParameters"/>
+  </nodes>
+<!--@Location 9,25-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="PreviewWebform_submit">
+<!--@BendPoints 20,51-->
+    <nodeSuccessors name="decision_yes" next="CallNode2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode10"/>
+  </nodes>
+<!--@Location 10,25-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 22,51-->
+    <nodeSuccessors name="next" next="CallNode15"/>
+    <startNode referencedName="ProcessConfigurationPanelWebform-Update"/>
+  </nodes>
+<!--@Location 11,25-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode15">
+<!--@BendPoints 27,51-->
+    <nodeSuccessors name="next" next="ExecutePreviewContextProcessor2"/>
+    <parameterBindings name="TargetSiteName" objectPath="TargetSite:DomainName"/>
+    <startNode referencedName="ProcessPreviewContext-ModifyTargetURL"/>
+  </nodes>
+<!--@Location 13,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePreviewContextProcessor2">
+    <configurationValues name="PreviewContextProcessorName" value="UPDATE"/>
+    <pipelet href="enfinity:/sld_preview/pipelets/ExecutePreviewContextProcessor.xml"/>
+<!--@BendPoints 27,56-->
+    <nodeSuccessors name="next" next="CallNode16"/>
+  </nodes>
+<!--@Location 13,28-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode16">
+<!--@BendPoints 27,58-->
+    <nodeSuccessors name="next" next="InteractionNode2"/>
+    <startNode referencedName="ProcessPreviewContext-GetTransferable"/>
+  </nodes>
+<!--@Location 13,29-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode2">
+    <template referencedName="application/StorefrontPreviewLayer"/>
+  </nodes>
+<!--@Location 9,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 19,54-->
+    <nodeSuccessors name="next" next="CallNode4"/>
+  </nodes>
+<!--@Location 9,27-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="CallNode17"/>
+    <startNode referencedName="EditView-UpdateTargetURL"/>
+  </nodes>
+<!--@Location 9,28-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode17">
+<!--@BendPoints 19,58-->
+    <nodeSuccessors name="next" next="ExecutePreviewContextProcessor3"/>
+    <parameterBindings name="TargetSiteName" objectPath="TargetSite:DomainName"/>
+    <startNode referencedName="ProcessPreviewContext-ModifyTargetURL"/>
+  </nodes>
+<!--@Location 9,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePreviewContextProcessor3">
+    <configurationValues name="PreviewContextProcessorName" value="CREATE"/>
+    <pipelet href="enfinity:/sld_preview/pipelets/ExecutePreviewContextProcessor.xml"/>
+<!--@BendPoints 19,60-->
+    <nodeSuccessors name="next" next="CallNode14"/>
+  </nodes>
+<!--@Location 9,30-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode14">
+    <nodeSuccessors name="next" next="JoinNode13"/>
+    <startNode referencedName="ProcessPreviewContext-GetTransferable"/>
+  </nodes>
+<!--@Location 9,31-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+<!--@BendPoints 19,64-->
+    <nodeSuccessors name="next" next="CallNode13"/>
+  </nodes>
+<!--@Location 9,32-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode13">
+<!--@BendPoints 19,66-->
+    <nodeSuccessors name="next" next="GetLocale2"/>
+    <parameterBindings name="FallbackApplicationURL" objectPath="CookieUrl"/>
+    <startNode referencedName="ProcessPreviewContext-GetApplicationURL"/>
+  </nodes>
+<!--@Location 9,33-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+<!--@BendPoints 19,68-->
+    <nodeSuccessors name="next" next="DetermineLocales1"/>
+  </nodes>
+<!--@Location 9,34-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineLocales1">
+    <pipelet href="enfinity:/core/pipelets/DetermineLocales.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode6"/>
+  </nodes>
+<!--@Location 9,35-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode6">
+    <template referencedName="application/StorefrontPreview"/>
+  </nodes>
+<!--@Location 7,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject5">
+    <configurationValues name="ProcessMethod" value="Get Object from Session"/>
+    <configurationValues name="SessionObjectName" value="T_StorefrontEditingContext"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+<!--@BendPoints 15,50-->
+    <nodeSuccessors name="next" next="DecisionNode11"/>
+<!--@BendPoints 16,49 16,55-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode23"/>
+    <parameterBindings name="SessionObjectName" nullBinding="true"/>
+    <parameterBindings name="TargetSessionDomain" objectPath="TargetSite"/>
+    <parameterBindings name="TargetSessionID" objectPath="CurrentSession:SessionID"/>
+    <returnValueBindings name="LoadObject" objectPath="StorefrontEditingContext"/>
+  </nodes>
+<!--@Location 7,25-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="StorefrontEditingContext"
+      operator="undef">
+<!--@BendPoints 15,52-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode12"/>
+<!--@BendPoints 17,51-->
+    <nodeSuccessors name="decision_no" next="JoinNode19"/>
+  </nodes>
+<!--@Location 7,26-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="CookieUrl">
+    <nodeSuccessors name="decision_yes" next="JoinNode23"/>
+    <nodeSuccessors name="decision_no" next="JoinNode19"/>
+  </nodes>
+<!--@Location 7,27-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode23">
+<!--@BendPoints 15,56-->
+    <nodeSuccessors name="next" next="RemoveDictionaryValue1"/>
+  </nodes>
+<!--@Location 7,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue1">
+    <configurationValues name="Key" value="CookieUrl"/>
+    <configurationValues name="RemoveFormValues" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+<!--@BendPoints 15,58-->
+    <nodeSuccessors name="next" next="DeselectPreviewConfigurationAttribute1"/>
+  </nodes>
+<!--@Location 7,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DeselectPreviewConfigurationAttribute1">
+    <configurationValues name="AttributeSet" value="com.intershop.component.preview.capi.configuration.PreviewConfigurationAttributeSet"/>
+    <configurationValues name="AttributeSetValue" value="PreviewTargetURL"/>
+    <pipelet href="enfinity:/bc_preview/pipelets/DeselectPreviewConfigurationAttribute.xml"/>
+    <nodeSuccessors name="next" next="JoinNode22"/>
+  </nodes>
+<!--@Location 7,31-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode22">
+    <nodeSuccessors name="next" next="JoinNode13"/>
+  </nodes>
+<!--@Location 8,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 6,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+<!--@BendPoints 13,63-->
+    <nodeSuccessors name="next" next="JoinNode22"/>
+  </nodes>
+<!--@Location 6,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 0,18-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode26" strict="true" name="IsPreviewInPastCheckEnabled"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode47"/>
+<!--The backoffice application where EditView has been started-->
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--@Location 0,19-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode47">
+    <nodeSuccessors name="no" next="EndNode9"/>
+    <nodeSuccessors name="yes" next="KeyMapper6"/>
+    <startNode referencedName="ProcessPreviewDate-IsPreviewDateInPastCheckEnabled"/>
+  </nodes>
+<!--@Location 0,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" strict="true">
+    <returnValues name="isPreviewDateCheckInPastEnabled" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode9"/>
+    <parameterBindings name="InValue_1" constant="true"/>
+    <returnValueBindings name="OutValue_1" objectPath="isPreviewDateCheckInPastEnabled"/>
+  </nodes>
+<!--@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode20" name="NoStorefrontContentFound">
+    <nodeSuccessors name="next" next="JoinNode39"/>
+  </nodes>
+<!--@Location 3,18-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="Prefix"
+      callMode="Private">
+<!--@BendPoints 7,38-->
+    <nodeSuccessors name="next" next="GetDomainByUUID1"/>
+    <parameters name="LocaleId" type="java.lang.String" optional="true"/>
+    <parameters name="TargetSiteUUID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 3,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+<!--@BendPoints 8,39 8,41-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="DomainUUID" objectPath="TargetSiteUUID"/>
+    <returnValueBindings name="Domain" objectPath="TargetSite"/>
+  </nodes>
+<!--@Location 3,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 7,42-->
+    <nodeSuccessors name="next" next="GetLocale1"/>
+  </nodes>
+<!--@Location 3,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <configurationValues name="LocaleFallback" value="Session Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+<!--@BendPoints 7,44-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 3,22-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+    <returnValues name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+    <returnValues name="TargetSite" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 4,33-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode25" strict="true" name="ResetApplicationTargetUrl"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetRepositoryByUUID1"/>
+    <parameters name="RepositoryUUID" type="java.lang.String"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--@Location 4,34-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByUUID1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByUUID.xml"/>
+    <nodeSuccessors name="next" next="CallNode42"/>
+    <parameterBindings name="UUID" objectPath="RepositoryUUID"/>
+  </nodes>
+<!--@Location 4,35-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode42">
+    <nodeSuccessors name="next" next="JoinNode36"/>
+    <nodeSuccessors name="NO" next="JoinNode36"/>
+    <nodeSuccessors name="YES" next="GetPreviewConfigurationAttributeID0"/>
+    <startNode referencedName="EditView-HasPreviewPermission"/>
+  </nodes>
+<!--@Location 4,36-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode36">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 4,37-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--@Location 3,35-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPreviewConfigurationAttributeID0">
+    <configurationValues name="AttributeSet" value="com.intershop.component.preview.capi.configuration.PreviewConfigurationAttributeSet"/>
+    <configurationValues name="AttributeSetValue" value="PreviewTargetURL"/>
+    <pipelet href="enfinity:/bc_preview/pipelets/GetPreviewConfigurationAttributeID.xml"/>
+    <nodeSuccessors name="next" next="CallNode43"/>
+  </nodes>
+<!--@Location 3,36-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode43">
+    <nodeSuccessors name="next" next="JoinNode36"/>
+    <startNode referencedName="ProcessPreviewContext-ResetPreviewConfigurationAttribute"/>
+  </nodes>
+<!--@Location 12,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode22" visibility="Private" name="SecuredChangeApplication"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode30"/>
+  </nodes>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode30">
+    <nodeSuccessors name="next" next="CallNode33"/>
+    <startNode referencedName="EditView-Prefix"/>
+  </nodes>
+<!--@Location 12,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode33">
+    <nodeSuccessors name="next" next="DecisionNode19"/>
+    <startNode referencedName="EditView-GetStorefrontEditingParameters"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode19" conditionKey="CurrentChannel">
+<!--@BendPoints 25,8-->
+    <nodeSuccessors name="decision_yes" next="KeyMapper4"/>
+<!--@BendPoints 27,7 27,8-->
+    <nodeSuccessors name="decision_no" next="CallNode34"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode28"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentChannel"/>
+    <returnValueBindings name="OutValue_1" objectPath="Repository"/>
+  </nodes>
+<!--@Location 12,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode28">
+<!--@BendPoints 25,12-->
+    <nodeSuccessors name="next" next="CallNode37"/>
+  </nodes>
+<!--@Location 12,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode37">
+    <nodeSuccessors name="next" next="CallNode32"/>
+    <startNode referencedName="EditView-GetTargetApplicationBO"/>
+    <returnValueBindings name="TargetApplicationBO" objectPath="PreviousTargetApplicationBO"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode32">
+    <nodeSuccessors name="next" next="GetPreviewConfigurationAttributeID1"/>
+    <parameterBindings name="ApplicationBO" objectPath="PreviousTargetApplicationBO"/>
+    <parameterBindings name="PreviewContextBO" objectPath="PreviousTargetApplicationBO:Extension(&quot;PreviewExtension&quot;):PreviewContextBO"/>
+    <startNode referencedName="ProcessConfigurationPanelWebform-Create"/>
+    <returnValueBindings name="PreviewContextBO" objectPath="PreviousContextBO"/>
+  </nodes>
+<!--@Location 12,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPreviewConfigurationAttributeID1">
+    <configurationValues name="AttributeSet" value="com.intershop.component.preview.capi.configuration.PreviewConfigurationAttributeSet"/>
+    <configurationValues name="AttributeSetValue" value="PreviewApplication"/>
+    <pipelet href="enfinity:/bc_preview/pipelets/GetPreviewConfigurationAttributeID.xml"/>
+    <nodeSuccessors name="next" next="GetConfigurationPanelWebformValues1"/>
+  </nodes>
+<!--@Location 12,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetConfigurationPanelWebformValues1">
+    <pipelet href="enfinity:/sld_preview/pipelets/GetConfigurationPanelWebformValues.xml"/>
+    <nodeSuccessors name="next" next="GetApplication1"/>
+    <parameterBindings name="ConfigurationPanelWebform" objectPath="PreviewWebform"/>
+  </nodes>
+<!--@Location 12,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplication1">
+    <pipelet href="enfinity:/core/pipelets/GetApplication.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationBOByID2"/>
+    <parameterBindings name="Site" objectPath="PreviousTargetApplicationBO:Site"/>
+    <parameterBindings name="UrlIdentifier" objectPath="FormValues:ID"/>
+    <returnValueBindings name="Application" objectPath="TargetApplication"/>
+  </nodes>
+<!--@Location 12,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBOByID2">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBOByID.xml"/>
+    <nodeSuccessors name="next" next="CallNode36"/>
+    <parameterBindings name="ApplicationBORepository" objectPath="ApplicationBO:Repository"/>
+    <parameterBindings name="ApplicationID" objectPath="TargetApplication:UUID"/>
+    <returnValueBindings name="ApplicationBO" objectPath="TargetApplicationBO"/>
+  </nodes>
+<!--@Location 12,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode36">
+    <nodeSuccessors name="next" next="CallNode29"/>
+    <startNode referencedName="ProcessPreviewAttributeContext-CreateConfigurationAttributesMap"/>
+  </nodes>
+<!--@Location 12,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode29">
+    <nodeSuccessors name="next" next="CopyIntersectValues1"/>
+    <parameterBindings name="ApplicationBO" objectPath="TargetApplicationBO"/>
+    <parameterBindings name="PreviewContextBO" objectPath="TargetApplicationBO:Extension(&quot;(Class)com.intershop.sellside.preview.capi.ApplicationBOPreviewExtension&quot;):PreviewContext"/>
+    <startNode referencedName="ProcessConfigurationPanelWebform-Create"/>
+  </nodes>
+<!--@Location 12,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyIntersectValues1">
+    <pipelet href="enfinity:/bc_preview/pipelets/CopyIntersectValues.xml"/>
+    <nodeSuccessors name="next" next="SetSelectedPreviewConfigurationAttributeValue1"/>
+    <parameterBindings name="PreviewContextBODestination" objectPath="PreviewContextBO"/>
+    <parameterBindings name="PreviewContextBOSource" objectPath="PreviousContextBO"/>
+  </nodes>
+<!--@Location 12,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetSelectedPreviewConfigurationAttributeValue1">
+    <configurationValues name="AttributeSet" value="com.intershop.component.preview.capi.configuration.PreviewConfigurationAttributeSet"/>
+    <configurationValues name="AttributeSetValue" value="PreviewApplication"/>
+    <pipelet href="enfinity:/bc_preview/pipelets/SetSelectedPreviewConfigurationAttributeValue.xml"/>
+    <nodeSuccessors name="next" next="CallNode41"/>
+    <parameterBindings name="ValueObject" objectPath="TargetApplication"/>
+  </nodes>
+<!--@Location 12,16-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode41">
+    <nodeSuccessors name="next" next="CallNode31"/>
+    <parameterBindings name="Application" objectPath="TargetApplication"/>
+    <parameterBindings name="ApplicationBORepository" objectPath="ApplicationBO:Repository"/>
+    <startNode referencedName="EditView-SetApplicationToPreferredPreviewContext"/>
+  </nodes>
+<!--@Location 12,17-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode31">
+<!--@BendPoints 25,36-->
+    <nodeSuccessors name="next" next="InteractionNode4"/>
+    <startNode referencedName="ProcessPreviewContext-GetTransferable"/>
+  </nodes>
+<!--@Location 12,18-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode4">
+    <template referencedName="application/StorefrontPreviewLayer"/>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode34">
+<!--@BendPoints 27,11-->
+    <nodeSuccessors name="next" next="JoinNode28"/>
+    <startNode referencedName="PreviewLinks-GetPreviewRepository"/>
+  </nodes>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode15" visibility="Private" name="SecuredCleanStart"
+      callMode="Private">
+<!--@BendPoints 5,2-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="CallNode44"/>
+    <startNode referencedName="EditView-CleanCookies"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode44">
+<!--@BendPoints 5,7-->
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="RepositoryUUID" objectPath="ContentRepositoryUUID"/>
+    <startNode referencedName="EditView-ResetApplicationTargetUrl"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="CallNode7"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <startNode referencedName="EditView-Prefix"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="CallNode51"/>
+    <startNode referencedName="This:GetStorefrontEditingParameters"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode51">
+    <nodeSuccessors name="next" next="CallNode50"/>
+    <startNode referencedName="This:GetPreviewChannel"/>
+    <returnValueBindings name="PreviewChannel" objectPath="Repository"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode50">
+    <nodeSuccessors name="next" next="GetApplicationPreference0"/>
+    <startNode referencedName="This:GetCurrentApplication"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationPreference0">
+    <configurationValues name="DefaultApplicationPreferenceKey" value="SFEReadonlyIfFuture"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/GetApplicationPreference.xml"/>
+    <nodeSuccessors name="next" next="CallNode52"/>
+    <parameterBindings name="Application" objectPath="CurrentApplication"/>
+    <parameterBindings name="ApplicationPreferenceKey" nullBinding="true"/>
+    <parameterBindings name="DomainPreference" nullBinding="true"/>
+    <returnValueBindings name="ApplicationPreference" objectPath="ReadonlyPreviewPref"/>
+    <returnValueBindings name="ApplicationPreferenceDoubleValue" nullBinding="true"/>
+    <returnValueBindings name="ApplicationPreferenceIntValue" nullBinding="true"/>
+    <returnValueBindings name="ApplicationPreferenceStringValue" objectPath="ReadonlyPreviewPrefVal"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode52">
+    <nodeSuccessors name="next" next="CallNode53"/>
+    <startNode referencedName="This:GetTargetApplicationBO"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode53">
+    <nodeSuccessors name="next" next="ExecuteCountQuery2"/>
+    <parameterBindings name="ApplicationBO" objectPath="TargetApplicationBO"/>
+    <startNode referencedName="This:GetContentRepositoryByApplicationBO"/>
+    <returnValueBindings name="ContentRepository" objectPath="TargetContentRepository"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCountQuery2">
+    <configurationValues name="ParameterName_01" value="Domain"/>
+    <configurationValues name="QueryName" value="pagelet/SearchSharedPageletsByDomain"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCountQuery.xml"/>
+<!--@BendPoints 7,24-->
+    <nodeSuccessors name="next" next="DecisionNode16"/>
+<!--@BendPoints 9,23-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="ParameterValue_01" objectPath="TargetContentRepository:RepositoryDomain"/>
+    <returnValueBindings name="Count" objectPath="ContentObjectsCount"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode16" conditionKey="ContentObjectsCount"
+      operator="gt" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="CallNode46"/>
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode46">
+    <nodeSuccessors name="next" next="JumpNode1"/>
+    <startNode referencedName="EditView-IsPreviewInPastCheckEnabled"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="EditView-InternalStart"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="KeyMapper7"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper7">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode7"/>
+    <parameterBindings name="InValue_1" constant="EditView-NoStorefrontContentFound"/>
+    <returnValueBindings name="OutValue_1" objectPath="ContextPipeline"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode7">
+    <template referencedName="returntarget/Redirect"/>
+  </nodes>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode14" visibility="Private" name="SecuredDirectItemStart"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode45"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode45">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <startNode referencedName="EditView-CleanCookies"/>
+  </nodes>
+<!--@Location 9,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode18" visibility="Private" name="SecuredEndPreview"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode22"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode22">
+    <nodeSuccessors name="next" next="CallNode11"/>
+    <startNode referencedName="EditView-Prefix"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+    <nodeSuccessors name="next" next="GetPreviewConfigurationAttribute1"/>
+<!--@BendPoints 21,7-->
+    <nodeSuccessors name="Error" next="JoinNode30"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="EditView-GetPreferredPreviewContextBO"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPreviewConfigurationAttribute1">
+    <configurationValues name="AttributeSet" value="com.intershop.component.preview.capi.configuration.PreviewConfigurationAttributeSet"/>
+    <configurationValues name="AttributeSetValue" value="PreviewApplication"/>
+    <pipelet href="enfinity:/bc_preview/pipelets/GetPreviewConfigurationAttribute.xml"/>
+    <nodeSuccessors name="next" next="ExecuteStorefrontPipeline1"/>
+    <parameterBindings name="PreviewContextBO" objectPath="PreferredPreviewContextBO"/>
+    <returnValueBindings name="PreviewConfigurationAttribute" objectPath="TargetApplicationAttribute"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteStorefrontPipeline1">
+    <configurationValues name="PipelineName" value="ViewPreviewConfiguration"/>
+    <configurationValues name="PipelineStartNode" value="EndPreview"/>
+    <pipelet href="enfinity:/sld_preview/pipelets/ExecuteStorefrontPipeline.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+<!--@BendPoints 20,13-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="Application" objectPath="TargetApplicationAttribute:SelectedValue:ValueObject"/>
+    <parameterBindings name="TargetSessionID" objectPath="CurrentSession:SessionID"/>
+    <parameterBindings name="TargetSite" objectPath="TargetSite"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+  </nodes>
+<!--@Location 9,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="TargetApplicationAttribute:Values(PreferredPreviewContextBO)">
+    <nodeSuccessors name="next" next="JoinNode30"/>
+    <entry key="ApplicationAttributeValue">
+      <nodeSuccessors name="loop_entry_next" next="GetApplicationBOByID0"/>
+    </entry>
+  </nodes>
+<!--@Location 9,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBOByID0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBOByID.xml"/>
+    <nodeSuccessors name="next" next="CallNode40"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="ApplicationBORepository" objectPath="ApplicationBO:Repository"/>
+    <parameterBindings name="ApplicationID" objectPath="ApplicationAttributeValue:ValueObject:UUID"/>
+    <returnValueBindings name="ApplicationBO" objectPath="PreviewableApplicationBO"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode40">
+    <nodeSuccessors name="next" next="RemovePreviewContext0"/>
+    <nodeSuccessors name="ERROR" next="JoinNode0"/>
+    <parameterBindings name="ApplicationBO" objectPath="PreviewableApplicationBO"/>
+    <startNode referencedName="ProcessPreviewContext-Get"/>
+  </nodes>
+<!--@Location 9,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemovePreviewContext0">
+    <pipelet href="enfinity:/bc_preview/pipelets/RemovePreviewContext.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 10,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode30">
+    <nodeSuccessors name="next" next="CallNode18"/>
+  </nodes>
+<!--@Location 10,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode18">
+    <nodeSuccessors name="next" next="JoinNode14"/>
+<!--@BendPoints 23,17-->
+    <nodeSuccessors name="ERROR" next="KeyMapper2"/>
+    <startNode referencedName="ProcessReturnTarget-GetPreviewContextPipeline"/>
+  </nodes>
+<!--@Location 10,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+    <nodeSuccessors name="next" next="InteractionNode3"/>
+  </nodes>
+<!--@Location 10,10-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode3">
+    <template referencedName="returntarget/Redirect"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode14"/>
+    <parameterBindings name="InValue_1" constant="ViewChannel-Start"/>
+    <returnValueBindings name="OutValue_1" objectPath="ContextPipeline"/>
+  </nodes>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" visibility="Private" name="SecuredStart"
+      callMode="Private">
+<!--@BendPoints 11,2-->
+    <nodeSuccessors name="next" next="CallNode19"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode19">
+<!--@BendPoints 11,4-->
+    <nodeSuccessors name="next" next="CallNode21"/>
+    <startNode referencedName="ProcessReturnTarget-PutPreviewContextPipeline"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode21">
+<!--@BendPoints 11,7-->
+    <nodeSuccessors name="next" next="JoinNode37"/>
+    <startNode referencedName="EditView-GetCookieURL"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode37">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@displayNearNode@Starts a clean Storefront Browsing Session by removing an existing StorefrontEditingContext.
+@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" visibility="Private" name="SecuredStorefrontBrowsing"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode26"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode26">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <startNode referencedName="EditView-Prefix"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="StorefrontApplicationUUID">
+    <nodeSuccessors name="decision_yes" next="GetApplicationByUUID0"/>
+    <nodeSuccessors name="decision_no" next="CallNode23"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationByUUID0">
+    <pipelet href="enfinity:/core/pipelets/GetApplicationByUUID.xml"/>
+<!--@BendPoints 15,9-->
+    <nodeSuccessors name="next" next="JoinNode38"/>
+    <parameterBindings name="ApplicationUUID" objectPath="StorefrontApplicationUUID"/>
+    <returnValueBindings name="Application" objectPath="StorefrontApplication"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode38">
+    <nodeSuccessors name="next" next="GetApplicationBOByID1"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBOByID1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBOByID.xml"/>
+    <nodeSuccessors name="next" next="CallNode28"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode26"/>
+    <parameterBindings name="ApplicationBORepository" objectPath="ApplicationBO:Repository"/>
+    <parameterBindings name="ApplicationID" objectPath="StorefrontApplication:UUID"/>
+    <returnValueBindings name="ApplicationBO" objectPath="StorefrontApplicationBO"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode28">
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <nodeSuccessors name="ERROR" next="JoinNode26"/>
+    <parameterBindings name="ApplicationBO" objectPath="StorefrontApplicationBO"/>
+    <startNode referencedName="ProcessPreviewContext-Get"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <configurationValues name="ValueType" value="Form Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="ExecuteStorefrontPipeline2"/>
+    <parameterBindings name="InValue_1" objectPath="PreviewContextBO:ID"/>
+    <returnValueBindings name="OutValue_1" objectPath="PreviewContextID"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteStorefrontPipeline2">
+    <configurationValues name="PipelineName" value="ViewPreviewConfiguration"/>
+    <configurationValues name="PipelineStartNode" value="EndPreview"/>
+    <pipelet href="enfinity:/sld_preview/pipelets/ExecuteStorefrontPipeline.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+<!--@BendPoints 14,19 14,20-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="Application" objectPath="StorefrontApplication"/>
+    <parameterBindings name="TargetSessionID" objectPath="CurrentSession:SessionID"/>
+    <parameterBindings name="TargetSite" objectPath="TargetSite"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 13,22-->
+    <nodeSuccessors name="next" next="ExchangeSessionObject4"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject4">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_StorefrontEditingContext"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 14,23 14,25-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="SaveObject" nullBinding="true"/>
+    <parameterBindings name="SessionObjectName" nullBinding="true"/>
+    <parameterBindings name="TargetSessionDomain" objectPath="TargetSite"/>
+    <parameterBindings name="TargetSessionID" objectPath="CurrentSession:SessionID"/>
+  </nodes>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="GetContentSharingProvider0"/>
+  </nodes>
+<!--@Location 6,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetContentSharingProvider0">
+    <pipelet href="enfinity:/bc_pmc/pipelets/GetContentSharingProvider.xml"/>
+    <nodeSuccessors name="next" next="ExecuteCountQuery1"/>
+    <returnValueBindings name="ContentSharingProvider" objectPath="SharingProvider"/>
+  </nodes>
+<!--@Location 6,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCountQuery1">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="Domain"/>
+    <configurationValues name="QueryName" value="pagelet/SearchSharedPageletsByDomain"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCountQuery.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode14"/>
+<!--@BendPoints 15,29-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode25"/>
+    <parameterBindings name="ParameterValue_01" objectPath="SharingProvider:getContentRepositoryDomainByApplication(StorefrontApplication)"/>
+    <returnValueBindings name="Count" objectPath="ContentObjectsCount"/>
+  </nodes>
+<!--@Location 6,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="ContentObjectsCount"
+      operator="gt" conditionValue="0">
+<!--@BendPoints 13,32-->
+    <nodeSuccessors name="decision_yes" next="InteractionNode1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode25"/>
+  </nodes>
+<!--@Location 6,16-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode1">
+    <template referencedName="application/StorefrontBrowsingRedirect"/>
+  </nodes>
+<!--@Location 7,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode25">
+    <nodeSuccessors name="next" next="JumpNode3"/>
+  </nodes>
+<!--@Location 7,16-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode3">
+    <startNode referencedName="EditView-NoStorefrontContentFound"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode26">
+<!--@BendPoints 15,21-->
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode23">
+    <nodeSuccessors name="next" next="JoinNode38"/>
+    <parameterBindings name="Domain" objectPath="TargetSite"/>
+    <startNode referencedName="EditView-GetDefaultApplication"/>
+    <returnValueBindings name="DefaultApplication" objectPath="StorefrontApplication"/>
+  </nodes>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" visibility="Private" name="SecuredSummary"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode48"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode48">
+    <nodeSuccessors name="next" next="CallNode27"/>
+    <startNode referencedName="EditView-IsPreviewInPastCheckEnabled"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode27">
+    <nodeSuccessors name="next" next="GetPreviewConfigurationAttribute3"/>
+    <nodeSuccessors name="Error" next="JoinNode24"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="EditView-GetPreferredPreviewContextBO"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPreviewConfigurationAttribute3">
+    <configurationValues name="AttributeSet" value="com.intershop.component.preview.capi.configuration.PreviewConfigurationAttributeSet"/>
+    <configurationValues name="AttributeSetValue" value="PreviewApplication"/>
+    <pipelet href="enfinity:/bc_preview/pipelets/GetPreviewConfigurationAttribute.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode23"/>
+    <parameterBindings name="PreviewContextBO" objectPath="PreferredPreviewContextBO"/>
+    <returnValueBindings name="PreviewConfigurationAttribute" objectPath="PreviewApplicationAttribute"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode23" conditionKey="PreviewApplicationAttribute:Selected"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="GetApplicationBOByID3"/>
+    <nodeSuccessors name="decision_no" next="JoinNode24"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBOByID3">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBOByID.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode35"/>
+    <parameterBindings name="ApplicationBORepository" objectPath="ApplicationBO:Repository"/>
+    <parameterBindings name="ApplicationID" objectPath="PreviewApplicationAttribute:SelectedValue:ValueObject:UUID"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="JoinNode34"/>
+    <startNode referencedName="ProcessPreviewContext-Get"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode34">
+    <nodeSuccessors name="next" next="InteractionNode0"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode0">
+    <template referencedName="application/StorefrontPreviewSummary.isml"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode35">
+<!--@BendPoints 3,15-->
+    <nodeSuccessors name="next" next="JoinNode34"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode24">
+    <nodeSuccessors name="next" next="JoinNode35"/>
+  </nodes>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" visibility="Private" name="SecuredUpdate"
+      callMode="Private">
+    <nodeSuccessors name="next" next="JoinNode37"/>
+  </nodes>
+<!--@Location 18,31-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode23" strict="true" name="SetApplicationToPreferredPreviewContext"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode39"/>
+    <parameters name="Application" type="com.intershop.beehive.core.capi.domain.Application"/>
+    <parameters name="ApplicationBORepository" type="com.intershop.component.application.capi.ApplicationBORepository"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 18,32-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode39">
+<!--@BendPoints 37,66-->
+    <nodeSuccessors name="next" next="SetSelectedPreviewConfigurationAttributeValue2"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="EditView-GetPreferredPreviewContextBO"/>
+  </nodes>
+<!--@Location 18,33-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetSelectedPreviewConfigurationAttributeValue2">
+    <configurationValues name="AttributeSet" value="com.intershop.component.preview.capi.configuration.PreviewConfigurationAttributeSet"/>
+    <configurationValues name="AttributeSetValue" value="PreviewApplication"/>
+    <pipelet href="enfinity:/bc_preview/pipelets/SetSelectedPreviewConfigurationAttributeValue.xml"/>
+<!--@BendPoints 37,68-->
+    <nodeSuccessors name="next" next="EndNode18"/>
+    <parameterBindings name="PreviewContextBO" objectPath="PreferredPreviewContextBO"/>
+    <parameterBindings name="ValueObject" objectPath="Application"/>
+  </nodes>
+<!--@Location 18,34-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode18" name="" strict="true"/>
+<!--ToDataView enhancement
+@Location 17,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_6ipMAOhaEea4aoDpzxk4JA" name="ToDataView"
+      secure="true">
+    <nodeSuccessors name="next" next="CallNode_6ikTgOhaEea4aoDpzxk4JA"/>
+  </nodes>
+<!--@Location 17,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_6ikTgOhaEea4aoDpzxk4JA">
+    <nodeSuccessors name="next" next="JoinNode_6ieM4OhaEea4aoDpzxk4JA"/>
+    <nodeSuccessors name="ERROR" next="KeyMapper_6ilhoOhaEea4aoDpzxk4JA"/>
+    <startNode referencedName="ProcessReturnTarget-GetPreviewContextPipeline"/>
+  </nodes>
+<!--@Location 17,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_6ieM4OhaEea4aoDpzxk4JA">
+    <nodeSuccessors name="next" next="InteractionNode_6iieUOhaEea4aoDpzxk4JA"/>
+  </nodes>
+<!--@Location 17,4-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode_6iieUOhaEea4aoDpzxk4JA">
+    <template referencedName="returntarget/Redirect"/>
+  </nodes>
+<!--@Location 18,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_6ilhoOhaEea4aoDpzxk4JA">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_6ieM4OhaEea4aoDpzxk4JA"/>
+    <parameterBindings name="InValue_1" objectPath="ViewChannel-Start"/>
+    <returnValueBindings name="OutValue_1" objectPath="ContextPipeline"/>
+  </nodes>
+<!--@Location 14,16-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="UpdateTargetURL"
+      callMode="Private">
+<!--@BendPoints 29,34-->
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameters name="CookieUrl" type="java.lang.String" optional="true"/>
+    <parameters name="PreviewContextBO" type="com.intershop.component.preview.capi.context.PreviewContextBO"/>
+  </nodes>
+<!--@Location 14,17-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="CookieUrl">
+    <nodeSuccessors name="decision_yes" next="CallNode5"/>
+<!--@BendPoints 30,35 30,39-->
+    <nodeSuccessors name="decision_no" next="JoinNode18"/>
+  </nodes>
+<!--@Location 14,18-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="JoinNode18"/>
+    <parameterBindings name="TargetUrl" objectPath="CookieUrl"/>
+    <startNode referencedName="ProcessPreviewContext-UpdateTargetUrl"/>
+  </nodes>
+<!--@Location 14,19-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+<!--@BendPoints 29,40-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 14,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+</pipeline:Pipeline>

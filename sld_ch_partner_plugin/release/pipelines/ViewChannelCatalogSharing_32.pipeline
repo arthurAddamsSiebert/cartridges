@@ -1,0 +1,645 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Display Catalog Sharing
+@Group Catalog-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ViewChannelCatalogSharing_32" type="view">
+<!--If catalog is already shared 
+to partner \- do nothing.
+@Location 11,11-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--Checks if the given CatalogID already exists in one of the selected partners.
+@Location 1,12-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="CheckIfCatalogIDExists"
+      callMode="Private">
+<!--@BendPoints 3,26-->
+    <nodeSuccessors name="next" next="Loop4"/>
+<!--The ID of the catalog that shall be created.-->
+    <parameters name="CatalogID" type="java.lang.String"/>
+<!--Channels containing iterator.-->
+    <parameters name="SelectedPartnerUUIDs" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop4" loop="SelectedPartnerUUIDs">
+<!--@BendPoints 7,27 7,28-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+    <entry key="Selection">
+      <nodeSuccessors name="loop_entry_next" next="GetOrganization3"/>
+    </entry>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganization3">
+    <configurationValues name="Source" value="PipelineDictionary"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganization.xml"/>
+    <nodeSuccessors name="next" next="GetCatalog2"/>
+<!--@BendPoints 5,29-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="OrganizationUUID" objectPath="Selection"/>
+    <returnValueBindings name="Organization" objectPath="PartnerOrganization"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalog2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalog.xml"/>
+<!--@BendPoints 3,34-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="CatalogID" objectPath="CatalogID"/>
+    <parameterBindings name="OrganizationDomain" objectPath="PartnerOrganization:Domain"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="CatalogIDExists" strict="true"/>
+<!--@Location 2,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 5,33 2,33 2,27-->
+    <nodeSuccessors name="next" next="Loop4_Entry"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="CatalogIDNotExisting"
+      strict="true"/>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start7" name="Create">
+    <nodeSuccessors name="next" next="Call6"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call6">
+<!--@BendPoints 20,4 19,4-->
+    <nodeSuccessors name="next" next="Call7"/>
+<!--@BendPoints 22,6 22,8 21,8-->
+    <nodeSuccessors name="ERROR" next="Join5"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-GetCatalog"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call7">
+<!--@BendPoints 19,6-->
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-UpdateClipboard"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="SelectedPartnerUUIDs"
+      operator="has_elements">
+<!--@BendPoints 19,10-->
+    <nodeSuccessors name="decision_yes" next="CallNode3"/>
+<!--@BendPoints 20,7-->
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue1"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="CatalogIDNotExisting" next="Loop1"/>
+<!--@BendPoints 20,12 23,12-->
+    <nodeSuccessors name="CatalogIDExists" next="SetDictionaryValue2"/>
+    <parameterBindings name="CatalogID" objectPath="Catalog:Id"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-CheckIfCatalogIDExists"/>
+  </nodes>
+<!--@Location 9,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="SelectedPartnerUUIDs">
+    <nodeSuccessors name="next" next="Join5"/>
+    <entry key="Selection">
+      <nodeSuccessors name="loop_entry_next" next="GetOrganization1"/>
+    </entry>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganization1">
+    <configurationValues name="Source" value="PipelineDictionary"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganization.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery2"/>
+<!--@BendPoints 21,19-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="OrganizationUUID" objectPath="Selection"/>
+    <returnValueBindings name="Organization" objectPath="PartnerOrganization"/>
+  </nodes>
+<!--@Location 9,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery2">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="Catalog"/>
+    <configurationValues name="ParameterName_02" value="DomainID"/>
+    <configurationValues name="QueryName" value="catalog/GetProxyCatalog"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 18,23-->
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Catalog"/>
+    <parameterBindings name="ParameterValue_02" objectPath="PartnerOrganization:DomainID"/>
+    <returnValueBindings name="SearchResult" objectPath="ProxyCatalog"/>
+  </nodes>
+<!--@Location 9,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="ProxyCatalog"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="JoinNode6"/>
+    <nodeSuccessors name="decision_no" next="CreateProxyCatalog2" action="begin"/>
+  </nodes>
+<!--@Location 10,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="Join21"/>
+  </nodes>
+<!--@Location 10,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join21">
+<!--@BendPoints 21,31-->
+    <nodeSuccessors name="next" next="Join4"/>
+  </nodes>
+<!--@Location 9,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+<!--@BendPoints 17,31 17,17-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 9,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateProxyCatalog2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/CreateProxyCatalog.xml"/>
+    <nodeSuccessors name="next" next="Pipelet2"/>
+    <nodeSuccessors name="pipelet_error" next="Join21" action="rollback"/>
+    <parameterBindings name="CatalogID" objectPath="Catalog:Id"/>
+    <parameterBindings name="CatalogType" objectPath="Catalog:TypeCode"/>
+    <parameterBindings name="Domain" objectPath="PartnerOrganization:Domain"/>
+    <returnValueBindings name="Proxy" objectPath="SharedCatalogProxy"/>
+  </nodes>
+<!--@Location 9,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CopyCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="Join4" action="commit"/>
+    <parameterBindings name="CustomAttributes" objectPath="Catalog:AttributeValues"/>
+    <parameterBindings name="ExtensibleObject" objectPath="SharedCatalogProxy"/>
+  </nodes>
+<!--@Location 10,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 10,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+    <nodeSuccessors name="next" next="Jump4"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump4">
+    <startNode referencedName="ViewChannelCatalogSharing_32-Edit"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="ERROR_CATALOGID_EXISTS"/>
+    <configurationValues name="Value" value="CatalogID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 23,14 25,14-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 26,9-->
+    <nodeSuccessors name="next" next="JumpNode1"/>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="ViewChannelCatalogSharing_32-NewRefresh"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="NoPartnerSelectionError"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 25,7-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="Dispatch">
+    <nodeSuccessors name="next" next="DispatchFormAction1"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DispatchFormAction1">
+    <configurationValues name="OutValue_0" value="ViewChannelCatalogSharing_32-New"/>
+    <configurationValues name="OutValue_1" value="ViewChannelCatalogSharing_32-Create"/>
+    <configurationValues name="OutValue_2" value="ViewChannelCatalogSharing_32-Remove"/>
+    <configurationValues name="OutValue_3" value="ViewChannelCatalogSharing_32-Refresh"/>
+    <configurationValues name="OutValue_4" value="ViewChannelCatalogSharing_32-Remove"/>
+    <configurationValues name="OutValue_5" value="ViewChannelCatalogSharing_32-Edit"/>
+    <configurationValues name="OutValue_6" value="ViewChannelCatalogList_32-ListAll"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/DispatchFormAction.xml"/>
+    <nodeSuccessors name="next" next="Jump3"/>
+    <parameterBindings name="Key_0" objectPath="new"/>
+    <parameterBindings name="Key_1" objectPath="create"/>
+    <parameterBindings name="Key_2" objectPath="deleteConfirm"/>
+    <parameterBindings name="Key_3" objectPath="cancelConfirm"/>
+    <parameterBindings name="Key_4" objectPath="delete"/>
+    <parameterBindings name="Key_5" objectPath="cancel"/>
+    <parameterBindings name="Key_6" objectPath="backToList"/>
+    <returnValueBindings name="SelectionKey" objectPath="JumpTarget"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump3">
+    <startNode referencedName="SecureJump-Start"/>
+  </nodes>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Edit">
+    <nodeSuccessors name="next" next="Call11"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call11">
+    <nodeSuccessors name="next" next="Join10"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-RemoveClipboard"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join10">
+    <nodeSuccessors name="next" next="Call15"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call15">
+    <nodeSuccessors name="next" next="KeyMapper6"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-Prefix"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call1"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentSelectedChannel:Domain"/>
+    <returnValueBindings name="OutValue_1" objectPath="CatalogOrganizationDomain"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="Pipelet1"/>
+<!--@BendPoints 5,12-->
+    <nodeSuccessors name="ERROR" next="JoinNode5"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-GetCatalog"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Pipelet9"/>
+    <parameterBindings name="InValue_1" objectPath="Catalog:Root"/>
+    <returnValueBindings name="OutValue_1" objectPath="Category"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet9">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="DefaultPageSize" value="100"/>
+    <configurationValues name="ParameterName_01" value="Catalog"/>
+    <configurationValues name="ParameterName_02" value="PartnerChannel"/>
+    <configurationValues name="QueryName" value="catalog/GetPartnersWithSharedCatalog"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+    <nodeSuccessors name="next" next="Call2"/>
+<!--@BendPoints 5,15-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="PageSize" nullBinding="true"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Catalog"/>
+    <parameterBindings name="ParameterValue_02" objectPath="CurrentChannel"/>
+    <returnValueBindings name="SearchResult" objectPath="AssignedPartners"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+<!--@BendPoints 3,18-->
+    <nodeSuccessors name="next" next="PrepareApplicationView1"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-Sort"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PrepareApplicationView1">
+    <configurationValues name="SelectedMenuItem" value="ChannelCatalogs"/>
+    <configurationValues name="WorkingTemplate" value="catalog/ChannelCatalogSharingList_32.isml"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionEnd1"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionEnd1">
+    <template referencedName="application/ApplicationFrame"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 6,13-->
+    <nodeSuccessors name="next" next="Jump1"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump1">
+    <startNode referencedName="ViewChannelCatalogList_32-ListAll"/>
+  </nodes>
+<!--@Location 7,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="GetCatalog" callMode="Private">
+    <nodeSuccessors name="next" next="GetCatalogByUUID1"/>
+  </nodes>
+<!--@Location 7,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogByUUID1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogByUUID.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper7"/>
+<!--@BendPoints 17,37-->
+    <nodeSuccessors name="pipelet_error" next="Join18"/>
+  </nodes>
+<!--@Location 7,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper7">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetCatalogByCategory1"/>
+    <parameterBindings name="InValue_1" objectPath="Catalog:Root"/>
+    <returnValueBindings name="OutValue_1" objectPath="CatalogCategory"/>
+  </nodes>
+<!--@Location 7,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogByCategory1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogByCategory.xml"/>
+    <nodeSuccessors name="next" next="End2"/>
+    <nodeSuccessors name="pipelet_error" next="Join18"/>
+    <returnValueBindings name="Catalog" objectPath="SourceCatalog"/>
+  </nodes>
+<!--@Location 7,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 8,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join18">
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 8,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1" name="ERROR"/>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="New">
+    <nodeSuccessors name="next" next="Call13"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call13">
+    <nodeSuccessors name="next" next="Join17"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-RemoveClipboard"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join17">
+    <nodeSuccessors name="next" next="Call4"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call4">
+<!--@BendPoints 11,8-->
+    <nodeSuccessors name="next" next="Pipelet6"/>
+<!--@BendPoints 13,8-->
+    <nodeSuccessors name="ERROR" next="JoinNode1"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-GetCatalog"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="DefaultPageSize" value="100"/>
+    <configurationValues name="ParameterName_01" value="Catalog"/>
+    <configurationValues name="ParameterName_02" value="GetPartnersWithoutSharing"/>
+    <configurationValues name="ParameterName_03" value="PartnerChannel"/>
+    <configurationValues name="QueryName" value="catalog/GetPartnersWithSharedCatalog"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+    <nodeSuccessors name="next" next="Call5"/>
+<!--@BendPoints 13,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="PageSize" nullBinding="true"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Catalog"/>
+    <parameterBindings name="ParameterValue_02" constant="(Boolean)true"/>
+    <parameterBindings name="ParameterValue_03" objectPath="CurrentChannel"/>
+    <returnValueBindings name="SearchResult" objectPath="UnassignedPartners"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call5">
+<!--@BendPoints 11,14-->
+    <nodeSuccessors name="next" next="PrepareApplicationView2"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-Sort"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PrepareApplicationView2">
+    <configurationValues name="SelectedMenuItem" value="ChannelCatalogs"/>
+    <configurationValues name="WorkingTemplate" value="catalog/ChannelCatalogSharingSelectPartner_32.isml"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionEnd2"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionEnd2">
+    <template referencedName="application/ApplicationFrame"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 14,9-->
+    <nodeSuccessors name="next" next="Jump5"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump5">
+    <startNode referencedName="ViewChannelCatalogList_32-ListAll"/>
+  </nodes>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start13" name="NewRefresh">
+    <nodeSuccessors name="next" next="Call14"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call14">
+<!--@BendPoints 15,5-->
+    <nodeSuccessors name="next" next="Join17"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-UpdateClipboard"/>
+  </nodes>
+<!--@Location 12,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start14" name="Prefix" callMode="Private">
+    <nodeSuccessors name="next" next="Decision7"/>
+  </nodes>
+<!--@Location 12,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision7" conditionKey="ChannelID">
+    <nodeSuccessors name="decision_yes" next="GetRepositoryByUUID2"/>
+<!--@BendPoints 27,37-->
+    <nodeSuccessors name="decision_no" next="Join19"/>
+  </nodes>
+<!--@Location 12,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByUUID2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByUUID.xml"/>
+    <nodeSuccessors name="next" next="Join20"/>
+    <nodeSuccessors name="pipelet_error" next="Join19"/>
+    <parameterBindings name="UUID" objectPath="ChannelID"/>
+    <returnValueBindings name="Repository" objectPath="CurrentSelectedChannel"/>
+  </nodes>
+<!--@Location 12,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join20">
+    <nodeSuccessors name="next" next="End9"/>
+  </nodes>
+<!--@Location 12,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End9"/>
+<!--@Location 13,19-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join19">
+<!--@BendPoints 27,41-->
+    <nodeSuccessors name="next" next="Join20"/>
+  </nodes>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start11" name="Refresh">
+    <nodeSuccessors name="next" next="Call8"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call8">
+<!--@BendPoints 7,5-->
+    <nodeSuccessors name="next" next="Join10"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-UpdateClipboard"/>
+  </nodes>
+<!--@Location 15,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start6" name="Remove">
+    <nodeSuccessors name="next" next="Call9"/>
+  </nodes>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call9">
+    <nodeSuccessors name="next" next="Call10"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-UpdateClipboard"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call10">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <startNode referencedName="ViewChannelCatalogSharing_32-GetCatalog"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="deleteConfirm">
+    <nodeSuccessors name="decision_yes" next="LoopNode0"/>
+    <nodeSuccessors name="decision_no" next="JumpNode2"/>
+  </nodes>
+<!--@Location 15,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="SelectedPartnerUUIDs">
+    <nodeSuccessors name="next" next="Jump2"/>
+    <entry key="Selection">
+      <nodeSuccessors name="loop_entry_next" next="GetOrganization0"/>
+    </entry>
+  </nodes>
+<!--@Location 15,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganization0">
+    <configurationValues name="Source" value="PipelineDictionary"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganization.xml"/>
+    <nodeSuccessors name="next" next="ExecuteCountQuery0"/>
+    <parameterBindings name="OrganizationUUID" objectPath="Selection"/>
+    <returnValueBindings name="Organization" objectPath="Partner"/>
+  </nodes>
+<!--@Location 15,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCountQuery0">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="Catalog"/>
+    <configurationValues name="ParameterName_02" value="Partner"/>
+    <configurationValues name="QueryName" value="catalog/GetProxyCatalogPartnerSharedCatalogsCount"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCountQuery.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Catalog"/>
+    <parameterBindings name="ParameterValue_02" objectPath="Partner"/>
+    <returnValueBindings name="Count" objectPath="ProxyCatalogSharesCount"/>
+  </nodes>
+<!--@Location 15,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="ProxyCatalogSharesCount"
+      operator="gt" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 15,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue0">
+    <configurationValues name="Name" value="sharingCheck"/>
+    <configurationValues name="Value" value="error"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 29,17-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 14,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 29,9-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump2">
+    <startNode referencedName="ViewChannelCatalogSharing_32-Refresh"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode2">
+    <startNode referencedName="ViewChannelCatalogSharing_32-RemoveByBatchProcess"/>
+  </nodes>
+<!--@Location 5,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" name="RemoveByBatchProcess"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+  </nodes>
+<!--@Location 5,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <parameterBindings name="InValue_1" constant="CatalogUnshare"/>
+    <parameterBindings name="InValue_2" constant="Catalog"/>
+    <parameterBindings name="InValue_3" constant="ProcessChannelCatalogSharing_32"/>
+    <parameterBindings name="InValue_4" constant="RemoveByJob"/>
+    <parameterBindings name="InValue_5" constant="Removes catalog partner assignments - product assignments, product and category links, label assignments, promotion assignments, etc."/>
+    <returnValueBindings name="OutValue_1" objectPath="JobName"/>
+    <returnValueBindings name="OutValue_2" objectPath="JobNamePrefix"/>
+    <returnValueBindings name="OutValue_3" objectPath="JobPipelineName"/>
+    <returnValueBindings name="OutValue_4" objectPath="JobPipelineStartNode"/>
+    <returnValueBindings name="OutValue_5" objectPath="ProcessDescription"/>
+  </nodes>
+<!--@Location 5,19-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="JumpNode0"/>
+    <startNode referencedName="ViewProcessList_32-CreateProcess"/>
+  </nodes>
+<!--@Location 5,20-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode0">
+    <startNode referencedName="ViewProcessList_32-ListAll"/>
+  </nodes>
+<!--@Location 10,18-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start10" name="RemoveClipboard" callMode="Private">
+    <nodeSuccessors name="next" next="RemoveClipboard1"/>
+  </nodes>
+<!--@Location 10,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveClipboard1">
+    <configurationValues name="SessionRegistrationID" value="PartnerClipboard"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveClipboard.xml"/>
+    <nodeSuccessors name="next" next="RemoveDictionaryValue1"/>
+  </nodes>
+<!--@Location 10,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue1">
+    <configurationValues name="Key" value="PartnerClipboard"/>
+    <configurationValues name="RemoveFormValues" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="End7"/>
+  </nodes>
+<!--@Location 10,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End7"/>
+<!--@Location 18,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start12" name="Sort" callMode="Private">
+    <nodeSuccessors name="next" next="Decision6"/>
+  </nodes>
+<!--@Location 18,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision6" conditionKey="UnassignedPartners">
+    <nodeSuccessors name="decision_yes" next="SortIteratorByComparator2"/>
+<!--@BendPoints 38,3 38,7-->
+    <nodeSuccessors name="decision_no" next="Join13"/>
+  </nodes>
+<!--@Location 18,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SortIteratorByComparator2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SortIteratorByComparator.xml"/>
+    <nodeSuccessors name="next" next="Join13"/>
+    <parameterBindings name="Iterator" objectPath="UnassignedPartners"/>
+    <returnValueBindings name="SortedIterator" objectPath="UnassignedPartners"/>
+  </nodes>
+<!--@Location 18,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join13">
+    <nodeSuccessors name="next" next="Decision5"/>
+  </nodes>
+<!--@Location 18,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision5" conditionKey="AssignedPartners">
+    <nodeSuccessors name="decision_yes" next="SortIteratorByComparator1"/>
+<!--@BendPoints 38,9 38,13-->
+    <nodeSuccessors name="decision_no" next="Join11"/>
+  </nodes>
+<!--@Location 18,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SortIteratorByComparator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SortIteratorByComparator.xml"/>
+    <nodeSuccessors name="next" next="Join11"/>
+    <parameterBindings name="Iterator" objectPath="AssignedPartners"/>
+    <returnValueBindings name="SortedIterator" objectPath="AssignedPartners"/>
+  </nodes>
+<!--@Location 18,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join11">
+    <nodeSuccessors name="next" next="End8"/>
+  </nodes>
+<!--@Location 18,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End8"/>
+<!--@Location 9,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start8" name="UpdateClipboard" callMode="Private">
+    <nodeSuccessors name="next" next="GetFormSelection1"/>
+  </nodes>
+<!--@Location 9,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFormSelection1">
+    <configurationValues name="DefaultParameterName" value="ListPartnerUUID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFormSelection.xml"/>
+    <nodeSuccessors name="next" next="GetFormSelection2"/>
+    <returnValueBindings name="Selection" objectPath="ListPartnerUUIDs"/>
+  </nodes>
+<!--@Location 9,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFormSelection2">
+    <configurationValues name="DefaultParameterName" value="SelectedPartnerUUID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFormSelection.xml"/>
+    <nodeSuccessors name="next" next="UpdateClipboard1"/>
+    <returnValueBindings name="Selection" objectPath="SelectedPartnerUUIDs"/>
+  </nodes>
+<!--@Location 9,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateClipboard1">
+    <configurationValues name="SessionRegistrationID" value="PartnerClipboard"/>
+    <configurationValues name="StoreFormValues" value="No"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateClipboard.xml"/>
+    <nodeSuccessors name="next" next="End3"/>
+    <parameterBindings name="AllObjectUUIDs" objectPath="ListPartnerUUIDs"/>
+    <parameterBindings name="SelectedObjectUUIDs" objectPath="SelectedPartnerUUIDs"/>
+    <returnValueBindings name="Clipboard" objectPath="PartnerClipboard"/>
+    <returnValueBindings name="UUIDIterator" objectPath="SelectedChannels"/>
+  </nodes>
+<!--@Location 9,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+</pipeline:Pipeline>

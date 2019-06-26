@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ContentRepository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the pagelet belongs to."/>
+    <parameter name="PageletDefinition" type="java.util.Iterator" optional="false" description="An iterator with a pagelet definition (to be usd by the ModelElementAliasHelper)."/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="Mode" type="java.lang.String" optional="true"/>
+	<parameter name="ExcludedPagelets" type="java.util.Collection" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Pagelet" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="SharingHelper" input="ContentRepository:RepositoryDomain" processing="ContentSharingHelper"/>
+    <processor-preprocessing output="ModelElementAliasProcessedTypes" input="PageletDefinition" processing="ModelElementAliasHelper"/>
+</processor>
+<template type="countedobjects">
+	SELECT
+	    p.UUID AS UUID,
+	    COUNT(p.UUID) OVER() AS "ROWCOUNT"
+	FROM 
+	    Pagelet p
+		LEFT OUTER JOIN
+		    Pagelet_AV av on (
+		                p.uuid = av.ownerid
+		                AND av.name=&apos;displayName&apos;
+		                <template-if condition="isDefined(Locale)">
+			                    AND av.localeid=<template-variable value="Locale:LocaleID"/>
+			            </template-if>
+		    )
+        WHERE p.DefinitionQualifiedName in (
+            <template-loop iterator="ModelElementAliasProcessedTypes" alias="PageletType">
+                <loop-statement><template-variable value="PageletType:QualifiedName"/></loop-statement>
+                <loop-separator>,</loop-separator>
+            </template-loop>)
+	    <template-if condition="Mode EQ 'all'">
+	    	<template-comment>no templateflag evaluation, return pagelets and pagelet templates</template-comment>
+	    <if-elseif condition="Mode EQ 'pagelets'"/>
+	    	AND p.templateflag = 0
+        <if-else/>
+	    	AND p.templateflag = 1
+	    </template-if>
+		AND p.parentuuid IS NULL
+		<template-if condition="isDefined(ExcludedPagelets)">
+            AND p.uuid NOT IN (<template-loop iterator="ExcludedPagelets:Iterator" alias="ExcludedPagelet"><loop-statement><template-variable value="ExcludedPagelet"/></loop-statement>
+                                <loop-separator>,</loop-separator>
+                            </template-loop>)
+		</template-if>
+		AND p.domainid IN (<template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain"><loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+                                <loop-separator>,</loop-separator>
+                            </template-loop>)
+		<sql-dialect name="Oracle">ORDER BY av.stringvalue ASC NULLS FIRST</sql-dialect>
+		<sql-dialect name="Microsoft">
+			ORDER BY
+			CASE
+				WHEN av.stringvalue IS NULL THEN 0
+				ELSE 1
+			END, av.stringvalue ASC
+		</sql-dialect>
+</template>
+</query>

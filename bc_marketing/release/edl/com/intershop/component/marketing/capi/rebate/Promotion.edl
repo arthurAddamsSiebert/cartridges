@@ -1,0 +1,311 @@
+import "enfinity:/bc_marketing/edl/com/intershop/component/marketing/capi/campaign/Campaign.edl";
+import "enfinity:/bc_marketing/edl/com/intershop/component/marketing/capi/rebate/PromotionBudgetSource.edl";
+import "enfinity:/bc_organization/edl/com/intershop/component/organization/capi/budget/Budget.edl";
+import "enfinity:/bc_marketing/edl/com/intershop/component/marketing/capi/rebate/Rebate.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/localization/LocaleInformation.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObject.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/user/UserGroup.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+import "enfinity:/bc_marketing/edl/com/intershop/component/marketing/internal/promotion/assignment/PromotionAppAssignmentPO.edl";
+external AppIDsIterator type "java.util.Iterator<java.lang.String>";
+external PromotionAppAssignmentPO type "com.intershop.component.marketing.internal.promotion.assignment.PromotionAppAssignmentPO";
+
+namespace com.intershop.component.marketing.capi.rebate
+{
+    /*
+     * Promotions are necessary to administer rebate and - may be later - web content activities in a useful manner.
+     * 
+     * At the promotion level, a promotion name and description can be defined, a targetgroup can be selected, start and end dates can be set, the promotion can be enabled or disabled.
+     * Within the time frame that has been defined by a promotion all descending rebates are valid, although a rebate is not bound to exactly the same start and end.
+     */
+    cartridge interface Promotion extends ExtensibleObject
+    {
+         /**
+    	 * The promotion's name.
+    	 */
+        attribute displayName : string required localized;
+        
+        /**
+		 * A readable promotion id, entered by the promotion manager.        
+		 */
+        attribute ID : string required;
+
+ 		/**
+		 * A description of the promotion.
+		 */
+		 attribute description : string required localized;
+
+        /**
+         * The rank of the promotion. The rank defines the priority.
+         */
+         attribute rank : int required; 
+		
+ 		/**
+		 * The date, when the promotion is begins.
+		 */
+		 attribute startDate : datetime required;
+
+ 		/**
+		 * The date, when the promotion is over.
+		 */
+		 attribute endDate : datetime required;
+
+		/**
+		 * Flag to indicate, if the promotion is enabled, and can be applied.
+		 */
+        attribute enabled : boolean required;
+        
+        /**
+		 * Flag to indicate, if the promotion requires a promotion code (note: the variable name "coupon code" has historical reasons).
+		 */
+        attribute couponCodeRequired : boolean;
+ 
+ 		/**
+		 * Flag to indicate, if the promotion is unlimited.
+		 * If a budget had been created before, but the promotion was updated
+		 * to be unlimited, then setting this flag makes the budget obsolete.
+		 */               
+        attribute unlimited : boolean;
+
+		/**
+		 * Flag to indicate, if the promotion has got a custom specific or a default rank.
+		 * If set to true, the rank is set per default, depending on the first action of the 
+		 * first rebate rule.
+		 */
+        attribute hasDefaultRank : boolean;
+
+		/**
+		 * The type of the promotion
+		 * @Deprecated.
+		 */
+		 attribute typeCode : int required;
+		
+		/**
+		 * The id of the logged in person, who created the promotion.
+		 */
+		attribute creatorID : string;
+		
+        /*
+         * Is used to define for which currency this promotion applies.
+         */
+        attribute currency : Currency readonly required;
+		
+		/*
+		 * The id of the budget which has been defined to a promotion. If set to null, no budget is applied.
+		 */
+		attribute budgetID : string;
+
+		/**
+		 * Defines a threshold to the budget, when to trigger a notification email.
+		 */
+		attribute budgetNotificationThreshold : double;
+		
+		/**
+		 * The email address where any notification email should send to.
+		 */
+		attribute budgetNotificationEmail : string;
+
+		/**
+		 * Flag to indicate, if the promotion should be disabled automatically, when the budget has been exceeded.
+		 */
+        attribute disableByBudget : boolean;
+ 
+         /**
+         * Flag to indicate, if a notification email should be triggered, when the budget has been exceeded.
+         */
+        attribute sendMailIfBudgetReached : boolean;
+        
+        /**
+         * Flag to indicate, if a notification email should be triggered, when the budget threshold has been reached.
+         */
+        attribute sendMailIfThresholdReached : boolean;
+        
+		/**
+         * Flag to indicate, if the promotion uses a single code definition. 
+         * (A single promotion code is not associated to any promotion code group.)
+         */
+        attribute useSingleCode : boolean;
+		
+		/**
+		 * The single promotion code, which does not belong to any promotion code group.
+		 */
+		attribute singleCode : string;
+		
+		/**
+		 * Sets the limit how often a single code can be reused. If set to maximum integer internally,
+		 * the promotion is unlimited.
+		 */
+		attribute singleCodeTotal : int; 
+		
+		/**
+		 * Flag to indicate, if a customer can use the single code more than one time.
+		 * If set to true, the code can be used unlimited times. Otherwise the code can only be
+		 * redeemed one time.
+		 */
+		attribute codeCustomerUnlimited: boolean;
+		
+		/**
+		 * combinable with the action types listed in the multiple-string attribute 
+		 * CombinationTypes.<br/>
+		 *  - bit 0 = 1: promotion is combinable; = 0 not combinable<br/>
+		 *  - bit 1 = 1: other promotions along with this one affecting a product are allowed; 
+		 *  = 0: none of them allowed
+		 */
+		attribute combination : int required;
+		
+		/**
+		 * Defines relation to a target user group
+		 */
+        relation targetGroup : UserGroup[0..1] readonly;
+
+		/**
+		 * Assigned rebates: returned rebates will be sorted by position
+		 */
+        relation rebates : Rebate[0..n] readonly;
+
+        /**
+         * Returns the promotion's budget.
+         */
+        operation getBudgetAmount(): Money;
+        
+        /**
+         * returns true, if the promotion is combinable with others
+         * (bit 0 at the combination attribute)
+         */
+        operation isCombinable(): boolean;
+        
+        /**
+	     * returns true, if other promotions are allowed together with this one at a product
+	     * (bit 1 at the combination attribute). They need be of the action types either,
+	     *  - contained in the AV attribute 'CombinationTypes' or
+	     *  - all valid action types (when 'free combinable' has been selected and
+	     *  no action type is listed in the 'CombinationTypes')
+         */
+        operation isMultipleAllowed(): boolean;
+        
+        /**
+         * sets the flag to determine, if the promotion is combinable with others
+         * (bit 0 at the combination attribute)
+         */
+        operation setCombinable( enabled : boolean ): void; 
+        
+        /**
+         * sets the flag to determine, if other promotions are allowed together with this one at a product
+         * (bit 1 at the combination attribute)
+         */
+        operation setMultipleAllowed( enabled: boolean): void;
+        
+        /**
+         * Tries to returns the "Legal Content Message" defined for a promotion. 
+         * If there does not exists one, it tries to return the one, defined at the channel preference. 
+         * <i>null</i> will be returned, if no message can be found.
+         */
+        operation getLegalContentMessage(): string; 
+        
+        /**
+         * Tries to returns the "Legal Content Message" defined for a promotion for the given locale. 
+         * If there does not exists one, it tries to return the one, defined at the channel preference 
+         * for the given locale. <i>null</i> will be returned, if no message can be found.
+         */
+        operation getLegalContentMessage(aLocal : LocaleInformation): string; 
+        
+        /**
+         * The type of the promotion content activation.
+         * ContentActivationTypes.PROMOTIONDATE:
+         *    Use promotion start and end date
+         * ContentActivationTypes.DEFINEDDATE:
+         *    Activate content at the defined start and end time
+         * ContentActivationTypes.CONTENTDATE:
+         *    Use the publishing start and end date of content
+         */
+         attribute contentActivationType : int;
+         
+         /**
+          * The date, when the promotion content will activate.
+          * This date is null if the contentActivationType is not set to ContentActivationTypes.DEFINEDDATE.
+          */
+         attribute contentActivationStartDate : datetime;
+         
+         /**
+          * The date, when the promotion content will deactivate.
+          * This date is null if the contentActivationType is not set to ContentActivationTypes.DEFINEDDATE.
+          */
+         attribute contentActivationEndDate : datetime;
+         
+         /**
+		  * Flag to indicate, if the promotion is available, e.g. if the associated products are in stock.
+		  */
+         attribute available : boolean;
+
+		/**
+		 *  Copies all bean and custom attributes to a target rebate.<p>
+		 * 	Relations to conditions, actions and filter groups will also be copied.
+		 */	
+		operation copyInto(promotion : Promotion) : void throws CloningException;
+		
+		/**
+		 * Gets budget assigned to this promotion
+		 */
+		operation getBudget() : Budget;
+		
+		/**
+		 * Relation to a campaign the promotion is assigned to
+		 */
+		relation campaign : Campaign[0..1];
+		
+		/**
+		 * Relation to an assigned promotion budget source
+		 */
+		operation getBudgetSource() : PromotionBudgetSource;
+		
+		/**
+		 * Method to check if a budget source is assigned.
+		 */
+		operation hasBudgetSource() : boolean;
+		
+		/**
+		 * Sets the budget source of the promotion
+		 */
+		operation setBudgetSource(budgetSource : PromotionBudgetSource) : void;
+		
+		/**
+		 * Method to check if the promotion is assigned to a campaign
+		 */
+		operation hasCampaign() : boolean;
+		
+		/**
+		 * Flag to indicate if promotion is assigned to a campaign to use campaign's time frame.<p/>
+		 * Only if this flag is NOT set and promotion is assigned to a campaign, promotion manager will be
+		 * able to set a special time frame.
+		 */
+        attribute useCampaignTimeFrame : boolean;
+                 
+		/**
+		 * Flag to indicate if promotion is assigned to a campaign to use campaign's target groups.
+		 * Only if this flag is NOT set and promotion is assigned to a campaign, promotion manager will be 
+		 * able to set special time frame.
+		 */
+		attribute useCampaignTargetGroup : boolean;
+		
+		/**
+		 * Specify that a promotion can trigger on the values prior to any other discounting (or not). 
+		 * The switch decides whether the promotion takes into account the base price or the discounted price.
+		 */
+		attribute effectDiscountLevel : boolean;
+		
+		/**
+		 * Get all assigned apps from the promotion.
+		 */
+		operation createAppIDsIterator() : AppIDsIterator;
+		
+		/**
+		 * Validate assignment from promotion to given appID.
+		 */
+		operation hasAppID(appID : string) : boolean; 
+
+		/**
+		 * Assigns an application to promotion.
+		 */
+		operation assignAppID(applicationUUID : string, domainUUID : string) : PromotionAppAssignmentPO;
+    }
+}

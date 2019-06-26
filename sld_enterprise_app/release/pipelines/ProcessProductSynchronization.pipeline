@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Synchronizes product data located in a given repository.
+@Group Syndication-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessProductSynchronization" type="process">
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="AddAvailableParent" callMode="Private">
+    <nodeSuccessors name="next" next="Decision3"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="SyncRecord:JobUUID">
+    <nodeSuccessors name="decision_yes" next="GetJobConfiguration1"/>
+<!--@BendPoints 17,3-->
+    <nodeSuccessors name="decision_no" next="Join9"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetJobConfiguration1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetJobConfiguration.xml"/>
+    <nodeSuccessors name="next" next="Decision2"/>
+    <nodeSuccessors name="pipelet_error" next="Join9"/>
+    <parameterBindings name="JobDomain" nullBinding="true"/>
+    <parameterBindings name="JobDomainName" nullBinding="true"/>
+    <parameterBindings name="JobName" nullBinding="true"/>
+    <parameterBindings name="JobUUID" objectPath="SyncRecord:JobUUID"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="JobConfiguration">
+    <nodeSuccessors name="decision_yes" next="Decision1"/>
+    <nodeSuccessors name="decision_no" next="Join2"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="JobConfiguration:Status"
+      operator="eq" conditionValue="1">
+<!--@BendPoints 15,10-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode2"/>
+    <nodeSuccessors name="decision_no" next="Join1"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="SyncRecord:JobUUID"
+      operator="str_neq" conditionItem="JobConfigurationUUID">
+    <nodeSuccessors name="decision_yes" next="JoinNode1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 15,16-->
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 17,12-->
+    <nodeSuccessors name="next" next="AddObjectToVector2"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 17,15-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InVector" objectPath="ParentReps"/>
+    <parameterBindings name="Object" objectPath="ParentRepository"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="ParentRepositories"/>
+    <returnValueBindings name="OutVector" objectPath="ParentReps"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join9">
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="GetParentRepositories"
+      sessionMode="Volatile" callMode="Private">
+    <nodeSuccessors name="next" next="Loop3"/>
+<!--The uuids of parent repositories to synchronize repository with.-->
+    <parameters name="SourceObjectUUIDs" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop3" loop="SourceObjectUUIDs">
+    <nodeSuccessors name="next" next="RemoveDictionaryValue1"/>
+    <entry key="UUID">
+      <nodeSuccessors name="loop_entry_next" next="GetRepositoryByUUID1"/>
+    </entry>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByUUID1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByUUID.xml"/>
+    <nodeSuccessors name="next" next="GetSyncRecord1"/>
+<!--@BendPoints 11,5-->
+    <nodeSuccessors name="pipelet_error" next="Join7"/>
+    <returnValueBindings name="Repository" objectPath="ParentRepository"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSyncRecord1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetSyncRecord.xml"/>
+    <nodeSuccessors name="next" next="Call1"/>
+    <nodeSuccessors name="pipelet_error" next="Join7"/>
+    <parameterBindings name="SourceObject" objectPath="ParentRepository"/>
+    <parameterBindings name="TargetObject" objectPath="Repository"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="Join6"/>
+    <startNode referencedName="ProcessProductSynchronization-AddAvailableParent"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+<!--@BendPoints 9,12 7,12 7,3-->
+    <nodeSuccessors name="next" next="Loop3_Entry"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+<!--@BendPoints 11,11-->
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue1">
+    <configurationValues name="Key" value="Parents"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="End7"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End7"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="SynchronizeRepository"
+      sessionMode="Volatile" callMode="Private">
+    <nodeSuccessors name="next" next="CheckForSynchronization1"/>
+<!--The repository that has to be synchronize.-->
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForSynchronization1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/CheckForSynchronization.xml"/>
+    <nodeSuccessors name="next" next="Call6"/>
+    <nodeSuccessors name="pipelet_error" next="End3"/>
+    <parameterBindings name="TargetObject" objectPath="Repository"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call6">
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <startNode referencedName="ProcessProductSynchronization-GetParentRepositories"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ParentRepositories">
+<!--@BendPoints 3,8-->
+    <nodeSuccessors name="decision_yes" next="Call4"/>
+<!--@BendPoints 4,7-->
+    <nodeSuccessors name="decision_no" next="EndNode1"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call4">
+    <nodeSuccessors name="next" next="CreatePageableSequence1"/>
+    <startNode referencedName="GetSyncProducts-ByRepositories"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePageableSequence1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableSequence.xml"/>
+    <nodeSuccessors name="next" next="CreatePageableFromIterator1"/>
+    <parameterBindings name="PageableIterator" objectPath="Products"/>
+    <returnValueBindings name="PageableSequence" objectPath="Objects"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePageableFromIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableFromIterator.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameterBindings name="Iterator" objectPath="ParentRepositories"/>
+    <returnValueBindings name="Pageable" objectPath="ParentRepositoriesPageable"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call2"/>
+    <parameterBindings name="InValue_1" objectPath="Repository:UUID"/>
+    <parameterBindings name="InValue_2" objectPath="ParentRepositoriesPageable:ID"/>
+    <returnValueBindings name="OutValue_1" objectPath="CurrentRepositoryUUID"/>
+    <returnValueBindings name="OutValue_2" objectPath="ParentRepositoriesID"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+    <nodeSuccessors name="next" next="Join4"/>
+<!--@BendPoints 4,18 6,18 6,27-->
+    <nodeSuccessors name="Error" next="Join5"/>
+    <startNode referencedName="BatchProcessSynchronization-Initialize"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+    <nodeSuccessors name="next" next="Call3"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call3">
+    <nodeSuccessors name="next" next="SwitchToNextPage1"/>
+    <startNode referencedName="BatchProcessSynchronization-Synchronize"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SwitchToNextPage1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SwitchToNextPage.xml"/>
+<!--@BendPoints 3,24 1,24 1,19-->
+    <nodeSuccessors name="next" next="Join4"/>
+<!--@BendPoints 5,23-->
+    <nodeSuccessors name="pipelet_error" next="Call7"/>
+    <parameterBindings name="PageableIterator" objectPath="Objects"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call7">
+    <nodeSuccessors name="next" next="Join5"/>
+    <startNode referencedName="BatchProcessSynchronization-Finish"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+    <nodeSuccessors name="next" next="End4"/>
+  </nodes>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+</pipeline:Pipeline>

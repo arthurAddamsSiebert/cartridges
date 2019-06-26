@@ -1,0 +1,93 @@
+<!--- TEMPLATENAME: PositionSelect.isml --->
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<%@ page import="com.intershop.beehive.core.capi.util.Positionable,
+				java.util.Collection,
+				java.util.Iterator,
+				java.util.Map,
+				java.util.LinkedHashMap,
+				java.util.ArrayList" %>
+<%
+    String indexStr = (String)getPipelineDictionary().get("SelectedIndex");
+    int index = 0;
+	if (indexStr != null)
+	{
+	    try
+	    {
+	        index = Integer.parseInt(indexStr);
+	    }
+	    catch(NumberFormatException nfe)
+	    {
+	        throw new RuntimeException("Expecting .", nfe);
+	    }
+	}
+    Number currentPosition = (Number)getPipelineDictionary().get("CurrentPosition");
+    Number start = (Number)getPipelineDictionary().get("Start");
+    Number end = (Number)getPipelineDictionary().get("End");
+    Collection<Positionable> positionables = (Collection<Positionable>) getPipelineDictionary().get("Positionables");
+    
+    if (positionables == null)
+    	positionables = new ArrayList<Positionable>(0);
+    
+    Map<Double,Integer> numbers = new LinkedHashMap<Double,Integer>();
+    if(start != null && end != null)
+    {
+	    for(double i = start.doubleValue(), max = end.doubleValue(); i <= max; i++)
+	    {
+	        numbers.put(i, new Double(i).intValue());
+	    }
+    }
+    else
+    {
+	    if (start == null)
+	    {
+	    	getPipelineDictionary().put("Start", 1);
+	    	start = 1;
+	    }
+
+		Positionable max = null;
+		Iterator<Positionable> positionablesItr = positionables.iterator();
+		for(int i = start.intValue(); positionablesItr.hasNext(); i++)
+		{
+			Positionable current = max = positionablesItr.next();
+			numbers.put(current.getPosition(), i);
+			if ((currentPosition != null && current.getPosition() == currentPosition.doubleValue()) || (indexStr != null && i==index))
+			{
+				getPipelineDictionary().put("CurrentPosition", current.getPosition());
+			}
+		}
+	    
+	    if (end == null)
+	    {
+	    	getPipelineDictionary().put("End", numbers.size());
+	    }
+	    else
+	    {
+	    	for(double k=(max != null)?max.getPosition():end.doubleValue(), 
+	    		v=(max != null)?numbers.size():end.doubleValue(); v<=end.doubleValue(); k++,v++)
+	    	{
+	    		numbers.put(k, new Double(v).intValue());
+	    		if ((currentPosition != null && k == currentPosition.doubleValue()) || (indexStr != null && v==index))
+	    		{
+	    			getPipelineDictionary().put("CurrentPosition", k);
+	    		}
+	    		getPipelineDictionary().put("End", numbers.get(k));
+	    	}
+	    }
+    }
+    getPipelineDictionary().put("Map", numbers);
+%><select name="<isprint value="#SelectName#">" id="<isprint value="#SelectName#">"
+	<isif condition="#isDefined(SelectClass)#">class="<isprint value="#SelectClass#">"</isif> 
+	<isif condition="#isDefined(ReadOnly) AND (ReadOnly EQ 'true')#">disabled="disabled"</isif> 
+	<isif condition="#isDefined(OnChange)#">onchange="<isprint value="#OnChange#">"</isif>>
+	<isloop iterator="Map:EntrySet" alias="Entry">
+		<isif condition="# Entry:Key eq CurrentPosition #">
+			<option value="<isprint value="#Entry:Value#" style="INTEGER">" selected="selected"><isprint value="#Entry:Value#" style="INTEGER"><isif condition="#Start EQ Entry:Value#"
+			> (<istext key="PositionSelect.Highest.option" encoding="off"/>)<iselseif condition="#End EQ Entry:Value#"
+			> (<istext key="PositionSelect.Lowest.option" encoding="off"/>)</isif></option>
+		<iselse>
+			<option value="<isprint value="#Entry:Value#" style="INTEGER">"><isprint value="#Entry:Value#" style="INTEGER"><isif condition="#Start EQ Entry:Value#"
+			> (<istext key="PositionSelect.Highest.option1" encoding="off"/>)<iselseif condition="#End EQ Entry:Value#"
+			> (<istext key="PositionSelect.Lowest.option1" encoding="off"/>)</isif></option>
+		</isif>
+	</isloop>
+</select>

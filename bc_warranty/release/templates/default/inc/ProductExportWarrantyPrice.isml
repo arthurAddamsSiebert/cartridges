@@ -1,0 +1,57 @@
+<!---[Comment]--->
+<%@page import="com.intershop.beehive.core.capi.pipeline.PipelineDictionary"%>
+<%@page import="com.intershop.component.mvc.capi.product.ServiceTypeBO"%>
+<%@page import="com.intershop.component.product.capi.ProductBO"%>
+<%@page import="com.intershop.component.product.capi.ProductBORepositoryExtension"%>
+<%@page import="com.intershop.component.product.capi.ProductBORepository"%>
+<%@page import="com.intershop.component.warranty.capi.WarrantyBO"%>
+<%@page import="com.intershop.beehive.xcs.capi.product.Product"%>
+<%@page import="com.intershop.component.warranty.capi.WarrantyBORepositoryExtension"%>
+<%@page import="com.intershop.component.warranty.capi.WarrantyBORepository"%>
+<%@page import="com.intershop.component.repository.capi.BusinessObjectRepositoryContext"%>
+<%@page import="com.intershop.beehive.businessobject.capi.BusinessObjectContext"%>
+<%@page import="com.intershop.component.application.capi.ApplicationBO"%>
+<%@page import="com.intershop.beehive.core.capi.app.AppContextUtil"%>
+<iscontent type="text/html" charset="UTF-8" templatemarker="false">
+
+<%
+PipelineDictionary dictionary = getPipelineDictionary();
+Product product = dictionary.get("product");
+
+BusinessObjectRepositoryContext repositoryContext = AppContextUtil.getCurrentAppContext().getVariable(BusinessObjectRepositoryContext.CURRENT);
+
+ProductBORepository productRepository = repositoryContext.getRepository(ProductBORepositoryExtension.EXTENSION_ID);
+ProductBO productBO = productRepository.getProductBOByID(product.getUUID());
+
+if(productBO != null)
+{
+	ServiceTypeBO serviceTypeBO = productBO.getServiceTypeBO();
+	
+	if(serviceTypeBO != null && serviceTypeBO.isWarranty())
+	{
+	    WarrantyBORepository warrantyRepository = repositoryContext.getRepository(WarrantyBORepositoryExtension.EXTENSION_ID);
+		WarrantyBO warrantyBO = warrantyRepository.getWarrantyBOBySKU(product.getSKU());
+		
+		if(warrantyBO != null)
+		{
+		    dictionary.put("WarrantyPriceConfiguration", warrantyBO.getPriceConfiguration());
+		    dictionary.put("WarrantyPriceProvider", warrantyBO.getPriceProviderName());
+%>
+            <isif condition="#hasElements(WarrantyPriceConfiguration:KeySet)#">
+                <warranty-prices>
+		            <isif condition="#WarrantyPriceProvider EQ 'WarrantyPriceProvider.FixedPrice'#">
+		                <isinclude template="inc/ProductExportWarrantyFixedPrice"/>
+		            <iselseif condition="#WarrantyPriceProvider EQ 'WarrantyPriceProvider.Percentage'#"/>
+		                <isinclude template="inc/ProductExportWarrantyPercentagePrice"/>
+		            <iselseif condition="#WarrantyPriceProvider EQ 'WarrantyPriceProvider.PriceRange'#"/>
+		                <isinclude template="inc/ProductExportWarrantyScaledPrice"/>
+		            <iselse>
+		                <%Logger.error(this, "Unknown warranty price provider name: {}.", warrantyBO.getPriceProviderName()); %>
+		            </isif>
+	            </warranty-prices>
+	        </isif>
+<%
+		}
+	}
+}
+%>

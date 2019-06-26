@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Processing for the storefront Sitemap.
+@Group SiteMap-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessSitemap" overrideMode="Inherit" type="process">
+<!--Checks the given syndication and returns it, if OK.
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="GetFallbackSyndication"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--The Syndication to use as fallback.-->
+    <parameters name="Syndication" type="com.intershop.component.foundation.capi.syndication.Syndication"/>
+<!--The request object.-->
+    <parameters name="Request" type="com.intershop.beehive.core.capi.request.Request"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Syndication:LocaleID">
+    <nodeSuccessors name="decision_yes" next="DecisionNode0"/>
+<!--@BendPoints 5,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Request:Locale:LocaleID"
+      operator="str_eq" conditionItem="Syndication:LocaleID">
+    <nodeSuccessors name="decision_yes" next="CreateURL0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateURL0">
+    <configurationValues name="SessionLess" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/CreateURL.xml"/>
+    <nodeSuccessors name="next" next="GetStringIndexOf0"/>
+    <parameterBindings name="Action" objectPath="Syndication:Target:Parameters:get(&quot;sitemapPipeline&quot;)"/>
+    <parameterBindings name="CurrencyMnemonic" objectPath="Syndication:CurrencyMnemonic"/>
+    <parameterBindings name="DomainName" objectPath="Syndication:Domain:Site:DomainName"/>
+    <parameterBindings name="LocaleID" objectPath="Syndication:LocaleID"/>
+    <parameterBindings name="Params" nullBinding="true"/>
+    <parameterBindings name="Protocol" constant="http"/>
+    <returnValueBindings name="CreatedURL" objectPath="SiteMapURL"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetStringIndexOf0">
+    <pipelet href="enfinity:/core/pipelets/GetStringIndexOf.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="MainString" objectPath="SiteMapURL"/>
+    <parameterBindings name="SubString" objectPath="Syndication:FileName"/>
+  </nodes>
+<!--Returns the given Syndication, if check went fine.
+@Location 1,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+<!--Returns the Syndication if the check was OK.-->
+    <returnValues name="Syndication" type="com.intershop.component.foundation.capi.syndication.Syndication"
+        optional="true"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--Returns nothing, if the check was not successful.
+@Location 2,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="Error" strict="true"/>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 9,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="IsSyndicationTargetIDSitemaps"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode12"/>
+    <parameters name="SyndicationTargetID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="SyndicationTargetID"
+      operator="str_eq" conditionValue="Sitemaps">
+<!--@BendPoints 21,3-->
+    <nodeSuccessors name="decision_yes" next="JoinNode8"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode11"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="YES" strict="true"/>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="SyndicationTargetID"
+      operator="str_eq" conditionValue="Sitemaps-HTTPS">
+    <nodeSuccessors name="decision_yes" next="JoinNode8"/>
+    <nodeSuccessors name="decision_no" next="EndNode5"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="NO" strict="true"/>
+<!--looks up generated  files and sitemapindex 
+@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="PrepareSitemapXML"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetSyndications0"/>
+<!--The file number of zip.-->
+    <parameters name="SiteMapFileNo" type="java.lang.String" optional="true"/>
+<!--The SyndicationID to look for.-->
+    <parameters name="SyndicationID" type="java.lang.String" optional="true"/>
+<!--The used Organization.-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+<!--The request object.-->
+    <parameters name="Request" type="com.intershop.beehive.core.capi.request.Request"/>
+<!--The Domain of the Pipeline execution.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSyndications0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetSyndications.xml"/>
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <parameterBindings name="Domain" objectPath="Organization:OwningDomain"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="Syndications">
+<!--@BendPoints 17,5-->
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+    <entry key="Syndication">
+      <nodeSuccessors name="loop_entry_next" next="CallNode1"/>
+    </entry>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="NO" next="JoinNode6"/>
+<!--@BendPoints 15,7-->
+    <nodeSuccessors name="YES" next="DecisionNode6"/>
+    <parameterBindings name="SyndicationTargetID" objectPath="Syndication:Target:ID"/>
+    <startNode referencedName="ProcessSitemap-IsSyndicationTargetIDSitemaps"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 9,15 9,5-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="Syndication:Enabled"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="DecisionNode2"/>
+<!--@BendPoints 13,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="SyndicationID"
+      operator="str_eq" conditionItem="Syndication:ID">
+    <nodeSuccessors name="decision_yes" next="KeyMapper1"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+    <parameterBindings name="InValue_1" objectPath="Syndication"/>
+    <returnValueBindings name="OutValue_1" objectPath="CurrentSyndication"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="CurrentSyndication"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+    <nodeSuccessors name="decision_no" next="JoinNode7"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="GetSiteDirectory0"/>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSiteDirectory0">
+    <pipelet href="enfinity:/core/pipelets/GetSiteDirectory.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+    <parameterBindings name="Domain" objectPath="Domain"/>
+  </nodes>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentSyndication:File"/>
+    <returnValueBindings name="OutValue_1" objectPath="SiteMapXMLFile"/>
+  </nodes>
+<!--@Location 8,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="SiteMapFileNo">
+    <nodeSuccessors name="decision_yes" next="EndNode2"/>
+<!--@BendPoints 19,21-->
+    <nodeSuccessors name="decision_no" next="EndNode3"/>
+  </nodes>
+<!--If this Connector is returned, the SiteMapZip Template should be used.
+@Location 8,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="SiteMapZip" strict="true">
+<!--The site directory.-->
+    <returnValues name="Directory" type="java.io.File"/>
+<!--The retrieved current Syndication.-->
+    <returnValues name="CurrentSyndication" type="com.intershop.component.foundation.capi.syndication.Syndication"/>
+<!--The XML file of the Sitemap.-->
+    <returnValues name="SiteMapXMLFile" type="java.io.File"/>
+  </nodes>
+<!--If this Connector is returned, the SiteMapXML Template should be used.
+@Location 9,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="SiteMapXML" strict="true">
+<!--The retrieved current Syndication.-->
+    <returnValues name="CurrentSyndication" type="com.intershop.component.foundation.capi.syndication.Syndication"/>
+<!--The XML file of the Sitemap.-->
+    <returnValues name="SiteMapXMLFile" type="java.io.File"/>
+<!--The site directory.-->
+    <returnValues name="Directory" type="java.io.File"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="FallbackSyndication">
+    <nodeSuccessors name="decision_yes" next="JoinNode6"/>
+    <nodeSuccessors name="decision_no" next="CallNode0"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <nodeSuccessors name="Error" next="JoinNode4"/>
+    <parameterBindings name="Request" objectPath="Request"/>
+    <startNode referencedName="ProcessSitemap-GetFallbackSyndication"/>
+    <returnValueBindings name="Syndication" objectPath="FallbackSyndication"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="CurrentSyndication">
+    <nodeSuccessors name="decision_yes" next="JoinNode7"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode9"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="FallbackSyndication"
+      operator="undef">
+<!--@BendPoints 21,11-->
+    <nodeSuccessors name="decision_yes" next="KeyMapper0"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper3"/>
+  </nodes>
+<!--@Location 10,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <parameterBindings name="InValue_1" constant="PipelineNotFound"/>
+    <returnValueBindings name="OutValue_1" objectPath="ErrorCode"/>
+  </nodes>
+<!--Returns ErrorCode with "PipelineNotFound", if no Syndication could be found.
+@Location 10,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="Error" strict="true">
+<!--Returns The ErrorCode with "PipelineNotFound"-->
+    <returnValues name="ErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 19,15-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="InValue_1" objectPath="FallbackSyndication"/>
+    <returnValueBindings name="OutValue_1" objectPath="CurrentSyndication"/>
+  </nodes>
+</pipeline:Pipeline>

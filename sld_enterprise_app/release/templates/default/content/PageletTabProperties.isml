@@ -1,0 +1,606 @@
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<isinclude template="inc/Modules">
+<isinclude template="content/Modules">
+
+<ISCreateMap mapname="PageletPropertiesParams" 
+	key0="Pagelet" value0="#Pagelet#" 
+	key1="ContentRepository" value1="#Repository#"
+	key2="ContextObject" value2="#Assignment:To#"
+	key3="Assignment" value3="#Assignment#">
+<ispipeline pipeline="ViewPageletProperties-TemplateCallback" params="#PageletPropertiesParams#" alias="Result"/>
+<ISPopulateDictionary map="#Result#">
+<ISContentPermissionMap ContentRepository="#Repository#" PermissionMap="PermissionMap">
+<ISPageletModelUtils PageletModelUtils="PageletModelUtils">
+<ISCreateMap mapname="GlobalPageletLockParams"
+	key0="ContentDomain" value0="#ContentRepository:RepositoryDomain#"
+	key1="PreferenceDomain" value1="#ContentRepository:RepositoryDomain#">
+<ispipeline pipeline="ProcessPageletLock-LookupParentNamedResource" alias="GlobalPageletLockInfoDictionary" params="#GlobalPageletLockParams#"/>
+<isif condition="#(NOT(isDefined(GlobalPageletLockInfoDictionary:AllPageletsLocked)) OR (GlobalPageletLockInfoDictionary:AllPageletsLocked EQ 'false')) AND (IsCopyPossible)#">
+	<isset scope="request" name="DisablePageletCopyAttribute" value="#''#"/>
+<iselse>
+	<isset scope="request" name="DisablePageletCopyAttribute" value="#'disabled="disabled"'#"/>
+</isif>
+<ISPageletEditable ContentRepository="#Repository#" Pagelet="#Pagelet#" User="#CurrentUser#" Result="IsPageletEditable" PageletLockedForOther="PageletLockedForOther">
+<isset name="IsPublishingEditable" value="#not(isDefined(PageletLockedForOther))#" scope="request"/>
+<isset name="HasEditPermission" value="#isDefined(PermissionMap:SLD_MANAGE_CONTENT)#" scope="request"/>
+<isif condition="#isDefined(Assignment)#">
+	<ISPageletAssignmentEditable ContentRepository="#Repository#" Assignment="#Assignment#" User="#CurrentUser#" Result="IsPageletAssignmentEditable">
+	<ISHasAssignmentEditPermission ContextObject="#ContextObject#" PermissionMap="#PermissionMap#" Result="HasAssignmentEditPermission">
+</isif>
+
+<!--- Error Handling --->
+<isif condition="#HasEditPermission#">
+	<isif condition="#EditPagelet:Name:isMissing OR isDefined(ErrorValidFromIncorrect) OR isDefined(ErrorValidToIncorrect) OR isDefined(ErrorPeriodIncorrect) OR isDefined(AssignmentFromIncorrect) OR isDefined(AssignmentToIncorrect) OR isDefined(AssignmentPeriodIncorrect) OR isDefined(ErrorInvalidInput)#">
+		<isset name="ValidationError" value="#1==1#" scope="request">
+		<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box w e s">
+			<tr>
+				<td class="error_icon middle e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+				<td class="error top" width="100%">
+					<isif condition="#IsPage eq 'true'#">
+						<istext key="PageletTabProperties.ThePageVariantCouldNotBeUpdated.error" encoding="off"/>
+					<iselse>
+						<istext key="PageletTabProperties.ThePageComponentCouldNotBeUpdated.error" encoding="off"/>
+					</isif>
+					<isif condition="#EditPagelet:Name:isMissing#">
+						<br/><istext key="PageletTabProperties.PleaseProvideAName.error" encoding="off"/>
+					</isif>
+					<isif condition="#isDefined(ErrorValidFromIncorrect) or isDefined(AssignmentFromIncorrect)#">
+						<br/><istext key="PageletTabProperties.PleaseProvideACorrectFromDate.error" encoding="off"/>
+					</isif>
+					<isif condition="#isDefined(ErrorValidToIncorrect) or isDefined(AssignmentToIncorrect)#">
+						<br/><istext key="PageletTabProperties.PleaseProvideACorrectUntilDate.error" encoding="off"/>
+					</isif>
+					<isif condition="#isDefined(ErrorPeriodIncorrect)#">
+						<br/><istext key="PageletTabProperties.InvalidPublishingPeriodFromDateMustBeBeforeUntilDate.error" encoding="off"/> 
+					</isif>
+					<isif condition="#isDefined(AssignmentPeriodIncorrect)#">
+						<br/><istext key="PageletTabProperties.InvalidVisibilityPeriodFromDateMustBeBeforeUntilDate.error" encoding="off"/> 
+					</isif>
+				</td>
+			</tr>
+		</table>
+	</isif>
+</isif>
+<ISEditPageletError>
+
+<!--- Locale and Confirmation Handling --->
+<isform action="#URL(Action('ViewPageletProperties-Dispatch'))#" method="post" name="setLocale">
+	<table border="0" cellpadding="0" cellspacing="0" width="100%">
+		<!--- delete confirmation --->
+		<isif condition="#isDefined(Result:ConfirmDelete) and (IsPageletEditable eq 'true') and HasEditPermission#">
+			<isif condition="#IsPage eq 'true'#">
+				<ISMessageBox subject="#localizeText('PageletTabProperties.Page.subject')#"
+					message="#localizeText('PageletTabProperties.AreYouSureThatYouWantToDeleteThePageVariant.message')#"
+					type="mdc"
+					okbtnname="delete"
+					cancelbtnname="cancel"
+					okbtnclass="sfe-action-inline sfe-layout-change" cancelbtnclass="sfe-action-inline">
+			<iselse>
+				<ISMessageBox subject="#localizeText('PageletTabProperties.Component.subject')#"
+					message="#localizeText('PageletTabProperties.AreYouSureThatYouWantToDeleteTheComponent.message')#"
+					type="mdc"
+					okbtnname="delete"
+					cancelbtnname="cancel"
+					okbtnclass="sfe-action-inline sfe-layout-change" cancelbtnclass="sfe-action-inline">
+			</isif>
+		</isif>
+		<!--- unassignment confirmation --->
+		<isif condition="#isDefined(Result:ConfirmUnassign) and ((IsPageletEditable eq 'true') OR (IsPageletAssignmentEditable)) and HasEditPermission#">
+			<isif condition="#IsPage eq 'true'#">
+				<ISMessageBox subject="#localizeText('PageletTabProperties.Page.subject')#"
+					message="#localizeText('PageletTabProperties.AreYouSureThatYouWantToUnassignThePageVariant.message')#"
+					type="mdc"
+					okbtnname="unassign"
+					cancelbtnname="cancel"
+					okbtnclass="sfe-action-inline sfe-layout-change" cancelbtnclass="sfe-action-inline">
+			<iselse>
+				<ISMessageBox subject="#localizeText('PageletTabProperties.Component.subject')#"
+					message="#localizeText('PageletTabProperties.AreYouSureThatYouWantToUnassignTheComponentFromThe.message')#"
+					type="mdc"
+					okbtnname="unassign"
+					cancelbtnname="cancel"
+					okbtnclass="sfe-action-inline sfe-layout-change" cancelbtnclass="sfe-action-inline">
+			</isif>
+		</isif>
+		<isif condition="#(isDefined(Result:confirmPreview))#">
+			<isif condition="#IsPage eq 'true'#">
+				<isPreviewMessageBox previewMessage="#Result:confirmPreview#" itemType="pagelet" cmsItemType="pagevariant">
+			<iselse>
+				<isPreviewMessageBox previewMessage="#Result:confirmPreview#" itemType="pagelet" cmsItemType="component">
+			</isif>
+		</isif>
+		<tr>
+			<td class="table_title_description w e s">
+				<istext key="PageletTabProperties.FieldsWithARedAsterisk.table_title_description" parameter0="star" encoding="off"/>
+			</td>
+		</tr>
+	</table>
+	<!--- language switch --->
+	<table border="0" cellpadding="4" cellspacing="0" width="100%" class="infobox_locale w e s">
+		<tr>
+			<td nowrap="nowrap" class="label_select"><label class="label label_select label_light" for="LocaleId"><istext key="PageletTabProperties.SelectLanguage.label" encoding="off"/>:</label></td>
+			<td class="infobox_item">
+				<select name="LocaleId" id="LocaleId" class="select inputfield_en">
+					<isloop iterator="Locales" alias="Locales">
+						<option value="<isprint value="#Locales:LocaleID#">" <isif condition="#Locales:LocaleID EQ Locale:LocaleID#">selected="selected"</isif>><isprint value="#Locales:getDisplayName(CurrentSession:Locale)#">&nbsp;</option>
+					</isloop>
+				</select>
+			</td>
+			<td width="100%">
+				<table border="0" cellspacing="0" cellpadding="0">
+					<tr>
+						<td class="button">
+							<input type="submit" name="setLocale" value="#localizeText('PageletTabProperties.Apply.button')#" class="button sfe-action-inline"/>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+	<input type="hidden" name="PageletUUID" value="<isprint value="#Pagelet:UUID#">"/>
+	<input type="hidden" name="RepositoryUUID" value="<isprint value="#Repository:UUID#">"/>
+	<input type="hidden" name="PageLocatorName" value="<isprint value="#PageLocatorName#">"/>
+	<input type="hidden" name="ContextPipeline" value="<isprint value="#ContextPipeline#">"/>
+	<isif condition="#isDefined(Assignment)#">
+		<input type="hidden" name="AssignmentUUID" value="<isprint value="#Assignment:UUID#">"/>
+	</isif>
+</isform>
+
+<!--- Main Content --->
+<isform action="#URL(Action('ViewPageletProperties-Dispatch'))#" method="post" name="formMask">
+	<input type="hidden" name="DatePattern" value="<isprint value="#CurrentSession:Locale:DefaultRegionalSettings:inputDatePattern#">,<isprint value="#CurrentSession:Locale:DefaultRegionalSettings:inputTimePattern#">"/>
+	<input type="hidden" name="LocaleId" value="<isprint value="#Locale:LocaleID#">"/>
+	<input type="hidden" name="PageletUUID" value="<isprint value="#Pagelet:UUID#">"/>
+	<input type="hidden" name="RepositoryUUID" value="<isprint value="#Repository:UUID#">"/>
+	<input type="hidden" name="ContextObjectUUID" value="<isprint value="#ContextObject:UUID#">"/>
+	<input type="hidden" name="PageLocatorName" value="<isprint value="#PageLocatorName#">"/>
+	<input type="hidden" name="ContextPipeline" value="<isprint value="#ContextPipeline#">"/>
+	<isif condition="#isDefined(Assignment)#">
+		<input type="hidden" name="AssignmentUUID" value="<isprint value="#Assignment:UUID#">"/>
+	</isif>
+	<table class="w e" cellpadding="0" cellspacing="0" border="0" width="100%">
+		<tr><td colspan="2"><img src="#WebRoot()#/images/space.gif" width="1" height="4" alt="" border="0"/></td></tr>
+		<tr>
+			<td nowrap="nowrap" class="label">
+				<label class="label <isif condition="#EditPagelet:Name:isMissing#">label_error</isif>" for="EditPagelet_Name"><istext key="PageletTabProperties.Name.label" encoding="off"/>:<span class="star">*</span></label>
+			</td>
+			<td class="table_detail">
+				<input type="text" name="EditPagelet_Name" id="EditPagelet_Name" maxlength="256" size="50" class="inputfield_en <isif condition="#NOT(IsPageletEditable) OR NOT(HasEditPermission)#">disabled</isif>"
+					value="<isif condition="#ValidationError#"><isprint value="#EditPagelet:Name:Value#"><iselse><ISPageletDisplayName Pagelet="#Pagelet#" Locale="#Locale#"></isif>"
+					<isif condition="#NOT(IsPageletEditable) OR NOT(HasEditPermission)#">readonly="readonly"</isif>
+				/>
+				<isif condition="#isDefined(PermissionMap:SLD_VIEW_STOREFRONT)#">
+					<span class="fielditem3">
+						<ISPreviewPagelet Pagelet="#Pagelet#"
+							ContentRepository="#ContentRepository#"
+							PageFlag="#IsPage#"
+							contextPipeline="ViewPagelet-ReturnFromPreview"
+							contextParameter0="ContentRepositoryUUID" contextValue0="#ContentRepository:UUID#"
+							contextParameter1="PageletUUID" contextValue1="#Pagelet:UUID#"
+							contextParameter2="SelectedTab" contextValue2="Properties"
+							contextParameter3="PageLocatorName" contextValue3="#PageLocatorName#"
+						>
+					</span>
+				</isif>
+			</td>
+		</tr>
+		<tr> 
+			<td nowrap="nowrap" class="label">
+				<label class="label" for="EditPagelet_PageletID"><istext key="PageletTabProperties.ID.label" encoding="off"/>:<span class="star">*</span></label>
+			</td>
+			<td class="table_detail" width="100%">
+				<input type="text" name="EditPagelet_PageletID" id="EditPagelet_PageletID" maxlength="256" size="50" readonly="readonly" value="<isprint value="#Pagelet:Id#">" class="inputfield_en disabled"/>
+			</td>
+		</tr>
+		<tr>
+			<td nowrap="nowrap" class="label_textarea">
+				<label class="label label_textarea" for="EditPagelet_Description"><istext key="PageletTabProperties.Description.label" encoding="off"/>:</label>
+			</td>
+			<td class="table_detail">
+				<textarea rows="5" cols="50" name="EditPagelet_Description" id="EditPagelet_Description" class="inputfield_en"
+					<isif condition="#NOT(IsPageletEditable) OR NOT(HasEditPermission)#">disabled="disabled"</isif>
+				><isif condition="#ValidationError#"><isprint value="#EditPagelet:Description:Value#"><iselse><isprint value="#Pagelet:Description(Locale)#"></isif></textarea>
+			</td>
+		</tr>
+		<tr>
+			<td nowrap="nowrap" class="label">
+				<label class="label" for="ParentPageletDisplayName"><istext key="PageletTabProperties.Template.label" encoding="off"/>:<span class="star">*</span></label>
+			</td>
+			<td class="table_detail">
+				<isif condition="#Pagelet:hasParent#">
+					<isset name="BasePagelet" value="#Pagelet:Parent#" scope="request"/>
+					<isif condition="#isDefined(PermissionMap:SLD_VIEW_TEMPLATES)#">
+						<a href="#URL(Action('ViewPagelet-View'), Parameter('SelectedTab', 'Properties'), Parameter('PageletUUID', Pagelet:Parent:UUID), Parameter('ContentRepositoryUUID', Repository:UUID), Parameter('PageLocatorName', Pagelet:Parent:UUID.'_CompSearchContainer'))#" class="sfe-action-dialog" title="#localizeText('PageletTabProperties.TemplateProperties.link')#">
+							<ISPageletDisplayName Pagelet="#Pagelet:Parent#" Locale="#Locale#">
+						</a>
+					<iselse>
+						<input type="text" name="ParentPageletDisplayName" id="ParentPageletDisplayName" maxlength="256" size="50" class="inputfield_en disabled" readonly="readonly"
+							 value="<ISPageletDisplayName Pagelet="#Pagelet:Parent#" Locale="#Locale#">" />
+					</isif>
+				<iselse>
+					<isset name="BasePagelet" value="#Pagelet#" scope="request"/>
+					<input type="text" name="ParentPageletDisplayName" id="ParentPageletDisplayName" maxlength="256" size="50" class="inputfield_en disabled" readonly="readonly"
+						 value="<isprint value="#PageletModelUtils:DisplayName(Pagelet:PageletDefinition, Locale)#">"
+						 title="<isprint value="#Pagelet:DefinitionQualifiedName#">" />
+				</isif>
+			</td>
+		</tr>
+		<tr>
+			<td nowrap="nowrap" class="label">
+				<label class="label" for="EditPagelet_Group"><istext key="PageletTabProperties.Group.label" encoding="off"/>:</label>
+			</td>
+			<td class="table_detail">
+				<input type="text" name="EditPagelet_Group" id="EditPagelet_Group" readonly="readonly" size="50" value="<isprint value="#PageletModelUtils:DisplayGroup(BasePagelet:PageletDefinition, Locale)#">" class="inputfield_en disabled"/>
+			</td>
+		</tr>
+		<tr>
+			<td nowrap="nowrap" class="label_select_multiple">
+				<label class="label label_select_multiple" for="EditPagelet_ApplicationTypes"><istext key="PageletTabProperties.ApplicationTypes.label" encoding="off"/>:</label>
+			</td>
+			<td class="table_detail">
+				<select size="5" name="EditPagelet_ApplicationTypes" id="EditPagelet_ApplicationTypes" class="inputfield_en disabled" readonly="readonly" style="min-width: 200px">
+					<isloop iterator="PageletModelUtils:ApplicationTypes(BasePagelet)" alias="ApplicationType">
+						<option><isprint value="#ApplicationType:ID#"/></option>
+					</isloop>
+				</select>
+			</td>
+		</tr>
+		
+		<!--- publishing configuration --->
+		<tr>
+			<td class="label_radio" nowrap="nowrap">
+				<label class="label label_radio"><istext key="PageletTabProperties.Publishing.label" encoding="off"/>:<span class="star">*</span></label>
+			</td>
+			<td>
+				<table cellpadding="0" cellspacing="0" border="0">
+					<tr>
+						<td class="input_radio">
+							<input type="radio" name="EditPagelet_Published" id="EditPagelet_Published_false" value="false"
+								<isif condition="#(isDefined(EditPagelet:Published) AND (EditPagelet:Published:Value EQ 'false')) OR (NOT isDefined(EditPagelet:Published) AND NOT(PageletView:Online))#">checked="checked"</isif>
+								<isif condition="#NOT(IsPublishingEditable) OR NOT(HasEditPermission)#">disabled="disabled"</isif>
+							/>
+						</td>
+						<td class="label_radio_text">
+							<label class="label label_radio_text" for="EditPagelet_Published_false"><istext key="PageletTabProperties.NotPublished.label" encoding="off"/></label>
+						</td>
+						<isif condition="#(PageletView:Online NE Pagelet:Online)#">
+							<td class="table_detail_comment" align="right" nowrap="nowrap">
+								<isif condition="#Pagelet:Online#">
+									<isset name="OriginalValuePublished" value="#localizeText('PageletTabProperties.Published.label')#" scope="request"/>
+								<iselse>
+									<isset name="OriginalValuePublished" value="#localizeText('PageletTabProperties.NotPublished.label')#" scope="request"/>
+								</isif>
+								<img class="cpo-state-icon" src="#WebRoot()#/images/ic_overload.gif" alt="#localizeTextEx('PageletVisible.OriginalValue.alt', ParameterList(OriginalValuePublished))#" title="#localizeTextEx('PageletVisible.OriginalValue.title', ParameterList(OriginalValuePublished))#" />
+							</td>
+						</isif>
+					</tr>
+				</table>
+			</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>
+				<table cellpadding="0" cellspacing="0" border="0">
+					<tr>
+						<td class="input_radio label_fix1">
+							<input type="radio" name="EditPagelet_Published" id="EditPagelet_Published_true" value="true"
+								<isif condition="#(isDefined(EditPagelet:Published) AND (EditPagelet:Published:Value EQ 'true')) OR (NOT isDefined(EditPagelet:Published) AND PageletView:Online)#">checked="checked"</isif>
+								<isif condition="#NOT(IsPublishingEditable) OR NOT(HasEditPermission)#">disabled="disabled"</isif>
+							/>
+							<isif condition="#NOT(IsPublishingEditable) OR NOT(HasEditPermission)#">
+								<input type="hidden" name="EditPagelet_Published" value="<isprint value="#(PageletView:Online)#">">
+							</isif>
+						</td>
+						<td class="label_radio_text label_fix1">
+							<label class="label label_radio_text" for="EditPagelet_Published_true"><istext key="PageletTabProperties.Published.label" encoding="off"/></label>
+						</td>
+					</tr>
+					<tr>
+						<td></td>
+						<td>
+							<table cellpadding="0" cellspacing="0" border="0">
+								<tr>
+									<isif condition="#isDefined(Result:ValidFrom_Day)#">
+										<ISDateInput
+											InputFieldLabel="#localizeText('PageletTabProperties.From.InputFieldLabel')#"
+											InputFieldName="ValidFrom_Day"
+											DateString="#Result:ValidFrom_Day#"
+											Invalid="#isDefined(ErrorValidFromIncorrect) OR isDefined(ErrorPeriodIncorrect)#"
+											readonly="#NOT(IsPublishingEditable) OR NOT(HasEditPermission)#"
+											Disabled="false"
+										>
+										<ISTimeInput
+											InputFieldName="ValidFrom_Time"
+											TimeString="#Result:ValidFrom_Time#"
+											Invalid="#isDefined(ErrorValidFromIncorrect) OR isDefined(ErrorPeriodIncorrect)#"
+											readonly="#NOT(IsPublishingEditable) OR NOT(HasEditPermission)#"
+											Disabled="false"
+										>
+									<iselse>
+										<ISDateInput
+											InputFieldLabel="#localizeText('PageletTabProperties.From.InputFieldLabel')#"
+											InputFieldName="ValidFrom_Day"
+											DateObject="#PageletView:ValidFrom#"
+											Invalid="#isDefined(ErrorValidFromIncorrect) OR isDefined(ErrorPeriodIncorrect)#"
+											readonly="#NOT(IsPublishingEditable) OR NOT(HasEditPermission)#"
+											Disabled="false"
+										>
+										<ISTimeInput
+											InputFieldName="ValidFrom_Time"
+											DateObject="#PageletView:ValidFrom#"
+											Invalid="#isDefined(ErrorValidFromIncorrect) OR isDefined(ErrorPeriodIncorrect)#"
+											readonly="#NOT(IsPublishingEditable) OR NOT(HasEditPermission)#"
+											Disabled="false"
+										>
+									</isif>
+									<td class="table_detail_comment" align="right" nowrap="nowrap">
+										<isif condition="#(PageletView:isDerived EQ 'true') AND (PageletView:Derived:OVERLOAD_VALIDITY EQ 'true') AND (PageletView:ValidFrom:Time NE Pagelet:ValidFrom:Time)#">
+											<ISPageletVisibleText online="#Pagelet:Active#" date="#Pagelet:ValidFrom#" start="true" text="VisibilityText"><img class="cpo-state-icon" src="#WebRoot()#/images/ic_overload.gif" alt="#localizeTextEx('PageletVisible.OriginalValue.alt', ParameterList(encodeValue(VisibilityText)))#" title="#localizeTextEx('PageletVisible.OriginalValue.title', ParameterList(encodeValue(VisibilityText)))#" />
+										</isif>
+									</td>
+								</tr>
+								<tr>
+									<isif condition="#isDefined(Result:ValidTo_Day)#">
+										<ISDateInput
+											InputFieldLabel="#localizeText('PageletTabProperties.Until.InputFieldLabel')#"
+											InputFieldName="ValidTo_Day"
+											DateString="#Result:ValidTo_Day#"
+											Invalid="#isDefined(ErrorValidToIncorrect) OR isDefined(ErrorPeriodIncorrect)#"
+											readonly="#NOT(IsPublishingEditable) OR NOT(HasEditPermission)#"
+											Disabled="false"
+										>
+										<ISTimeInput
+											InputFieldName="ValidTo_Time"
+											TimeString="#Result:ValidTo_Time#"
+											Invalid="#isDefined(ErrorValidToIncorrect) OR isDefined(ErrorPeriodIncorrect)#"
+											readonly="#NOT(IsPublishingEditable) OR NOT(HasEditPermission)#"
+											Disabled="false"
+										>
+									<iselse>
+										<ISDateInput
+											InputFieldLabel="#localizeText('PageletTabProperties.Until.InputFieldLabel')#"
+											InputFieldName="ValidTo_Day"
+											DateObject="#PageletView:ValidTo#"
+											Invalid="#isDefined(ErrorValidToIncorrect) OR isDefined(ErrorPeriodIncorrect)#"
+											readonly="#NOT(IsPublishingEditable) OR NOT(HasEditPermission)#"
+											Disabled="false"
+										>
+										<ISTimeInput
+											InputFieldName="ValidTo_Time"
+											DateObject="#PageletView:ValidTo#"
+											Invalid="#isDefined(ErrorValidToIncorrect) OR isDefined(ErrorPeriodIncorrect)#"
+											readonly="#NOT(IsPublishingEditable) OR NOT(HasEditPermission)#"
+											Disabled="false"
+										>
+									</isif>
+									<td class="table_detail_comment" align="right" nowrap="nowrap">
+										<isif condition="#(PageletView:isDerived EQ 'true') AND (PageletView:Derived:OVERLOAD_VALIDITY EQ 'true') AND (PageletView:ValidTo:Time NE Pagelet:ValidTo:Time)#">
+											<ISPageletVisibleText online="#Pagelet:Active#" date="#Pagelet:ValidFrom#" start="false" text="VisibilityText"><img class="cpo-state-icon" src="#WebRoot()#/images/ic_overload.gif" alt="#localizeTextEx('PageletVisible.OriginalValue.alt', ParameterList(encodeValue(VisibilityText)))#" title="#localizeTextEx('PageletVisible.OriginalValue.title', ParameterList(encodeValue(VisibilityText)))#" />
+										</isif>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+		<isinclude extensionpoint="AdditionalPublishingInformation"/>
+		<tr><td class="fielditem2 s" colspan="2"><img src="#WebRoot()#/images/space.gif" width="1" height="4" alt="" border="0"/></td></tr>
+		
+		<!--- assignment configuration --->
+		<isif condition="#isDefined(Assignment)#">
+			<ISAssignmentStrategy AssignmentStrategy="AssignStrategy" PositionableHelper="PositionableHelper" ContextObject="#ContextObject#" FromClass="com.intershop.component.pmc.capi.pagelet.Pagelet" Domain="#Assignment:Domain#">
+			<% getPipelineDictionary().put("ValidityPeriodClass", com.intershop.component.foundation.capi.assignment.ValidityPeriod.class); %>
+			<isif condition="#isDefined(PositionableHelper) OR ValidityPeriodClass:AssignableFrom(AssignStrategy:AssignmentClassByTo(ContextObject))#">
+				<tr>
+					<td class="infobox_locale infobox_item s" style="padding: 4px;" nowrap="nowrap" colspan="2">
+						<isif condition="#isDefined(ContextObjectName)#">
+							<istext key="PageletTabProperties.PriorityAndVisibilityForContextObject.infobox_locale" parameter0="#encodeValue(ContextObjectName)#" encoding="off"/></span>
+						<iselse>
+							<istext key="PageletTabProperties.PriorityAndVisibilityForLocale.infobox_locale" parameter0="#encodeValue(ContextObject:DisplayName(Locale))#" encoding="off"/></span>
+						</isif>
+					</td>
+				</tr>
+				
+				<isif condition="#isDefined(PositionableHelper)#">
+					<tr>
+						<td nowrap="nowrap" class="label_select">
+							<label class="label label_select" for="EditPagelet_AssignmentPosition"><istext key="PageletTabProperties.Priority.label" encoding="off"/>:<span class="star">*</span></label>
+						</td>
+						<td class="fielditem2">
+							<isif condition="#PositionableHelper:PositionablesCount == 1#">
+								<isif condition="#IsPage EQ "true"#">
+									<istext key="PageletTabProperties.ThisIsTheOnlyPageItIsAssignedWithTheHighestPriorit.fielditem2" encoding="off"/>
+								<iselse>
+									<istext key="PageletTabProperties.ThisIsTheOnlyPageComponentItIsAssignedWithTheHighe.fielditem2" encoding="off"/>
+								</isif>
+								<input type="hidden" name="EditPagelet_AssignmentPosition" value="1"/>
+							<iselse>
+								<ISGetContentSharingHelper RepositoryDomain="#Repository:RepositoryDomain#" ContentSharingHelper="SharingHelper">
+								<isif condition="#IsPageletAssignmentEditable#">
+									<ISPositionSelect
+										SelectName="EditPagelet_AssignmentPosition"
+										SelectClass="select inputfield_en"
+										Positionables="#SharingHelper:LocalAssignments(Assignments)#"
+										CurrentPosition="#Assignment:Position#"
+										ReadOnly="#NOT(IsPageletAssignmentEditable) OR NOT(HasAssignmentEditPermission)#">
+								<iselse>
+									<ISPositionSelect
+										SelectName="EditPagelet_AssignmentPosition"
+										SelectClass="select inputfield_en"
+										Positionables="#Assignments#"
+										CurrentPosition="#Assignment:Position#"
+										ReadOnly="#NOT(IsPageletAssignmentEditable) OR NOT(HasAssignmentEditPermission)#">
+								</isif>
+								<isif condition="#IsPage EQ "true"#">
+									(<istext key="PageletTabProperties.Currently0PageVariantsAssigned.table_detail" parameter0="#getValue(PositionableHelper:PositionablesCount)#" encoding="off"/>)
+								<iselse>
+									(<istext key="PageletTabProperties.Currently0ComponentsAssigned.table_detail" parameter0="#getValue(PositionableHelper:PositionablesCount)#" encoding="off"/>)
+								</isif>
+							</isif>
+						</td>
+					</tr>
+					<tr><td class="fielditem2" colspan="2"><img src="#WebRoot()#/images/space.gif" width="1" height="4" alt="" border="0"/></td></tr>
+				</isif>
+				
+				<isif condition="#ValidityPeriodClass:AssignableFrom(AssignStrategy:AssignmentClassByTo(ContextObject))#">
+					<tr>
+						<td class="label_radio" nowrap="nowrap">
+							<label class="label label_radio" for=""><istext key="PageletTabProperties.Visibility.label" encoding="off"/>:<span class="star">*</span></label>
+						</td>
+						<td>
+							<table cellpadding="0" cellspacing="0" border="0">
+								<tr>
+									<td class="input_radio">
+										<input name="EditPagelet_AssignmentOnline" id="EditPagelet_AssignmentOnline_false" value="false" type="radio" 
+											<isif condition="#Assignment:Active EQ 'false'#">checked="checked"</isif>
+											<isif condition="#not(IsPageletAssignmentEditable) or not(HasAssignmentEditPermission)#">disabled="disabled"</isif>
+										/>
+									</td>
+									<td class="label_radio_text">
+										<label class="label label_radio_text" for="EditPagelet_AssignmentOnline_false"><istext key="PageletTabProperties.Hidden.label" encoding="off"/></label>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr>
+						<td></td>
+						<td>
+							<table cellpadding="0" cellspacing="0" border="0">
+								<tr>
+									<td class="input_radio label_fix1">
+										<input name="EditPagelet_AssignmentOnline" id="EditPagelet_AssignmentOnline_true" value="true" type="radio"
+											<isif condition="#Assignment:Active EQ 'true'#">checked="checked"</isif> 
+											<isif condition="#not(IsPageletAssignmentEditable) or not(HasAssignmentEditPermission)#">disabled="disabled"</isif>
+										/>
+									</td>
+									<td class="label_radio_text label_fix1">
+										<label class="label label_radio_text" for="EditPagelet_AssignmentOnline_true"><istext key="PageletTabProperties.Visible.label" encoding="off"/></label>
+									</td>
+								</tr>
+								<tr>
+									<td></td>
+									<td>
+										<table cellpadding="0" cellspacing="0" border="0">
+											<tr>
+												<isif condition="#isDefined(Assignment:ValidFrom)#">
+													<ISDateInput
+														InputFieldLabel="#localizeText('PageletTabProperties.From.InputFieldLabel')#"
+														InputFieldName="AssignmentValidFrom_Day"
+														DateObject="#Assignment:ValidFrom#"
+														DateString="#Result:AssignmentValidFrom_Day#"
+														Invalid="#isDefined(AssignmentFromIncorrect) or isDefined(AssignmentPeriodIncorrect)#"
+														readonly="#not(IsPageletAssignmentEditable) or not(HasAssignmentEditPermission)#"
+													>
+													<ISTimeInput
+														InputFieldName="AssignmentValidFrom_Time"
+														DateObject="#Assignment:ValidFrom#"
+														TimeString="#Result:AssignmentValidFrom_Time#"
+														Invalid="#isDefined(AssignmentFromIncorrect) or isDefined(AssignmentPeriodIncorrect)#"
+														readonly="#not(IsPageletAssignmentEditable) or not(HasAssignmentEditPermission)#"
+													>
+												<iselse>
+													<ISDateInput
+														InputFieldLabel="#localizeText('PageletTabProperties.From.InputFieldLabel')#"
+														InputFieldName="AssignmentValidFrom_Day"
+														DateString="#Result:AssignmentValidFrom_Day#"
+														Invalid="#isDefined(AssignmentFromIncorrect) or isDefined(AssignmentPeriodIncorrect)#"
+														readonly="#not(IsPageletAssignmentEditable) or not(HasAssignmentEditPermission)#"
+													>
+													<ISTimeInput
+														InputFieldName="AssignmentValidFrom_Time"
+														TimeString="#Result:AssignmentValidFrom_Time#"
+														Invalid="#isDefined(AssignmentFromIncorrect) or isDefined(AssignmentPeriodIncorrect)#"
+														readonly="#not(IsPageletAssignmentEditable) or not(HasAssignmentEditPermission)#"
+													>
+												</isif>
+											</tr>
+											<tr>
+												<ISDateInput
+													InputFieldLabel="#localizeText('PageletTabProperties.Until.InputFieldLabel')#"
+													InputFieldName="AssignmentValidTo_Day"
+													DateObject="#Assignment:ValidTo#"
+													DateString="#Result:AssignmentValidTo_Day#"
+													Invalid="#isDefined(AssignmentToIncorrect) or isDefined(AssignmentPeriodIncorrect)#"
+													readonly="#not(IsPageletAssignmentEditable) or not(HasAssignmentEditPermission)#"
+												>
+												<ISTimeInput
+													InputFieldName="AssignmentValidTo_Time"
+													DateObject="#Assignment:ValidTo#"
+													TimeString="#Result:AssignmentValidTo_Time#"
+													Invalid="#isDefined(AssignmentToIncorrect) or isDefined(AssignmentPeriodIncorrect)#"
+													readonly="#not(IsPageletAssignmentEditable) or not(HasAssignmentEditPermission)#"
+												>
+											</tr>
+										</table>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<tr><td class="fielditem2 s" colspan="2"><img src="#WebRoot()#/images/space.gif" width="1" height="4" alt="" border="0"/></td></tr>
+				</isif>
+			</isif>
+		</isif>
+		
+		<!--- button bar --->
+		<isif condition="#HasEditPermission#">
+			<tr class="sfe-hidden">
+				<td class="s" align="right" colspan="2">
+					<table border="0" cellspacing="4" cellpadding="0">
+						<tr>
+							<isif condition="#(PageletView:isDerived EQ 'true') AND (PageletView:Derived:OVERLOAD_VALIDITY EQ 'true')#">
+								<td class="button">
+									<input type="submit" name="revert" value="#localizeText('PageletTabProperties.RevertToInheritedValues.button')#" class="button sfe-action-inline sfe-layout-change cpo-action-start-revert<isif condition="#NOT((IsPageletEditable eq 'true') OR (IsPublishingEditable eq 'true'))#"> cpo-disabled</isif>" id="sfe-start-revert-<isprint value="#replace(Pagelet:UUID, "\\.", "-")#" encoding="off">" <isif condition="#NOT((IsPageletEditable eq 'true') OR (IsPublishingEditable eq 'true'))#">disabled="disabled"</isif>/>
+								</td>
+							</isif>
+							<isif condition="#(IsPageletEditable eq 'true') OR (IsPublishingEditable eq 'true')#" >
+								<td class="button">
+									<input type="submit" name="update" value="#localizeText('PageletTabProperties.Apply.button')#" class="button sfe-action-inline sfe-layout-change" id="sfe-save-<isprint value="#replace(Pagelet:UUID, "\\.", "-")#" encoding="off">"/>
+								</td>
+								<td class="button">
+									<input type="reset" name="reset" value="#localizeText('PageletTabProperties.Reset.button')#" class="button sfe-action-inline" id="sfe-reset-<isprint value="#replace(Pagelet:UUID, "\\.", "-")#" encoding="off">"/>
+								</td>
+								<isif condition="#IsCopyPossible#">
+									<td class="button">
+										<input type="hidden" name="CopyOfPrefix" value="Copy of "/>
+										<input type="submit" name="Copy" value="#localizeText('PageletTabProperties.Copy.button')#" class="button sfe-action-dialog" id="sfe-copy-<isprint value="#replace(Pagelet:UUID, "\\.", "-")#" encoding="off">" <isprint value="#DisablePageletCopyAttribute#"/>/>
+									</td>
+								</isif>
+								<isif condition="#isDefined(Assignment)#">
+									<td class="button">
+										<input type="submit" name="ConfirmUnassign" value="#localizeText('PageletTabProperties.Unassign.button')#" class="button sfe-action-inline" id="sfe-unassign-<isprint value="#replace(Pagelet:UUID, "\\.", "-")#" encoding="off">"/>
+									</td>
+								</isif>
+								<isif condition="#IsPageletEditable eq 'true'#">
+									<td class="button">
+										<input type="submit" name="ConfirmDelete" value="#localizeText('PageletTabProperties.Delete.button')#" class="button sfe-action-inline" id="sfe-delete-<isprint value="#replace(Pagelet:UUID, "\\.", "-")#" encoding="off">"/>
+									</td>
+								</isif>
+							<iselse>
+								<isif condition="#IsPageletAssignmentEditable#">
+									<td class="button"><input type="submit" name="update" value="#localizeText('PageletTabProperties.Apply.button')#" class="button sfe-action-inline sfe-layout-change" id="sfe-save-<isprint value="#replace(Pagelet:UUID, "\\.", "-")#" encoding="off">"/></td>
+									<td class="button"><input type="reset" name="reset" value="#localizeText('PageletTabProperties.Reset.button')#" class="button sfe-action-inline" id="sfe-reset-<isprint value="#replace(Pagelet:UUID, "\\.", "-")#" encoding="off">"/></td>
+								</isif>
+								<isif condition="#IsCopyPossible#">
+									<td class="button">
+										<input type="hidden" name="CopyOfPrefix" value="Copy of "/>
+										<input type="submit" name="Copy" value="#localizeText('PageletTabProperties.Copy.button')#" class="button sfe-action-dialog" id="sfe-copy-<isprint value="#replace(Pagelet:UUID, "\\.", "-")#" encoding="off">" <isprint value="#DisablePageletCopyAttribute#"/>/>
+									</td>
+								</isif>
+								<isif condition="#IsPageletAssignmentEditable#">
+									<td class="button">
+										<input type="submit" name="ConfirmUnassign" value="#localizeText('PageletTabProperties.Unassign.button')#" class="button sfe-action-inline" id="sfe-unassign-<isprint value="#replace(Pagelet:UUID, "\\.", "-")#" encoding="off">"/>
+									</td>
+								</isif>
+							</isif>
+							<ISPublishToLiveButton addSeparatorBefore="true">
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</isif>
+	</table>
+</isform>

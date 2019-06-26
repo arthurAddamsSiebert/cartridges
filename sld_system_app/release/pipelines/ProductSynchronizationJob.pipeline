@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Job to synchronize product data of all repositories of the system, beginning from Enterprise to BuyingOrganization.
+@Group Job-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProductSynchronizationJob" type="process">
+<!--Skip Master Repository, because it has already been processed. Skip Recycle\-Bin, because we do not synchronize semi\-deleted products.
+@Location 5,15-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode2"/>
+<!--Process the master repository first to have the products updated when starting updating the channel repositories.
+@Location 4,7-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="Start" sessionMode="Volatile"
+      callMode="Private">
+<!--@BendPoints 5,2-->
+    <nodeSuccessors name="next" next="GetOrganizationByName1"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByName1">
+    <configurationValues name="DefaultName" value="Operations"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByName.xml"/>
+<!--@BendPoints 5,4-->
+    <nodeSuccessors name="next" next="CreateStack3"/>
+<!--@BendPoints 6,3-->
+    <nodeSuccessors name="pipelet_error" next="End4"/>
+    <returnValueBindings name="Organization" objectPath="Operations"/>
+    <returnValueBindings name="OrganizationDomain" objectPath="OperationsDomain"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStack3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStack.xml"/>
+<!--@BendPoints 5,6-->
+    <nodeSuccessors name="next" next="CreateStack1"/>
+    <returnValueBindings name="Stack" objectPath="RepositorySynchronizationStack"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStack1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStack.xml"/>
+<!--@BendPoints 5,8-->
+    <nodeSuccessors name="next" next="GetOrganizations1"/>
+    <returnValueBindings name="Stack" objectPath="OrganizationStack"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizations1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizations.xml"/>
+<!--@BendPoints 5,10-->
+    <nodeSuccessors name="next" next="ManipulateStack1"/>
+    <parameterBindings name="Owner" objectPath="OperationsDomain"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack1">
+    <configurationValues name="ProcessMethod" value="PUSH"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+<!--@BendPoints 5,12-->
+    <nodeSuccessors name="next" next="Loop3"/>
+    <parameterBindings name="AddElement" objectPath="Organizations"/>
+    <parameterBindings name="Stack" objectPath="OrganizationStack"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop3" loop="Organizations">
+<!--@BendPoints 6,13-->
+    <nodeSuccessors name="next" next="Pipelet3"/>
+    <entry key="Organization">
+      <nodeSuccessors name="loop_entry_next" next="GetRepository3"/>
+    </entry>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepository3">
+    <configurationValues name="CustomRepositoryTypeCode" value="21"/>
+    <configurationValues name="Type" value="Custom Repository"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepository.xml"/>
+    <nodeSuccessors name="next" next="Pipelet5"/>
+<!--@BendPoints 7,15-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Organization:OrganizationDomain"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelinePropertyName" value="RepositorySynchronizationHook"/>
+    <configurationValues name="ProcessReversely" value="false"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCartridgePipelines.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="GetRepositories2"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositories2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositories.xml"/>
+    <nodeSuccessors name="next" next="Pipelet4"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Organization:OrganizationDomain"/>
+    <returnValueBindings name="Repositories" objectPath="Repositories"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="ProcessMethod" value="PUSH"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="Loop10"/>
+    <parameterBindings name="AddElement" objectPath="Repositories"/>
+    <parameterBindings name="Stack" objectPath="RepositorySynchronizationStack"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop10" loop="Repositories">
+<!--@BendPoints 9,25-->
+    <nodeSuccessors name="next" next="Pipelet2"/>
+    <entry key="Repository">
+      <nodeSuccessors name="loop_entry_next" next="Decision1"/>
+    </entry>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="Repository:TypeCode"
+      operator="neq" conditionValue="21">
+    <nodeSuccessors name="decision_yes" next="DecisionNode1"/>
+<!--@BendPoints 7,27-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Repository:TypeCode"
+      operator="neq" conditionValue="22">
+    <nodeSuccessors name="decision_yes" next="ExecuteCartridgePipelines1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 2,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCartridgePipelines1">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelinePropertyName" value="RepositorySynchronizationHook"/>
+    <configurationValues name="ProcessReversely" value="false"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCartridgePipelines.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+<!--@BendPoints 6,31 6,33-->
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+  </nodes>
+<!--@Location 2,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="Pipelet1"/>
+  </nodes>
+<!--@Location 2,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="ProcessMethod" value="PEEK"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="Stack" objectPath="RepositorySynchronizationStack"/>
+    <returnValueBindings name="GetElement" objectPath="Repositories"/>
+  </nodes>
+<!--@Location 2,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 5,38 4,38 4,25-->
+    <nodeSuccessors name="next" next="Loop10_Entry"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 7,37-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="ProcessMethod" value="POP"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="ManipulateStack2"/>
+    <parameterBindings name="Stack" objectPath="RepositorySynchronizationStack"/>
+    <returnValueBindings name="GetElement" objectPath="Repositories"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack2">
+    <configurationValues name="ProcessMethod" value="PEEK"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+<!--@BendPoints 9,39 3,39 3,13-->
+    <nodeSuccessors name="next" next="Loop3_Entry"/>
+    <parameterBindings name="Stack" objectPath="OrganizationStack"/>
+    <returnValueBindings name="GetElement" objectPath="Organizations"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 7,19-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="ProcessMethod" value="POP"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+<!--@BendPoints 8,13-->
+    <nodeSuccessors name="next" next="End2"/>
+    <parameterBindings name="Stack" objectPath="OrganizationStack"/>
+    <returnValueBindings name="GetElement" objectPath="Organizations"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+</pipeline:Pipeline>

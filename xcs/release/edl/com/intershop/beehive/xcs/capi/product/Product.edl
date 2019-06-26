@@ -1,0 +1,1056 @@
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/Domain.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObject.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/localization/LocaleInformation.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/capi/catalog/CatalogCategory.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/capi/productcompleteness/ProductCompleteness.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/capi/productapproval/ProductApproval.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/capi/price/ProductCostPrice.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/capi/price/ProductListPrice.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/capi/price/ProductPrice.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/capi/product/BundledProduct.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/capi/product/ProductLink.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/capi/producttype/ProductType.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/capi/productvariation/ProductVariation.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/capi/productvariation/VariableVariationAttribute.edl";
+
+external SystemException type "com.intershop.beehive.core.capi.common.SystemException";
+external AuthorizationObject type "com.intershop.beehive.core.capi.security.AuthorizationObject";
+external ImageReferenceHolder type "com.intershop.component.image.capi.common.ImageReferenceHolder";
+external ProductChangePropagationHandler type "com.intershop.beehive.xcs.capi.product.ProductChangePropagationHandler";
+external ProductRef type "com.intershop.beehive.xcs.common.ProductRef";
+external Nameable type "com.intershop.beehive.core.capi.util.Nameable";
+
+namespace com.intershop.beehive.xcs.capi.product
+{
+    /*
+     * A Product represents the sell-able entity that is offered to a Buyer. A
+     * Product can be distinguished from other Products by a SKU and can be
+     * described by a set of fixed as well as dynamically added attributes.
+     * <p>
+     * A Product refers to a ProductType. This makes it possible to compare the
+     * Product with other Products based on the ProductAttributes defined by the
+     * referred ProductType.
+     * <p>
+     * The Product by itself defines some more attributes which are merged with
+     * the ProductType attributes to build the whole attribute set of this
+     * Product. The attributes may have different types such as Integer, Double
+     * or String.
+     * <p>
+     * A set of Products can be collected and sold together using a
+     * ProductBundle. In this case the ProductBundle acts like a container to
+     * sell all contained Product together.
+     * <p>
+     * To present the Buyer a set of Products together where the Products only
+     * vary in some attributes, a ProductMaster can be created. The
+     * ProductMaster refers first to a variation model which provides the
+     * variable attributes and second the ProductMaster hosts  the set of real,
+     * sell-able Products. These sell-able, so called mastered Products, providing
+     * different variations of the variable attributes.
+     * <p>
+     * ProductItems, ProductBundles, ProductMasters and Offers are distinguished
+     * using a typeCode.
+     * <p>
+     * To build a relation to other Products a Product can have ProductLinks.
+     * Using ProductLinks a Product can point to other Products recommend
+     * Products as an enhancement or replacement.
+     * <p>
+     * Through a ProductCategoryAssignment a Product can be bound into a
+     * CatalogCategory.
+     * <p>
+     * A Product is unique assigned to a domain.
+     * <p>
+     * 
+     * @isobject
+     */
+    cartridge interface Product extends ExtensibleObject, AuthorizationObject, ImageReferenceHolder, Nameable
+    {
+        attribute typeCode : int required;
+
+        attribute SKU : string required;
+
+        attribute manufacturerName : string required;
+
+        attribute manufacturerSKU : string required;
+        
+        attribute supplierName : string;
+
+        attribute supplierSKU : string;
+
+        attribute online : boolean required;
+
+        attribute name : string required localized;
+
+        attribute shortDescription : string required localized;
+
+        attribute longDescription : string required localized;
+        
+        attribute template : string required;
+
+        attribute minOrderQuantityValue : decimal required;
+        
+        attribute maxOrderQuantityValue : decimal;
+
+        attribute stepQuantityValue : decimal required;
+
+        attribute unit : string required;
+
+        attribute originalProductUUID : string required;
+
+        attribute taxClassID : string required;
+
+        attribute productTypeID : string required;
+
+        attribute defaultProductVariationID : string required;
+
+        attribute available : boolean required;
+        
+        attribute defaultCatalogCategoryID : string required;
+
+        attribute offeredProductID : string required readonly;
+
+        attribute priceQuantityValue : decimal required;
+
+        /*
+         * The date the product is valid from.
+         */
+        attribute validFrom : datetime required;
+
+        /*
+         * The date the product is valid to.
+         */
+        attribute validTo : datetime required;
+
+        attribute lastOrderDate : datetime;
+
+        attribute endOfLife : datetime;
+        
+        /*
+         * Derive EOL and LOD from children.
+         */
+        attribute derivingDates : boolean;
+
+        attribute availabilityStatus : int;
+        
+        attribute productVariationPosition : double;
+
+        relation outgoingProductLinks : ProductLink[0..n] readonly;
+
+        relation variableVariationAttributes : VariableVariationAttribute[0..n] readonly;
+
+        relation productType : ProductType[0..1];
+
+        relation offers : Product[0..n];
+
+        relation offeredProduct : Product[0..1];
+
+        relation listPrices : ProductListPrice[0..n] readonly;
+
+        relation productVariations : ProductVariation[0..n] readonly;
+
+        relation costPrices : ProductCostPrice[0..n] readonly;
+        
+        relation productCompletenesses : ProductCompleteness[0..n] readonly;
+        
+        relation productApproval : ProductApproval[0..n] readonly;
+
+        relation prices : ProductPrice[0..n] readonly;
+
+        relation defaultProductVariation : ProductVariation[0..1];
+
+        /*
+         * Checks whether this product instance is a retail set.
+         * 
+         * @return True if the product is a retail set, false otherwise.
+         */
+        operation isRetailSet() : boolean;
+
+        /*
+         * Checks whether this product instance is part of a retail set
+         * 
+         * @return True if the product is part of a retail set, false otherwise.
+         */
+        operation isPartOfRetailSet() : boolean;
+
+        /*
+         * Checks whether this product instance is an offer.
+         * 
+         * @return True if the product is an offer, false otherwise.
+         */
+        operation isOffer() : boolean;
+
+        /*
+         * Checks whether this product instance is a simple product item.
+         * 
+         * @return True if the product is a simple product item, false otherwise.
+         * @isattribute ProductItem
+         */
+        operation isProductItem() : boolean;
+
+        /*
+         * Checks whether this product instance is a product master.
+         * 
+         * 
+         * 
+         * @return True if the product is a master, false otherwise.
+         * 
+         * @isattribute ProductMaster
+         */
+        operation isProductMaster() : boolean;
+
+        /*
+         * Checks whether this product instance is a product bundle.
+         * 
+         * @return True if the product is a bundle, false otherwise.
+         * @isattribute ProductBundle
+         */
+        operation isProductBundle() : boolean;
+
+        /*
+         * Checks whether this product instance is bundled within at least one
+         * product bundle.
+         * 
+         * @return True if the product is bundled, false otherwise.
+         * @isattribute Bundled
+         */
+        operation isBundled() : boolean;
+
+        /*
+         * Checks whether this product instance is mastered by a product master.
+         * 
+         * @return True if the product is mastered, false otherwise.
+         * @isattribute Mastered
+         */
+        operation isMastered() : boolean;
+
+        /*
+         * Sets the product online. Special product types are set online as
+         * follows:
+         * <ul>
+         * <li> <b>masters</b> - The master is set online first and sets online
+         * all
+         * mastered products recusively.
+         * </ul>
+         */
+        operation setOnline() : void;
+
+        /*
+         * Sets the product offline. Special product types are set offline as
+         * follows:
+         * <ul>
+         * <li> <b>masters</b> - The master is set offline first and sets
+         * offline all
+         * mastered products recusively.
+         * </ul>
+         */
+        operation setOffline() : void;
+
+        /*
+         * Creates an iterator containing all catalog categories the product is
+         * bound to.
+         * 
+         * @return An iterator of catalog categories.
+         * @isiterator CatalogCategories com.intershop.beehive.xcs.capi.catalog.CatalogCategory
+         */
+        operation createCatalogCategoriesIterator() : Iterator;
+
+        /*
+         * Checks whether the product is bound to at least one catalog category.
+         * 
+         * @return True if the product is bound to at least one catalog category,
+         * false otherwise.
+         */
+        operation hasCatalogCategories() : boolean;
+
+        /*
+         * Checks whether the product is bound to the specified catalog category.
+         * 
+         * 
+         * 
+         * @param category The CatalogCategory to check.
+         * 
+         * @return True if the Product is bound to the CatalogCategory, false
+         * 
+         * otherwise.
+         */
+        operation isInCatalogCategories(category : CatalogCategory) : boolean;
+
+        /*
+         * Copies the following Bean attributes into the passed Product.
+         * - manufacturer name
+         * - manufacturer SKU
+         * - template
+         * - online flag
+         * - taxClassID
+         * - minOrderQuantity
+         * - unit
+         * - available flag
+         * - originalProductUUID
+         * - productTypeID
+         * The SKU is setup with a new UUID.
+         * 
+         * 
+         * @param target a product
+         */
+        operation copyStandardAttributesInto(target : Product) : void;
+
+        /*
+         * Copies all product attributes (Bean as well as custom attributes)
+         * into the passed product.
+         * Calls the super copyInto method to copy Attributes stored as
+         * AttributeValues.
+         * Calls @param target a product
+         * @see Product#copyStandardAttributesInto(Product)
+         */
+        operation copyInto(target : Product) : void;
+
+        /*
+         * Iterator returns the names of the AttributeValues. These
+         * AttributeValues are
+         * the attributes a Product can have in addition to the standard
+         * attributes assigned
+         * to a Product (e.g. attributes which are added during assignment of a
+         * ProductType).
+         * The CustomProductAttributesFilterCondition is used to filter out the
+         * standard attributes (see class comment).
+         * 
+         * @see
+         * com.intershop.beehive.xcs.capi.product.CustomProductAttributesFilterCondition
+         * 
+         * @return Iterator on the custom ExtensibleObject attributes
+         * @isiterator CustomProductAttributeNames java.lang.String
+         */
+        operation createCustomProductAttributeNamesIterator() : Iterator;
+
+        /*
+         * Returns an iterator on AttributeValues used for direct maniplulation
+         * of the
+         * attribute values of custom attributes of a product. Method is primary
+         * intended
+         * to support template processing. Using the elements this iterator
+         * returns, a client
+         * can get the name and value (an object) of the attribute.
+         * <p>The current session's locale is used to determine localized
+         * attribute value
+         * elements.  The locale fallback strategy is used.
+         * 
+         * @see
+         * com.intershop.beehive.xcs.capi.product.CustomProductAttributeNamesFilterCondition
+         * 
+         * @return an iterator on AttributeValues
+         * @isiterator CustomAttributes com.intershop.beehive.core.capi.common.AttributeValue
+         */
+        operation createCustomAttributesIterator() : Iterator;
+
+        /*
+         * Returns an iterator on the AttributeValues owned by this Product which
+         * are filtered in the kind that only the AttributeValues representing
+         * attributes of the referenced ProductType are returned.
+         * The current session's locale is used to determine localized attribute
+         * value elements. The locale fallback strategy is used.If the Product has
+         * no ProductType assigned, an empty iterator is returned.
+         * 
+         * @return an iterator on AttributeValues
+         * @isiterator ProductTypeAttributes com.intershop.beehive.core.capi.common.AttributeValue
+         * @deprecated use Product#createProductTypeAttributesIterator(LocaleInformation) instead
+         */
+        operation createProductTypeAttributesIterator() : Iterator;
+
+        /*
+         * Returns an iterator on the AttributeValues owned by this Product which are filtered
+         * in the kind that only the AttributeValues representing attributes of the referenced
+         * ProductType are returned.
+         * 
+         * The given locale is used to determine localized attribute value elements.
+         * 
+         * The locale fallback strategy is used.If the Product has no ProductType assigned,
+         * an empty iterator is returned.
+         * 
+         * @param aLocale a LocaleInformation
+         * @return an iterator on AttributeValues
+         * @isiterator ProductTypeAttributes com.intershop.beehive.core.capi.common.AttributeValue
+         */
+        operation createProductTypeAttributesIterator(aLocale : LocaleInformation) : Iterator;
+
+        /*
+         * Add the attribute with the given name to the list of order required
+         * attributes
+         * of this product. If the product does not contains an attribute of the
+         * given
+         * name the method ignores the call.
+         * In case the product is a product master, the attribute will be added to
+         * the list of order required attributes of all mastered products.
+         * It's nothing done, if the attributeName is null or an empty string.
+         * 
+         * @param attributeName the name of the attribute
+         */
+        operation addToOrderRequiredAttributes(attributeName : string) : void;
+
+        /*
+         * Removes the attribute with the given name from the list of order
+         * required
+         * attributes of this product. If the product does not contain an
+         * attribute
+         * of the given name the method ignores the call.
+         * In case the product is a product master, the attribute will be
+         * removed from
+         * the list of order required attributes of all mastered products.
+         * It's nothing done, if the attributeName is null or an empty string.
+         * 
+         * @param attributeName the name of the attribute
+         */
+        operation removeFromOrderRequiredAttributes(attributeName : string) : void;
+
+        /*
+         * Check whether the attribute for the given name is order required.
+         * If the product does not contains an attribute of the given name the
+         * method returns false.
+         * 
+         * @param attributeName the name of the attribute
+         * @return true if the attribute with the given name is declared as
+         * order required,false if the attribute is not order required OR
+         * if the attribute not provided by the product
+         */
+        operation isInOrderRequiredAttributes(attributeName : string) : boolean;
+
+        /*
+         * Returns an iterator on the names of the order required attributes
+         * 
+         * @return an iterator on attribute names which are order required
+         * @isiterator OrderRequiredAttributes java.lang.String
+         */
+        operation createOrderRequiredAttributesIterator() : Iterator;
+
+        /*
+         * Checks whether the specified ProductLink points to this product.
+         * 
+         * @param anElement the ProductLink to check for participation
+         * @return true, if the ProductLink points to this product, false otherwise
+         */
+        operation isInIncomingProductLinks(anElement : ProductLink) : boolean;
+
+        /*
+         * Creates an iterator containing the ProductLinks pointing to this
+         * product.
+         * 
+         * @return the iterator of ProductLinks
+         * @isiterator IncomingProductLinks com.intershop.beehive.xcs.capi.product.ProductLink
+         */
+        operation createIncomingProductLinksIterator() : Iterator;
+
+        /*
+         * Checks whether the specified product participates in the product
+         * bundle.
+         * 
+         * @param aProduct The product to check for participation.
+         * @return True if the product participates in the bundle, false otherwise.
+         */
+        operation isInBundledProducts(aProduct : Product) : boolean;
+
+        /*
+         * Sets the quantity of the specified product within the bundle. If the
+         * specified product is not part of the bundle or the specified quantity
+         * is equal or less than 0, the call is ignored.
+         * 
+         * @param aProduct The product to set the quantity for.
+         * @param aQuantity The quantity to be set.
+         */
+        operation setBundledProductQuantity(aProduct : Product, aQuantity : Quantity) : void;
+
+        /*
+         * Returns the quantity of the specified product within the bundle. If the
+         * specified product is not part of the bundle, a 0 quantity is returned.
+         * 
+         * @param aProduct The product to determine the quantity for.
+         * @return The quantity of the product within the bundle or 0 if the
+         * product is not part of the bundle.
+         */
+        operation getBundledProductQuantity(aProduct : Product) : Quantity;
+
+        /*
+         * Returns an iterator containing all products that participate in the
+         * product bundle.
+         * 
+         * @return An iterator containing all products of the product bundle.
+         * @isiterator BundledProducts com.intershop.beehive.xcs.capi.product.Product
+         */
+        operation createBundledProductsIterator() : Iterator;
+
+        /*
+         * Creates an iterator on ProductBundles this product is bundled.
+         * 
+         * @return an iterator on products (products with typeCode PRODUCT_BUNDLE)
+         * @isiterator ProductBundle com.intershop.beehive.xcs.capi.product.Product
+         */
+        operation createProductBundleIterator() : Iterator;
+
+        /*
+         * Returns the count of mastered Products in case this product is a
+         * ProductMaster
+         * 
+         * @return The count of mastered Products in case this product is a
+         * ProductMaster.
+         * @isattribute MasteredProductsCount
+         */
+        operation getMasteredProductsCount() : int;
+
+        /*
+         * Returns the ProductMaster for this mastered product.
+         * 
+         * @return the ProductMaster of this mastered product
+         * @isattribute ProductMaster
+         */
+        operation getProductMaster() : Product;
+
+        /*
+         * Returns an iterator on mastered products of this ProductMaster.
+         * 
+         * @return an iterator on products
+         * @isiterator MasteredProducts
+         * com.intershop.beehive.xcs.capi.product.Product
+         */
+        operation createMasteredProductsIterator() : Iterator;
+
+        /*
+         * Creates an iterator on ProductAttributes owned by the product instance.
+         * The ProductAttributes of the product are defined by its ProductType.
+         * 
+         * @return an Iterator on ProductAttributes or null, if no ProductType
+         * was assigned
+         * to this product
+         * @isiterator ProductAttributes
+         * com.intershop.beehive.xcs.capi.producttype.ProductAttribute
+         */
+        operation createProductAttributesIterator() : Iterator;
+
+        /*
+         * Returns the Money list price of this product for the current currency.
+         * The currency used to determine the correct ProductListPrice will be
+         * detected from the current session.
+         * In case no currency can be provided by the session OR if no
+         * ProductListPrice was found for the current currency, a Money.NOT_AVAILABLE
+         * will be returned.
+         * 
+         * @return The a Money object of the product.
+         * @isattribute Price
+         */
+        operation getPrice() : Money;
+
+        /*
+         * Returns the status of the list price valid for the current session.
+         * 
+         * @return true, if the list price valid for the current session is a
+         * NetPrice otherwise false
+         * @isattribute NetPriceStatus
+         */
+        operation getNetPriceStatus() : boolean;
+
+        /*
+         * Returns a unique reference to the product. The returned reference is
+         * unique with respect the the whole catalog server the product resides
+         * on.
+         * 
+         * @return The unique product reference.
+         * @isattribute ProductRef
+         */
+        operation getProductRef() : ProductRef;
+
+        /*
+         * Determine how many items of this product have to be ordered at least.
+         * 
+         * @return MinimumOrderQuantity of the product
+         * @isattribute MinOrderQuantity
+         */
+        operation getMinOrderQuantity() : Quantity;
+
+        /*
+         * Set the attributes "minOrderQuantityValue" and "unit".
+         * The new values which have to be set are passed with the Quantity
+         * object.
+         * 
+         * @param aQuantity the Quantity object with the required values
+         */
+        operation setMinOrderQuantity(aQuantity : Quantity) : void;
+
+        /*
+         * Determine in which steps the order amount of the product can be
+         * increased.
+         * 
+         * @return StepQuantity of the product
+         * @isattribute StepQuantity
+         */
+        operation getStepQuantity() : Quantity throws SystemException;
+
+        /*
+         * Set the attributes "stepQuantityValue" and "unit". The new values which
+         * have to be set are passed with the Quantity object.
+         * 
+         * @param aQuantity the Quantity object with the required values
+         */
+        operation setStepQuantity(aQuantity : Quantity) : void throws SystemException;
+
+        /*
+         * Returns the object for the relation 'productVariation'.<p>
+         * 
+         * 
+         * @return      the object for the relation 'productVariation'
+         * @isattribute ProductVariation
+         */
+        operation getProductVariation() : ProductVariation throws SystemException;
+
+        /*
+         * Sets the object for the relation 'productVariation'.<p>
+         * 
+         * 
+         * @param       productVariation                  the new object for the relation
+         */
+        operation setProductVariation(productVariation : ProductVariation) : void throws SystemException;
+
+        /*
+         * Returns the CatalogCategory associated with this
+         * Product.
+         * The associated CatalogCategory is accessed through
+         * a weak relation.<p>
+         * 
+         * 
+         * @return      the associated object, or null if no instance is associated
+         * @isattribute DefaultCatalogCategory
+         */
+        operation getDefaultCatalogCategory() : CatalogCategory throws SystemException;
+
+        /*
+         * Sets the CatalogCategory to be associated with this object.
+         * The association with CatalogCategory is established
+         * through a weak relation.<p>
+         * 
+         * 
+         * @param       defaultCatalogCategory    the CatalogCategory to be associated with this object
+         */
+        operation setDefaultCatalogCategory(defaultCatalogCategory : CatalogCategory) : void throws SystemException;
+
+        /*
+         * This method is special for the attribute-lookup of Offers.
+         * 
+         * Offers may be intended to overwrite attributes or enhance the set of attributes of their offered products.This method does an attribute lookup on the set of attributes composed by this offer and their offered products (note, there is possible a chain of offered products). First the attribute lookup is on offer level; if no value was found at the offer, the lookup is done on offered product level.
+         * 
+         * Returned attribute values may be of type String, Integer or Double.
+         * 
+         * @param name the name of the attribute
+         * @return a value for the attribute of type String, Integer or Double.
+         */
+        operation getOfferAttribute(aName : string) : Object;
+
+        /*
+         * Convenience method. Sort direction: ascending.
+         * 
+         * @see com.intershop.beehive.xcs.capi.product.Product#createSortedVariableVariationAttributesIterator(int)
+         * 
+         * @return An iterator containing VariableVariationAttribute.
+         */
+        operation createSortedVariableVariationAttributesIterator() : Iterator;
+
+        /*
+         * Returns an iterator with sorted VariableVariationAttribute instances pointing to this ProductMaster.
+         * 
+         * @param sortOption '1' - ascending ; '-1' - descending
+         * @return An iterator containing VariableVariationAttribute.
+         */
+        operation createSortedVariableVariationAttributesIterator(direction : int) : Iterator;
+
+        /*
+         * Returns Quantity instance representing the quantity of item for which the set price applies. By default set to 1 unit.
+         * 
+         * <br>e.g. if price quantity for nails is set to 100 then the given price is per 100 nails. A price of 2USD would imply each nail costs 0.02USD and 250 nails cost 5USD.
+         * 
+         * <br>Method <code>isPriceQuantityAvailable()</code> can be used to check whether a non-default value has been set.
+         * 
+         * @return price quantity of the product
+         * @isattribute PriceQuantity
+         */
+        operation getPriceQuantity() : Quantity;
+
+        /*
+         * Method can be used to check whether a non-default value has been set for the price quantity, i.e. the method returns true if price quantity is
+         * <br>NOT null  (null is an invalid value)
+         * <br>AND >0   (0 is an invalid value)
+         * <br>AND !=1  (1 is the default value)
+         * 
+         * @return whether price quantity of the product is not null, >0 and !=1
+         * @isattribute isPriceQuantityAvailable
+         */
+        operation isPriceQuantityAvailable() : boolean;
+
+        /*
+         * Convenience method. Sort direction: ascending.
+         * 
+         * Returns an sorted iterator containing all products that participate in the product bundle.
+         * 
+         * @return An iterator containing all products of the product bundle.
+         */
+        operation createSortedBundleAssignmentsIterator() : Iterator;
+
+        /*
+         * Returns an sorted iterator containing all products that participate in the product bundle.
+         * 
+         * @param sortOption '1' - ascending ; '-1' - descending
+         * @return An iterator containing all products of the product bundle.
+         */
+        operation createSortedBundleAssignmentsIterator(direction : int) : Iterator;
+
+        /*
+         * Convenience method. Sort direction: ascending.
+         * 
+         * Returns an sorted iterator containing all online products that participate in the product bundle.
+         * 
+         * @return An iterator containing all products of the product bundle.
+         */
+        operation createSortedOnlineBundleAssignmentsIterator() : Iterator;
+
+        /*
+         * Returns an sorted iterator containing all online products that participate in the product bundle.
+         * 
+         * @param sortOption '1' - ascending ; '-1' - descending
+         * @return An iterator containing all products of the product bundle.
+         */
+        operation createSortedOnlineBundleAssignmentsIterator(direction : int) : Iterator;
+
+        /*
+         * Helper method used to determine the bundle assignment instance for the specified product.
+         * 
+         * @param  aProduct The product to determine the bundle assignment for.
+         * @return The bundle assignment instance or null if the product is not assigned to the bundle.
+         */
+        operation getBundleAssignment(aProduct : Product) : BundledProduct;
+
+        /*
+         * Returns count of this bundle's bundled products.
+         */
+        operation getBundleAssignmentsCount() : int;
+
+        /*
+         * Returns maximum value of 'position' attribute held by this bundle's
+         * bundled products.
+         */
+        operation getBundleAssignmentsMaxPosition() : double;
+
+        /*
+         * Returns minimum value of 'position' attribute held by this bundle's
+         * bundled products.
+         */
+        operation getBundleAssignmentsMinPosition() : double;
+
+        /*
+         * Determines the number of ProductLinks pointing to this product.
+         * 
+         * @return      the number of ProductLinks pointing to this product
+         */
+        operation getIncomingProductLinksCount() : int;
+
+        /*
+         * Returns the minimum list price of this product in the specified currency. If none 
+         * is available for the specified currency, null is returned. The minimum list price
+         * is obtained by looking at the related products (mastered products for variation master,
+         * retail set parts for retail set).
+         * 
+         * @param currency The currency to return the minimum listprice for.
+         * @return         The minimum price of the product or null if the price is not available.
+         */
+        operation getMinimumListPrice(currency : string) : ProductListPrice;
+
+        /*
+         * Returns the list price of this product in the specified currency. If none is found
+         * the minimum list price is returned instead. If none is available for the specified 
+         * currency, null is returned.
+         * 
+         * @param currency The currency to return the listprice for.
+         * @return         The price of the product or null if the price is not available.
+         */
+        operation getListPrice(currency : string) : ProductListPrice;
+
+        /*
+         * Returns the maximum list price of this product in the specified currency. If none 
+         * is available for the specified currency, null is returned. The maximum list price
+         * is obtained by looking at the related products (mastered products for variation master,
+         * retail set parts for retail set).
+         * 
+         * @param currency The currency to return the maximum listprice for.
+         * @return         The maximum price of the product or null if the price is not available.
+         */
+        operation getMaximumListPrice(currency : string) : ProductListPrice;
+
+        /*
+         * Returns the cost price of this product in the specified currency. If no cost price is available for the specified currency, null is returned.
+         * 
+         * @param currency The currency to return the costprice for.
+         * @return         The cost price of the product or null if the price is not available.
+         */
+        operation getCostPrice(currency : string) : ProductCostPrice;
+
+        /*
+         * Specific method with additional LocaleInformation parameter.
+         * @see com.intershop.beehive.xcs.capi.product.Product#getOfferAttribute(String)
+         * 
+         * @param name the name of the attribute
+         * @param aLocale a locale
+         * @return a value for the attribute of type String, Integer or Double.
+         */
+        operation getLocalizedOfferAttribute(aName : string, aLocale : LocaleInformation) : Object;
+
+        /*
+         * Returns an unsorted iterator containing all bundled products (type BundledProduct) that participate in the product bundle.
+         * 
+         * @return An iterator containing all bundled products (type BundledProduct) of the product bundle.
+         * @isiterator ProductBundleAssignments com.intershop.beehive.xcs.capi.product.BundledProduct
+         */
+        operation createBundleAssignmentsIterator() : Iterator;
+
+        /*
+         * Convenience method to set the name of the product for the lead language.
+         */
+        operation setName(aName : string) : void;
+
+        operation setProductTypeIDNull(aFlag : boolean) : void;
+
+        operation getProductTypeIDNull() : boolean;
+
+        operation getTypeCodeNull() : boolean;
+
+        operation setTypeCodeNull(aFlag : boolean) : void;
+
+        operation getSKUNull() : boolean;
+
+        operation setSKUNull(aFlag : boolean) : void;
+
+        operation getManufacturerNameNull() : boolean;
+
+        operation setManufacturerNameNull(aFlag : boolean) : void;
+
+        operation getManufacturerSKUNull() : boolean;
+
+        operation setManufacturerSKUNull(aFlag : boolean) : void;
+
+        operation getTemplateNull() : boolean;
+
+        operation setTemplateNull(aFlag : boolean) : void;
+
+        operation getMinOrderQuantityValueNull() : boolean;
+
+        operation setMinOrderQuantityValueNull(aFlag : boolean) : void;
+
+        operation getStepQuantityValueNull() : boolean;
+
+        operation setStepQuantityValueNull(aFlag : boolean) : void;
+
+        operation getUnitNull() : boolean;
+
+        operation setUnitNull(aFlag : boolean) : void;
+
+        operation getOriginalProductUUIDNull() : boolean;
+
+        operation setOriginalProductUUIDNull(aFlag : boolean) : void;
+
+        operation getTaxClassIDNull() : boolean;
+
+        operation setTaxClassIDNull(aFlag : boolean) : void;
+
+        operation getDefaultProductVariationIDNull() : boolean;
+
+        operation setDefaultProductVariationIDNull(aFlag : boolean) : void;
+
+        operation getDefaultCatalogCategoryIDNull() : boolean;
+
+        operation setDefaultCatalogCategoryIDNull(aFlag : boolean) : void;
+
+        operation getOfferedProductIDNull() : boolean;
+
+        operation getPriceQuantityValueNull() : boolean;
+
+        operation setPriceQuantityValueNull(aFlag : boolean) : void;
+
+        /*
+         * Provides the actions required to initialize an Product correctly.
+         * - online flag is set to false
+         * - minOrderQuantity is set to 1
+         * - stepQuantityValue is set to 1
+         * - unit is set to not available "N/A"
+         * - available flag is set to false
+         * - the OriginalProductUUID is set to the uuid of this product
+         */
+        operation init() : void throws SystemException;
+
+        /*
+         * Handle the attribute 'online' for the given Product.
+         * 
+         * @param aFlag new 'online' attribute value
+         * @param aProduct the Product to change
+         */
+        operation setOnline(aFlag : boolean, aProductChangePropagationHandler : ProductChangePropagationHandler) : void;
+
+        /*
+         * Handle the attribute 'SKU' for the given Product.
+         * 
+         * @param aValue new 'SKU' attribute value
+         * @param aProduct the Product to change
+         */
+        operation setSKU(aValue : string, aProductChangePropagationHandler : ProductChangePropagationHandler) : void;
+
+        /*
+         * Handle the attribute 'typeCode' for the given Product.
+         * 
+         * @param aValue new 'typeCode' attribute value
+         * @param aProduct the Product to change
+         */
+        operation setTypeCode(aValue : int, aProductChangePropagationHandler : ProductChangePropagationHandler) : void;
+
+        /*
+         * Handle the attribute 'productTypeID' for the given Product.
+         * 
+         * @param aValue new 'productTypeID' attribute value
+         * @param aProduct the Product to change
+         */
+        operation setProductTypeID(aValue : string, aProductChangePropagationHandler : ProductChangePropagationHandler) : void;
+
+        /*
+         * Handle the attribute 'available' for the given Product.
+         * 
+         * @param aFlag new 'available' attribute value
+         * @param aProduct the Product to change
+         */
+        operation setAvailable(aFlag : boolean, aProductChangePropagationHandler : ProductChangePropagationHandler) : void;
+        
+        /*
+         * Handle the attribute 'offeredProductID' for the given Product.
+         * 
+         * @param aValue new 'offeredProductID' attribute value
+         * @param aProduct the Product to change
+         */
+        operation setOfferedProductID(aValue : string, aProductChangePropagationHandler : ProductChangePropagationHandler) : void;
+
+        /*
+         * Returns the value of last synchronized date.
+         */
+        operation getLastSynchronized() : datetime;
+
+        /*
+         * Sets the value of last synchronized date.
+         */
+        operation setLastSynchronized(date : datetime) : void;
+
+        /*
+         * Checks whether the product is last order date expiry.
+         * 
+         * 
+         * 
+         * @return    true, if the current time >= last order date,
+         * 
+         * false otherwise
+         */
+        operation isLastOrderDate() : boolean;
+
+        /*
+         * Checks whether the product expiry end of live.
+         * 
+         * @return      true, if the current time >= end of life date,
+         * false otherwise
+         */
+        operation isEndOfLife() : boolean;
+
+        /*
+         * Refreshes variation master and bundle masters LOD if masters derive from their children.
+         */
+        operation refreshParentLODs() : void;
+
+        /*
+         * Refreshes variation master and bundle masters EOL if masters derive from their children.
+         */
+        operation refreshParentEOLs() : void;
+
+        /*
+         * Creates iterator of incoming product links sorted by position.
+         */
+        operation createSortedIncomingProductLinkIterator() : Iterator;
+
+        /*
+         * Create iterator or of incoming product links for a dedicated type code sorted by position.
+         */
+        operation createSortedIncomingProductLinkIteratorByType(typeCode : String) : Iterator;
+
+        /*
+         * Creates iterator of outgoing product links sorted by position.
+         */
+        operation createSortedOutgoingProductLinksIterator() : Iterator;
+
+        /*
+         * Creates iterator of outgoing product links for a dedicated type sorted by position.
+         */
+        operation createSortedOutgoingProductLinksIteratorByType(typeCode : String) : Iterator;
+
+        /*
+         * The maximum of position attribute of incoming product links.
+         */
+        operation getIncomingProductLinkMaxPosition() : double;
+
+        /*
+         * The minimum of position attribute of incoming product links.
+         */
+        operation getIncomingProductLinkMinPosition() : double;
+
+        /*
+         * The maximum of position attribute of outgoing product links.
+         */
+        operation getOutgoingProductLinkMaxPosition() : double;
+
+        /*
+         * The minimum of position attribute of outgoing product links.
+         */
+        operation getOutgoingProductLinkMinPosition() : double;
+
+        /*
+         * Unsets the typecode bits according to the given parameter bitmap.
+         * 
+         * @param aCodeBitmap The bits to unset
+         */
+        operation unsetTypeCode(aCodeBitmap : int) : void;
+
+        /*
+         * Returns the product this product is derived from.
+         * 
+         * @return The base product.
+         */
+        operation getBaseProduct() : Product;
+
+        /*
+         * Returns true if the product is derived from a base product.
+         * 
+         * @return true for derived products.
+         */
+        operation isDerivedProduct() : boolean;
+
+        /*
+         * Returns true if the product is derived from a base product and it has changed attributes of the base product locally.
+         * 
+         * @return true for changed derived products
+         */
+        operation isDerivedProductChanged() : boolean;
+
+        /*
+         * Returns true if the product is a base product that has derived products.
+         * 
+         * @return true for base products that have derived products.
+         */
+        operation hasDerivedProducts() : boolean;
+
+        /*
+         * Indicates whether this product has a derived product in the provided domain.
+         * 
+         * @param domain The domain to be searched for a derived product.
+         * @return <code>true</code> if this product has a derived product, <code>false</code> otherwise.
+         */
+        operation hasDerivedProductInDomain(domain:Domain):boolean;
+
+        /*
+         * Performs cleanup operations, e.g. removing derived product's data if all attributes are identical to the base product.
+         */
+        operation purge() : void;
+    }
+}

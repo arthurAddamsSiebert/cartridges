@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Handles sending of ORM objects from Edit to Live system via WebService.
+@Group Replication-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessReplicateObjects" type="process">
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="GetTargetClusters"
+      callMode="Private">
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="GetTargetClusters2"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetTargetClusters2">
+    <pipelet href="enfinity:/core/pipelets/GetTargetClusters.xml"/>
+<!--@BendPoints 3,12-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+    <returnValues name="TargetClusters" type="java.util.Collection"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="Init"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode3"/>
+<!--The objects to be syndicated.-->
+    <parameters name="Objects" type="java.util.Iterator" optional="true"/>
+<!--The job configuration of the batch process.-->
+    <parameters name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <startNode referencedName="BatchProcessLog-PrepareLogger"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="Objects" type="java.util.Iterator" optional="true"/>
+    <returnValues name="LogScope" type="com.intershop.beehive.core.capi.log.LogScope"
+        optional="true"/>
+    <returnValues name="ProcessLogAppender" type="com.intershop.beehive.core.capi.log.ProcessAppender"
+        optional="true"/>
+  </nodes>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="Post"
+      callMode="Private">
+<!--@BendPoints 15,2-->
+    <nodeSuccessors name="next" next="CallNode4"/>
+<!--The log scope all registered target should be removed for.-->
+    <parameters name="LogScope" type="com.intershop.beehive.core.capi.log.LogScope"
+        optional="true"/>
+    <parameters name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration"
+        optional="true"/>
+    <parameters name="ProcessLogAppender" type="com.intershop.beehive.core.capi.log.ProcessAppender"
+        optional="true"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 15,4-->
+    <nodeSuccessors name="next" next="EndNode11"/>
+    <startNode referencedName="BatchProcessLog-CleanLogger"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" strict="true"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Process"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameters name="JobConfiguration" type="com.intershop.beehive.core.capi.domain.ExtensibleObject"
+        optional="true"/>
+    <parameters name="Objects" type="java.util.Iterator"/>
+<!--The UUID of target system.-->
+    <parameters name="TargetClusterID" type="java.lang.String"/>
+    <parameters name="DomainID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="DomainID"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="AddEntryToMap2"/>
+    <nodeSuccessors name="decision_no" next="AddEntryToMap3"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="Key" constant="DomainID"/>
+    <parameterBindings name="Value" objectPath="JobConfiguration:DomainID"/>
+    <returnValueBindings name="OutMap" objectPath="Parameters"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="AddEntryToMap0"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="UpdateCustomAttributes0"/>
+    <parameterBindings name="InMap" objectPath="Parameters"/>
+    <parameterBindings name="Key" constant="ProcessID"/>
+    <parameterBindings name="Value" objectPath="JobConfiguration:CurrentProcess:UUID"/>
+    <returnValueBindings name="OutMap" objectPath="Parameters"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes0">
+    <configurationValues name="Attribute_1_Name" value="UserLockingConflictPolicy"/>
+    <configurationValues name="Attribute_1_Type" value="String"/>
+    <configurationValues name="Attribute_2_Name" value="SystemLockingConflictPolicy"/>
+    <configurationValues name="Attribute_2_Type" value="String"/>
+    <configurationValues name="Attribute_3_Name" value="CorrelatedLockingEnabled"/>
+    <configurationValues name="Attribute_3_Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="JobConfiguration:UserLockingConflictPolicy"/>
+    <parameterBindings name="Attribute_2_Value" objectPath="JobConfiguration:SystemLockingConflictPolicy"/>
+    <parameterBindings name="Attribute_3_Value" objectPath="JobConfiguration:CorrelatedLockingEnabled"/>
+    <parameterBindings name="ExtensibleObject" objectPath="JobConfiguration:CurrentProcess"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="JobConfiguration:Name"
+      operator="str_eq" conditionValue="Marketing_ReplicatePromotions">
+    <nodeSuccessors name="decision_yes" next="AddEntryToMap1"/>
+<!--@BendPoints 10,13 10,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="InMap" objectPath="Parameters"/>
+    <parameterBindings name="Key" constant="IgnoreParentPagelet"/>
+    <parameterBindings name="Value" constant=""/>
+    <returnValueBindings name="OutMap" objectPath="Parameters"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 9,18-->
+    <nodeSuccessors name="next" next="GetTargetCluster1"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetTargetCluster1">
+    <pipelet href="enfinity:/core/pipelets/GetTargetCluster.xml"/>
+    <nodeSuccessors name="next" next="GrantStagingDatabasePrivsToTargetCluster1"/>
+<!--@BendPoints 11,19-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GrantStagingDatabasePrivsToTargetCluster1">
+    <pipelet href="enfinity:/core/pipelets/GrantStagingDatabasePrivsToTargetCluster.xml"/>
+    <nodeSuccessors name="next" next="ReplicateORMObjects1"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ReplicateORMObjects1">
+    <pipelet href="enfinity:/core/pipelets/ReplicateORMObjects.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="ORMObjects" objectPath="Objects"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 9,28-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 5,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 11,24-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 5,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 11,27-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="Product" objectPath="ORMObject"/>
+    <parameterBindings name="Result" objectPath="Error"/>
+    <startNode referencedName="BatchProcessLog-LogResult"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="Key" constant="DomainID"/>
+    <parameterBindings name="Value" objectPath="DomainID"/>
+    <returnValueBindings name="OutMap" objectPath="Parameters"/>
+  </nodes>
+</pipeline:Pipeline>

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipelines is used to secure pages from reviewing via the browser back functionality. Note that this goal can not reached fully since RFC 2616 section 13.13 explicitly allows to show all already viewed pages. 
+@Group Security-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ViewData" type="view">
+  <registry xsi:type="pipeline:PipelineRegistry" href="enfinity:/bc_foundation/pipelines"/>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="CheckForValidContinuation"
+      callMode="Private">
+<!--@BendPoints 7,2-->
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameters name="CurrentRequest" type="com.intershop.beehive.core.capi.request.Request"
+        optional="true"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="CurrentRequest:PipelineDictionary:CallStack">
+<!--@BendPoints 11,3 11,8-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <entry key="CallStackEntry">
+<!--@BendPoints 7,4-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode5"/>
+    </entry>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="CallStackEntry:StartNode:Name"
+      operator="str_neq" conditionValue="SecureForBrowserBack">
+<!--@BendPoints 7,6 6,6 6,3-->
+    <nodeSuccessors name="decision_yes" next="LoopNode1_Entry"/>
+<!--@BendPoints 9,5 9,8-->
+    <nodeSuccessors name="decision_no" next="EndNode4"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="yes" strict="true"/>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="no" strict="true"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="SecureForBrowserBack"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+<!--Pipeline to be called in case the browsing user uses browser refresh.-->
+    <parameters name="JumpTarget" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="SecureForBrowserBack"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="RemoveClipboard1"/>
+<!--@BendPoints 2,3-->
+    <nodeSuccessors name="decision_no" next="EndNode2"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveClipboard1">
+    <configurationValues name="SessionRegistrationID" value="SecureForBrowserBack_FormParameterStorage"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveClipboard.xml"/>
+    <nodeSuccessors name="next" next="UpdateClipboard1"/>
+    <parameterBindings name="SessionRegistrationID" nullBinding="true"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateClipboard1">
+    <configurationValues name="SessionRegistrationID" value="SecureForBrowserBack_FormParameterStorage"/>
+    <configurationValues name="StoreFormValues" value="Yes"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateClipboard.xml"/>
+<!--@BendPoints 1,8-->
+    <nodeSuccessors name="next" next="InteractionContinueNode1"/>
+    <parameterBindings name="AllObjectUUIDs" nullBinding="true"/>
+    <parameterBindings name="SelectedObjectUUIDs" nullBinding="true"/>
+    <parameterBindings name="SessionRegistrationID" nullBinding="true"/>
+    <returnValueBindings name="Clipboard" nullBinding="true"/>
+    <returnValueBindings name="UUIDIterator" nullBinding="true"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:InteractionContinueNode" nodeID="InteractionContinueNode1">
+    <template referencedName="security/RedirectToData"/>
+    <startNode name="Start">
+<!--@BendPoints 1,10-->
+      <nodeSuccessors name="next" next="DecisionNode1"/>
+    </startNode>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="JumpTarget"
+      operator="str_neq" conditionValue="ViewData-Start">
+<!--@BendPoints 1,12-->
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue2"/>
+<!--@BendPoints 3,11 3,12-->
+    <nodeSuccessors name="decision_no" next="StopNode1"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="SecureForBrowserBack"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Form Value"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 1,14-->
+    <nodeSuccessors name="next" next="CallNode6"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 1,16-->
+    <nodeSuccessors name="yes" next="GetClipboard2"/>
+<!--@BendPoints 3,16-->
+    <nodeSuccessors name="no" next="JumpNode1"/>
+    <startNode referencedName="ViewData-CheckForValidContinuation"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetClipboard2">
+    <configurationValues name="SessionRegistrationID" value="SecureForBrowserBack_FormParameterStorage"/>
+    <configurationValues name="SetFormValues" value="Yes"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetClipboard.xml"/>
+<!--@BendPoints 1,18-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <parameterBindings name="SessionRegistrationID" nullBinding="true"/>
+    <returnValueBindings name="Clipboard" nullBinding="true"/>
+    <returnValueBindings name="UUIDIterator" nullBinding="true"/>
+  </nodes>
+<!--@Location 0,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="SecureJump-Start"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:StopNode" nodeID="StopNode1"/>
+</pipeline:Pipeline>

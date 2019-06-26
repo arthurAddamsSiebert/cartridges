@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Provides functions to detect and process abandoned baskets.
+@Group OnlineMarketing-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessAbandonedBaskets" type="process">
+<!--Checks for abandoned baskets and sends messages out. If no e\-mail marketing provider is defined no action is performed.
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Check"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LookupProvider1"/>
+    <parameters name="CurrentChannel" type="com.intershop.component.mvc.internal.catalog.RepositoryPO"
+        optional="true"/>
+    <parameters name="Organization" type="com.intershop.component.organization.internal.organization.OrganizationPO"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LookupProvider1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/LookupProvider.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="Domain" objectPath="CurrentChannel:RepositoryDomain"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Provider">
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="decision_yes" next="GetNewAbandonedBaskets1"/>
+<!--@BendPoints 4,5-->
+    <nodeSuccessors name="decision_no" next="EndNode1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetNewAbandonedBaskets1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/GetNewAbandonedBaskets.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="Domain" objectPath="CurrentChannel:RepositoryDomain"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Organization:Domain"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="AbandonedBaskets">
+<!--@BendPoints 4,9-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <entry key="Basket">
+<!--@BendPoints 3,10-->
+      <nodeSuccessors name="loop_entry_next" next="SendAbandonedBasketMessage1"/>
+    </entry>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SendAbandonedBasketMessage1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/SendAbandonedBasketMessage.xml"/>
+<!--@BendPoints 3,12 2,12 2,9-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR" strict="true"/>
+</pipeline:Pipeline>

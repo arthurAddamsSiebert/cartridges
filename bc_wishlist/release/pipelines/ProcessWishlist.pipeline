@@ -1,0 +1,845 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Pipeline that manages the wishlists of a user.
+@Group wishlist-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessWishlist" overrideMode="Inherit" type="">
+<!--Deprecated since 7.4.3.0
+@Location 28,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--Startnode "SendInvitationMail"
+@Deprecated since 7.10 
+will be removed in a future release
+@Location 42,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text_DmZykKEvEeih0LoKRzzJ7Q"/>
+<!--Adds a single product to a given wishlist.
+If the product cannot be added forr some reason, returns thriugh the error exit.
+@Location 26,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="AddProduct"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode13"/>
+<!--The wishlist to which the product should be added.
+-->
+    <parameters name="WishlistBO" type="com.intershop.component.wishlist.capi.WishlistBO"/>
+<!--The product that should be added to the wishlist.-->
+    <parameters name="ProductBO" type="com.intershop.component.product.capi.ProductBO"/>
+<!--The quantity (as string) of the product that should be added to the wishlist.-->
+    <parameters name="QuantityValue" type="java.lang.String" optional="true"/>
+<!--The domain of the product.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 26,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="ProductBO:Accessible"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CreateQuantity1"/>
+<!--@BendPoints 55,5-->
+    <nodeSuccessors name="decision_no" next="EndNode8"/>
+  </nodes>
+<!--@Location 26,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateQuantity1">
+    <configurationValues name="DefaultValue" value="1"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateQuantity.xml"/>
+    <nodeSuccessors name="next" next="AddProductToWishlistBO1"/>
+    <parameterBindings name="Unit" objectPath="ProductBO:Unit"/>
+    <parameterBindings name="Value" objectPath="QuantityValue"/>
+  </nodes>
+<!--@Location 26,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddProductToWishlistBO1">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/AddProductToWishlistBO.xml"/>
+    <nodeSuccessors name="next" next="EndNode13"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode13"/>
+  </nodes>
+<!--@Location 26,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" strict="true"/>
+<!--@Location 27,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="ERROR"/>
+<!--Adds multiple products to the given wishlist.
+The products might be determined by their UUIDs, SKUs or ProductRefs.
+@Location 16,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="AddProducts"
+      callMode="Private">
+<!--@BendPoints 33,4-->
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+<!--Iterator containing the UUIDs of the products that should be added.-->
+    <parameters name="ProductUUIDs" type="java.util.Iterator" optional="true"/>
+<!--Iterator containing the SKUs of the products that should be added.
+-->
+    <parameters name="SKUs" type="java.util.Iterator" optional="true"/>
+<!--Map specifying the quantities of the products that should be added.
+The keys in the map are the UUIDs, SKUs or ProductRefs of the products and the values are the corresponding quantities as strings. 
+-->
+    <parameters name="Quantities" type="java.util.Map"/>
+<!--Iterator containing ProductRefs to the products that should be added.-->
+    <parameters name="ProductRefIDs" type="java.util.Iterator" optional="true"/>
+    <parameters name="DependentSKUMap" type="java.util.Map" optional="true"/>
+<!--The wishlist to which the products should be added.
+-->
+    <parameters name="WishlistBO" type="com.intershop.component.wishlist.capi.WishlistBO"/>
+<!--ProductBORepository used to resolve products by given UUID, SKU or ProductRef-->
+    <parameters name="ProductBORepository" type="com.intershop.component.product.capi.ProductBORepository"/>
+<!--The domain of the products.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 16,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="ProductUUIDs"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="LoopNode1" action="begin"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode6"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="ProductUUIDs">
+<!--@BendPoints 36,7 36,17-->
+    <nodeSuccessors name="next" next="JoinNode5" action="commit"/>
+    <entry key="ProductUUID">
+      <nodeSuccessors name="loop_entry_next" next="GetProductBOByID1"/>
+    </entry>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductBOByID1">
+    <pipelet href="enfinity:/bc_product/pipelets/GetProductBOByID.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+<!--@BendPoints 35,9-->
+    <nodeSuccessors name="pipelet_error" next="EndNode6"/>
+    <parameterBindings name="ID" objectPath="ProductUUID"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <parameterBindings name="QuantityValue" objectPath="Quantities:get(SKU)"/>
+    <startNode referencedName="This:AddProduct"/>
+  </nodes>
+<!--@Location 17,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="ERROR" strict="true"/>
+<!--@Location 21,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 21,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 43,20-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 21,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--@Location 19,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="SKUs"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="LoopNode2" action="begin"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 19,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="SKUs">
+<!--@BendPoints 43,7-->
+    <nodeSuccessors name="next" next="JoinNode5" action="commit"/>
+    <entry key="SKU">
+      <nodeSuccessors name="loop_entry_next" next="GetProductBOBySKU0"/>
+    </entry>
+  </nodes>
+<!--@Location 19,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductBOBySKU0">
+    <pipelet href="enfinity:/bc_product/pipelets/GetProductBOBySKU.xml"/>
+    <nodeSuccessors name="next" next="CallNode2"/>
+<!--@BendPoints 41,9-->
+    <nodeSuccessors name="pipelet_error" next="EndNode4"/>
+  </nodes>
+<!--@Location 19,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <parameterBindings name="QuantityValue" objectPath="Quantities:get(SKU)"/>
+    <startNode referencedName="This:AddProduct"/>
+  </nodes>
+<!--@Location 20,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="ERROR" strict="true"/>
+<!--@Location 22,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="ProductRefIDs"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="LoopNode0" action="begin"/>
+<!--@BendPoints 49,5 49,19-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 22,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="ProductRefIDs">
+<!--@BendPoints 48,7 48,17-->
+    <nodeSuccessors name="next" next="JoinNode5" action="commit"/>
+    <entry key="ProductRefID">
+      <nodeSuccessors name="loop_entry_next" next="GetProductByProductRef0"/>
+    </entry>
+  </nodes>
+<!--@Location 22,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByProductRef0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByProductRef.xml"/>
+    <nodeSuccessors name="next" next="GetProductBOByID0"/>
+<!--@BendPoints 47,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+  </nodes>
+<!--@Location 22,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductBOByID0">
+    <pipelet href="enfinity:/bc_product/pipelets/GetProductBOByID.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+    <parameterBindings name="ID" objectPath="Product:UUID"/>
+  </nodes>
+<!--@Location 22,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <parameterBindings name="QuantityValue" objectPath="Quantities:get(SKU)"/>
+    <startNode referencedName="This:AddProduct"/>
+  </nodes>
+<!--@Location 23,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 23,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="ERROR" strict="true"/>
+<!--Creates a new wishlist with the given properties (name, public/private, preferred flag).
+@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="CreateWishlist"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateWishlistBO0" action="begin"/>
+<!--The WishlistBORepository to use for creating the new wishlist.-->
+    <parameters name="WishlistBORepository" type="com.intershop.component.wishlist.capi.WishlistBORepository"/>
+<!--The name of the new wishlist.-->
+    <parameters name="WishlistName" type="java.lang.String"/>
+<!--Whether the new wishlist should be public or private. The default value is false.-->
+    <parameters name="Public" type="java.lang.Boolean" optional="true"/>
+<!--Whether the new wishlist should be marked as preferred. The default value is false.-->
+    <parameters name="Preferred" type="java.lang.Boolean" optional="true"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateWishlistBO0">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/CreateWishlistBO.xml"/>
+    <nodeSuccessors name="next" next="UpdateWishlistBO0"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateWishlistBO0">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/UpdateWishlistBO.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="Preferred"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="SetPreferredWishlistBO0"/>
+<!--@BendPoints 4,9 4,13-->
+    <nodeSuccessors name="decision_no" next="JoinNode8"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetPreferredWishlistBO0">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/SetPreferredWishlistBO.xml"/>
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <parameterBindings name="Wishlist" objectPath="WishlistBO"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="EndNode15" action="commit"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15"/>
+<!--Deletes a given wishlist.
+Optionally before deleting the wishlist, the products can be moved to another wishlist.
+@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" strict="true" name="DeleteWishlist"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode9" action="begin"/>
+<!--The WishlistBORepository to use for deleting the wishlist.-->
+    <parameters name="WishlistBORepository" type="com.intershop.component.wishlist.capi.WishlistBORepository"/>
+<!--The wishlist to delete.-->
+    <parameters name="WishlistBO" type="com.intershop.component.wishlist.capi.WishlistBO"/>
+<!--Whether the wishlist items should be moved to another wishlist before deleting the current one. The default value is false.-->
+    <parameters name="MoveItemsBeforeDeletion" type="java.lang.Boolean" optional="true"/>
+<!--If MoveItemsBeforeDeletion is true, this is the ID of the wishlist where the items should be moved.-->
+    <parameters name="TargetWishlistID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="MoveItemsBeforeDeletion"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="GetWishlistBO1"/>
+<!--@BendPoints 11,5-->
+    <nodeSuccessors name="decision_no" next="JoinNode19"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetWishlistBO1">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/GetWishlistBO.xml"/>
+    <nodeSuccessors name="next" next="LoopNode5"/>
+    <parameterBindings name="WishlistID" objectPath="TargetWishlistID"/>
+    <returnValueBindings name="WishlistBO" objectPath="TargetWishlistBO"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode5" loop="WishlistBO:WishlistItemBOs">
+    <nodeSuccessors name="next" next="JoinNode19"/>
+    <entry key="WishlistItemBO">
+      <nodeSuccessors name="loop_entry_next" next="MoveWishlistItemBO1"/>
+    </entry>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="MoveWishlistItemBO1">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/MoveWishlistItemBO.xml"/>
+    <nodeSuccessors name="next" next="JoinNode10"/>
+<!--@BendPoints 8,12 7,12-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="Quantity" objectPath="WishlistItemBO:DesiredQuantity"/>
+    <parameterBindings name="SourceWishlistBO" objectPath="WishlistBO"/>
+    <parameterBindings name="SourceWishlistItemBO" objectPath="WishlistItemBO"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 7,9-->
+    <nodeSuccessors name="next" next="LoopNode5_Entry"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+    <nodeSuccessors name="next" next="JoinNode18"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="DeleteWishlistBO0"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DeleteWishlistBO0">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/DeleteWishlistBO.xml"/>
+    <nodeSuccessors name="next" next="EndNode16" action="commit"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16"/>
+<!--Gets the mode of adding products to the wishlists:
+* USE_PREFERRED_WISHLIST \- the preferred wishlist should be used
+* ASK_FOR_TARGET_WISHLIST \- the user should be asked to explicitly select a wishlist
+If the user does not have a preferred wishlist, ASK_FOR_TARGET_WISHLIST will be returned (even if the option to use the preferred wishlist is turned on). 
+@Location 31,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetAddToWishlistMode"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetUsePreferredWishlist0"/>
+    <parameters name="WishlistBORepository" type="com.intershop.component.wishlist.capi.WishlistBORepository"/>
+  </nodes>
+<!--@Location 31,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUsePreferredWishlist0">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/GetUsePreferredWishlist.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 31,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="UsePreferredWishlist"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 63,8-->
+    <nodeSuccessors name="decision_yes" next="GetPreferredWishlistBO0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 31,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPreferredWishlistBO0">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/GetPreferredWishlistBO.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <returnValueBindings name="Wishlist" objectPath="TargetWishlistBO"/>
+  </nodes>
+<!--@Location 31,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="TargetWishlistBO">
+    <nodeSuccessors name="decision_yes" next="EndNode3"/>
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 31,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="USE_PREFERRED_WISHLIST"
+      strict="true">
+    <returnValues name="TargetWishlistBO" type="com.intershop.component.wishlist.capi.WishlistBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 32,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 32,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="ASK_FOR_TARGET_WISHLIST"
+      strict="true"/>
+<!--@Location 32,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 40,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" strict="true" name="GetLatestWishlistItems"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode6"/>
+<!--The current request-->
+    <parameters name="CurrentRequest" type="com.intershop.beehive.core.capi.request.Request"/>
+<!--The current domain-->
+    <parameters name="CurrentDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The current user-->
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"/>
+  </nodes>
+<!--@Location 40,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+    <parameterBindings name="Domain" objectPath="CurrentDomain"/>
+    <parameterBindings name="Request" objectPath="CurrentRequest"/>
+    <startNode referencedName="ProcessOrganization-GetOrganization"/>
+  </nodes>
+<!--@Location 40,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 40,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetUserBO0"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="UserBORepository"/>
+  </nodes>
+<!--@Location 40,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserBO0">
+    <pipelet href="enfinity:/bc_user/pipelets/GetUserBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameterBindings name="UserID" objectPath="CurrentUser:ID"/>
+  </nodes>
+<!--@Location 40,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetLatestWishlistItems0"/>
+    <parameterBindings name="InValue_1" objectPath="UserBO:Extension(&quot;Wishlist&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="WishlistBORepository"/>
+  </nodes>
+<!--@Location 40,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLatestWishlistItems0">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/GetLatestWishlistItems.xml"/>
+    <nodeSuccessors name="next" next="EndNode18"/>
+    <parameterBindings name="Limit" constant="(Integer)5"/>
+  </nodes>
+<!--@Location 40,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode18" strict="true">
+    <returnValues name="WishlistItems" type="java.util.Collection"/>
+  </nodes>
+<!--Retrieves a wishlist that belongs to someone else (not the current user) by given wishlist ID and optionally secure code.
+If a wishlist with the given ID exists, the pipeline checks whether it is public or the given secure code is correct and if so returns it under the 'WishlistBO' key in the pipeline dictionary.
+Otherwise, it returns though the 'WISHLIST_UNAVAILABLE' end node.
+
+
+@Location 34,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="GetSharedWishlist"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetWishlistBO0"/>
+    <parameters name="WishlistBORepository" type="com.intershop.component.wishlist.capi.WishlistBORepository"/>
+    <parameters name="WishlistID" type="java.lang.String"/>
+    <parameters name="SecureCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 34,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetWishlistBO0">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/GetWishlistBO.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+<!--@BendPoints 73,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+  </nodes>
+<!--@Location 34,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="WishlistBO:Public"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="JoinNode0"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 34,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 34,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+    <returnValues name="WishlistBO" type="com.intershop.component.wishlist.capi.WishlistBO"/>
+  </nodes>
+<!--@Location 35,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="SecureCode">
+    <nodeSuccessors name="decision_yes" next="CheckWishlistBOShared0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 35,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckWishlistBOShared0">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/CheckWishlistBOShared.xml"/>
+<!--@BendPoints 71,13-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+  </nodes>
+<!--@Location 36,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 36,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="WISHLIST_UNAVAILABLE"
+      strict="true"/>
+<!--@Location 36,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@deprecated since 7.4.3.0
+@Location 28,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" visibility="Private"
+      name="IsProductVisibleToCurrentUser" callMode="Private">
+    <nodeSuccessors name="next" next="GetProductBySKU0"/>
+    <parameters name="ProductSKU" type="java.lang.String"/>
+<!--The domain of the product.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 28,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductBySKU0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductBySKU.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+    <parameterBindings name="SKU" objectPath="ProductSKU"/>
+  </nodes>
+<!--@Location 28,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="Product:Online"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="GetOrganizationByUser0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode16"/>
+  </nodes>
+<!--@Location 28,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser0">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <returnValueBindings name="Organization" objectPath="CurrentOrganization"/>
+  </nodes>
+<!--@Location 28,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+<!--@BendPoints 57,12-->
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <parameterBindings name="CatalogFilterDomain" objectPath="CurrentOrganization:OwningDomain"/>
+    <parameterBindings name="EveryoneDomain" objectPath="CurrentOrganization:OrganizationDomain"/>
+    <parameterBindings name="UseFallbackToEveryoneDomain" constant="true"/>
+    <startNode referencedName="GetCatalogFilters-GetFiltersByUser"/>
+  </nodes>
+<!--@Location 28,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="EndNode12"/>
+    <nodeSuccessors name="NOT_VISIBLE" next="JoinNode17"/>
+    <startNode referencedName="GetCatalogFilters-IsProductVisible"/>
+  </nodes>
+<!--@Location 28,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" name="VISIBLE" strict="true"/>
+<!--@Location 29,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+    <nodeSuccessors name="next" next="EndNode11"/>
+  </nodes>
+<!--@Location 29,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" name="NOT_VISIBLE" strict="true"/>
+<!--@Location 29,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+    <nodeSuccessors name="next" next="JoinNode17"/>
+  </nodes>
+<!--@Location 38,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" name="MoveProductFromCartToWishlist"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ToString0"/>
+<!--Domain of the product.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The wishlist where the product should be added.-->
+    <parameters name="WishlistBO" type="com.intershop.component.wishlist.capi.WishlistBO"/>
+<!--The basket line item that should be moved.-->
+    <parameters name="BasketProductLineItemBO" type="com.intershop.component.basket.capi.BasketProductLineItemBO"/>
+  </nodes>
+<!--@Location 38,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ToString0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ToString.xml"/>
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <parameterBindings name="Object1" objectPath="BasketProductLineItemBO:Quantity:Value"/>
+    <parameterBindings name="Object10" nullBinding="true"/>
+    <parameterBindings name="Object2" nullBinding="true"/>
+    <parameterBindings name="Object3" nullBinding="true"/>
+    <parameterBindings name="Object4" nullBinding="true"/>
+    <parameterBindings name="Object5" nullBinding="true"/>
+    <parameterBindings name="Object6" nullBinding="true"/>
+    <parameterBindings name="Object7" nullBinding="true"/>
+    <parameterBindings name="Object8" nullBinding="true"/>
+    <parameterBindings name="Object9" nullBinding="true"/>
+    <returnValueBindings name="String1" objectPath="QuantityValue"/>
+  </nodes>
+<!--@Location 38,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <parameterBindings name="Domain" objectPath="CurrentOrganization:OwningDomain"/>
+    <parameterBindings name="ProductBO" objectPath="BasketProductLineItemBO:ProductBO"/>
+    <parameterBindings name="WishlistBO" objectPath="TargetWishlistBO"/>
+    <startNode referencedName="ProcessWishlist-AddProduct"/>
+  </nodes>
+<!--@Location 38,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <parameterBindings name="InValue_1" objectPath="BasketProductLineItemBO:ProductBO:Name"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProductName"/>
+  </nodes>
+<!--@Location 38,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="EndNode14"/>
+    <parameterBindings name="ProductLineItemUUID" objectPath="PLIID"/>
+    <startNode referencedName="ProcessCart-RemoveProductLineItem"/>
+  </nodes>
+<!--@Location 38,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" name=""/>
+<!--@Location 42,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="SendInvitationMail"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateIteratorFromConfigValues0"/>
+  </nodes>
+<!--@Location 42,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromConfigValues0">
+    <configurationValues name="Delimiters" value=","/>
+    <pipelet href="enfinity:/core/pipelets/CreateIteratorFromConfigValues.xml"/>
+    <nodeSuccessors name="next" next="GetRepositoryByRepositoryDomain0"/>
+    <parameterBindings name="ValuesString" objectPath="MailTo"/>
+    <returnValueBindings name="ValuesIterator" objectPath="UserEmailIterator"/>
+  </nodes>
+<!--@Location 42,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByDomain0"/>
+<!--@BendPoints 89,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode14"/>
+    <parameterBindings name="RepositoryDomain" objectPath="CurrentOrganization:OwningDomain"/>
+    <returnValueBindings name="Repository" objectPath="ChannelRepository"/>
+  </nodes>
+<!--@Location 42,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByDomain0">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByDomain.xml"/>
+    <nodeSuccessors name="next" next="GetDomainPreference1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode14"/>
+    <parameterBindings name="OrganizationDomain" objectPath="ChannelRepository:OwningDomain"/>
+    <returnValueBindings name="Organization" objectPath="EnterpriseOrganization"/>
+  </nodes>
+<!--@Location 42,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference1">
+    <configurationValues name="DefaultPreferenceKey" value="WishlistEmailTemplate"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="GetDomainPreference_9_jDcKR-EeiMqJx8B0li_g"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailTemplate"/>
+  </nodes>
+<!--@Location 42,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference_9_jDcKR-EeiMqJx8B0li_g">
+    <configurationValues name="DefaultPreferenceKey" value="WishlistEmailTemplate"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_9_eyAKR-EeiMqJx8B0li_g"/>
+    <nodeSuccessors name="pipelet_error" next="KeyMapper_9_gnMKR-EeiMqJx8B0li_g"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="MailTemplate"/>
+  </nodes>
+<!--@Location 42,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_9_eyAKR-EeiMqJx8B0li_g">
+    <nodeSuccessors name="next" next="LoopNode3"/>
+  </nodes>
+<!--@Location 42,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="UserEmailIterator">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <entry key="UserEmail">
+      <nodeSuccessors name="loop_entry_next" next="ProcessMail0"/>
+    </entry>
+  </nodes>
+<!--@Location 42,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail0">
+    <configurationValues name="UseErrorConnector" value="true"/>
+    <configurationValues name="WaitForResult" value="true"/>
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="JoinNode13"/>
+<!--@BendPoints 87,19-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue0"/>
+    <parameterBindings name="Domain" objectPath="CurrentOrganization:OwningDomain"/>
+    <parameterBindings name="MailTo" objectPath="UserEmail"/>
+  </nodes>
+<!--@Location 42,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+<!--@BendPoints 84,23 84,17-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+  </nodes>
+<!--@Location 43,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue0">
+    <configurationValues name="Name" value="EmailSendError"/>
+    <configurationValues name="Value" value="&quot;true&quot;"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 87,23-->
+    <nodeSuccessors name="next" next="JoinNode13"/>
+  </nodes>
+<!--@Location 44,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+<!--@BendPoints 89,20-->
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 44,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9"/>
+<!--@Location 43,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_9_gnMKR-EeiMqJx8B0li_g">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_9_eyAKR-EeiMqJx8B0li_g"/>
+    <parameterBindings name="InValue_1" constant="email/account/WishlistInvitation"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTemplate"/>
+  </nodes>
+<!--@Location 44,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 44,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--Updates the properties of a wishlist (name, public/private, preferred flag).
+
+@Location 7,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="UpdateWishlist"
+      callMode="Private">
+    <nodeSuccessors name="next" next="UpdateWishlistBO1" action="begin"/>
+<!--The WishlistBORepository that is responsible for the wishlist to update.-->
+    <parameters name="WishlistBORepository" type="com.intershop.component.wishlist.capi.WishlistBORepository"/>
+<!--The wishlist to update.-->
+    <parameters name="WishlistBO" type="com.intershop.component.wishlist.capi.WishlistBO"/>
+<!--The new name of the wishlist.-->
+    <parameters name="WishlistName" type="java.lang.String"/>
+<!--The new value of the 'public' property of the wishlist.-->
+    <parameters name="Public" type="java.lang.Boolean"/>
+<!--Whether the wishlist should be marked as preferred.
+Please note, that 'false' means that the wishlist should be marked as 'not preferred' and there will be no longer a preferred wishlist in the repository.-->
+    <parameters name="Preferred" type="java.lang.Boolean"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateWishlistBO1">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/UpdateWishlistBO.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode12"/>
+    <parameterBindings name="Public" objectPath="Public"/>
+    <parameterBindings name="WishlistName" objectPath="WishlistName"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="Preferred"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 15,10-->
+    <nodeSuccessors name="decision_yes" next="SetPreferredWishlistBO1"/>
+    <nodeSuccessors name="decision_no" next="GetPreferredWishlistBO1"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetPreferredWishlistBO1">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/SetPreferredWishlistBO.xml"/>
+    <nodeSuccessors name="next" next="JoinNode21"/>
+    <parameterBindings name="Wishlist" objectPath="WishlistBO"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode21">
+    <nodeSuccessors name="next" next="EndNode10" action="commit"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10"/>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPreferredWishlistBO1">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/GetPreferredWishlistBO.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode11"/>
+    <returnValueBindings name="Wishlist" objectPath="PreferredWishlistBO"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="PreferredWishlistBO">
+    <nodeSuccessors name="decision_yes" next="DecisionNode10"/>
+<!--@BendPoints 19,11-->
+    <nodeSuccessors name="decision_no" next="JoinNode15"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="WishlistBO:ID"
+      operator="str_eq" conditionItem="PreferredWishlistBO:ID">
+<!--@BendPoints 17,14-->
+    <nodeSuccessors name="decision_yes" next="UnsetPreferredWishlistBO0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode15"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UnsetPreferredWishlistBO0">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/UnsetPreferredWishlistBO.xml"/>
+    <nodeSuccessors name="next" next="JoinNode20"/>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+<!--@BendPoints 19,17-->
+    <nodeSuccessors name="next" next="JoinNode20"/>
+  </nodes>
+<!--Updates the properties of all wishlist items (quantity and visibility).
+If the quantity of a wishlist item is set to 0, it should be deleted.
+@Location 11,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" strict="true" name="UpdateWishlistItems"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode4" action="begin"/>
+<!--The wishlist whose items will be updated.-->
+    <parameters name="WishlistBO" type="com.intershop.component.wishlist.capi.WishlistBO"/>
+<!--Map that specifies the new quantities of the products.
+The keys in the maps are the IDs of the wishlist items and the values are the corrsponding quantities (as strings). -->
+    <parameters name="Quantities" type="java.util.Map&lt;java.lang.String,java.lang.String>"/>
+<!--Map that specifies the visibility of the wishlist items.
+The keys in the map are the IDs of the wishlist items and the values \- 'true'/'false' depending on whether the item is private or public.-->
+    <parameters name="PrivateItems" type="java.util.Map&lt;java.lang.String,java.lang.String>"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode4" loop="WishlistBO:WishlistItemBOs">
+    <nodeSuccessors name="next" next="EndNode17" action="commit"/>
+    <entry key="Item">
+      <nodeSuccessors name="loop_entry_next" next="CreateQuantity0"/>
+    </entry>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateQuantity0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateQuantity.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode15"/>
+    <parameterBindings name="Unit" objectPath="Item:DesiredQuantity:Unit"/>
+    <parameterBindings name="Value" objectPath="Quantities:get(Item:ID)"/>
+    <returnValueBindings name="Quantity" objectPath="DesiredQuantity"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode15" conditionKey="DesiredQuantity:Zero"
+      operator="str_eq" conditionValue="false">
+    <nodeSuccessors name="decision_yes" next="DecisionNode14"/>
+<!--@BendPoints 27,9-->
+    <nodeSuccessors name="decision_no" next="DeleteWishlistItemBO0"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="PrivateItems:get(Item:ID)">
+    <nodeSuccessors name="decision_yes" next="VerifyBoolean1"/>
+<!--@BendPoints 25,11 25,12-->
+    <nodeSuccessors name="decision_no" next="VerifyBoolean0"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyBoolean1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyBoolean.xml"/>
+    <nodeSuccessors name="next" next="JoinNode22"/>
+    <parameterBindings name="NoneLocalizedString" constant="false"/>
+    <returnValueBindings name="BooleanValue" objectPath="Public"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode22">
+    <nodeSuccessors name="next" next="UpdateWishlistItemBO0"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateWishlistItemBO0">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/UpdateWishlistItemBO.xml"/>
+    <nodeSuccessors name="next" next="JoinNode24"/>
+    <parameterBindings name="WishlistItemBO" objectPath="Item"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode24">
+    <nodeSuccessors name="next" next="JoinNode25"/>
+  </nodes>
+<!--@Location 10,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode25">
+<!--@BendPoints 21,6-->
+    <nodeSuccessors name="next" next="LoopNode4_Entry"/>
+  </nodes>
+<!--@Location 12,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyBoolean0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyBoolean.xml"/>
+<!--@BendPoints 25,15-->
+    <nodeSuccessors name="next" next="JoinNode22"/>
+    <parameterBindings name="NoneLocalizedString" constant="true"/>
+    <returnValueBindings name="BooleanValue" objectPath="Public"/>
+  </nodes>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DeleteWishlistItemBO0">
+    <pipelet href="enfinity:/bc_wishlist/pipelets/DeleteWishlistItemBO.xml"/>
+    <nodeSuccessors name="next" next="JoinNode23"/>
+    <parameterBindings name="WishlistItemBO" objectPath="Item"/>
+  </nodes>
+<!--@Location 13,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode23">
+    <nodeSuccessors name="next" next="JoinNode24"/>
+  </nodes>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17"/>
+</pipeline:Pipeline>

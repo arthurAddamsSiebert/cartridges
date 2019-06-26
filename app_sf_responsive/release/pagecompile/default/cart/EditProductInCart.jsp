@@ -1,0 +1,38 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"modules/Modules", null, "2");} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"modules/rest/RESTConfiguration.isml", null, "3");} %><% {Object key_obj = getObject("ProductBO"); NamingMgr.getManager(PageCacheMgr.class).registerObject(getObject("ProductBO"));} %><div class="modal-dialog"
+data-dynamic-block
+data-dynamic-block-call-parameters="EditInCart&LineItemUUID=<% {String value = null;try{value=context.getFormattedValue(getObject("ProductLineItemBO:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {8}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+data-dynamic-block-product-sku="<% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("ProductBO:isMastered"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",9,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("ProductBO:ProductBOMaster:SKU"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {9}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } else { %><% {String value = null;try{value=context.getFormattedValue(getObject("ProductBOr:SKU"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {9}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %>">""
+>
+<div class="modal-content"><% URLPipelineAction action45 = new URLPipelineAction(context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewCart-UpdateVariation",null)))),null));String site45 = null;String serverGroup45 = null;String actionValue45 = context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewCart-UpdateVariation",null)))),null);if (site45 == null){  site45 = action45.getDomain();  if (site45 == null)  {      site45 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup45 == null){  serverGroup45 = action45.getServerGroup();  if (serverGroup45 == null)  {      serverGroup45 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewCart-UpdateVariation",null)))),null));out.print("\"");out.print(" name=\"");out.print("editVariationCommand");out.print("\"");out.print(" class=\"");out.print("bv-form");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue45, site45, serverGroup45,true)); %><div class="modal-header">
+<button type="button" class="close" data-dismiss="modal" title="<% {out.write(localizeISText("dialog.close.text","",null,null,null,null,null,null,null,null,null,null,null));} %>" aria-label="<% {out.write(localizeISText("dialog.close.text","",null,null,null,null,null,null,null,null,null,null,null));} %>"><span aria-hidden="true">&times;</span></button>
+<h2 class="modal-title"><% {String value = null;try{value=context.getFormattedValue(getObject("ProductBO:Name"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {15}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></h2>
+</div>
+<div class="modal-body">
+<div class="row product-details">
+<div class="col-sm-4"><% processOpenTag(response, pageContext, "productimage", new TagParameter[] {
+new TagParameter("ProductBO",getObject("ProductBO")),
+new TagParameter("ImageType","M")}, 21); %></div>
+<div class="col-sm-8 product-info"><% processOpenTag(response, pageContext, "productprice", new TagParameter[] {
+new TagParameter("Currency",getObject("CurrentRequest:Currency")),
+new TagParameter("ShowInformationalPrice","true"),
+new TagParameter("ProductBO",getObject("ProductBO"))}, 25); %><input type="hidden" name="SKU" value="<% {String value = null;try{value=context.getFormattedValue(getObject("ProductBO:SKU"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {30}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" />
+<input type="hidden" name="updateVariation" value="<% {String value = null;try{value=context.getFormattedValue(getObject("ProductLineItemBO:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {31}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/><% processOpenTag(response, pageContext, "productvariationselect", new TagParameter[] {
+new TagParameter("ProductBO",getObject("ProductBO"))}, 33); %><% processOpenTag(response, pageContext, "productquantity", new TagParameter[] {
+new TagParameter("Currency",getObject("CurrentRequest:Currency")),
+new TagParameter("ProductBO",getObject("ProductBO")),
+new TagParameter("ProductLineItemBO",getObject("ProductLineItemBO"))}, 35); %><% processOpenTag(response, pageContext, "promotionlist", new TagParameter[] {
+new TagParameter("Locale",getObject("CurrentRequest:Locale")),
+new TagParameter("ProductBO",getObject("ProductBO")),
+new TagParameter("MaxNumber","5")}, 37); %></div>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-primary" type="submit"><% {out.write(localizeISText("shopping_cart.variation.save.button.label","",null,null,null,null,null,null,null,null,null,null,null));} %></button>
+<button class="btn btn-default" type="button" data-dismiss="modal" name="cancel"><% {out.write(localizeISText("shopping_cart.button.cancel","",null,null,null,null,null,null,null,null,null,null,null));} %></button>
+</div><% out.print("</form>"); %></div>
+</div> <% printFooter(out); %>

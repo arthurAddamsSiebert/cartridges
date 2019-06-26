@@ -1,0 +1,221 @@
+<%@page import="com.intershop.beehive.core.capi.pipeline.PipelineDictionary"%>
+<%@page import="com.intershop.beehive.core.capi.webform.Form"%>
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<isif condition="#not isDefined(FixedPriceForm)#">
+	<ispipeline pipeline="ProcessWarrantyPrices-PrepareFixedPriceConfig" 
+		params="#ParamMap(ParamEntry('ProductID', Product:UUID), ParamEntry('ProductDomainID', Product:DomainID))#" 
+		alias="warrantyDict" />
+	<isset scope="request" name="FixedPriceForm" value="#warrantyDict:FixedPriceForm#"/>
+	<isset scope="request" name="BaseProductWarrantyBO" value="#warrantyDict:BaseProductWarrantyBO#"/>
+	<isif condition="#not isDefined(AddFixedPriceForm)#">
+		<isset scope="request" name="AddFixedPriceForm" value="#warrantyDict:AddFixedPriceForm#"/>
+	</isif>
+</isif>
+
+<isset scope="request" name="DispatchPipeline" value="#DispatchPipeline.'-DispatchFixedPrice'#"/>
+<isform action="#url(action(DispatchPipeline))#" method="POST" name="#FixedPriceForm:ID#" data-testing-id="bo-product-classification-warranty-fixed-price-config">
+
+	<input type="hidden" name="ChannelID" value="<isprint value="#ChannelID#">"/>
+	<input type="hidden" name="ProductID" value="<isprint value="#Product:UUID#">"/>
+	<input type="hidden" name="ProductDomainID" value="<isprint value="#Product:DomainID#">"/>
+
+	<table border="0" cellpadding="4" cellspacing="0" width="100%" class="infobox w e">
+		<tr><td width="100%" class="infobox_title"><istext key="WarrantyFixedPriceConfig.FixedPrice.infobox_title"/></td></tr>
+	</table>
+	
+	<isif condition="#isDefined(PermissionMap:SLD_MANAGE_PRICES)#">
+		<table border="0" cellpadding="4" cellspacing="0" width="100%" class="infobox w e ">
+			<tr>
+				<td nowrap="nowrap" class="label_select"><label class="label label_select label_light" for="#AddFixedPriceForm:Price:PriceCurrency:QualifiedName#"><istext key="WarrantyFixedPriceConfig.Currency.label"/></label></td>
+				<td> 
+						<isselect name="#AddFixedPriceForm:Price:PriceCurrency:QualifiedName#"
+		          				  iterator="Currencies"
+		                          value="#Currencies:Mnemonic#"
+		                          description="#Currencies:CurrencyName#"
+		                          condition = "#Currencies:Mnemonic EQ CurrentSession:CurrencyCode#"
+		                          class="select inputfield_en">
+				</td>
+				<td>
+					<!---isnoloc--->
+					<input type="text" name="<isprint value="#AddFixedPriceForm:Price:PriceValue:QualifiedName#">" 
+									   <isif condition="#AddFixedPriceForm:Submitted#">
+									   		<isif condition="#AddFixedPriceForm:Invalid OR isDefined(ErrorAddFixedPrice)#">
+									   			value="<isprint value="#AddFixedPriceForm:Price:PriceValue:Value#">"
+									   		</isif>
+									   <iselse/>
+									   		value="<isprint value="#AddFixedPriceForm:Price:PriceValue:Value#">"
+									   </isif>
+									   maxlength="30" size="30" 
+									   class="inputfield_en"
+					/>
+					<!---/isnoloc--->
+				</td>
+				<td width="100%">
+					<table border="0" cellspacing="2" cellpadding="0">
+						<tr>
+							<td class="button">
+								<input type="submit" name="add" value="#localizeText('WarrantyFixedPriceConfig.Add.button')#" class="button" <isif condition="#NOT isDefined(ProductLockedForMe)#">disabled="disabled"</isif> />
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>	
+		</table>
+	</isif>
+				
+	<table width="100%" border="0" cellspacing="0" cellpadding="0" class="n e w">
+		
+		<isif condition="#hasElements(FixedPriceForm:Instances)#">
+			<tr>
+				<isif condition="#isDefined(PermissionMap:SLD_MANAGE_PRICES)#">
+					<td class="left e s" nowrap="nowrap" width="80">
+						<div id="A">
+							<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+								<tr>
+									<td nowrap="nowrap">
+										<a href="javascript:selectAll('<isprint value ="#FixedPriceForm:ID#">','SelectedObjectUUID','A','B');" class="tableheader"><istext key="WarrantyFixedPriceConfig.SelectAll.link"/></a>
+									</td>
+								</tr>
+							</table>
+						</div>
+						<div id="B" style="display:none">
+							<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+								<tr>
+									<td nowrap="nowrap">
+										<a href="javascript:selectAll('<isprint value ="#FixedPriceForm:ID#">','SelectedObjectUUID','A','B');" class="tableheader"><istext key="WarrantyFixedPriceConfig.ClearAll.link"/></a>
+									</td>
+								</tr>
+							</table>
+						</div>
+					</td>
+				</isif>
+				<td class="table_header e s"><istext key="WarrantyFixedPriceConfig.Currency.table_header"/></td>
+				<td width="100%" class="table_header s"><istext key="WarrantyFixedPriceConfig.Price.table_header"/></td>
+			</tr>
+			
+			<!--- Loop product list prices --->
+			<isloop iterator="FixedPriceForm:Instances" alias="SubForm">
+				
+				<isif condition="#Product:DerivedProduct#">
+						<isif condition="#isDefined(BaseProductWarrantyBO)#">
+							<ispipeline 
+								pipeline="ProcessWarrantyPrices-IsDerivedProductWarrantyFixedPrice" 
+								params="#ParamMap(ParamEntry('Product', Product), ParamEntry('WarrantyBO', WarrantyBO), ParamEntry('BaseProductWarrantyBO', BaseProductWarrantyBO),ParamEntry('Product', Product), ParamEntry('CurrencyCode', SubForm:ID), ParamEntry('PriceValue', SubForm:Price:Value))#" 
+								alias="WarrantyFixedPriceResult" />					
+						<iselse>
+							<ispipeline 
+								pipeline="ProcessWarrantyPrices-IsDerivedProductWarrantyFixedPrice" 
+								params="#ParamMap(ParamEntry('Product', Product), ParamEntry('WarrantyBO', WarrantyBO), ParamEntry('Product', Product), ParamEntry('CurrencyCode', SubForm:ID), ParamEntry('PriceValue', SubForm:Price:Value))#" 
+								alias="WarrantyFixedPriceResult" />												
+						</isif>
+					<isif condition="#NOT isDefined(WarrantyFixedPriceResult)#">
+						<%
+							Form subForm = (Form) getObject("SubForm");
+							Object baseProductFixedPrice = getObject(subForm.getID());
+							PipelineDictionary pipelineDictionary = getPipelineDictionary();
+							pipelineDictionary.put("BaseProductFixedPrice", baseProductFixedPrice);
+						%>
+					<iselse>
+						<isif condition="#WarrantyFixedPriceResult:IsDerivedProductWarrantyFixedPrice EQ 'true'#">
+							<isset scope="request" name="BaseProductFixedPrice" value="true" />
+						<iselse>
+							<isset scope="request" name="BaseProductFixedPrice" value="false" />
+						</isif>	
+					</isif>
+					
+				</isif>
+
+				<tr>
+					<isif condition="#isDefined(PermissionMap:SLD_MANAGE_PRICES)#">
+						<td class="table_bg e s center">
+							<input type="hidden" name="ObjectUUID" value="<isprint value="#SubForm:ID#">"/>
+							<input type="checkbox" name="SelectedObjectUUID" value="<isprint value="#SubForm:ID#">" 
+								<isif condition="#Clipboard:contains(SubForm:ID)#"> checked="checked"</isif> 
+								<isif condition="#isDefined(BaseProductFixedPrice) AND (BaseProductFixedPrice eq 'true')#"> disabled="disabled"</isif>
+							/>
+							<!-- Store the last value of BaseProductFixedPrice flag -->
+							<input type="hidden" name="<isprint value="#SubForm:ID#"/>"
+											     		value="<isprint value="#BaseProductFixedPrice#">"
+							/>
+						</td>
+					</isif>
+					<td class="table_detail2 e s">
+						<input type="hidden" name="<isprint value="#SubForm:Price:PriceCurrency:QualifiedName#">" value="<isprint value="#SubForm:ID#">"/>
+						<isprint value="#SubForm:ID#">
+					</td>
+					<td class="table_detail2 s">
+						<table cellspacing="0" cellpadding="0">
+							<tr>
+								<td>
+									<isif condition="#isDefined(PermissionMap:SLD_MANAGE_PRICES)#">
+										<input type="text" name="<isprint value="#SubForm:Price:PriceValue:QualifiedName#">" 
+											               <isif condition="#SubForm:Submitted AND SubForm:Invalid#">
+												           		value="<isprint value="#SubForm:Price:PriceValue:Value#" style="MONEY_SHORT">"
+														   <iselse>
+																value="<isprint value="#SubForm:Price:Value#" style="MONEY_SHORT">"	
+															</isif>
+															maxlength="30" size="30" 
+															class="inputfield_en"
+										/>
+									<iselse/>
+										<isprint value="#SubForm:Price:Value#" style="MONEY_SHORT">
+									</isif>
+									<%
+										Form form = (Form) getObject("SubForm");
+										PipelineDictionary dict = getPipelineDictionary();
+										Object oldPrice = getObject("Old_" + form.getParameter("Price").getField("PriceValue").getQualifiedName());
+										dict.put("OldPrice", oldPrice);
+									%>
+									<input type="hidden" name="Old_<isprint value="#SubForm:Price:PriceValue:QualifiedName#"/>"
+													     <isif condition="#SubForm:Submitted AND SubForm:Invalid#">
+												           		value="<isprint value="#OldPrice#" style="MONEY_SHORT">"
+														 <iselse>
+																value="<isprint value="#SubForm:Price:Value#" style="MONEY_SHORT">"	
+														 </isif>
+									/>
+								</td>
+								<isif condition="#Product:DerivedProduct#">
+									<td>&nbsp;
+
+										<isset name="BaseProductPrice" value="#BaseProductWarrantyBO:PriceConfiguration:get(SubForm:ID)#" scope="request">
+										
+										<isif condition="#isDefined(BaseProductFixedPrice) AND (BaseProductFixedPrice EQ 'true')#">
+											(<istext key="WarrantyFixedPriceConfig.SharedPrice"/>)
+										<iselseif condition="#isDefined(BaseProductPrice)#"/>
+											(<istext key="WarrantyFixedPriceConfig.ChannelPriceSharedPrice"/> <isprint value="#BaseProductPrice#">)
+										<iselse/>
+											(<istext key="WarrantyFixedPriceConfig.ChannelPrice"/>)
+										</isif>
+									</td>
+								</isif>
+							</tr>
+						</table>
+					</td>
+				</tr>
+			</isloop>
+
+			<isif condition="#isDefined(PermissionMap:SLD_MANAGE_PRICES)#">
+				<tr>
+					<td width="100%" colspan="4" class="s">
+						<table border="0" cellspacing="4" cellpadding="0" align="right">
+							<tr>
+								<td class="button"><input type="submit" name="apply" value="#localizeText('WarrantyFixedPriceConfig.Apply.button')#" class="button" <isif condition="#NOT isDefined(ProductLockedForMe)#">disabled="disabled"</isif>/></td>
+								<td class="button"><input type="submit" name="reset" value="#localizeText('WarrantyFixedPriceConfig.Reset.button')#" class="button" <isif condition="#NOT isDefined(ProductLockedForMe)#">disabled="disabled"</isif>/></td>
+								<td class="button"><input type="submit" name="confirmDelete" value="#localizeText('WarrantyFixedPriceConfig.Delete.button')#" class="button" <isif condition="#NOT isDefined(ProductLockedForMe)#">disabled="disabled"</isif>/></td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+			</isif>
+			
+		<iselse>
+			<tr>
+				<td colspan="4" class="table_detail s"><istext key="WarrantyFixedPriceConfig.ThereAreCurrentlyNoPricesToShowHere.table_detail"/></td>
+			</tr>
+		</isif>
+	</table>
+
+</isform>
+
+

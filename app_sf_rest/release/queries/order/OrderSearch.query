@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="OrderDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="Customer" type="com.intershop.component.customer.capi.CustomerBO" optional="true"/>
+	<parameter name="Buyer" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true" description="the attribute to sort the result set"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true" description="sort the result set in ascending or descending order"/>	
+	<parameter name="Limit" type="java.lang.Integer" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Count" type="rename">
+		<return-attribute name="count"/>
+	</return-mapping>
+	<return-mapping name="OrderBO" type="bo-orm" class="com.intershop.beehive.bts.internal.orderprocess.fulfillment.OrderPO" mapperclass="OrderPOToOrderBOMapper">
+		<return-attribute name="OrderUUID" />
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="count">
+	SELECT COUNT(*) as count
+	FROM isorder o
+	WHERE
+		<template-if condition="isDefined(Customer)"> 
+			o.customerid=<template-variable value="Customer:ID"/>		
+		<if-else/>
+			o.userid=<template-variable value="Buyer:ID"/>
+		</template-if>
+	AND o.DomainID=<template-variable value="OrderDomain:UUID"/>
+</template>
+<template type="countedobjects">
+	SELECT o.uuid as OrderUUID, COUNT(*) over() AS "rowcount" 
+	FROM isorder o
+	WHERE 
+		<template-if condition="isDefined(Customer)"> 
+			o.customerid=<template-variable value="Customer:ID"/>		
+		<if-else/>
+			o.userid=<template-variable value="Buyer:ID"/>
+		</template-if>
+		AND o.DomainID=<template-variable value="OrderDomain:UUID"/>
+	ORDER BY 
+	<template-if condition="SortAttribute EQ &apos;OrderTotal&apos;">
+		o.grandtotalgrosspricepcvalue
+	<if-elseif condition="SortAttribute EQ &apos;PurchaserName&apos;"/>
+		o.buyername		
+	<if-else/>
+		o.creationdate
+	</template-if>
+	<template-if condition="SortDirection EQ &apos;asc&apos;">
+		ASC
+	<if-else/>
+	 	DESC
+	</template-if>
+</template>
+
+<template type="objects">
+	<template-if condition="isDefined(Limit)">
+		SELECT * FROM
+		(
+	</template-if>
+	SELECT 
+	<sql-dialect name="Microsoft">
+		<template-if condition="isDefined(Limit)">
+		TOP <template-variable value="Limit" processing="text"/>
+		</template-if>
+	</sql-dialect>
+	o.uuid as OrderUUID 
+	FROM isorder o
+	WHERE 
+		<template-if condition="isDefined(Customer)"> 
+			o.customerid=<template-variable value="Customer:ID"/>		
+		<if-else/>
+			o.userid=<template-variable value="Buyer:ID"/>
+		</template-if>
+	AND o.DomainID=<template-variable value="OrderDomain:UUID"/>
+	ORDER BY 
+	<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ &apos;OrderTotal&apos;)">
+		o.grandtotalgrosspricepcvalue
+	<if-elseif condition="isDefined(SortAttribute) AND (SortAttribute EQ &apos;PurchaserName&apos;)"/>
+		o.buyername		
+	<if-else/>
+		o.creationdate
+	</template-if>
+	<template-if condition="isDefined(SortDirection) AND (SortDirection EQ &apos;asc&apos;)">
+		ASC
+	<if-else/>
+	 	DESC
+	</template-if>
+	<template-if condition="isDefined(Limit)">
+		)a
+		<sql-dialect name="Oracle">
+		WHERE ROWNUM &lt;= <template-variable value="Limit"/>
+		</sql-dialect>
+	</template-if>	
+</template>
+</query>

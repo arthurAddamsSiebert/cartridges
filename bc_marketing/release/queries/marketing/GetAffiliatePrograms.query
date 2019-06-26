@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets affiliate programs">
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion" optional="true"/>
+	<parameter name="ABTest" type="com.intershop.component.marketing.capi.abtest.ABTest" optional="true"/>
+	<parameter name="Campaign" type="com.intershop.component.marketing.capi.campaign.Campaign" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="AffiliateProgram" type="orm" class="com.intershop.component.marketing.internal.affiliate.AffiliateProgramPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	SELECT ap.uuid , COUNT(*) OVER() as "rowcount"
+	FROM affiliateprogram ap
+	inner join usergroup ug on ap.programusergroupid = ug.id
+	                       and ap.domainid = ug.domainid
+	inner join usergroupassignment uga on uga.childusergroupid = ug.id
+	                                  and uga.childusergroupdomainid = ug.domainid
+	<template-if condition="isDefined(Promotion)">
+		inner join promotion p on p.targetgroupid = uga.parentusergroupid
+		                      and p.targetgroupdomainid = uga.parentusergroupdomainid
+		                      and p.UUID = <template-variable value="Promotion:UUID"/>
+	</template-if>
+	<template-if condition="isDefined(ABTest)">
+		inner join abtest abt on abt.targetgroupid = uga.parentusergroupid
+		                      and abt.targetgroupdomainid = uga.parentusergroupdomainid
+		                      and abt.UUID = <template-variable value="ABTest:UUID"/>
+	</template-if>		                                  
+	<template-if condition="isDefined(Campaign)">
+		inner join campaign c on c.targetgroupid = uga.parentusergroupid
+		                      and c.targetgroupdomainid = uga.parentusergroupdomainid
+		                      and c.UUID = <template-variable value="Campaign:UUID"/>
+	</template-if>		                                  
+	WHERE ap.domainid=<template-variable value="Domain:UUID"/> 
+</template>
+</query>

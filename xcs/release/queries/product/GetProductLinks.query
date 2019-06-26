@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Outgoing" type="java.lang.Boolean" optional="false"/>	
+	<parameter name="UUID" type="java.lang.String" optional="false"/>
+	<parameter name="DomainID" type="java.lang.String" optional="false"/>
+	<parameter name="BaseProductDomainID" type="java.lang.String" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="ProductLink" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductLinkPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	select UUID, count(*) over() as "ROWCOUNT"
+	from productlink
+	where <template-if condition="Outgoing">sourceid<if-else/>targetid</template-if> = <template-variable value="UUID"/> 
+	AND domainid IN (<template-variable value="DomainID"/>,<template-variable value="BaseProductDomainID"/>) 
+	AND
+    (
+       (
+           (
+               <template-if condition="NOT Outgoing">sourceid<if-else/>targetid</template-if> IN
+               (
+                   SELECT psa.productUUID
+                   FROM productsetassignment psa
+                   RIGHT JOIN productset ps ON (psa.productsetuuid=ps.uuid)
+                   JOIN productsetdomainassignment psda ON (psda.productsetuuid=ps.uuid)
+                   JOIN product p ON (p.uuid=psa.productUUID)
+                   WHERE psda.domainid=<template-variable value="DomainID"/> AND ps.domainid IN (<template-variable value="DomainID"/>,p.domainid)
+               ) 
+               OR EXISTS
+               ( 
+                   SELECT 1 
+                   FROM productset ps 
+                   JOIN productsetdomainassignment psda ON (ps.uuid = psda.productsetuuid) 
+                   JOIN product p ON (p.domainid = ps.domainid) 
+                   WHERE ps.allflag = 1 
+                    AND psda.domainid = <template-variable value="DomainID"/>
+                    AND p.uuid = <template-if condition="NOT Outgoing">sourceid<if-else/>targetid</template-if>
+               ) 
+           ) 
+           AND
+           ( 
+               NOT EXISTS (SELECT 1 FROM productset WHERE domainid=<template-variable value="DomainID"/> AND inboundflag=1)
+               OR <template-if condition="NOT Outgoing">sourceid<if-else/>targetid</template-if> IN
+               ( 
+                   SELECT psa.productuuid
+                   FROM productsetassignment psa
+                   RIGHT JOIN productset ps ON (psa.productsetuuid=ps.uuid)
+                   WHERE ps.domainid=<template-variable value="DomainID"/> AND ps.inboundflag=1 
+               ) 
+           ) 
+       ) 
+       OR <template-if condition="NOT Outgoing">sourceid<if-else/>targetid</template-if> IN (SELECT uuid FROM product WHERE domainid=<template-variable value="DomainID"/>)
+    )
+</template>
+</query>

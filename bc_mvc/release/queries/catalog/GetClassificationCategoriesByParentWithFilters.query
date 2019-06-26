@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ParentCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>	
+	<parameter name="Filters" type="java.util.Iterator" optional="true"/>
+	<parameter name="Filter" type="java.lang.String" optional="true"/>
+	<parameter name="ClassificationCatalogName" type="java.lang.String" optional="false"/>
+	<parameter name="OnlineFlag" type="java.lang.String" optional="true"/>
+	<parameter name="Repositories" type="java.util.Iterator" optional="true"/>
+	<parameter name="RepositoryDomainUUID" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="CatalogCategory" type="orm" class="com.intershop.beehive.xcs.internal.catalog.CatalogCategoryPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="CatalogConfiguration" input="" processing="CatalogConfigurationQueryProcessor"/>
+</processor>
+<template type="countedobjects">
+	SELECT
+	     c.name, c.uuid AS UUID, count(*) over() as "ROWCOUNT"
+	FROM 
+	     catalogcategory c 
+    <template-if condition="isDefined(Filter) AND Filter EQ 'on'"> 	     
+	    INNER JOIN classificationcount cc ON ( c.uuid = cc.categoryid)
+        <template-if condition="isDefined(Repositories) AND hasElements(Repositories)">     
+            AND cc.domainid IN(
+            <template-loop iterator="Repositories" alias="CurrentRepository">
+                <loop-statement>
+                    <template-variable value="CurrentRepository:DomainID"/>            
+                </loop-statement>
+                <loop-separator>,</loop-separator>
+            </template-loop>
+            )    
+        <if-else/>
+            AND cc.domainid =  <template-variable value="RepositoryDomainUUID"/>    
+        </template-if>    
+    </template-if>
+	WHERE 
+	   c.parentcategoryid = <template-variable value="ParentCategory:UUID"/>
+	  <template-if condition="isDefined(OnlineFlag) AND NOT (CatalogConfiguration:CatalogIgnoreOnline)">
+		  AND  c.onlineflag = <template-variable value="OnlineFlag"/>
+	  </template-if>  	  
+		<template-if condition="isDefined(Filters) AND hasElements(Filters)">
+			AND EXISTS (SELECT * FROM catalogcategory_ra cc_ra 
+						WHERE  c.uuid = cc_ra.ao_uuid 
+							AND (cc_ra.UserGroupID, cc_ra.UserGroupDomainID) in ( 	     
+					        	<template-loop iterator="Filters" alias="Filter">
+									<loop-statement>
+					         			(<template-variable value="Filter:FilterGroup:ID"/>, <template-variable value="Filter:FilterGroup:DomainID"/>)
+									</loop-statement>
+					            	 <loop-separator>,</loop-separator>
+					        	</template-loop>
+					        	)
+        		)
+    	</template-if>      
+	ORDER BY c.name ASC
+</template>
+</query>

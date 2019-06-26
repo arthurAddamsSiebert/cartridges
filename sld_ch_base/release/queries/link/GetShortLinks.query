@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="DomainID" type="java.lang.String" optional="false"/>
+	<parameter name="GroupID" type="java.lang.String" optional="true"/>
+	<parameter name="SortByRedirect" type="java.lang.String" optional="true"/>
+	<parameter name="SortByStartDate" type="java.lang.String" optional="true"/>
+	<parameter name="SortByEndDate" type="java.lang.String" optional="true"/>
+	<parameter name="SortByStatus" type="java.lang.String" optional="true"/>
+	<parameter name="SortBySourceURL" type="java.lang.String" optional="true"/>
+	<parameter name="SortByTargetURL" type="java.lang.String" optional="true"/>
+	<parameter name="SimpleSearchExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="SourceURLSearchExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="TargetURLSearchExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="StatusCode" type="java.lang.String" optional="true"/>
+	<parameter name="DefaultFlag" type="java.lang.String" optional="true"/>
+	<parameter name="EnabledFlag" type="java.lang.String" optional="true"/>
+	<parameter name="StartDateFrom" type="java.util.Date" optional="true"/>
+	<parameter name="StartDateTo" type="java.util.Date" optional="true"/>
+	<parameter name="EndDateFrom" type="java.util.Date" optional="true"/>
+	<parameter name="EndDateTo" type="java.util.Date" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="ShortLink" type="orm" class="com.intershop.component.foundation.internal.link.ShortLinkPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+    SELECT sl.uuid as UUID, count(*) over() as "ROWCOUNT"
+    FROM shortlink sl
+    
+	<template-if condition="isDefined(GroupID)">
+	    <!-- search in group -->
+	    JOIN linklinkgroupassignment lga ON (lga.shortlinkuuid = sl.uuid)
+	    JOIN linkgroup lg ON (lg.uuid = lga.linkgroupuuid)
+	</template-if>
+    
+    WHERE sl.DomainID = <template-variable value="DomainID"/>
+    
+		<template-if condition="isDefined(GroupID)">
+		    <!-- search in group -->
+		    AND (lg.UUID=<template-variable value="GroupID"/>)
+		</template-if>
+
+		<template-if condition="isDefined(SimpleSearchExpression)">
+			<!-- simple search -->
+			<template-call name="inc/SearchExpression2Like">
+				<call-parameter name="SearchExpression" value="SimpleSearchExpression"/>
+				<call-parameter name="ColumnNames" value="&quot;sl.shortURL sl.targetURL&quot;"/>
+				<call-parameter name="CaseInsensitive" value="true()"/>
+				<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+			</template-call>
+		<if-elseif condition="isDefined(SourceURLSearchExpression) AND isDefined(TargetURLSearchExpression)"/>
+			<!-- parametric search -->
+			<template-call name="inc/SearchExpression2Like">
+				<call-parameter name="SearchExpression" value="SourceURLSearchExpression"/>
+				<call-parameter name="ColumnNames" value="&quot;sl.shortURL&quot;"/>
+				<call-parameter name="CaseInsensitive" value="true()"/>
+				<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+			</template-call>
+			<template-call name="inc/SearchExpression2Like">
+				<call-parameter name="SearchExpression" value="TargetURLSearchExpression"/>
+				<call-parameter name="ColumnNames" value="&quot;sl.targetURL&quot;"/>
+				<call-parameter name="CaseInsensitive" value="true()"/>
+				<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+			</template-call>
+			<template-if condition="isDefined(StatusCode) AND (StatusCode NE 'All')">
+				<template-if condition="StatusCode EQ 'default'">
+					AND sl.statusCode IS NULL
+				<if-else/>
+					AND sl.statusCode = <template-variable value="StatusCode"/>
+				</template-if>
+			</template-if>
+			<template-if condition="isDefined(DefaultFlag) AND (DefaultFlag NE 'All')">
+					AND sl.DefaultFlag = <template-variable value="DefaultFlag"/>
+			</template-if>
+			<template-if condition="isDefined(EnabledFlag) AND (EnabledFlag NE 'All')">
+					AND sl.EnabledFlag = <template-variable value="EnabledFlag"/>
+			</template-if>		
+				
+			<template-if condition="isDefined(StartDateFrom)">
+				AND sl.StartDate &gt;= <template-variable value="StartDateFrom"/>
+			</template-if>
+			<template-if condition="isDefined(StartDateTo)">
+				AND sl.StartDate &lt;= <template-variable value="StartDateTo"/>
+			</template-if>
+			<template-if condition="isDefined(EndDateFrom)">
+				AND sl.EndDate &gt;= <template-variable value="EndDateFrom"/>
+			</template-if>
+			<template-if condition="isDefined(EndDateTo)">
+				AND sl.EndDate &lt;= <template-variable value="EndDateTo"/>
+			</template-if>
+				
+		<if-else/>
+			<!-- list without conditions -->
+		</template-if>
+						
+		<template-if condition="isDefined(SortByRedirect)">
+			<template-variable value="orderBy('upper(sl.statusCode)', direction(SortByRedirect), if(isAscending(SortByRedirect), nullsFirst(), nullsLast()))" processing="text"/>
+		<if-elseif condition="isDefined(SortByStartDate)"/>
+			<template-variable value="orderBy('sl.startDate', direction(SortByStartDate), if(isAscending(SortByStartDate), nullsFirst(), nullsLast()))" processing="text"/>			
+		<if-elseif condition="isDefined(SortByEndDate)"/>
+			<template-variable value="orderBy('sl.endDate', direction(SortByEndDate), if(isAscending(SortByEndDate), nullsFirst(), nullsLast()))" processing="text"/>			
+		<if-elseif condition="isDefined(SortByStatus)"/>
+			order by sl.enabledFlag <template-variable value="SortByStatus" processing="text"/>
+		<if-elseif condition="isDefined(SortBySourceURL)"/>
+			order by sl.shortURL <template-variable value="SortBySourceURL" processing="text"/>
+		<if-elseif condition="isDefined(SortByTargetURL)"/>
+			order by sl.targetURL <template-variable value="SortByTargetURL" processing="text"/>
+		<if-else/>
+		    ORDER BY sl.ShortURL asc
+		</template-if>
+</template>
+
+</query>

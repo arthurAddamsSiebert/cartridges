@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Returns all product category assignments of the given product domain and category. It performs a fallback to master repository assignments in case of non existing assignments in a sharing environment.">
+<parameters>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="CatalogCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="true"/>
+    <parameter name="CatalogCategories" type="java.util.Collection" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+<template-comment>
+Notes for the "inline" hint:
+    The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+    of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+    not a good practice.
+Solved problems:
+    Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+    if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+    data were not subsequently deleted.
+</template-comment>
+<template-if condition="Sharing:Enabled">
+<sql-dialect name="Oracle">
+	WITH c_pcas AS (
+		SELECT /*+ inline - to avoid massive not released temporary tablespace data */ *
+		FROM
+			ieproductcategoryassignment
+		WHERE
+			productdomainid = <template-variable value="ProductDomain:UUID"/> AND
+			<template-call name="catalog/inc/CategoryIDFilter">
+				<call-parameter name="CategoryTableAlias" value="'ieproductcategoryassignment'"/>
+				<call-parameter name="CatalogCategory" value="CatalogCategory"/>
+				<call-parameter name="CatalogCategories" value="CatalogCategories"/>
+			</template-call>
+	)
+	SELECT * FROM c_pcas
+</sql-dialect>
+<sql-dialect name="Microsoft">
+		SELECT *
+		FROM
+			ieproductcategoryassignment c_pcas
+		WHERE
+			productdomainid = <template-variable value="ProductDomain:UUID"/> AND
+			<template-call name="catalog/inc/CategoryIDFilter">
+				<call-parameter name="CategoryTableAlias" value="'c_pcas'"/>
+				<call-parameter name="CatalogCategory" value="CatalogCategory"/>
+				<call-parameter name="CatalogCategories" value="CatalogCategories"/>
+			</template-call>	
+</sql-dialect>
+	UNION ALL
+	SELECT *
+	FROM
+		ieproductcategoryassignment mr_pca
+	WHERE
+		productdomainid IN 
+		(
+			SELECT 
+				ps.domainid
+			FROM
+				productsetdomainassignment psda
+			JOIN
+				productset ps ON (ps.uuid = psda.productsetuuid)
+			WHERE
+				psda.domainid = <template-variable value="ProductDomain:UUID"/>
+		)
+	AND 
+		<template-call name="catalog/inc/CategoryIDFilter">
+			<call-parameter name="CategoryTableAlias" value="'mr_pca'"/>
+			<call-parameter name="CatalogCategory" value="CatalogCategory"/>
+			<call-parameter name="CatalogCategories" value="CatalogCategories"/>
+		</template-call>
+	AND
+		NOT EXISTS 
+		(
+			SELECT 1
+			FROM 
+				(
+					SELECT *
+					FROM
+						ieproductcategoryassignment 
+					WHERE
+						productdomainid = <template-variable value="ProductDomain:UUID"/> AND
+						<template-call name="catalog/inc/CategoryIDFilter">
+							<call-parameter name="CategoryTableAlias" value="'ieproductcategoryassignment'"/>
+							<call-parameter name="CatalogCategory" value="CatalogCategory"/>
+							<call-parameter name="CatalogCategories" value="CatalogCategories"/>
+						</template-call>	
+
+				) c_pcas
+			WHERE
+				c_pcas.categoryid = mr_pca.categoryid AND 
+				c_pcas.productid=mr_pca.productid
+		)
+	<if-else/>
+	SELECT *
+	FROM
+		ieproductcategoryassignment
+	WHERE
+		productdomainid = <template-variable value="ProductDomain:UUID"/> AND
+		<template-call name="catalog/inc/CategoryIDFilter">
+			<call-parameter name="CategoryTableAlias" value="'ieproductcategoryassignment'"/>
+			<call-parameter name="CatalogCategory" value="CatalogCategory"/>
+			<call-parameter name="CatalogCategories" value="CatalogCategories"/>
+		</template-call>
+	</template-if>
+</template>
+</query>

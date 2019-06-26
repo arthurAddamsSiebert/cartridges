@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<query description="Query for view context searches.">
+<parameters>
+    <parameter name="ContentRepository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the content view belongs to."/>
+    <parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false" description="Search in context of the given locale."/>
+    <parameter name="NameOrIDExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="The display name."/>
+    <parameter name="Types" type="java.util.Collection" optional="true" description="The range of view contexts shall be narrowed by this set of context object relations."/>
+    <parameter name="PageFlag" type="java.lang.String" optional="true" description="true = display pages only, false = display Includes only"/>
+    <parameter name="SortBy" type="java.lang.String" optional="true" description="The column by which the result set should be sorted."/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true" description="The direction of sorting (ascending/descending)."/>
+    <parameter name="SortedNames" type="java.util.Map" optional="true" description="A Map of ContextObjectRelation qualified names sorted according to the display name, localize in current locale."/>
+    <parameter name="SharingSearchType" type="java.lang.String" optional="true"/>
+    <parameter name="SharedRepositoryDomainID" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="ViewContext" type="orm" class="com.intershop.component.pmc.internal.viewcontext.ViewContextPO" description="This is the found content view.">
+        <return-attribute name="ViewContextUUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="cNameOrID" input="NameOrIDExpression" processing="SearchExpression2Contains"/>
+    <processor-preprocessing output="ModelElementAliasProcessedTypes" input="Types" processing="ModelElementAliasHelper"/>
+</processor>
+<template type="countedobjects" sqlDialect="Oracle">
+
+	select vc.uuid as viewcontextuuid,
+		count(*) over() as "rowcount",
+		<template-if condition="isDefined(SortBy)">
+			<template-if condition="SortBy EQ &apos;ID&apos;">
+				vc.ID
+			<if-elseif condition="SortBy EQ &apos;PageFlag&apos;"/>
+				vc.pageflag
+			<if-elseif condition="SortBy EQ &apos;Type&apos;"/>
+				decode(vc.definitionqualifiedname
+				<template-loop alias="SortedName" iterator="SortedNames:EntrySet">
+					<loop-statement>
+						, <template-variable value="SortedName:Key"/>, <template-variable value="SortedName:Value"/> 
+					</loop-statement>
+				</template-loop>
+				, 99999)
+			<if-else/>
+				vcav.stringvalue
+			</template-if>
+		<if-else/>
+			vcav.stringvalue
+		</template-if>
+		as sorting
+
+	from viewcontext vc 
+		left outer join viewcontext_av vcav
+			on (vc.uuid = vcav.ownerid and vcav.name = &apos;displayName&apos; 
+				and vcav.localeid = <template-variable value="Locale:LocaleID"/>)
+	
+	where (
+		(vc.systemmanagedflag = 1
+		and vc.domainid = <template-variable value="ContentRepository:RepositoryDomain:UUID"/>
+		)
+		or
+		(vc.systemmanagedflag = 0
+		and vc.domainid in (
+			<template-call name="pagelet/inc/ContentRepositories">
+				<call-parameter name="Repository" value="ContentRepository"/>
+				<call-parameter name="SharingSearchType" value="SharingSearchType"/>
+				<call-parameter name="SharedRepositoryDomainID" value="SharedRepositoryDomainID"/>
+			</template-call>
+			)
+		)
+		)
+		<template-if condition="isDefined(NameOrIDExpression) and NameOrIDExpression:NotEmpty">
+			and exists (
+				select 1 
+				from viewcontext_av vc_av
+				where vc_av.ownerid = vc.uuid
+					and vc_av.name = &apos;displayName&apos;
+					and vc_av.localeid = <template-variable value="Locale:LocaleID"/>
+					and (<template-call name="content/inc/SearchExpression2Like">
+							<call-parameter name="SearchExpression" value="NameOrIDExpression" />
+							<call-parameter name="ColumnNames" value="'vc.id vc_av.stringvalue'" />
+							<call-parameter name="CaseInsensitive" value="true()" />
+						</template-call>)
+			)
+		</template-if>
+		<template-if condition="PageFlag EQ &apos;true&apos;">
+			and vc.PageFlag = 1
+		<if-elseif condition="PageFlag EQ &apos;false&apos;"/>
+			and vc.PageFlag = 0
+		</template-if>
+        <template-if condition="isDefined(ModelElementAliasProcessedTypes)">
+            <template-if condition="hasElements(ModelElementAliasProcessedTypes)">
+                and vc.definitionqualifiedname in (
+                    <template-loop iterator="ModelElementAliasProcessedTypes" alias="ViewContext">
+                    <loop-statement><template-variable value="ViewContext:QualifiedName"/></loop-statement>
+                    <loop-separator>,</loop-separator>
+                    </template-loop>)
+            <if-else/>
+                and 1 = 2 
+            </template-if>
+        </template-if>
+	
+	order by sorting
+	<template-if condition="isDefined(SortDirection) and ucase(pad(SortDirection, 1)) EQ &apos;D&apos;">
+		desc NULLS first
+	<if-else/>
+		asc NULLS last
+	</template-if>
+</template>
+<template type="countedobjects" sqlDialect="Microsoft">
+
+	select vc.uuid as viewcontextuuid,
+		count(*) over() as "rowcount",
+		<template-if condition="isDefined(SortBy)">
+			<template-if condition="SortBy EQ &apos;ID&apos;">
+				vc.ID
+			<if-elseif condition="SortBy EQ &apos;PageFlag&apos;"/>
+				vc.pageflag
+			<if-elseif condition="SortBy EQ &apos;Type&apos;"/>
+				CASE 
+				<template-loop alias="SortedName" iterator="SortedNames:EntrySet">
+					<loop-statement>
+						WHEN vc.definitionqualifiedname = <template-variable value="SortedName:Key"/> THEN  <template-variable value="SortedName:Value"/> 
+					</loop-statement>
+				</template-loop>
+				WHEN vc.definitionqualifiedname IS NULL THEN 99999 END 
+			<if-else/>
+				vcav.stringvalue
+			</template-if>
+		<if-else/>
+			vcav.stringvalue
+		</template-if>
+		as sorting
+
+	from viewcontext vc 
+		left outer join viewcontext_av vcav
+			on (vc.uuid = vcav.ownerid and vcav.name = &apos;displayName&apos; 
+				and vcav.localeid = <template-variable value="Locale:LocaleID"/>)
+	
+	where (
+		(vc.systemmanagedflag = 1
+		and vc.domainid = <template-variable value="ContentRepository:RepositoryDomain:UUID"/>
+		)
+		or
+		(vc.systemmanagedflag = 0
+		and vc.domainid in (
+			<template-call name="pagelet/inc/ContentRepositories">
+				<call-parameter name="Repository" value="ContentRepository"/>
+				<call-parameter name="SharingSearchType" value="SharingSearchType"/>
+				<call-parameter name="SharedRepositoryDomainID" value="SharedRepositoryDomainID"/>
+			</template-call>
+			)
+		)
+		)
+		<template-if condition="isDefined(NameOrIDExpression) and NameOrIDExpression:NotEmpty">
+			and exists (
+				select 1 
+				from viewcontext_av vc_av
+				where vc_av.ownerid = vc.uuid
+					and vc_av.name = &apos;displayName&apos;
+					and vc_av.localeid = <template-variable value="Locale:LocaleID"/>
+					and (<template-call name="content/inc/SearchExpression2Like">
+							<call-parameter name="SearchExpression" value="NameOrIDExpression" />
+							<call-parameter name="ColumnNames" value="'vc.id vc_av.stringvalue'" />
+							<call-parameter name="CaseInsensitive" value="true()" />
+						</template-call>)
+			)
+		</template-if>
+		<template-if condition="PageFlag EQ &apos;true&apos;">
+			and vc.PageFlag = 1
+		<if-elseif condition="PageFlag EQ &apos;false&apos;"/>
+			and vc.PageFlag = 0
+		</template-if>
+        <template-if condition="isDefined(ModelElementAliasProcessedTypes)">
+            <template-if condition="hasElements(ModelElementAliasProcessedTypes)">
+                and vc.definitionqualifiedname in (
+                    <template-loop iterator="ModelElementAliasProcessedTypes" alias="ViewContext">
+                    <loop-statement><template-variable value="ViewContext:QualifiedName"/></loop-statement>
+                    <loop-separator>,</loop-separator>
+                    </template-loop>)
+            <if-else/>
+                and 1 = 2 
+            </template-if>
+        </template-if>
+	
+	order by CASE WHEN 
+				<template-if condition="isDefined(SortBy)">
+					<template-if condition="SortBy EQ &apos;ID&apos;">
+						vc.ID IS NULL THEN 1 ELSE 0 END 
+						<template-if condition="isDefined(SortDirection) and ucase(pad(SortDirection, 1)) EQ &apos;D&apos;">
+							DESC, vc.ID DESC
+						<if-else/>
+							ASC, vc.ID ASC 
+						</template-if>
+					<if-elseif condition="SortBy EQ &apos;PageFlag&apos;"/>
+						vc.pageflag IS NULL THEN 1 ELSE 0 END
+						<template-if condition="isDefined(SortDirection) and ucase(pad(SortDirection, 1)) EQ &apos;D&apos;">
+							DESC, vc.pageflag DESC
+						<if-else/>
+							ASC, vc.pageflag ASC 
+						</template-if>
+					<if-elseif condition="SortBy EQ &apos;Type&apos;"/>
+						vc.definitionqualifiedname  IS NULL THEN 1 ELSE 0 END 
+						<template-if condition="isDefined(SortDirection) and ucase(pad(SortDirection, 1)) EQ &apos;D&apos;">
+							DESC, vc.definitionqualifiedname DESC
+						<if-else/>
+							ASC, vc.definitionqualifiedname ASC 
+						</template-if>
+					<if-else/>
+						vcav.stringvalue IS NULL THEN 1 ELSE 0 END 
+						<template-if condition="isDefined(SortDirection) and ucase(pad(SortDirection, 1)) EQ &apos;D&apos;">
+							DESC, vcav.stringvalue DESC
+						<if-else/>
+							ASC, vcav.stringvalue ASC 
+						</template-if>
+					</template-if>
+				<if-else/>
+					vcav.stringvalue IS NULL THEN 1 ELSE 0 END 
+					<template-if condition="isDefined(SortDirection) and ucase(pad(SortDirection, 1)) EQ &apos;D&apos;">
+						DESC, vcav.stringvalue DESC
+					<if-else/>
+						ASC, vcav.stringvalue ASC 
+					</template-if>
+				</template-if>
+</template>
+</query>

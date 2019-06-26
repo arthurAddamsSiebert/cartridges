@@ -1,0 +1,30 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><select class="select"  multiple="multiple" id="auditreport-multiselect-applications" name="<% {String value = null;try{value=context.getFormattedValue(getObject("params:AuditReportForm:Application:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {1}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>">
+	<% while (loop("params:AuthorizedApplications","application",null)) { %>
+		<% {Object temp_obj = (getObject("application:getExtension(\"(Class)com.intershop.sellside.enterprise.capi.application.ApplicationBOApplicationSelectorExtension\")")); getPipelineDictionary().put("data", temp_obj);} %>
+		<% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("data:Type"),null).equals(context.getFormattedValue("organization",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",4,e);}if (_boolean_result) { %>
+			<% {Object temp_obj = ("true"); getPipelineDictionary().put("organizationLevel", temp_obj);} %>
+		<% } %>
+		<option value="<%=context.getFormattedValue(getObject("application:ID"),null)%>" 
+			<% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("organizationLevel"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",8,e);}if (_boolean_result) { %>
+				class="organization-level-included application-type-<% {String value = null;try{value=context.getFormattedValue(replace(context.getFormattedValue(getObject("application:ApplicationType:ID"),null),(String)("\\."),(String)("_")),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {9}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %> application-level-<% {String value = null;try{value=context.getFormattedValue(replace(context.getFormattedValue(getObject("data:Type"),null),(String)("\\."),(String)("_")),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {9}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" 
+			<% } else { %>
+				class="application-type-<% {String value = null;try{value=context.getFormattedValue(replace(context.getFormattedValue(getObject("application:ApplicationType:ID"),null),(String)("\\."),(String)("_")),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {11}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %> application-level-<% {String value = null;try{value=context.getFormattedValue(replace(context.getFormattedValue(getObject("data:Type"),null),(String)("\\."),(String)("_")),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {11}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" 
+			<% } %>
+			<% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("params:AuditReportForm:Application:Value")))).booleanValue() && ((Boolean) getObject("params:AuditReportForm:Application:Value:Contains(application:ID)")).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",13,e);}if (_boolean_result) { %> 
+				selected="selected"
+			<% } %>>
+		
+			<% {Object temp_obj = (getObject("data:DisplayName")); getPipelineDictionary().put("name", temp_obj);} %>
+			<% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("name"),null).equals(context.getFormattedValue("",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",18,e);}if (_boolean_result) { %>
+				<% {Object temp_obj = (getObject("application:UrlIdentifier")); getPipelineDictionary().put("name", temp_obj);} %>
+			<% } %>
+			<% {String value = null;try{value=context.getFormattedValue(getObject("name"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {21}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>
+		</option>
+	<% } %>
+</select>
+<% printFooter(out); %>

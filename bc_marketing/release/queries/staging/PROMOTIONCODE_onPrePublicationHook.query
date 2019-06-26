@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Query used during replication of PROMOTIONCODE entries.">
+<parameters>
+	<parameter name="DomainIDs" type="java.util.Collection" optional="false" description="The involved DomainIDs."/>
+</parameters>
+<processor name="OracleSQL">
+	<processor-preprocessing output="PROMOTIONCODE_EditingName" input="&apos;PROMOTIONCODE&apos;" processing="StagingNamingHelper"/>
+</processor>
+<template>	
+	UPDATE PROMOTIONCODE  
+		SET status = 2,
+		<sql-dialect name="Microsoft">
+		lastmodified =GETUTCDATE(),
+	</sql-dialect>
+		<sql-dialect name="Oracle">
+		lastmodified = utctimestamp(),
+		</sql-dialect>
+		
+		oca = oca + 1 
+	WHERE 
+		uuid IN 
+		(
+			SELECT src.uuid FROM <template-variable value="PROMOTIONCODE_EditingName:EditTableName" processing="text"/> src 
+			WHERE 
+				src.status = 2 and
+				src.domainid IN
+		     	(
+					<template-loop iterator="DomainIDs" alias="DomainID">
+						<loop-statement>
+							<template-variable value="DomainID"/>
+				    	</loop-statement>
+						<loop-separator>,</loop-separator>
+					</template-loop>
+				)
+		) AND
+		status != 2
+</template>
+</query>

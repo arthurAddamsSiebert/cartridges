@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="targetRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="sourceRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+</parameters>
+
+<processor name="JDBC">
+</processor>
+<template sqlDialect="Oracle">
+delete from CatalogCategory dc
+            where dc.uuid in ( 
+                select tc.uuid from CatalogCategory tc 
+                where    tc.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+                    and  tc.name not in (select sc.name||'@'||<template-variable value="sourceRoot:Domain:DomainName"/>
+                                        from CatalogCategory sc 
+                                        where sc.uuid &lt;&gt; <template-variable value="sourceRoot:UUID"/>
+                                        start with sc.uuid in (<template-variable value="sourceRoot:UUID"/>)
+                                        connect by sc.PARENTCATEGORYID = prior sc.uuid and sc.ONLINEFLAG = 1 )
+                    and tc.uuid &lt;&gt; <template-variable value="targetRoot:UUID"/>
+                start with tc.uuid in (<template-variable value="targetRoot:UUID"/>)
+                connect by tc.PARENTCATEGORYID = prior tc.uuid )
+</template>
+<template sqlDialect="Microsoft">
+	WITH n(name, uuid) AS ( 
+	                        SELECT sc.name+'@'+<template-variable value="sourceRoot:Domain:DomainName"/>, sc.uuid 
+	                        FROM CatalogCategory sc
+	                        WHERE sc.onlineflag = 1 
+	                        AND sc.uuid in (<template-variable value="sourceRoot:UUID"/>)
+                        UNION ALL
+	                        SELECT sc2.name+'@'+<template-variable value="sourceRoot:Domain:DomainName"/>, sc2.uuid 
+	                        FROM CatalogCategory sc2, n 
+	                        WHERE sc2.onlineflag = 1 
+	                        AND sc2.parentcategoryid = n.uuid 
+	                        ),
+                        m (uuid) AS ( 
+	                        SELECT tc.uuid FROM CatalogCategory tc 
+	                        WHERE tc.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+	                        AND tc.name NOT IN (SELECT name FROM n where n.uuid &lt;&gt; <template-variable value="sourceRoot:UUID"/>) 
+	                        AND tc.uuid in (<template-variable value="targetRoot:UUID"/>)
+                        UNION ALL
+	                        SELECT tc2.uuid FROM CatalogCategory tc2, m 
+	                        WHERE tc2.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+	                        AND tc2.name NOT IN (SELECT name FROM n where n.uuid &lt;&gt; <template-variable value="sourceRoot:UUID"/>)                         
+	                        AND tc2.parentcategoryid = m.uuid
+                        )
+                        DELETE FROM CatalogCategory 
+                        WHERE uuid IN (SELECT UUID FROM m where m.uuid &lt;&gt; <template-variable value="targetRoot:UUID"/>)
+</template>
+</query>

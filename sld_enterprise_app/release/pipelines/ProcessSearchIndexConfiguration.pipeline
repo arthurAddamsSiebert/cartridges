@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--shows the search index configuration where search index features can be enabled or disabled and configuration for search indexes can be set.
+@Group SearchIndex-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessSearchIndexConfiguration" type="process">
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainPreference1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference1">
+    <configurationValues name="DefaultPreferenceKey" value="BrowseBySearchCategoryLevel"/>
+    <configurationValues name="Type" value="Integer"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+<!--@BendPoints 5,5 5,6-->
+    <nodeSuccessors name="pipelet_error" next="KeyMapper1"/>
+    <parameterBindings name="PreferenceDomain" objectPath="RepositoryDomain:Site"/>
+    <parameterBindings name="PreferenceKey" constant="BrowseBySearchCategoryLevel"/>
+    <returnValueBindings name="PreferenceIntValue" objectPath="BrowseBySearchCategoryLevel"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameterBindings name="Domain" objectPath="RepositoryDomain"/>
+    <startNode referencedName="ProcessSearchIndexFeature-GetSearchIndexFeatures"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 3,12-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <parameterBindings name="Domain" objectPath="RepositoryDomain"/>
+    <startNode referencedName="ProcessSearchIndexFeature-GetEnabledFeatureIDs"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 5,8 4,8-->
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="InValue_1" constant="(Integer)-1"/>
+    <returnValueBindings name="OutValue_1" objectPath="BrowseBySearchCategoryLevel"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="UpdatePreferences"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainPreferenceNamesByPreferenceGroup1"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreferenceNamesByPreferenceGroup1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreferenceNamesByPreferenceGroup.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+    <parameterBindings name="PreferenceDomain" objectPath="PreferenceDomain"/>
+    <parameterBindings name="PreferenceGroup" constant="SearchIndexPreferences"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="PreferenceNames">
+<!--@BendPoints 16,7-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <entry key="PreferenceName">
+<!--@BendPoints 11,8-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode1"/>
+    </entry>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="PreferenceName"
+      operator="str_eq" conditionValue="BrowseBySearchCategoryLevel">
+<!--@BendPoints 11,10 10,10-->
+    <nodeSuccessors name="decision_yes" next="JoinNode4"/>
+<!--@BendPoints 12,9 12,10-->
+    <nodeSuccessors name="decision_no" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 9,7-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="PreferenceName"
+      operator="str_eq" conditionValue="EnabledSearchIndexFeatureIDs">
+<!--@BendPoints 11,12 10,12-->
+    <nodeSuccessors name="decision_yes" next="JoinNode4"/>
+<!--@BendPoints 12,11 12,12-->
+    <nodeSuccessors name="decision_no" next="GetFormRecord1"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFormRecord1">
+    <pipelet href="enfinity:/core/pipelets/GetFormRecord.xml"/>
+<!--@BendPoints 11,14-->
+    <nodeSuccessors name="next" next="Decision1"/>
+    <parameterBindings name="RecordID" objectPath="PreferenceName"/>
+    <returnValueBindings name="FormRecord" objectPath="Record"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="Record:Integer">
+    <nodeSuccessors name="decision_yes" next="VerifyInteger1"/>
+<!--@BendPoints 12,15 12,13 13,13-->
+    <nodeSuccessors name="decision_no" next="Decision2"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyInteger1">
+    <configurationValues name="MaxValue" value="2147483647"/>
+    <configurationValues name="MinValue" value="-2147483648"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyInteger.xml"/>
+    <nodeSuccessors name="next" next="SetDomainPreference4"/>
+<!--@BendPoints 12,17 12,21-->
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+    <parameterBindings name="LocalizedString" objectPath="Record:Integer"/>
+    <returnValueBindings name="IntegerObject" objectPath="IntValue"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDomainPreference4">
+    <configurationValues name="Type" value="Integer"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+    <parameterBindings name="PreferenceDomain" objectPath="PreferenceDomain"/>
+    <parameterBindings name="PreferenceDoubleValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceIntValue" objectPath="IntValue"/>
+    <parameterBindings name="PreferenceKey" objectPath="PreferenceName"/>
+    <parameterBindings name="PreferenceStringValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceValue" nullBinding="true"/>
+  </nodes>
+<!--@Location 5,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+<!--@BendPoints 11,23-->
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+<!--@BendPoints 15,24 10,24 9,23-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="Record:Double">
+    <nodeSuccessors name="decision_yes" next="VerifyDouble1"/>
+<!--@BendPoints 14,15 14,13 15,13-->
+    <nodeSuccessors name="decision_no" next="Decision3"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyDouble1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDouble.xml"/>
+    <nodeSuccessors name="next" next="SetDomainPreference3"/>
+<!--@BendPoints 14,17 14,21-->
+    <nodeSuccessors name="pipelet_error" next="Join3"/>
+    <parameterBindings name="LocalizedString" objectPath="Record:Double"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDomainPreference3">
+    <configurationValues name="Type" value="Double"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="Join3"/>
+    <parameterBindings name="PreferenceDomain" objectPath="PreferenceDomain"/>
+    <parameterBindings name="PreferenceDoubleValue" objectPath="DoubleValue"/>
+    <parameterBindings name="PreferenceIntValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceKey" objectPath="PreferenceName"/>
+    <parameterBindings name="PreferenceStringValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceValue" nullBinding="true"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="Record:String">
+<!--@BendPoints 15,20-->
+    <nodeSuccessors name="decision_yes" next="SetDomainPreference5"/>
+<!--@BendPoints 16,15 16,23-->
+    <nodeSuccessors name="decision_no" next="Join6"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDomainPreference5">
+    <configurationValues name="DefaultPreferenceValue" value="false"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="Join6"/>
+    <parameterBindings name="PreferenceDomain" objectPath="PreferenceDomain"/>
+    <parameterBindings name="PreferenceDoubleValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceIntValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceKey" objectPath="PreferenceName"/>
+    <parameterBindings name="PreferenceStringValue" objectPath="Record:String"/>
+    <parameterBindings name="PreferenceValue" nullBinding="true"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+</pipeline:Pipeline>

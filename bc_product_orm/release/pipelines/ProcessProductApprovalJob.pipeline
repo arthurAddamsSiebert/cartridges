@@ -1,0 +1,582 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessProductApprovalJob" overrideMode="Inherit" type="process">
+<!--Iterates all products for the provided DomainID, for each product checks if there is an approval status for it.
+If such does not exist, creates one with value "Editing". If such exists with value "Approved" and there is
+a change in its newly calculated hash, sets its approval status to "Editing".
+@Location 2,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--Iterates all products for the provided DomainID,
+for each product checks if there is an approval status for it and if such exists, removes it.
+@Location 6,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--Starts Product Approval Status Job for a specific sales channel domain.
+@Location 9,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2"/>
+<!--Starts Product Approval Status Delete Job for a specific sales channel domain.
+@Location 11,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text3"/>
+<!--Retrieves all job configurations with prefix "DomainRelatedProductApprovalStatus" and removes them.
+@Location 14,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text4"/>
+<!--Starts Product Approval Status job with the provided job configuration parameters.
+@Location 17,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text5"/>
+<!--Retrieves ProductBOs for the provided DomainID.
+@Location 20,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text6"/>
+<!--If we are on live system then the default approval status 
+should be Approved. In all other cases the default approval
+status should be Edit.
+@Location 1,8-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text7"/>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="DeleteProductApprovalStatus"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;ProductBORepository&quot;)"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:Repository(&quot;ProductApprovalBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProductBORepository"/>
+    <returnValueBindings name="OutValue_2" objectPath="ProductApprovalBORepository"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameterBindings name="DomainID" objectPath="ProductBORepository:RepositoryID"/>
+    <startNode referencedName="This:DeleteProductApprovalStatusJobConfigurations"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="CreatePageableSequence1"/>
+<!--@BendPoints 15,11 17,11-->
+    <nodeSuccessors name="Error" next="JoinNode8"/>
+    <startNode referencedName="This:GetProductBOsForDomain"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePageableSequence1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableSequence.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="PageableIterator" objectPath="ProductBOs"/>
+    <returnValueBindings name="PageableSequence" objectPath="ProductBOs"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="ProductBOs">
+    <nodeSuccessors name="next" next="SwitchToNextPage1"/>
+    <entry key="ProductBO">
+      <nodeSuccessors name="loop_entry_next" next="GetProductApproval1"/>
+    </entry>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductApproval1">
+    <pipelet href="enfinity:/bc_product/pipelets/GetProductApproval.xml"/>
+    <nodeSuccessors name="next" next="RemoveProductApproval0"/>
+<!--@BendPoints 15,17 15,21-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveProductApproval0">
+    <pipelet href="enfinity:/bc_product/pipelets/RemoveProductApproval.xml"/>
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 11,21 11,15-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SwitchToNextPage1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SwitchToNextPage.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="PageableIterator" objectPath="ProductBOs"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" visibility="Private"
+      name="DeleteProductApprovalStatusJobConfigurations" callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainByUUID2"/>
+    <parameters name="DomainID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="GetAllJobConfigurations0"/>
+<!--@BendPoints 31,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+    <parameterBindings name="DomainUUID" objectPath="DomainID"/>
+    <returnValueBindings name="Domain" objectPath="Domain"/>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAllJobConfigurations0">
+    <configurationValues name="DefaultJobNamePrefix" value="DomainRelatedProductApprovalStatus"/>
+    <configurationValues name="DefaultJobState" value="None"/>
+    <pipelet href="enfinity:/core/pipelets/GetAllJobConfigurations.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+    <parameterBindings name="Domain" objectPath="Domain"/>
+  </nodes>
+<!--@Location 14,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="JobConfigurations">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <entry key="JobConfiguration">
+      <nodeSuccessors name="loop_entry_next" next="RemoveJobConfiguration0"/>
+    </entry>
+  </nodes>
+<!--@Location 14,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveJobConfiguration0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveJobConfiguration.xml"/>
+<!--@BendPoints 27,11 27,9-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 15,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true"/>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 19,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" visibility="Private"
+      name="GetProductBOsForDomain" callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainByUUID3"/>
+    <parameters name="ProductBORepository" type="com.intershop.component.product.capi.ProductBORepository"/>
+  </nodes>
+<!--@Location 19,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="ExecutePageableQuery0"/>
+<!--@BendPoints 41,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="DomainUUID" objectPath="ProductBORepository:RepositoryID"/>
+    <returnValueBindings name="Domain" objectPath="ProductDomain"/>
+  </nodes>
+<!--@Location 19,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery0">
+    <configurationValues name="DefaultPageSize" value="100"/>
+    <configurationValues name="ParameterName_01" value="ProductDomain"/>
+    <configurationValues name="QueryName" value="product/SimpleProductBOSearch"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+    <nodeSuccessors name="next" next="EndNode6"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="ParameterValue_01" objectPath="ProductDomain"/>
+    <returnValueBindings name="SearchResult" objectPath="ProductBOs"/>
+  </nodes>
+<!--@Location 19,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true">
+    <returnValues name="ProductBOs" type="com.intershop.beehive.core.capi.paging.PageableIterator&lt;com.intershop.component.product.capi.ProductBO>"/>
+  </nodes>
+<!--@Location 20,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 20,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="Error" strict="true"/>
+<!--@Location 14,18-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" strict="true" name="GetSearchIndexImportHandlerInUpdateMode"
+      callMode="Private">
+    <nodeSuccessors name="next" next="UpdateMapping3"/>
+    <parameters name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex"/>
+  </nodes>
+<!--@Location 14,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateMapping3">
+    <configurationValues name="Mode" value="Add"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateMapping.xml"/>
+    <nodeSuccessors name="next" next="GetSearchIndexImportHandler3"/>
+    <parameterBindings name="InMap" nullBinding="true"/>
+    <parameterBindings name="Key" nullBinding="true"/>
+    <parameterBindings name="Value" nullBinding="true"/>
+    <returnValueBindings name="Keys" nullBinding="true"/>
+    <returnValueBindings name="OutMap" objectPath="ImportHandlerContext"/>
+    <returnValueBindings name="Values" nullBinding="true"/>
+  </nodes>
+<!--@Location 14,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSearchIndexImportHandler3">
+    <pipelet href="enfinity:/bc_search/pipelets/GetSearchIndexImportHandler.xml"/>
+    <nodeSuccessors name="next" next="EndNode14"/>
+<!--@BendPoints 31,41-->
+    <nodeSuccessors name="pipelet_error" next="EndNode15"/>
+    <parameterBindings name="Context" objectPath="ImportHandlerContext"/>
+    <parameterBindings name="ImportMode" constant="update"/>
+  </nodes>
+<!--@Location 14,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" strict="true">
+    <returnValues name="SearchIndexImportHandler" type="com.intershop.component.search.capi.SearchIndexImportHandler"/>
+  </nodes>
+<!--@Location 15,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" name="Error" strict="true"/>
+<!--Removes objects from search index
+@Location 2,18-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" strict="true" name="InitRebuildIndex"
+      callMode="Private">
+    <nodeSuccessors name="next" next="BackupSearchIndexFile0"/>
+    <parameters name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex"/>
+    <parameters name="ObjectsToRemove" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 2,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="BackupSearchIndexFile0">
+    <pipelet href="enfinity:/bc_search/pipelets/BackupSearchIndexFile.xml"/>
+    <nodeSuccessors name="next" next="CallNode7"/>
+<!--@BendPoints 7,39-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+  </nodes>
+<!--@Location 2,20-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="RemoveObjectsFromSearchIndex0"/>
+    <nodeSuccessors name="Error" next="JoinNode7"/>
+    <startNode referencedName="This:GetSearchIndexImportHandlerInUpdateMode"/>
+  </nodes>
+<!--@Location 2,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveObjectsFromSearchIndex0">
+    <pipelet href="enfinity:/bc_search/pipelets/RemoveObjectsFromSearchIndex.xml"/>
+    <nodeSuccessors name="next" next="EndNode10"/>
+    <parameterBindings name="Objects" objectPath="ObjectsToRemove"/>
+  </nodes>
+<!--@Location 2,22-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name="" strict="true">
+    <returnValues name="BackupFile" type="java.io.File"/>
+  </nodes>
+<!--@Location 3,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 3,22-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="Error" strict="true"/>
+<!--Saves search index and search index configuration. Sends search index reload events and clears caches.
+@Location 9,18-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="PostRebuildIndex"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode9"/>
+    <parameters name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex"/>
+    <parameters name="LastIndexStartTime" type="java.util.Date" optional="true"/>
+    <parameters name="Objects" type="java.util.Iterator"/>
+    <parameters name="BackupFile" type="java.io.File"/>
+  </nodes>
+<!--@Location 9,19-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="SaveSearchIndex0"/>
+<!--@BendPoints 25,39-->
+    <nodeSuccessors name="Error" next="JoinNode5"/>
+    <startNode referencedName="This:GetSearchIndexImportHandlerInUpdateMode"/>
+  </nodes>
+<!--@Location 9,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SaveSearchIndex0">
+    <pipelet href="enfinity:/bc_search/pipelets/SaveSearchIndex.xml"/>
+<!--@BendPoints 19,42-->
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <nodeSuccessors name="pipelet_error" next="RollbackSearchIndex0"/>
+  </nodes>
+<!--@Location 9,21-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="SearchIndex">
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 9,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector0">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="SendEventReloadSearchIndexes0"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" objectPath="SearchIndex"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="SearchIndexes"/>
+  </nodes>
+<!--@Location 9,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SendEventReloadSearchIndexes0">
+    <pipelet href="enfinity:/bc_search/pipelets/SendEventReloadSearchIndexes.xml"/>
+    <nodeSuccessors name="next" next="BatchCacheClear0"/>
+    <parameterBindings name="Domain" objectPath="SearchIndex:Domain"/>
+  </nodes>
+<!--@Location 9,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="BatchCacheClear0">
+    <pipelet href="enfinity:/core/pipelets/BatchCacheClear.xml"/>
+    <nodeSuccessors name="next" next="ProcessBatchCacheClear0"/>
+    <parameterBindings name="DesiredCacheClearDate" objectPath="SearchIndex:Configuration:LastIndexStartTime"/>
+  </nodes>
+<!--@Location 9,26-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessBatchCacheClear0">
+    <pipelet href="enfinity:/core/pipelets/ProcessBatchCacheClear.xml"/>
+    <nodeSuccessors name="next" next="UpdateSearchIndexConfiguration0"/>
+    <parameterBindings name="CacheClearProcessingDate" objectPath="SearchIndex:Configuration:LastIndexStartTime"/>
+  </nodes>
+<!--@Location 9,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateSearchIndexConfiguration0">
+    <pipelet href="enfinity:/bc_search/pipelets/UpdateSearchIndexConfiguration.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+    <parameterBindings name="LastIndexStartTime" objectPath="LastIndexStartTime"/>
+  </nodes>
+<!--@Location 9,28-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="SearchIndex:Configuration:isOnline"
+      operator="str_eq" conditionValue="false">
+    <nodeSuccessors name="decision_yes" next="UnloadSearchIndex0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode15"/>
+  </nodes>
+<!--@Location 9,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UnloadSearchIndex0">
+    <pipelet href="enfinity:/bc_search/pipelets/UnloadSearchIndex.xml"/>
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+<!--@Location 9,30-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+    <nodeSuccessors name="next" next="EndNode11"/>
+  </nodes>
+<!--@Location 9,31-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" name="" strict="true"/>
+<!--@Location 10,28-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+<!--@BendPoints 21,61-->
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+<!--@Location 10,27-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="JoinNode15"/>
+  </nodes>
+<!--@Location 12,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode17"/>
+  </nodes>
+<!--@Location 12,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+    <nodeSuccessors name="next" next="JoinNode16"/>
+  </nodes>
+<!--@Location 12,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+<!--@BendPoints 25,54 20,54-->
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+<!--@Location 10,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RollbackSearchIndex0">
+    <pipelet href="enfinity:/bc_search/pipelets/RollbackSearchIndex.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+  </nodes>
+<!--@Location 10,22-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="SearchIndex">
+<!--@BendPoints 21,46-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode5"/>
+    <nodeSuccessors name="decision_no" next="JoinNode17"/>
+  </nodes>
+<!--@Location 10,23-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="BackupFile">
+<!--@BendPoints 21,48-->
+    <nodeSuccessors name="decision_yes" next="RestoreSearchIndexFile0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode16"/>
+  </nodes>
+<!--@Location 10,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RestoreSearchIndexFile0">
+    <pipelet href="enfinity:/bc_search/pipelets/RestoreSearchIndexFile.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+<!--@BendPoints 23,49 23,50-->
+    <nodeSuccessors name="pipelet_error" next="EndNode8"/>
+    <parameterBindings name="SearchIndexDataFile" objectPath="SearchIndex:DataFile"/>
+  </nodes>
+<!--@Location 11,25-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="Error" strict="true"/>
+<!--Adds objects to search index
+@Location 6,18-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" strict="true" name="ProcessRebuildIndex"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <parameters name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex"/>
+    <parameters name="ObjectsToAdd" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 6,19-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="AddObjectsToSearchIndex0"/>
+<!--@BendPoints 15,39-->
+    <nodeSuccessors name="Error" next="JoinNode20"/>
+    <startNode referencedName="This:GetSearchIndexImportHandlerInUpdateMode"/>
+  </nodes>
+<!--@Location 6,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectsToSearchIndex0">
+    <pipelet href="enfinity:/bc_search/pipelets/AddObjectsToSearchIndex.xml"/>
+<!--@BendPoints 13,42-->
+    <nodeSuccessors name="next" next="EndNode12"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode20"/>
+    <parameterBindings name="Objects" objectPath="ObjectsToAdd"/>
+  </nodes>
+<!--@Location 6,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" name="" strict="true"/>
+<!--@Location 7,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+    <nodeSuccessors name="next" next="EndNode13"/>
+  </nodes>
+<!--@Location 7,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" name="Error" strict="true"/>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="SetProductApprovalStatus"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetDomainByUUID0"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="ExecutePageableQuery1"/>
+<!--@BendPoints 9,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="DomainUUID" objectPath="ApplicationBO:Repository(&quot;ProductBORepository&quot;):RepositoryID"/>
+    <returnValueBindings name="Domain" objectPath="ProductDomain"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery1">
+    <configurationValues name="DefaultPageSize" value="100"/>
+    <configurationValues name="ParameterName_01" value="ProductDomain"/>
+    <configurationValues name="ParameterName_02" value="LocaleInformation"/>
+    <configurationValues name="QueryName" value="product/GetApprovedAndWithoutApprovalStatusProductBOs"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="ParameterValue_01" objectPath="ProductDomain"/>
+    <parameterBindings name="ParameterValue_02" objectPath="CurrentSession:Locale"/>
+    <returnValueBindings name="SearchResult" objectPath="ProductBOs"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetPropertyValue0"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;ProductApprovalBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProductApprovalBORepository"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPropertyValue0">
+    <configurationValues name="PropertyName" value="staging.system.type"/>
+    <configurationValues name="PropertyType" value="ServerSpecific"/>
+    <pipelet href="enfinity:/core/pipelets/GetPropertyValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="PropertyName" nullBinding="true"/>
+    <returnValueBindings name="PropertyValue" objectPath="StagingSystemType"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="StagingSystemType"
+      operator="str_eq" conditionValue="live">
+    <nodeSuccessors name="decision_yes" next="HandleProductApproval0"/>
+<!--@BendPoints 7,17-->
+    <nodeSuccessors name="decision_no" next="HandleProductApproval1"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="HandleProductApproval0">
+    <configurationValues name="DefaultApprovalStatus" value="Approved"/>
+    <pipelet href="enfinity:/bc_product/pipelets/HandleProductApproval.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="HandleProductApproval1">
+    <configurationValues name="DefaultApprovalStatus" value="Edit"/>
+    <pipelet href="enfinity:/bc_product/pipelets/HandleProductApproval.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 9,21-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="StartDeleteProductApprovalStatusesJob"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <parameterBindings name="JobName" constant="DomainRelatedProductApprovalStatusDeleteJob"/>
+    <parameterBindings name="JobNamePrefix" constant="DomainRelatedProductApprovalStatus"/>
+    <parameterBindings name="JobPipelineName" constant="DomainRelatedProductApprovalStatusJob"/>
+    <parameterBindings name="JobPipelineStartNode" constant="DeleteProductApprovalStatuses"/>
+    <startNode referencedName="This:StartProductApprovalStatusJob"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="StartDomainRelatedProductApprovalStatusJob"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <parameterBindings name="JobName" constant="DomainRelatedProductApprovalStatusJob"/>
+    <parameterBindings name="JobNamePrefix" constant="DomainRelatedProductApprovalStatus"/>
+    <parameterBindings name="JobPipelineName" constant="DomainRelatedProductApprovalStatusJob"/>
+    <parameterBindings name="JobPipelineStartNode" constant="Start"/>
+    <startNode referencedName="This:StartProductApprovalStatusJob"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 17,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" visibility="Private"
+      name="StartProductApprovalStatusJob" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode6"/>
+    <parameters name="JobPipelineName" type="java.lang.String"/>
+    <parameters name="JobPipelineStartNode" type="java.lang.String"/>
+    <parameters name="JobName" type="java.lang.String"/>
+    <parameters name="JobNamePrefix" type="java.lang.String"/>
+    <parameters name="CurrentApplication" type="com.intershop.beehive.core.capi.domain.Application"/>
+  </nodes>
+<!--@Location 17,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="KeyMapper8"/>
+    <startNode referencedName="ProcessProcessRepository-GetProcessJobDomain"/>
+    <returnValueBindings name="JobDomain" objectPath="ProcessJobDomain"/>
+  </nodes>
+<!--@Location 17,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper8">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <parameterBindings name="InValue_1" objectPath="ProcessJobDomain"/>
+    <parameterBindings name="InValue_2" objectPath="CurrentDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProcessOwningDomain"/>
+    <returnValueBindings name="OutValue_2" objectPath="ProcessExecutionDomain"/>
+  </nodes>
+<!--@Location 17,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="JoinNode13"/>
+<!--@BendPoints 36,9 36,11-->
+    <nodeSuccessors name="Error" next="JoinNode13"/>
+    <startNode referencedName="ProcessBatchJob-Create"/>
+  </nodes>
+<!--@Location 17,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 17,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+</pipeline:Pipeline>

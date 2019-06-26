@@ -1,0 +1,57 @@
+<!--- TEMPLATENAME: AdditionalParameterValueContext.isml --->
+<%@page import="com.intershop.component.pmc.capi.model.PageletModelRepository"%>
+<%@page import="com.intershop.component.pmc.capi.definition.pagelet.ConfigurationParameterType"%>
+<%@page import="com.intershop.sellside.pmc.capi.PageletModelUtils"%>
+<%@page import="com.intershop.component.pmc.capi.definition.pagelet.ConfigurationParameterDefinition"%>
+<%@page import="com.intershop.beehive.emf.core.Parameter"%>
+<%@page import="com.intershop.beehive.emf.core.ParameterValueBinding"%>
+<iscontent type="text/html" charset="UTF-8" compact="true"><%!public static class ValueContext
+    {
+        private PageletModelRepository pageletModelRepository;
+        private ConfigurationParameterDefinition cpd;
+
+        private ValueContext(PageletModelRepository pageletModelRepository, ConfigurationParameterDefinition cpd)
+        {
+            this.pageletModelRepository = pageletModelRepository;
+            this.cpd = cpd;
+            if (cpd == null) throw new RuntimeException("Attribute \"ConfigurationParameterDefinition\" must not be null.");
+            if (pageletModelRepository == null) throw new RuntimeException("Attribute \"PageletModelRepository\" must not be null.");
+        }
+
+        public Object getValueOf(ParameterValueBinding<Parameter> pvb)
+        {
+            ConfigurationParameterType type = PageletModelUtils.INSTANCE.getConfigurationParameterType(cpd, pageletModelRepository);
+            Parameter p = type.getAdditionalParametersAsMap().get(pvb.getName());
+
+            if (p != null)
+            {
+                String javaType = p.getType();
+                if (javaType == null || javaType.equals("java.lang.String"))
+                {
+                    return pvb.getValue();
+                }
+                else
+                {
+
+                    Object ret = null;
+                    try
+                    {
+                        ret =
+                            StringUtil.convertStringValue(pvb.getValue(), getClass().getClassLoader().loadClass(javaType));
+                        if (ret == null) Logger.warn(this, "", javaType);
+                    }
+                    catch(ClassNotFoundException cnfe)
+                    {
+                        String msg =
+                            String.format("Invalid type '%s' configured in configuration parameter type '%s'.", javaType, type.getQualifiedName());
+                        Logger.error(this, msg, cnfe);
+                    }
+
+                    return (ret != null) ? ret : pvb.getValue();
+                }
+            }
+            return pvb.getValue();
+        }
+    }%><%
+    getPipelineDictionary().put("ValueContext", new ValueContext((PageletModelRepository)getObject("PageletModelRepository"), (ConfigurationParameterDefinition)getObject("ConfigurationParameterDefinition")));
+%>

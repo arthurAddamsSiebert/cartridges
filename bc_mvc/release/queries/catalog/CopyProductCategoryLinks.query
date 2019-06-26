@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="SourceProductUUID" type="java.lang.String" optional="false"/>
+	<parameter name="TargetOfferUUID" type="java.lang.String" optional="false"/>
+	<parameter name="TargetDomainID" type="java.lang.String" optional="false"/>
+	<parameter name="TgtCatalogOwningDomainID" type="java.lang.String" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template sqlDialect="Oracle">
+	DECLARE 
+        srcProductUUID VARCHAR2(28) := <template-variable value="SourceProductUUID"/>; 
+        tgtProductUUID VARCHAR2(28) := <template-variable value="TargetOfferUUID"/>; 
+        tgtDomainID VARCHAR2(28) := <template-variable value="TargetDomainID"/>; 
+        tgtCatalogOwningDomainID VARCHAR2(28) := <template-variable value="TgtCatalogOwningDomainID"/>; 
+        condition number; 
+       BEGIN 
+        DELETE FROM typedproductcategoryassm WHERE (productid = tgtProductUUID); 
+        FOR rec IN 
+         (SELECT * FROM typedproductcategoryassm WHERE productid = srcProductUUID) 
+        LOOP 
+         BEGIN 
+          SELECT COUNT(*) INTO condition FROM catalog WHERE proxyflag = 1 AND domainid = tgtCatalogOwningDomainID 
+          AND catalogdomainid IN 
+           (SELECT domainid FROM catalogcategory WHERE uuid = rec.catalogcategoryid); 
+          IF condition &gt; 0 THEN 
+           INSERT INTO typedproductcategoryassm VALUES 
+            (rec.catalogcategoryid, tgtProductUUID, tgtDomainID, rec.typecode, rec.assignmentonlineflag, rec.position, 0, UTCTIMESTAMP()); 
+          END IF; 
+         END; 
+        END LOOP; 
+       END;
+</template>
+  <template sqlDialect="Microsoft">
+				DECLARE 
+        @srcProductUUID VARCHAR(28) = <template-variable value="SourceProductUUID"/>,
+        @tgtProductUUID VARCHAR(28) = <template-variable value="TargetOfferUUID"/>, 
+        @tgtDomainID VARCHAR(28) = <template-variable value="TargetDomainID"/>,
+        @tgtCatalogOwningDomainID VARCHAR(28) = <template-variable value="TgtCatalogOwningDomainID"/>;
+        BEGIN 
+			DELETE FROM typedproductcategoryassm WHERE (productid = @tgtProductUUID); 
+			INSERT INTO typedproductcategoryassm
+			SELECT tpca.catalogcategoryid, @tgtProductUUID, @tgtDomainID, tpca.typecode, tpca.assignmentonlineflag, tpca.position, 0, GETUTCDATE()
+			from typedproductcategoryassm tpca
+			join catalogcategory cc 
+			on cc.uuid = tpca.catalogcategoryid
+			join CATALOG c
+			on c.catalogdomainid = cc.DOMAINID
+			where tpca.PRODUCTID like @srcProductUUID
+			and c.DOMAINID like @tgtCatalogOwningDomainID
+		END
+</template>
+</query>

@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline is triggered by the SOAP service com.intershop.component.requisition.rapi.orderprocess.injection.OrderInjectionService.
+This service acts as an interface for external systems to inject orders into the current Multisite Solution instance.
+@Group OrderInjection-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="OrderInjectionService" type="process">
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="CreateOrder" callMode="Private">
+    <nodeSuccessors name="next" next="GetOrganizationByUser1"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="CheckDOrder1"/>
+<!--@BendPoints 11,3-->
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckDOrder1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CheckDOrder.xml"/>
+    <nodeSuccessors name="next" next="CreateBasket2" action="begin"/>
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateBasket2">
+    <configurationValues name="BasketType" value="REQUISITION"/>
+    <pipelet href="enfinity:/bts/pipelets/CreateBasket.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+    <parameterBindings name="CurrentDomain" objectPath="OrganizationDomain"/>
+    <returnValueBindings name="Basket" objectPath="Requisition"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="DOrder:ProductLineItems">
+<!--@BendPoints 4,9 4,15 3,15-->
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <entry key="SourceLineItem">
+      <nodeSuccessors name="loop_entry_next" next="CopyDProductLineItemToBasket1"/>
+    </entry>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyDProductLineItemToBasket1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyDProductLineItemToBasket.xml"/>
+    <nodeSuccessors name="next" next="CopyDLineItemAddresses1"/>
+    <nodeSuccessors name="pipelet_error" next="SetDOrderStatus1"/>
+    <parameterBindings name="Basket" objectPath="Requisition"/>
+    <parameterBindings name="SourcePLI" objectPath="SourceLineItem"/>
+    <returnValueBindings name="CreatedPLI" objectPath="TargetLineItem"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyDLineItemAddresses1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyDLineItemAddresses.xml"/>
+<!--@BendPoints 3,14 1,14 1,9-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+    <nodeSuccessors name="pipelet_error" next="SetDOrderStatus2"/>
+    <parameterBindings name="SourceLI" objectPath="SourceLineItem"/>
+    <parameterBindings name="TargetLI" objectPath="TargetLineItem"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDOrderStatus2">
+    <configurationValues name="DefaultErrorCode" value="PLI2"/>
+    <configurationValues name="DefaultErrorDescription" value="Creating address for ProductLineItem failed"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/SetDOrderStatus.xml"/>
+    <nodeSuccessors name="next" next="Join5"/>
+    <parameterBindings name="ErrorValue" objectPath="SourceLineItem:ProductName"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+    <nodeSuccessors name="next" next="Join8"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join8">
+    <nodeSuccessors name="next" next="Join9"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join9">
+    <nodeSuccessors name="next" next="Join7"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+    <nodeSuccessors name="next" next="Join3"/>
+  </nodes>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+    <nodeSuccessors name="next" next="RemoveRequisitionFromSession2"/>
+  </nodes>
+<!--@Location 4,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveRequisitionFromSession2">
+    <pipelet href="enfinity:/bc_requisition/pipelets/RemoveRequisitionFromSession.xml"/>
+    <nodeSuccessors name="next" next="Join11" action="rollback"/>
+  </nodes>
+<!--@Location 4,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join11">
+    <nodeSuccessors name="next" next="SetDOrderStatus9"/>
+  </nodes>
+<!--@Location 4,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDOrderStatus9">
+    <configurationValues name="DefaultOrderStatus" value="-1"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/SetDOrderStatus.xml"/>
+<!--@BendPoints 9,53-->
+    <nodeSuccessors name="next" next="Join10"/>
+  </nodes>
+<!--@Location 1,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join10">
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 1,27-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDOrderStatus1">
+    <configurationValues name="DefaultErrorCode" value="PLI1"/>
+    <configurationValues name="DefaultErrorDescription" value="Creating ProductLineItem failed"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/SetDOrderStatus.xml"/>
+<!--@BendPoints 9,11-->
+    <nodeSuccessors name="next" next="Join5"/>
+    <parameterBindings name="ErrorValue" objectPath="SourceLineItem:ProductName"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call2"/>
+    <parameterBindings name="InValue_1" objectPath="Requisition:ProductLineItems"/>
+    <returnValueBindings name="OutValue_1" objectPath="NewProductLineItems"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+    <nodeSuccessors name="next" next="Loop2"/>
+    <startNode referencedName="ProcessOrderRequiredAttributes-CopyReqProductsAttributes"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="DOrder:ServiceLineItems">
+<!--@BendPoints 4,21 4,27 3,27-->
+    <nodeSuccessors name="next" next="CopyDOrderAddressesToBasket1"/>
+    <entry key="SourceLineItem">
+      <nodeSuccessors name="loop_entry_next" next="CopyDProductLineItemToBasket2"/>
+    </entry>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyDProductLineItemToBasket2">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyDProductLineItemToBasket.xml"/>
+    <nodeSuccessors name="next" next="CopyDLineItemAddresses2"/>
+    <nodeSuccessors name="pipelet_error" next="SetDOrderStatus4"/>
+    <parameterBindings name="Basket" objectPath="Requisition"/>
+    <parameterBindings name="SourcePLI" objectPath="SourceLineItem"/>
+    <returnValueBindings name="CreatedPLI" objectPath="TargetLineItem"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyDLineItemAddresses2">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyDLineItemAddresses.xml"/>
+<!--@BendPoints 3,26 1,26 1,21-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+    <nodeSuccessors name="pipelet_error" next="SetDOrderStatus3"/>
+    <parameterBindings name="SourceLI" objectPath="SourceLineItem"/>
+    <parameterBindings name="TargetLI" objectPath="TargetLineItem"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDOrderStatus3">
+    <configurationValues name="DefaultErrorCode" value="SLI2"/>
+    <configurationValues name="DefaultErrorDescription" value="Creating address for ServiceLineItem failed"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/SetDOrderStatus.xml"/>
+    <nodeSuccessors name="next" next="Join9"/>
+    <parameterBindings name="ErrorValue" objectPath="SourceLineItem:Name"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDOrderStatus4">
+    <configurationValues name="DefaultErrorCode" value="SLI1"/>
+    <configurationValues name="DefaultErrorDescription" value="Creating ServiceLineItem failed"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/SetDOrderStatus.xml"/>
+    <nodeSuccessors name="next" next="Join8"/>
+    <parameterBindings name="ErrorValue" objectPath="SourceLineItem:Name"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyDOrderAddressesToBasket1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyDOrderAddressesToBasket.xml"/>
+    <nodeSuccessors name="next" next="CopyDOrderAttributesToBasket1"/>
+    <nodeSuccessors name="pipelet_error" next="SetDOrderStatus5"/>
+    <parameterBindings name="Basket" objectPath="Requisition"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyDOrderAttributesToBasket1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyDOrderAttributesToBasket.xml"/>
+    <nodeSuccessors name="next" next="CopyDShippingMethodToBasket1"/>
+    <nodeSuccessors name="pipelet_error" next="SetDOrderStatus6"/>
+    <parameterBindings name="Basket" objectPath="Requisition"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyDShippingMethodToBasket1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyDShippingMethodToBasket.xml"/>
+    <nodeSuccessors name="next" next="UpdateLineItemStatus1"/>
+    <nodeSuccessors name="pipelet_error" next="SetDOrderStatus7"/>
+    <parameterBindings name="Basket" objectPath="Requisition"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus1">
+    <configurationValues name="StatusGroup" value="Requisition"/>
+    <configurationValues name="StatusID" value="3"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="UpdateRequisitionStatus4"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRequisitionStatus4">
+    <configurationValues name="StatusGroup" value="RequisitionStateGroup"/>
+    <configurationValues name="StatusID" value="40"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateRequisitionStatus.xml"/>
+    <nodeSuccessors name="next" next="UpdateRequisitionStatus1"/>
+    <parameterBindings name="InputStatusGroup" objectPath="not"/>
+    <parameterBindings name="InputStatusID" objectPath="not"/>
+  </nodes>
+<!--@Location 1,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRequisitionStatus1">
+    <configurationValues name="StatusGroup" value="ApprovalStateGroup"/>
+    <configurationValues name="StatusID" value="300"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateRequisitionStatus.xml"/>
+    <nodeSuccessors name="next" next="UpdateRequisitionStatus2"/>
+    <parameterBindings name="InputStatusGroup" objectPath="not"/>
+    <parameterBindings name="InputStatusID" objectPath="not"/>
+  </nodes>
+<!--@Location 1,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRequisitionStatus2">
+    <configurationValues name="StatusGroup" value="OrderStateGroup"/>
+    <configurationValues name="StatusID" value="1000"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateRequisitionStatus.xml"/>
+    <nodeSuccessors name="next" next="UpdateRequisitionStatus3"/>
+    <parameterBindings name="InputStatusGroup" objectPath="not"/>
+    <parameterBindings name="InputStatusID" objectPath="not"/>
+  </nodes>
+<!--@Location 1,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRequisitionStatus3">
+    <configurationValues name="StatusGroup" value="DeliveryStateGroup"/>
+    <configurationValues name="StatusID" value="10000"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateRequisitionStatus.xml"/>
+    <nodeSuccessors name="next" next="Call1"/>
+    <parameterBindings name="InputStatusGroup" objectPath="not"/>
+    <parameterBindings name="InputStatusID" objectPath="not"/>
+  </nodes>
+<!--@Location 1,22-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="UpdateRequisitionStatus5"/>
+    <startNode referencedName="ProcessOrder-CreateOrders"/>
+  </nodes>
+<!--@Location 1,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRequisitionStatus5">
+    <configurationValues name="StatusGroup" value="OrderStateGroup"/>
+    <configurationValues name="StatusID" value="3000"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateRequisitionStatus.xml"/>
+    <nodeSuccessors name="next" next="SetDOrderStatus8" action="commit"/>
+    <parameterBindings name="InputStatusGroup" objectPath="not"/>
+    <parameterBindings name="InputStatusID" objectPath="not"/>
+  </nodes>
+<!--@Location 1,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDOrderStatus8">
+    <configurationValues name="DefaultOrderStatus" value="3000"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/SetDOrderStatus.xml"/>
+    <nodeSuccessors name="next" next="RemoveRequisitionFromSession1"/>
+  </nodes>
+<!--@Location 1,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveRequisitionFromSession1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/RemoveRequisitionFromSession.xml"/>
+    <nodeSuccessors name="next" next="Join10"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDOrderStatus7">
+    <configurationValues name="DefaultErrorCode" value="Order3"/>
+    <configurationValues name="DefaultErrorDescription" value="Copying shipping method failed"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/SetDOrderStatus.xml"/>
+    <nodeSuccessors name="next" next="Join3"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDOrderStatus6">
+    <configurationValues name="DefaultErrorCode" value="Order12"/>
+    <configurationValues name="DefaultErrorDescription" value="Copying order attributes failed"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/SetDOrderStatus.xml"/>
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDOrderStatus5">
+    <configurationValues name="DefaultErrorCode" value="Order1"/>
+    <configurationValues name="DefaultErrorDescription" value="Copying addresses failed"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/SetDOrderStatus.xml"/>
+    <nodeSuccessors name="next" next="Join7"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+<!--@BendPoints 11,37-->
+    <nodeSuccessors name="next" next="Join11"/>
+  </nodes>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="OrderStatus" callMode="Private">
+    <nodeSuccessors name="next" next="End2"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+</pipeline:Pipeline>

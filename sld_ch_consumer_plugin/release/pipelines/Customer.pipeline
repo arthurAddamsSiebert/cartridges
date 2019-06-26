@@ -1,0 +1,787 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--An extension pipeline to handle customer's post\-creation process.
+@Group Customer-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="Customer" type="extension">
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="Create"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameters name="CustomerForm" type="com.intershop.beehive.core.capi.webform.Form"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="CustomerBO:Extension(&quot;PrivateCustomer&quot;)">
+    <nodeSuccessors name="decision_yes" next="GeneratePassword0"/>
+<!--@BendPoints 13,5 13,6-->
+    <nodeSuccessors name="decision_no" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GeneratePassword0">
+    <pipelet href="enfinity:/core/pipelets/GeneratePassword.xml"/>
+    <nodeSuccessors name="next" next="UpdateUserBOCredentials0"/>
+<!--@BendPoints 8,7 8,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateUserBOCredentials0">
+    <pipelet href="enfinity:/bc_user/pipelets/UpdateUserBOCredentials.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="Answer" nullBinding="true"/>
+    <parameterBindings name="IPRange" nullBinding="true"/>
+    <parameterBindings name="IsActive" nullBinding="true"/>
+    <parameterBindings name="LastLoggedInDate" nullBinding="true"/>
+    <parameterBindings name="Login" objectPath="CustomerForm:Login:FormattedValue"/>
+    <parameterBindings name="NewPasswordExpiry" nullBinding="true"/>
+    <parameterBindings name="ReminderEmail" objectPath="CustomerForm:Email:Value"/>
+    <parameterBindings name="SecureCode" nullBinding="true"/>
+    <parameterBindings name="UserBO" objectPath="CustomerBO:Extension(&quot;PrivateCustomer&quot;):UserBO"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <nodeSuccessors name="ERROR" next="JoinNode1"/>
+    <startNode referencedName="Customer-UpdatePrivateCustomer"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="CallNode8"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <startNode referencedName="Customer-UpdateCustomerApprovalStatus"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+<!--Flag if login has been updated.-->
+    <returnValues name="LoginHasChanged" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR" strict="true"/>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="ERROR" strict="true"/>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="CustomerBO:Extension(&quot;CompanyCustomer&quot;)">
+<!--@BendPoints 15,7-->
+    <nodeSuccessors name="decision_yes" next="CallNode1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 15,13-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <nodeSuccessors name="ERROR" next="JoinNode1"/>
+    <startNode referencedName="Customer-UpdateCompanyCustomer"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="Created"
+      callMode="Private">
+    <nodeSuccessors name="next" next="JumpNode0"/>
+    <parameters name="CustomerForm" type="com.intershop.beehive.core.capi.webform.Form"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode0">
+    <startNode referencedName="Customer-Create"/>
+  </nodes>
+<!--Get notification type that must be send.
+@Location 17,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode13" strict="true" name="GetNotificationType"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO3"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+    <parameters name="CurrentChannel" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+<!--If customer status was changed.-->
+    <parameters name="CustomerStatusChanged" type="java.lang.Boolean"/>
+<!--If customer approval status was changed.-->
+    <parameters name="CustomerApprovalStatusChanged" type="java.lang.Boolean"/>
+<!--The user that will be used as a recipienet for the sending email. If not given then send emails to all the users of the customer.-->
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO" optional="true"/>
+  </nodes>
+<!--@Location 17,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO3">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode19"/>
+  </nodes>
+<!--@Location 17,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode19">
+<!--@BendPoints 41,7-->
+    <nodeSuccessors name="false" next="JoinNode28"/>
+<!--@BendPoints 35,8-->
+    <nodeSuccessors name="true" next="DecisionNode19"/>
+    <startNode referencedName="ProcessCustomers_52-IsCustomerActive"/>
+  </nodes>
+<!--@Location 20,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode28">
+    <nodeSuccessors name="next" next="JoinNode25"/>
+  </nodes>
+<!--@Location 20,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode25">
+<!--@BendPoints 41,17 43,17-->
+    <nodeSuccessors name="next" next="EndNode23"/>
+  </nodes>
+<!--@Location 21,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode23" name="NO_SENDING" strict="true"/>
+<!--@Location 17,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode19" conditionKey="CustomerApprovalStatusChanged"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode20"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode16"/>
+  </nodes>
+<!--@Location 17,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode20">
+    <nodeSuccessors name="next" next="DecisionNode18"/>
+    <nodeSuccessors name="ERROR" next="JoinNode29"/>
+    <startNode referencedName="ProcessCustomer-isRejected"/>
+  </nodes>
+<!--@Location 17,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode18" conditionKey="UserBO">
+    <nodeSuccessors name="decision_yes" next="DecisionNode12"/>
+    <nodeSuccessors name="decision_no" next="EndNode18"/>
+  </nodes>
+<!--@Location 18,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="UserBO:isDisabled"
+      operator="str_eq" conditionValue="false">
+    <nodeSuccessors name="decision_yes" next="JoinNode31"/>
+    <nodeSuccessors name="decision_no" next="JoinNode31"/>
+  </nodes>
+<!--@Location 18,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode31">
+    <nodeSuccessors name="next" next="EndNode19"/>
+  </nodes>
+<!--@Location 18,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode19" name="SEND_USER_REJECT_NOTIFICATION"
+      strict="true"/>
+<!--@Location 17,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode18" name="SEND_CUSTOMER_REJECT_NOTIFICATION"
+      strict="true"/>
+<!--@Location 19,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode29">
+    <nodeSuccessors name="next" next="DecisionNode14"/>
+  </nodes>
+<!--@Location 19,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="ApplicationBO:Extension(&quot;CustomerApproval&quot;):Enabled(CustomerBO:CustomerType)"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode22"/>
+<!--@BendPoints 38,13 38,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode30"/>
+  </nodes>
+<!--@Location 19,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode22">
+    <nodeSuccessors name="next" next="JoinNode30"/>
+    <nodeSuccessors name="ERROR" next="JoinNode25"/>
+    <startNode referencedName="ProcessCustomer-isApproved"/>
+  </nodes>
+<!--@Location 19,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode30">
+    <nodeSuccessors name="next" next="DecisionNode15"/>
+  </nodes>
+<!--@Location 19,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode15" conditionKey="UserBO">
+    <nodeSuccessors name="decision_yes" next="DecisionNode13"/>
+    <nodeSuccessors name="decision_no" next="EndNode20"/>
+  </nodes>
+<!--@Location 20,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="UserBO:isDisabled"
+      operator="str_eq" conditionValue="false">
+<!--@BendPoints 42,19 42,21-->
+    <nodeSuccessors name="decision_yes" next="JoinNode23"/>
+    <nodeSuccessors name="decision_no" next="JoinNode23"/>
+  </nodes>
+<!--@Location 20,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode23">
+    <nodeSuccessors name="next" next="EndNode21"/>
+  </nodes>
+<!--@Location 20,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode21" name="SEND_USER_ACTIVATION_NOTIFICATION"
+      strict="true"/>
+<!--@Location 19,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode20" name="SEND_CUSTOMER_ACTIVATION_NOTIFICATION"
+      strict="true"/>
+<!--@Location 19,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode16" conditionKey="CustomerStatusChanged"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="JoinNode29"/>
+    <nodeSuccessors name="decision_no" next="JoinNode28"/>
+  </nodes>
+<!--@Location 14,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode19" strict="true" name="ReassignUserCatalogFilterAssignments"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode15"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+    <parameters name="oldCustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+  </nodes>
+<!--@Location 14,18-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode15">
+    <nodeSuccessors name="next" next="CallNode16"/>
+    <parameterBindings name="CustomerID" objectPath="oldCustomerBO:ID"/>
+    <startNode referencedName="ProcessCatalogFilter-UnassignUserFromCatalogFilterTargetGroups"/>
+  </nodes>
+<!--@Location 14,19-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode16">
+    <nodeSuccessors name="next" next="EndNode15"/>
+    <parameterBindings name="CustomerID" objectPath="CustomerBO:ID"/>
+    <startNode referencedName="ProcessCatalogFilter-AssignUserToCatalogFilterTargetGroups"/>
+  </nodes>
+<!--@Location 14,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true"/>
+<!--Move user orders to the given customer, e.g. update CustomerID to the new customer.
+@Location 11,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" strict="true" name="ReassignUserOrders"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO2"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+  </nodes>
+<!--@Location 11,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO2">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper_i6vPABrNEee99seyiwz7dw"/>
+  </nodes>
+<!--@Location 11,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_i6vPABrNEee99seyiwz7dw">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetCustomerBOByUserID1"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;CustomerBORepository&quot;)"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <parameterBindings name="InValue_3" objectPath="ApplicationBO:Repository(&quot;OrderBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="CustomerBORepository"/>
+    <returnValueBindings name="OutValue_2" objectPath="UserBORepository"/>
+    <returnValueBindings name="OutValue_3" objectPath="OrderBORepository"/>
+  </nodes>
+<!--@Location 11,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCustomerBOByUserID1">
+    <pipelet href="enfinity:/bc_customer/pipelets/GetCustomerBOByUserID.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery3"/>
+<!--@BendPoints 25,41-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode16"/>
+    <parameterBindings name="UserID" objectPath="UserBO:ID"/>
+  </nodes>
+<!--@Location 11,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery3">
+    <configurationValues name="ParameterName_01" value="UserID"/>
+    <configurationValues name="QueryName" value="order/GetOrdersByParameters"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode16"/>
+    <parameterBindings name="ParameterValue_01" objectPath="UserBO:ID"/>
+    <returnValueBindings name="SearchResult" objectPath="Orders"/>
+  </nodes>
+<!--@Location 11,22-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Orders">
+    <nodeSuccessors name="next" next="JoinNode15"/>
+    <entry key="Order">
+      <nodeSuccessors name="loop_entry_next" next="GetOrderBO0"/>
+    </entry>
+  </nodes>
+<!--@Location 11,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderBO0">
+    <pipelet href="enfinity:/bc_order/pipelets/GetOrderBO.xml"/>
+    <nodeSuccessors name="next" next="UpdateOrderBOBuyer0"/>
+    <parameterBindings name="Order" nullBinding="true"/>
+    <parameterBindings name="OrderID" objectPath="Order:UUID"/>
+  </nodes>
+<!--@Location 11,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateOrderBOBuyer0">
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/UpdateOrderBOBuyer.xml"/>
+<!--@BendPoints 22,49 22,45-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 12,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="EndNode11"/>
+  </nodes>
+<!--@Location 12,23-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" strict="true"/>
+<!--@Location 12,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+    <nodeSuccessors name="next" next="JoinNode15"/>
+  </nodes>
+<!--Send customer activation notficiation.
+@Location 25,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode16" strict="true" name="SendCustomerActivationNotification"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO5"/>
+    <parameters name="CurrentChannel" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+  </nodes>
+<!--@Location 25,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO5">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode11"/>
+  </nodes>
+<!--@Location 25,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+    <nodeSuccessors name="next" next="EndNode16"/>
+    <startNode referencedName="ProcessCustomers_52-SendCustomerActivationMail"/>
+  </nodes>
+<!--@Location 25,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" strict="true"/>
+<!--Send customer or user notification.
+@Location 13,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode18" strict="true" name="SendCustomerNotification"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode24"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+    <parameters name="CurrentChannel" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+<!--If customer status was changed.-->
+    <parameters name="CustomerStatusChanged" type="java.lang.Boolean"/>
+<!--If customer approval status was changed.-->
+    <parameters name="CustomerApprovalStatusChanged" type="java.lang.Boolean"/>
+<!--The user that will be used as a recipienet for the sending email. If not given then send emails to all the users of the customer.-->
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO" optional="true"/>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode24">
+<!--@BendPoints 29,13 30,13-->
+    <nodeSuccessors name="NO_SENDING" next="JoinNode26"/>
+    <nodeSuccessors name="SEND_CUSTOMER_ACTIVATION_NOTIFICATION" next="CallNode21"/>
+<!--@BendPoints 29,5-->
+    <nodeSuccessors name="SEND_CUSTOMER_REJECT_NOTIFICATION" next="CallNode17"/>
+    <nodeSuccessors name="SEND_USER_ACTIVATION_NOTIFICATION" next="CallNode23"/>
+    <nodeSuccessors name="SEND_USER_REJECT_NOTIFICATION" next="CallNode18"/>
+    <startNode referencedName="This:GetNotificationType"/>
+  </nodes>
+<!--@Location 15,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode26">
+    <nodeSuccessors name="next" next="EndNode22"/>
+  </nodes>
+<!--@Location 15,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode22" strict="true"/>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode21">
+    <nodeSuccessors name="next" next="JoinNode20"/>
+    <startNode referencedName="This:SendCustomerActivationNotification"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+    <nodeSuccessors name="next" next="JoinNode19"/>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+    <nodeSuccessors name="next" next="JoinNode22"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode22">
+<!--@BendPoints 33,13-->
+    <nodeSuccessors name="next" next="JoinNode26"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode17">
+<!--@BendPoints 33,5-->
+    <nodeSuccessors name="next" next="JoinNode20"/>
+    <startNode referencedName="This:SendCustomerRejectNotification"/>
+  </nodes>
+<!--@Location 15,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode23">
+    <nodeSuccessors name="next" next="JoinNode19"/>
+    <startNode referencedName="This:SendUserActivationNotification"/>
+  </nodes>
+<!--@Location 15,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode18">
+    <nodeSuccessors name="next" next="JoinNode22"/>
+    <startNode referencedName="This:SendUserRejectNotification"/>
+  </nodes>
+<!--Sends customer reject notification.
+@Location 23,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode14" strict="true" name="SendCustomerRejectNotification"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO4"/>
+    <parameters name="CurrentChannel" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+  </nodes>
+<!--@Location 23,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO4">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode9"/>
+  </nodes>
+<!--@Location 23,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="EndNode13"/>
+    <startNode referencedName="ProcessCustomers_52-SendCustomerRejectMail"/>
+  </nodes>
+<!--@Location 23,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" strict="true"/>
+<!--Send user activation notification.
+@Location 26,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode17" strict="true" name="SendUserActivationNotification"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode14"/>
+    <parameters name="CurrentChannel" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+  </nodes>
+<!--@Location 26,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode14">
+    <nodeSuccessors name="next" next="JoinNode24"/>
+<!--@BendPoints 54,5 54,7-->
+    <nodeSuccessors name="ERROR" next="JoinNode24"/>
+    <nodeSuccessors name="OK" next="JoinNode24"/>
+    <parameterBindings name="EmailFromConfigKey" constant="ActivateUserEmailFrom"/>
+    <parameterBindings name="EmailSubjectConfigKey" constant="ActivateUserEmailSubject"/>
+    <parameterBindings name="EmailTemplateConfigKey" constant="ActivateUserEmailTemplate"/>
+    <parameterBindings name="LinkLifeTimeConfigKey" constant="PasswordReminderLinkLifeTime"/>
+    <parameterBindings name="UserBO" objectPath="CustomerBOPrivateCustomerExtension:UserBO"/>
+    <startNode referencedName="ProcessCustomerUser_52-CallSendEmailPipeline"/>
+  </nodes>
+<!--@Location 26,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode24">
+    <nodeSuccessors name="next" next="EndNode17"/>
+  </nodes>
+<!--@Location 26,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" strict="true"/>
+<!--Sends user reject notification.
+@Location 24,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode15" strict="true" name="SendUserRejectNotification"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode10"/>
+    <parameters name="CurrentChannel" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+  </nodes>
+<!--@Location 24,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="JoinNode21"/>
+<!--@BendPoints 50,5 50,7-->
+    <nodeSuccessors name="ERROR" next="JoinNode21"/>
+    <nodeSuccessors name="OK" next="JoinNode21"/>
+    <parameterBindings name="EmailFromConfigKey" constant="CustomerDeclinedApprovalRequestEmailFrom"/>
+    <parameterBindings name="EmailSubjectConfigKey" constant="CustomerDeclinedApprovalRequestEmailSubject"/>
+    <parameterBindings name="EmailTemplateConfigKey" constant="CustomerDeclinedApprovalRequestEmailTemplate"/>
+    <parameterBindings name="LinkLifeTimeConfigKey" constant="PasswordReminderLinkLifeTime"/>
+    <startNode referencedName="ProcessCustomerUser_52-CallSendEmailPipeline"/>
+  </nodes>
+<!--@Location 24,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode21">
+    <nodeSuccessors name="next" next="EndNode14"/>
+  </nodes>
+<!--@Location 24,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" strict="true"/>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Update"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameters name="CustomerForm" type="com.intershop.beehive.core.capi.webform.Form"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="CustomerBO:Extension(&quot;PrivateCustomer&quot;)">
+    <nodeSuccessors name="decision_yes" next="CallNode0"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="UpdateCompanyCustomer"
+      callMode="Private">
+    <nodeSuccessors name="next" next="SetIndirectDictValue3"/>
+    <parameters name="CustomerForm" type="com.intershop.beehive.core.capi.webform.Form"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetIndirectDictValue3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetIndirectDictValue.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+    <parameterBindings name="KeyNameHolder" constant="CustomerBOCompanyCustomerExtension"/>
+    <parameterBindings name="MappedEntry" objectPath="CustomerBO:Extension(&quot;CompanyCustomer&quot;)"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="CustomerBOCompanyCustomerExtension">
+    <nodeSuccessors name="decision_yes" next="UpdateCompanyCustomerBO1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 11,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCompanyCustomerBO1">
+    <pipelet href="enfinity:/bc_customer/pipelets/UpdateCompanyCustomerBO.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="Active" objectPath="CustomerForm:Active:Value"/>
+    <parameterBindings name="CompanyName" objectPath="CustomerForm:CompanyName:Value"/>
+    <parameterBindings name="CompanyName2" objectPath="CustomerForm:CompanyName2:Value"/>
+    <parameterBindings name="CustomerBOCompanyCustomerExtension" objectPath="CustomerBOCompanyCustomerExtension"/>
+    <parameterBindings name="Description" objectPath="CustomerForm:Description:Value"/>
+    <parameterBindings name="Industry" objectPath="CustomerForm:Industry:Value"/>
+    <parameterBindings name="TaxationID" objectPath="CustomerForm:TaxationID:Value"/>
+  </nodes>
+<!--@Location 10,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 10,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 10,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+<!--Flag if login has been updated.-->
+    <returnValues name="LoginHasChanged" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="ERROR" strict="true"/>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode12" strict="true" visibility="Private"
+      name="UpdateCustomerApprovalStatus" callMode="Private">
+    <nodeSuccessors name="next" next="SetIndirectDictValue0"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+    <parameters name="CustomerForm" type="com.intershop.beehive.core.capi.webform.Form"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetIndirectDictValue0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetIndirectDictValue.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+    <parameterBindings name="KeyNameHolder" constant="CustomerBOCustomerApprovalExtension"/>
+    <parameterBindings name="MappedEntry" objectPath="CustomerBO:Extension(&quot;CustomerApproval&quot;)"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="CustomerBOCustomerApprovalExtension">
+<!--@BendPoints 13,19-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode11"/>
+<!--@BendPoints 17,19-->
+    <nodeSuccessors name="decision_no" next="JoinNode18"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="CustomerForm:CustomerApprovalStatus:Value"
+      operator="str_eq" conditionValue="1">
+    <nodeSuccessors name="decision_yes" next="CallNode6"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode10"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 13,25-->
+    <nodeSuccessors name="next" next="JoinNode17"/>
+    <startNode referencedName="ProcessCustomer-Approve"/>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+    <nodeSuccessors name="next" next="EndNode8"/>
+  </nodes>
+<!--@Location 7,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" strict="true"/>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="CustomerForm:CustomerApprovalStatus:Value"
+      operator="str_eq" conditionValue="2">
+    <nodeSuccessors name="decision_yes" next="CallNode7"/>
+    <nodeSuccessors name="decision_no" next="JoinNode18"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="JoinNode17"/>
+    <startNode referencedName="ProcessCustomer-Reject"/>
+  </nodes>
+<!--@Location 8,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+<!--@BendPoints 17,25-->
+    <nodeSuccessors name="next" next="JoinNode17"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="UpdatePrivateCustomer"
+      callMode="Private">
+    <nodeSuccessors name="next" next="SetIndirectDictValue2"/>
+    <parameters name="CustomerForm" type="com.intershop.beehive.core.capi.webform.Form"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetIndirectDictValue2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetIndirectDictValue.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <parameterBindings name="KeyNameHolder" constant="CustomerBOPrivateCustomerExtension"/>
+    <parameterBindings name="MappedEntry" objectPath="CustomerBO:Extension(&quot;PrivateCustomer&quot;)"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="CustomerBOPrivateCustomerExtension">
+    <nodeSuccessors name="decision_yes" next="DecisionNode3"/>
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="CustomerForm:PreferredLanguage:Value"
+      operator="str_empty">
+<!--@BendPoints 20,9 20,13-->
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+    <nodeSuccessors name="decision_no" next="GetLocale1"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="UpdatePrivateCustomerBO1"/>
+  </nodes>
+<!--@Location 9,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePrivateCustomerBO1">
+    <configurationValues name="UpdateMissingProperties" value="true"/>
+    <pipelet href="enfinity:/bc_customer/pipelets/UpdatePrivateCustomerBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameterBindings name="Active" objectPath="CustomerForm:Active:Value"/>
+    <parameterBindings name="Birthday" objectPath="CustomerForm:Birthday:Value"/>
+    <parameterBindings name="Email" objectPath="CustomerForm:Email:Value"/>
+    <parameterBindings name="Fax" objectPath="CustomerForm:Fax:Value"/>
+    <parameterBindings name="FirstName" objectPath="CustomerForm:FirstName:Value"/>
+    <parameterBindings name="LastName" objectPath="CustomerForm:LastName:Value"/>
+    <parameterBindings name="Login" nullBinding="true"/>
+    <parameterBindings name="Mobile" objectPath="CustomerForm:PhoneMobile:Value"/>
+    <parameterBindings name="PhoneBusiness" objectPath="CustomerForm:PhoneBusiness:Value"/>
+    <parameterBindings name="PhoneHome" objectPath="CustomerForm:PhoneHome:Value"/>
+    <parameterBindings name="Title" objectPath="CustomerForm:Title:Value"/>
+  </nodes>
+<!--@Location 9,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <parameterBindings name="InValue_1" objectPath="CustomerBOPrivateCustomerExtension:UserBO:Login"/>
+    <returnValueBindings name="OutValue_1" objectPath="LoginBeforeUpdate"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="LoginBeforeUpdate"
+      operator="str_neq" conditionItem="CustomerForm:Login:FormattedValue">
+    <nodeSuccessors name="decision_yes" next="GeneratePassword1"/>
+<!--@BendPoints 18,19 18,27-->
+    <nodeSuccessors name="decision_no" next="UpdateUserBOCredentials1"/>
+  </nodes>
+<!--@Location 9,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GeneratePassword1">
+    <pipelet href="enfinity:/core/pipelets/GeneratePassword.xml"/>
+    <nodeSuccessors name="next" next="UpdateUserBOCredentials2"/>
+<!--@BendPoints 21,21-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+  </nodes>
+<!--@Location 9,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateUserBOCredentials2">
+    <pipelet href="enfinity:/bc_user/pipelets/UpdateUserBOCredentials.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+    <parameterBindings name="Answer" nullBinding="true"/>
+    <parameterBindings name="IPRange" nullBinding="true"/>
+    <parameterBindings name="IsActive" nullBinding="true"/>
+    <parameterBindings name="LastLoggedInDate" nullBinding="true"/>
+    <parameterBindings name="Login" objectPath="CustomerForm:Login:FormattedValue"/>
+    <parameterBindings name="NewPasswordExpiry" nullBinding="true"/>
+    <parameterBindings name="ReminderEmail" objectPath="CustomerForm:Email:Value"/>
+    <parameterBindings name="SecureCode" nullBinding="true"/>
+    <parameterBindings name="SecurityQuestion" nullBinding="true"/>
+    <parameterBindings name="UserBO" objectPath="CustomerBO:Extension(&quot;PrivateCustomer&quot;):UserBO"/>
+  </nodes>
+<!--@Location 9,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue0">
+    <configurationValues name="Name" value="LoginHasChanged"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 10,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 10,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 9,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateUserBOCredentials1">
+    <pipelet href="enfinity:/bc_user/pipelets/UpdateUserBOCredentials.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+<!--@BendPoints 19,29-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="Answer" nullBinding="true"/>
+    <parameterBindings name="IPRange" nullBinding="true"/>
+    <parameterBindings name="IsActive" nullBinding="true"/>
+    <parameterBindings name="LastLoggedInDate" nullBinding="true"/>
+    <parameterBindings name="Login" nullBinding="true"/>
+    <parameterBindings name="NewPasswordExpiry" nullBinding="true"/>
+    <parameterBindings name="Password" nullBinding="true"/>
+    <parameterBindings name="ReminderEmail" objectPath="CustomerForm:Email:Value"/>
+    <parameterBindings name="SecureCode" nullBinding="true"/>
+    <parameterBindings name="SecurityQuestion" nullBinding="true"/>
+    <parameterBindings name="UserBO" objectPath="CustomerBO:Extension(&quot;PrivateCustomer&quot;):UserBO"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="LocaleId" objectPath="CustomerForm:PreferredLanguage:Value"/>
+    <returnValueBindings name="Locale" objectPath="PreferredLocale"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="Updated"
+      callMode="Private">
+    <nodeSuccessors name="next" next="JumpNode1"/>
+    <parameters name="CustomerForm" type="com.intershop.beehive.core.capi.webform.Form"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="Customer-Update"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="UserCreated"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+    <parameters name="CustomerUserForm" type="com.intershop.beehive.core.capi.webform.Form"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper_dgRKYBrNEee99seyiwz7dw"/>
+  </nodes>
+<!--@Location 1,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_dgRKYBrNEee99seyiwz7dw">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;CustomerBORepository&quot;)"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="CustomerBORepository"/>
+    <returnValueBindings name="OutValue_2" objectPath="UserBORepository"/>
+  </nodes>
+<!--@Location 1,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--@Location 2,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" strict="true" name="UserMoved"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+    <parameters name="oldCustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+  </nodes>
+<!--@Location 2,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper_em7QcBrNEee99seyiwz7dw"/>
+  </nodes>
+<!--@Location 2,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_em7QcBrNEee99seyiwz7dw">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode12"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;CustomerBORepository&quot;)"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="CustomerBORepository"/>
+    <returnValueBindings name="OutValue_2" objectPath="UserBORepository"/>
+  </nodes>
+<!--@Location 2,20-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode12">
+    <nodeSuccessors name="next" next="CallNode13"/>
+    <parameterBindings name="CustomerID" objectPath="oldCustomerBO:ID"/>
+    <startNode referencedName="ProcessPromotion-UnassignUserFromPromotionTargetGroups"/>
+  </nodes>
+<!--@Location 2,21-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode13">
+    <nodeSuccessors name="next" next="CallNode25"/>
+    <parameterBindings name="CustomerID" objectPath="CustomerBO:ID"/>
+    <startNode referencedName="ProcessPromotion-AssignUserToPromotionTargetGroups"/>
+  </nodes>
+<!--@Location 2,22-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode25">
+    <nodeSuccessors name="next" next="EndNode12"/>
+    <startNode referencedName="This:ReassignUserCatalogFilterAssignments"/>
+  </nodes>
+<!--@Location 2,23-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" strict="true"/>
+</pipeline:Pipeline>

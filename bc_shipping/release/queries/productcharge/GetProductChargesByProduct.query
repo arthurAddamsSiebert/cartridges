@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="The search results comes from shipping override and shipping surcharges. The entries are sorted first by region, then shipping method, then type and finally results without shipping method and region.">
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="Product" type="com.intershop.beehive.xcs.capi.product.Product" optional="false"/>
+	<parameter name="Currency" type="java.lang.String" optional="true"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="UUID" type="rename" description="UUID">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+	<return-mapping name="ShippingMethod" type="rename">
+		<return-attribute name="ShippingMethod"/>
+	</return-mapping>
+	<return-mapping name="Region" type="rename">
+		<return-attribute name="Region"/>
+	</return-mapping>
+	<return-mapping name="Type" type="rename">
+		<return-attribute name="Type"/>
+	</return-mapping>
+	<return-mapping name="Currency" type="rename">
+		<return-attribute name="Currency"/>
+	</return-mapping>
+	<return-mapping name="Price" type="rename">
+		<return-attribute name="Price"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	SELECT 
+	s.uuid  AS UUID,
+	        s.shippingmethod AS ShippingMethod,
+	        s.region   AS Region,
+	        s.type   AS Type,
+	        s.currency  AS Currency,
+	        s.price  AS Price	  
+	FROM
+	 	 ( 	
+	 	 	  (
+	 	 	 SELECT  distinct(o.uuid) as uuid, COALESCE(av.stringvalue,s.id) as shippingmethod, COALESCE(rav.stringvalue,r.id) as region, &apos;override&apos; as type, oav1.stringValue as currency , oav1.decimalValue as price
+	 	 	 	  FROM shippingoverride o
+	      left outer 
+	        join advancedshippingmethod s
+	          ON o.shippingmethodid = s.id
+	          AND s.domainid = <template-variable value="Domain:DomainID"/>      
+	      left outer 
+	        join advancedshippingmeth_av av
+	          ON av.ownerid = s.uuid          
+	          AND av.name = &apos;displayName&apos;
+	          AND av.localeid = <template-variable value="Locale:LocaleID"/>
+	      left outer 
+	        join region r
+	          ON o.regionid = r.id
+	          AND r.domainid = <template-variable value="Domain:DomainID"/>      
+	      left outer 
+	        join region_av rav
+	          ON rav.ownerid = r.uuid          
+	          AND rav.name = &apos;displayName&apos;
+	          AND rav.localeid = <template-variable value="Locale:LocaleID"/>
+	      left outer 
+	        join shippingoverride_av oav1
+	          ON o.uuid = oav1.ownerid
+	             AND oav1.name = &apos;Override_<template-variable value="Currency" processing="text"/>&apos;
+	   
+	 WHERE o.productid = <template-variable value="Product:UUID"/>
+	 and o.domainid = <template-variable value="Domain:DomainID"/>
+	 )
+	 UNION
+	 (
+	 SELECT  distinct(sur.uuid) as uuid, COALESCE(av.stringvalue,s.id) as shippingmethod, COALESCE(rav.stringvalue,r.id) as region, &apos;surcharge&apos; as type, sur1.stringValue as currency, sur1.decimalValue as price 
+	      FROM shippingsurcharge sur
+	      left outer 
+	        join advancedshippingmethod s
+	          ON sur.shippingmethodid = s.id
+	          AND s.domainid = <template-variable value="Domain:DomainID"/>      
+	      left outer 
+	        join advancedshippingmeth_av av
+	          ON av.ownerid = s.uuid          
+	          AND av.name = &apos;displayName&apos;
+	          AND av.localeid = <template-variable value="Locale:LocaleID"/>
+	      left outer 
+	        join region r
+	          ON sur.regionid = r.id
+	          AND r.domainid = <template-variable value="Domain:DomainID"/>      
+	      left outer 
+	        join region_av rav
+	          ON rav.ownerid = r.uuid          
+	          AND rav.name = &apos;displayName&apos;
+	          AND rav.localeid = <template-variable value="Locale:LocaleID"/>
+	     left outer 
+	        join shippingsurcharge_av sur1
+	          ON sur.uuid = sur1.ownerid
+	            AND sur1.name = &apos;Surcharge_<template-variable value="Currency" processing="text"/>&apos;
+	 
+	 WHERE sur.productid = <template-variable value="Product:UUID"/>
+	 and sur.domainid = <template-variable value="Domain:DomainID"/>
+	  )
+	) s
+	<sql-dialect name="Oracle">
+		ORDER BY 
+		Region ASC nulls last,
+		ShippingMethod ASC nulls last,
+		Type ASC nulls last
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		ORDER BY
+		CASE 
+			WHEN REGION IS NULL THEN 1
+			ELSE 0
+		END, REGION ASC,
+		CASE
+			WHEN ShippingMethod IS NULL THEN 1
+			ELSE 0
+		END, ShippingMethod ASC,
+		CASE
+			WHEN TYPE IS NULL THEN 1
+			ELSE 0
+		END, TYPE ASC
+	</sql-dialect>
+</template>
+</query>

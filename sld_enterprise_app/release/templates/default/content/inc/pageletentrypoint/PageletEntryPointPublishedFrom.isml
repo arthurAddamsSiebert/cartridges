@@ -1,0 +1,64 @@
+<!--- TEMPLATENAME: PageletEntryPointPublishedFrom.isml --->
+<%@page import="com.intershop.component.foundation.capi.assignment.AssignmentStrategy"%>
+<%@page import="com.intershop.component.pmc.capi.pagelet.PageletEntryPoint"%>
+<%@page import="com.intershop.component.pmc.capi.pagelet.Pagelet"%>
+<%@page import="com.intershop.component.pmc.capi.pagelet.assignment.PageletPageletEntryPointAssignment"%>
+<%@page import="com.intershop.component.foundation.capi.assignment.AssignmentLookupStrategy"%>
+<%@page import="com.intershop.component.foundation.capi.assignment.Assignment"%>
+<%@page import="com.intershop.component.mvc.capi.catalog.Repository"%>
+<%@page import="com.intershop.beehive.core.capi.naming.NamingMgr"%>
+<%@page import="com.intershop.beehive.core.capi.common.Factory"%>
+<%@page import="java.util.Collection,java.util.Iterator"%>
+<%@page import="com.intershop.component.pmc.capi.sharing.ContentSharingHelper"%>
+<%@page import="com.intershop.beehive.orm.capi.common.ORMHelper"%>
+<iscontent type="text/html" compact="true" charset="UTF-8">
+<ISAssignmentStrategy AssignmentStrategy="AssignStrategy" PositionableHelper="PositionableHelper" FromClass="com.intershop.component.pmc.capi.pagelet.Pagelet" ToClass="com.intershop.component.pmc.capi.pagelet.PageletEntryPoint" Domain="#ContentRepository:RepositoryDomain#">
+<ISGetContentSharingHelper RepositoryDomain="#ContentRepository:RepositoryDomain#" ContentSharingHelper="SharingHelper">
+<%! 
+    private String getDomainCondition(ContentSharingHelper sharingHelper)
+    {
+    	String domainUUIDCondition="";
+    	Collection<String> domainUUIDs=sharingHelper.getDomainUUIDsAsSet();
+    	Iterator<?> domainUUIDsIterator=domainUUIDs.iterator();
+    	
+    	while(domainUUIDsIterator.hasNext())
+    	{
+    		String domainUUID=(String)domainUUIDsIterator.next();
+    		if(domainUUIDCondition!="")
+    			domainUUIDCondition=domainUUIDCondition+",";
+    		domainUUIDCondition=domainUUIDCondition+"'"+domainUUID+"'";
+    	}
+    	return domainUUIDCondition;
+    }
+%>
+<%
+    PageletEntryPoint pageletentrypoint = (PageletEntryPoint)getObject("PageletEntryPoint");
+    AssignmentStrategy strategy = (AssignmentStrategy)getObject("AssignStrategy");
+    Repository repository = (Repository)getObject("ContentRepository");
+    ContentSharingHelper sharingHelper = (ContentSharingHelper)getObject("SharingHelper");
+    if (pageletentrypoint != null && repository!= null)
+    {
+        Object args[]=new Object[1];
+        args[0]=pageletentrypoint.getUUID();
+        Class<? extends PageletPageletEntryPointAssignment> po=null;
+        po=(Class<? extends PageletPageletEntryPointAssignment>)strategy.getAssignmentClassByTo(pageletentrypoint);
+        Factory factory=NamingMgr.getInstance().lookupFactory(po);
+        Collection<?> objs=factory.getObjectsBySQLJoin("pagelet p",
+        "this.pageletid=p.uuid AND "+
+        "this.entrypointid=? AND "+
+        "this.domainid IN (" + getDomainCondition(sharingHelper) + ") AND "+
+        "this.onlineflag = 1 AND "+
+        "p.onlineflag = 1 ORDER BY "+
+		"CASE WHEN this.validfrom is null then 2 else 1 END,"+
+        "this.validfrom ASC"
+        ,args);
+        
+        Iterator<?> validFromDate_object=objs.iterator();
+        if(validFromDate_object.hasNext())
+        {
+        	PageletPageletEntryPointAssignment assignment=po.cast(validFromDate_object.next());
+        	getPipelineDictionary().put("MinPublishedFromDate", assignment.getValidFrom());
+        	ORMHelper.closeIterator(validFromDate_object);
+        }
+    }
+%>

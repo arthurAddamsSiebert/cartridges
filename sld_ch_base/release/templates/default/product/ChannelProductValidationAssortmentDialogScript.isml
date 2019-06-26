@@ -1,0 +1,211 @@
+<script type="text/javascript">
+$('form[name="ProductValidationAssortmentForm"]').on('submit', function(ev){ 
+    ev.preventDefault(); 
+    $('#'#'#applyAssortmentConfiguration').trigger( "click" ); 
+    return false;
+});
+
+$('#'#'#applyAssortmentConfiguration').click(function () {
+	var $dialog = $('#'#'#ProductValidationAssortmentDialog'),
+		$ok = $(this),
+		$form = $('form[name="ProductValidationAssortmentForm"]'),
+		params = $form.serialize(),
+		valid = true;
+		if($('#'#'#AssortmentDiv_com_intershop_component_product_validation_internal_assortment_ProductCategoryAssignmentAssortmentDescriptor').is(":visible"))
+	    {
+	    	params += getProductCategoryTreeAssortmentData();
+	    }
+	// disable button once clicked
+	$ok.prop('disabled', true);
+	// hide label error class
+	hideLabelErrors();
+		
+	$.post('#URL(Action('ViewProductValidationAssortmentConfiguration-CreateOrUpdateAssortment'))#', params)
+		.done(function (response) {
+			// this var is used for collecting error container ids of those error containers that should be shown
+			var errorContainerIDs = [],
+			validationAssortmentNotAvailable = false;
+			$.each(response, function (key, value) {
+			    if (!validationAssortmentNotAvailable) {
+			        if (key == 'ValidationAssortmentConfigurationNotFound') {
+			            validationAssortmentNotAvailable = true;
+			            return;
+			        }
+			        var formName = key;
+					$(this).each(function (key, value) {
+						if (value !== '') {
+							valid = false;
+							$('label[for="' + formName + '_' + value + '"]').addClass('label_error');
+							errorContainerIDs.push(formName + '_' + value + '_ErrorContainer');
+						}
+					});
+			    }
+			});
+			if (!validationAssortmentNotAvailable) {
+			    var firstErrorContainer;
+			 	// iterate each error container and check if it should be hidden or shown
+				$('.ErrorContainer').each(function () {
+					var id = $(this).attr('id');
+					if (errorContainerIDs.indexOf(id) == -1) {
+						$(this).hide();
+					}
+					else {
+					    if(typeof firstErrorContainer === 'undefined') {
+					        firstErrorContainer = $(this);
+					    }
+						$(this).show();
+					}
+				});
+					
+				// if validation is successful, close the dialog
+				if (valid) {
+					$dialog.dialog('close');
+					window.location.href = '#URL(Action('ViewProductValidationAssortmentList-Refresh'))#';
+				}
+				else if (typeof firstErrorContainer != 'undefined')
+				{
+				    var targetPosition = firstErrorContainer.position();
+				 	var scrolPosition = $('.dialog-content').scrollTop() + targetPosition.top;
+				 	$('.dialog-content').scrollTop(scrolPosition);    
+				}
+			} else {
+			    $dialog.dialog('close');
+			    window.location.href = '#URL(Action('ViewProductValidationAssortmentList-Refresh'), Parameter('validationAssortmentNotAvailable', 'true'))#';
+			}
+			// now enable ok button to make it available for submitting new data
+			$ok.prop('disabled', false);
+		}
+	);
+});
+
+// open dialog
+$('#'#'#ProductValidationAssortmentDialog').on('dialogopen', function() {
+	<isif condition="#NOT isDefined(CurrentChannelPermissionMap:SLD_MANAGE_PRODUCTS)#">
+		$('.assortment_configuration_input').prop('disabled', 'disabled');
+	</isif>
+});
+
+// close dialog
+$('#'#'#ProductValidationAssortmentDialog').on('dialogclose', function() {
+	resetFormInputs();
+	hideLabelErrors();
+	hideErrors();
+	hideAllAssortmentDivs();
+	// enable assortment type select box
+	$('#'#'#ProductValidationAssortmentConfigurationForm_AssortmentType').prop('disabled', false);
+});
+
+// reset all form inputs that meet the conditions
+function resetFormInputs() {
+	$(':input', '#'#'#ProductValidationAssortmentForm').each(function (){
+		var name = $(this).attr('name');
+		var type = $(this).attr('type');
+		if (!(type === 'hidden' && name === 'SynchronizerToken')) {
+			if (!$(this).is(':checkbox') && !(type === 'button')) {
+				$(this).val('');
+			}
+			$(this).removeAttr('checked').removeAttr('selected');
+		}
+	});
+}
+
+//binds change callback function for assortment type selection box
+$('#'#'#ProductValidationAssortmentConfigurationForm_AssortmentType').on('change', function (ev) {
+	var value = $(this).val();
+	if (value === '') {
+		// hide all assortment divs
+		$('.AssortmentDiv').each(function () {
+			$(this).hide();
+		});
+		return;
+	}
+
+	// show the currently active assortment div and enable inputs in it
+	var assortmentDescriptorID = '#'#'#AssortmentDiv_' + value;
+	var assortmentDiv = $(assortmentDescriptorID);
+	assortmentDiv.find('input,select').each(function () {
+		$(this).prop('disabled', false);
+	});
+	
+	$.ajax({
+		cache:false,
+		dataType: 'html',
+		success: function(data, textStatus, jqXHR) {
+			if (data) {					
+				// TODO trigger onJSONReady event
+				if(data.length > 3)
+			    {
+				    $(assortmentDiv).html(data);
+			    }
+				
+				assortmentDiv.show();
+				
+				// TODO trigger onJSONReady event
+			} else {
+			    window.location.href = '#URL(Action('ViewProductValidationAssortmentList-Refresh'), Parameter('validationAssortmentNotAvailable', 'true'))#';
+			}
+		},
+		url: '#URL(Action('ViewProductValidationAssortmentConfiguration-GetValidationAssortmentConfiguration'))#',
+		data: $(this).attr('name') + "=" + value
+	});
+
+	// disable inactive assortment divs inputs		
+	disableInactiveAssortmentDivsInputs(value);
+});
+
+//disable inputs of all currently inactive assortment divs and hide the divs
+function disableInactiveAssortmentDivsInputs(value) {
+	$('.AssortmentDiv').each(function () {
+		if (('AssortmentDiv_' + value) !== $(this).attr('id')) {
+			$(this).find('input,select').prop('disabled', 'disabled');
+			$(this).hide();
+		}
+	});
+}
+
+// hides all assortment divs
+function hideAllAssortmentDivs() {
+	$('.AssortmentDiv').hide();
+}
+
+// enables all elements in the assortment divs
+function enableAssortmentDivsElements() {
+	$('.AssortmentDiv').find('*').prop('disabled', false);
+}
+
+// gets the data for selected categories from the tree
+function getProductCategoryTreeAssortmentData()
+{
+    var formData = '';
+    var tree = $('#'#'#tree').dynatree('getTree'),
+   	treeData = tree.serializeArray(),
+   	checkedCategories = []; 
+   	
+   	for (var i = 0, l = treeData.length; i < l; i++) {
+   		var nodeData = tree.getNodeByKey(treeData[i].value).data;
+   		// Don't submit a selected node if it is 'root' node (should one exist at all) or if it is disabled.
+   		if (treeData[i].value !== "root" && !nodeData.unselectable) {
+   			if(treeData[i].value.length > 0) {
+   				checkedCategories.push(treeData[i].value);
+   			}
+   		}	 
+   	}
+   	formData = '&tree='+ checkedCategories.join();
+    return formData;
+}
+
+// remove label_error class
+function hideLabelErrors() {
+	$('label.label_error').removeClass('label_error');
+}
+
+// hide errors
+function hideErrors() {
+	$('.ErrorContainer').hide();
+}
+
+// replaces all occurances of find with replace in the given str
+function replaceAll(find, replace, str) {
+	return str.replace(new RegExp(find, 'g'), replace);
+}
+</script>

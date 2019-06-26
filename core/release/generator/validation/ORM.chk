@@ -1,0 +1,339 @@
+import edl;
+extension util::EDLUtil;
+extension util::JavaUtil;
+
+/*
+ * Validates an ORM model.
+ */
+
+/*
+ * ORM Class Checks
+ */
+
+context EDLORMType if (name != null)
+	ERROR "[ORM_CLASS_NAME_NOT_JAVA_ID] The class name '" + name + "' is not a valid Java identifier.":
+	name.unescape().isValidJavaIdentifier();
+
+context EDLORMType if (name != null)
+	WARNING "[ORM_CLASS_NAME_RESERVED_JAVA_KEYWORD] The class name '" + name + "' is a reserved Java keyword.":
+	!name.unescape().isJavaKeyword();
+
+context EDLORMType
+	ERROR "[ORM_CLASS_CYCLIC_INHERITANCE] The class '" + name + "' cannot inherit from itself.":
+	!this.isSubClass(this);
+
+context EDLORMType if (!this.isSubClass(this))
+	ERROR "[ORM_CLASS_MEMBER_NAMES_NOT_UNIQUE] The member names are not unique.":
+	this.getAllMembers().forAll(m | this.getAllMembers().select(x | x.name == m.name).size == 1);
+
+context EDLORMType if (tableName != null)
+	WARNING "[ORM_CLASS_ABSTRACT_BUT_TABLE] The class '" + name + "' is abstract, but has a table name.":
+	!this.modifiers.contains(EDLORMTypeModifier::abstract);
+
+context EDLORMType if (!this.modifiers.contains(EDLORMTypeModifier::abstract))
+	ERROR "[ORM_CLASS_NOT_ABSTRACT_BUT_NO_TABLE] The class '" + name + "' is not abstract, but has no table name.":
+	(tableName != null) && (tableName.trim().length > 0);
+
+context EDLORMType if (tableName != null)
+	ERROR "[ORM_CLASS_TABLE_NAME_TOO_LONG] The table name '" + tableName + "' of class '" + name + "' exceeds the maximum identifier length of 30 characters.":
+	(tableName.trim().length <= 30);
+
+context EDLORMType if (isSubClass("com.intershop.beehive.core.capi.domain.ExtensibleObjectPO") && (tableName != null))
+	WARNING "[ORM_CLASS_AV_TABLE_NAME_TRUNCATED] The table name '" + tableName + "' of extensible object class '" + name + "' will be truncated to create the '_AV' table name. Verify possible naming collisions with table names of other classes.":
+	(tableName.trim().length <= 20);
+
+context EDLORMType if (isImplementor("com.intershop.beehive.core.capi.security.AuthorizationObject") && (tableName != null))
+	WARNING "[ORM_CLASS_RA_TABLE_NAME_TRUNCATED] The table name '" + tableName + "' of authorization object class '" + name + "' will be truncated to create the '_RA' table name. Verify possible naming collisions with table names of other classes.":
+	(tableName.trim().length <= 20);
+
+context EDLORMType if (isImplementor("com.intershop.beehive.core.capi.replication.ReplicationObject") && (tableName != null))
+	WARNING "[ORM_CLASS_RT_TABLE_NAME_TRUNCATED] The table name '" + tableName + "' of replication object class '" + name + "' will be truncated to create the '_RT' table name. Verify possible naming collisions with table names of other classes.":
+	(tableName.trim().length <= 20);
+
+context EDLORMType if (superClass == null)
+	ERROR "[ORM_CLASS_NO_PRIMARY_KEY] The class '" + name + "' has no superclass, but does not define a primary key.":
+	primaryKey != null;
+
+context EDLORMType if (superClass != null)
+	ERROR "[ORM_CLASS_PRIMARY_KEY_IN_SUBCLASS] The class '" + name + "' has a superclass, but defines a primary key.":
+	primaryKey == null;
+
+/* too strict for existing code
+context EDLORMType if (superClass != null)
+	ERROR "[ORM_CLASS_SEMANTIC_KEY_IN_SUBCLASS] The class '" + name + "' has a superclass, but defines a semantic key.":
+	semanticKey == null;
+*/
+
+context EDLORMType if (superClass != null)
+	WARNING "[ORM_CLASS_SEMANTIC_KEY_NOT_SUPPORTED] The class '" + name + "' has a semantic key, but this is currently not supported by the code generator. Consider using an alternate key or a unique index.":
+	semanticKey == null;
+
+context EDLORMType if (alternateKey != null)
+	ERROR "[ORM_CLASS_MULTIPLE_ALTERNATE_KEYS] The class '" + name + "' defines an alternate key, but there exists already an alternate key in a superclass.":
+	getAllSuperClasses().notExists(s | s.alternateKey != null);
+
+context EDLORMType
+	WARNING "[ORM_CLASS_MODIFIERS_NOT_UNIQUE] The class modifiers are not unique.":
+	modifiers.forAll(m | modifiers.select(x | x == m).size == 1);
+
+context EDLORMType if (superClass != null)
+	ERROR "[ORM_CLASS_OCA_IN_SUBCLASS] The class '" + name + "' has a superclass, but defines an OCA attribute.":
+	!modifiers.contains(EDLORMTypeModifier::oca);
+
+context EDLORMType if (!this.isSubClass(this))
+	ERROR "[ORM_CLASS_NOT_ABSTRACT_SUPERCLASS] The class '" + name + "' has a superclass which is not abstract.":
+	!getAllSuperClasses().exists(s | !s.modifiers.contains(EDLORMTypeModifier::abstract));
+
+context EDLORMType if (!this.isSubClass(this) && getAllSuperClasses().size == 0)
+	WARNING "[ORM_CLASS_NO_OCA] The class '" + name + "' does not have an OCA attribute.":
+	modifiers.contains(EDLORMTypeModifier::oca);
+
+context EDLORMType if (!this.isSubClass(this) && modifiers.contains(EDLORMTypeModifier::timestamp))
+	ERROR "[ORM_CLASS_MULTIPLE_TIMESTAMPS] The class '" + name + "' enables modification time tracking, but this is already done in one of its superclasses.":
+	!getAllSuperClasses().exists(s | s.modifiers.contains(EDLORMTypeModifier::timestamp));
+
+/*
+ * ORM Primary Key Checks
+ */
+
+context EDLORMPrimaryKey
+	ERROR "[ORM_PRIMARY_KEY_NO_ATTRIBUTES] The primary key does not have any primary key attributes.":
+	primaryKeyAttributes.size > 0;
+
+context EDLORMPrimaryKey
+	ERROR "[ORM_PRIMARY_KEY_ATTRIBUTES_NOT_UNIQUE] The primary key attributes are not unique.":
+	primaryKeyAttributes.forAll(a | primaryKeyAttributes.select(x | x.name == a.name).size == 1);
+
+context EDLORMPrimaryKey
+	ERROR "[ORM_PRIMARY_KEY_ATTRIBUTES_NOT_CONTAINED] The primary key attributes are not contained by the same class.":
+	!primaryKeyAttributes.exists(a | a.eContainer != eContainer);
+
+context EDLORMPrimaryKey
+	ERROR "[ORM_PRIMARY_KEY_ATTRIBUTES_IN_SUBCLASS] The primary key attribute does not belong to a base class.":
+	!primaryKeyAttributes.exists(a | ((EDLORMType) a.eContainer).superClass != null);
+
+/*
+ * ORM Semantic Key Checks
+ */
+
+context EDLORMSemanticKey
+	ERROR "[ORM_SEMANTIC_KEY_NO_ATTRIBUTES] The semantic key does not have any semantic key attributes.":
+	semanticKeyAttributes.size > 0;
+
+context EDLORMSemanticKey
+	ERROR "[ORM_SEMANTIC_KEY_ATTRIBUTES_NOT_UNIQUE] The semantic key attributes are not unique.":
+	semanticKeyAttributes.forAll(a | semanticKeyAttributes.select(x | x.name == a.name).size == 1);
+
+/* too strict for existing code
+context EDLORMSemanticKey
+    ERROR "[ORM_SEMANTIC_KEY_ATTRIBUTES_NOT_CONTAINED] The semantic key attributes are not contained by the same class.":
+    !semanticKeyAttributes.exists(a | a.eContainer != eContainer);
+
+context EDLORMSemanticKey
+	ERROR "[ORM_SEMANTIC_KEY_ATTRIBUTES_IN_SUBCLASS] The semantic key attribute does not belong to a base class.":
+	!semanticKeyAttributes.exists(a | ((EDLORMType) a.eContainer).superClass != null);
+*/
+
+/*
+ * ORM Alternate Key Checks
+ */
+
+context EDLORMAlternateKey
+	ERROR "[ORM_ALTERNATE_KEY_NO_ATTRIBUTES] The alternate key does not have any alternate key attributes.":
+	attributes.size > 0;
+
+context EDLORMAlternateKey
+	ERROR "[ORM_ALTERNATE_KEY_ATTRIBUTES_NOT_UNIQUE] The alternate key attributes are not unique.":
+	attributes.forAll(a | attributes.select(x | x.name == a.name).size == 1);
+
+/*
+ * ORM Index Checks
+ */
+ 
+context EDLORMIndex
+	ERROR "[ORM_INDEX_ATTRIBUTES_NOT_UNIQUE] The index attributes are not unique.":
+	indexAttributes.forAll(a | indexAttributes.select(x | x.name == a.name).size == 1);
+
+context EDLORMIndex
+	WARNING "[ORM_INDEX_MODIFIERS_NOT_UNIQUE] The index modifiers are not unique.":
+	modifiers.forAll(m | modifiers.select(x | x == m).size == 1);
+
+context EDLORMIndex
+	ERROR "[ORM_INDEX_ATTRIBUTE_NOT_CONTAINED] The index attribute does not belong to this class.":
+	!indexAttributes.exists(a | !((EDLORMType) eContainer).getAllAttributes().contains(a));
+
+/*
+ * ORM Attribute Checks
+ */
+
+context EDLORMAttribute if (name != null)
+	WARNING "[ORM_ATTRIBUTE_NAME_RESERVED_JAVA_KEYWORD] The attribute name '" + name + "' is a reserved Java keyword.":
+	!name.unescape().isJavaKeyword();
+
+context EDLORMAttribute if (name != null)
+	ERROR "[ORM_ATTRIBUTE_NAME_TOO_LONG] The attribute name '" + name + "' exceeds the maximum identifier length of 30 characters.":
+	(name.trim().length <= 30);
+
+context EDLORMAttribute if (name != null)
+	ERROR "[ORM_ATTRIBUTE_NAME_NOT_JAVA_ID] The attribute name '" + name + "' is not a valid Java identifier.":
+	name.unescape().isValidJavaIdentifier();
+
+context EDLORMAttribute
+	WARNING "[ORM_ATTRIBUTE_MODIFIERS_NOT_UNIQUE] The attribute modifiers are not unique.":
+	modifiers.forAll(m | modifiers.select(x | x == m).size == 1);
+
+context EDLORMAttribute if ((type != null) && (type.metaType == EDLExternalType))
+	ERROR "[ORM_ATTRIBUTE_NO_HANDLER] The attribute '" + name + "' has an external type, but does not define a custom handler.":
+	type.getClassName().isValidAttributeType() || (handler != null);
+
+context EDLORMAttribute if ((type != null) && (type.metaType == EDLPrimitiveType))
+	ERROR "[ORM_ATTRIBUTE_TYPE_NOT_SUPPORTED] The attribute type is not supported.":
+	type.getClassName().isValidAttributeType();
+
+context EDLORMAttribute if ((defaultValue != null) && (type.getClassName() == "boolean"))
+	ERROR "[ORM_ATTRIBUTE_WRONG_BOOLEAN_DEFAULT] The boolean attribute '" + name + "' can only have a boolean default value.":
+	defaultValue.metaType == EDLBooleanLiteral;	
+
+context EDLORMAttribute
+	ERROR "[ORM_ATTRIBUTE_NEGATIVE_LENGTH] The attribute length may not be negative.":
+	length >= 0;
+
+context EDLORMAttribute if (modifiers.contains(EDLORMAttributeModifier::searchable))
+	ERROR "[ORM_ATTRIBUTE_NOT_SEARCHABLE] Localized or mapped attributes cannot be searchable.":
+	!modifiers.contains(EDLORMAttributeModifier::localized) && !modifiers.contains(EDLORMAttributeModifier::mapped);
+
+context EDLORMAttribute if (name != null)
+	ERROR "[ORM_ATTRIBUTE_NAME_EMPTY] The attribute name is empty.":
+	name.unescape().length > 0;
+
+context EDLORMAttribute if (name != null)
+	ERROR "[ORM_ATTRIBUTE_NAME_RESERVED_PROPERTY] The attribute name '" + name + "' is a reserved ORM property that cannot be overridden.":
+	!isReservedAttributeName();
+
+context EDLORMAttribute if (modifiers.contains(EDLORMAttributeModifier::mapped))
+	ERROR "[ORM_ATTRIBUTE_TYPE_NOT_SUPPORTED] The attribute type is not supported for mapped attributes.":
+	type.getClassName().isValidEOAttributeType();
+
+context EDLORMAttribute if (modifiers.contains(EDLORMAttributeModifier::localized))
+	ERROR "[ORM_ATTRIBUTE_TYPE_NOT_SUPPORTED] The attribute type is not supported for localized attributes.":
+	type.getClassName().isValidEOAttributeType();
+
+context EDLORMAttribute if (modifiers.contains(EDLORMAttributeModifier::replicated))
+	ERROR "[ORM_ATTRIBUTE_TYPE_NOT_SUPPORTED] The attribute type is not supported for replicated attributes.":
+	type.getClassName().isValidEOAttributeType();
+
+/*
+ * ORM Relation Checks
+ */
+
+context EDLORMRelation if (name != null)
+	ERROR "[ORM_RELATION_NAME_EMPTY] The relation name is empty.":
+	name.unescape().length > 0;
+
+context EDLORMRelation if (name != null)
+	WARNING "[ORM_RELATION_NAME_RESERVED_JAVA_KEYWORD] The relation name '" + name + "' is a reserved Java keyword.":
+	!name.unescape().isJavaKeyword();
+
+context EDLORMRelation if (name != null)
+	ERROR "[ORM_RELATION_NAME_NOT_JAVA_ID] The relation name '" + name + "' is not a valid Java identifier.":
+	name.unescape().isValidJavaIdentifier();
+
+context EDLORMRelation
+	WARNING "[ORM_RELATION_MODIFIERS_NOT_UNIQUE] The relation modifiers are not unique.":
+	modifiers.forAll(m | modifiers.select(x | x == m).size == 1);
+
+context EDLORMRelation if (inverseRelation != null)
+	ERROR "[ORM_RELATION_INVERSE_NOT_MATCHING] The inverse relation of relation '" + name + "' does not point back to this relation.":
+	this == inverseRelation.inverseRelation;
+
+context EDLORMRelation if ((inverseRelation != null) && (deleteAction != null) && (inverseRelation.deleteAction != null))
+	ERROR "[ORM_RELATION_BOTH_BLOCK] The relation '" + name + "' and its inverse relation cannot both have the delete action 'block'.":
+	deleteAction != EDLORMDeleteAction::block || inverseRelation.deleteAction != EDLORMDeleteAction::block;
+
+context EDLORMRelation if ((inverseRelation != null) && (deleteAction != null) && (inverseRelation.deleteAction != null))
+	ERROR "[ORM_RELATION_BOTH_PROPAGATE] The relation '" + name + "' and its inverse relation cannot both have the delete action 'propagate'.":
+	deleteAction != EDLORMDeleteAction::propagate || inverseRelation.deleteAction != EDLORMDeleteAction::propagate;
+
+context EDLORMRelation if ((inverseRelation != null) && (inverseRelation.cardinality == EDLORMRelationCardinality::zeroToMany))
+	ERROR "[ORM_RELATION_WRONG_PROPAGATE] Cannot propagate the deletion of a member of a 0..n inverse relation.":
+	deleteAction != EDLORMDeleteAction::propagate;
+
+context EDLORMRelation
+	ERROR "[ORM_RELATION_BOTH_ONE] The relation '" + name + "' and its inverse relation cannot both have the cardinality '1..1'.":
+	(cardinality != EDLORMRelationCardinality::oneToOne) || (inverseRelation.cardinality != EDLORMRelationCardinality::oneToOne);
+
+context EDLORMRelation
+	ERROR "[ORM_RELATION_BOTH_MANY] The relation '" + name + "' and its inverse relation cannot both have the cardinality '0..n'.":
+	(cardinality != EDLORMRelationCardinality::zeroToMany) || (inverseRelation.cardinality != EDLORMRelationCardinality::zeroToMany);
+
+context EDLORMRelation if (inverseRelation == null)
+	ERROR "[ORM_RELATION_NO_FOREIGN_KEY] The relation '" + name + "' has no foreign key.":
+	foreignKey != null;
+	
+context EDLORMRelation if (inverseRelation != null)
+	ERROR "[ORM_RELATION_BOTH_NO_FOREIGN_KEY] The relation '" + name + "' or its inverse relation has no foreign key.":
+	(foreignKey != null) || (inverseRelation.foreignKey != null);
+
+context EDLORMRelation if (inverseRelation != null)
+	ERROR "[ORM_RELATION_BOTH_FOREIGN_KEY] The relation '" + name + "' and its inverse relation cannot not both declare a foreign key.":
+	(foreignKey == null) || (inverseRelation.foreignKey == null);
+
+/*
+ * ORM Foreign Key Checks
+ */
+
+context EDLORMForeignKey
+	ERROR "[ORM_FOREIGN_KEY_NO_SOURCE_ATTRIBUTES] There are no source attributes.":
+	sourceAttributes.size > 0;
+
+context EDLORMForeignKey
+	ERROR "[ORM_FOREIGN_KEY_NO_TARGET_ATTRIBUTES] There are no target attributes.":
+	targetAttributes.size > 0;
+
+context EDLORMForeignKey
+	ERROR "[ORM_FOREIGN_KEY_ATTRIBUTES_NOT_MATCHING] The number of source attributes does not match the number of target attributes.":
+	sourceAttributes.size == targetAttributes.size;
+
+context EDLORMForeignKey
+	ERROR "[ORM_FOREIGN_KEY_TARGET_ATTRIBUTE_NOT_PRIMARY_KEY] The target attribute is not part of the primary key.":
+	!targetAttributes.exists(a | !a.isPrimaryKey());
+
+context EDLORMForeignKey
+	ERROR "[ORM_FOREIGN_KEY_SOURCE_ATTRIBUTES_NOT_UNIQUE] The source attributes are not unique.":
+	sourceAttributes.forAll(a | sourceAttributes.select(x | x == a).size == 1);
+
+context EDLORMForeignKey
+	ERROR "[ORM_FOREIGN_KEY_TARGET_ATTRIBUTES_NOT_UNIQUE] The target attributes are not unique.":
+	targetAttributes.forAll(a | targetAttributes.select(x | x == a).size == 1);
+
+context EDLORMForeignKey
+	ERROR "[ORM_FOREIGN_KEY_ATTRIBUTE_TYPES_NOT_MATCHING] The type of the source attributes does not match the type of the target attribute.":
+	!sourceAttributes.exists(a | a.type.getClassName() != targetAttributes.get(sourceAttributes.indexOf(a)).type.getClassName());
+
+/*
+ * ORM Dependency Checks
+ */
+
+context EDLORMDependency if (name != null)
+	ERROR "[ORM_DEPENDENCY_NAME_EMPTY] The dependency name is empty.":
+	name.unescape().length > 0;
+
+context EDLORMDependency if (name != null)
+	WARNING "[ORM_DEPENDENCY_NAME_RESERVED_JAVA_KEYWORD] The dependency name '" + name + "' is a reserved Java keyword.":
+	!name.unescape().isJavaKeyword();
+
+context EDLORMDependency if (name != null)
+	ERROR "[ORM_DEPENDENCY_NAME_NOT_JAVA_ID] The dependency name '" + name + "' is not a valid Java identifier.":
+	name.unescape().isValidJavaIdentifier();
+
+context EDLORMDependency
+	ERROR "[ORM_DEPENDENCY_NO_FOREIGN_KEY] The dependency '" + name + "' does not have a foreign key.":
+	foreignKeyAttribute != null;
+
+context EDLORMDependency
+	ERROR "[ORM_DEPENDENCY_FOREIGN_KEY_NOT_CONTAINED] The foreign key attribute does not belong to the owning class of the dependency.":
+	((EDLORMType) eContainer).getAllAttributes().contains(foreignKeyAttribute);
+
+context EDLORMDependency if ((type != null) && (type.metaType != EDLORMType))
+	ERROR "[ORM_DEPENDENCY_NO_HANDLER] The dependency '" + name + "' points to a non-ORM type, but does not define a handler.":
+	handler != null;

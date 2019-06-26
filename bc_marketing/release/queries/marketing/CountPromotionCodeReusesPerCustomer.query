@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ConsumerUUID" type="java.lang.String" optional="false"/>
+	<parameter name="Code" type="java.lang.String" optional="false"/>
+	<parameter name="IncludeReservations" type="java.lang.Boolean" optional="true"/>
+	<parameter name="CurrentDate" type="java.util.Date" optional="true" description="The expiration time is checked based on this Date."/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="count">
+	SELECT count(uuid) as REUSESPERCUSTOMERCOUNT
+	FROM (
+		SELECT pc.uuid 
+		FROM promotioncode pc
+		INNER JOIN promotioncodeorderassignment pcoa on pcoa.promotioncodeuuid = pc.uuid
+		WHERE
+		pc.code = <template-variable value="Code"/>
+		AND
+		pcoa.userid = <template-variable value="ConsumerUUID"/>
+
+		<template-if condition="isDefined(IncludeReservations) AND IncludeReservations AND isDefined(CurrentDate)">
+			UNION ALL
+			SELECT pc.uuid 
+			FROM promotioncode pc
+			INNER JOIN promotioncodebasketreservation pcbr on pcbr.promotioncodeuuid = pc.uuid
+			WHERE
+			pc.code = <template-variable value="Code"/>
+			AND
+			pcbr.userid = <template-variable value="ConsumerUUID"/>
+			AND
+			pcbr.EXPIRATIONDATE&gt;<template-variable value="CurrentDate"/>
+		</template-if>	  
+	) a
+</template>
+</query>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="NameSearchString" type="java.lang.String" optional="false"/>
+	<parameter name="StartDate" type="java.util.Date" optional="false"/>
+	<parameter name="EndDate" type="java.util.Date" optional="false"/>
+	<parameter name="StateSearchString" type="java.lang.String" optional="false"/>
+	<parameter name="TypeSearchString" type="java.lang.String" optional="false"/>
+	<parameter name="Today" type="java.util.Date" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Process" type="orm" class="com.intershop.beehive.core.internal.locking.ProcessPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects" sqlDialect="Oracle">
+	SELECT UUID, COUNT(UUID) over() as "ROWCOUNT"
+	FROM PROCESS WHERE
+	upper(name) LIKE upper(<template-variable value="NameSearchString"/>)
+	AND (startdate BETWEEN <template-variable value="StartDate"/> AND <template-variable value="EndDate"/> 
+	OR nvl(enddate,<template-variable value="Today"/>) BETWEEN <template-variable value="StartDate"/> AND <template-variable value="EndDate"/> 
+	OR startdate &lt;= <template-variable value="StartDate"/> AND nvl(enddate,<template-variable value="Today"/>) &gt;= <template-variable value="EndDate"/> )
+	AND startdate IS NOT NULL 
+	AND ( state = <template-variable value="StateSearchString"/> OR 'All States' = <template-variable value="StateSearchString"/>) 
+	AND ( type = <template-variable value="TypeSearchString"/> OR 'All Types' = <template-variable value="TypeSearchString"/>) 
+	ORDER BY startdate, enddate DESC NULLS LAST
+</template>
+<template type="countedobjects" sqlDialect="Microsoft">
+	SELECT UUID, COUNT(UUID) over() as "ROWCOUNT"
+	FROM PROCESS WHERE
+	upper(name) LIKE upper(<template-variable value="NameSearchString"/>)
+	AND (startdate BETWEEN <template-variable value="StartDate"/> AND <template-variable value="EndDate"/> 
+	OR isNull(enddate,<template-variable value="Today"/>) BETWEEN <template-variable value="StartDate"/> AND <template-variable value="EndDate"/> 
+	OR startdate &lt;= <template-variable value="StartDate"/> AND isNull(enddate,<template-variable value="Today"/>) &gt;= <template-variable value="EndDate"/> )
+	AND startdate IS NOT NULL 
+	AND ( state = <template-variable value="StateSearchString"/> OR 'All States' = <template-variable value="StateSearchString"/>) 
+	AND ( type = <template-variable value="TypeSearchString"/> OR 'All Types' = <template-variable value="TypeSearchString"/>) 
+	ORDER BY 
+	CASE
+		WHEN startdate is null then 1
+		ELSE 0
+	END,
+	CASE
+		WHEN enddate is null then 1
+		ELSE 0
+	END,
+	startdate, enddate DESC
+</template>
+</query>

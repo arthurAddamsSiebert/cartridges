@@ -1,0 +1,552 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Show Payment History
+@Group Order-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ViewPaymentHistory" type="view">
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" name="Dispatch">
+    <nodeSuccessors name="next" next="DispatchFormAction4"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DispatchFormAction4">
+    <configurationValues name="OutValue_0" value="ViewPaymentHistory-PaymentCapture"/>
+    <configurationValues name="OutValue_1" value="ViewPaymentHistory-PaymentCancel"/>
+    <configurationValues name="OutValue_2" value="ViewPaymentHistory-PaymentRefund"/>
+    <configurationValues name="OutValue_3" value="ViewPaymentHistory-PaymentReauthorize"/>
+    <configurationValues name="OutValue_4" value="ViewPaymentHistory-PaymentReduce"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/DispatchFormAction.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+<!--@BendPoints 11,5-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue0"/>
+    <parameterBindings name="Key_0" objectPath="capture"/>
+    <parameterBindings name="Key_1" objectPath="cancel"/>
+    <parameterBindings name="Key_2" objectPath="refund"/>
+    <parameterBindings name="Key_3" objectPath="reauthorize"/>
+    <parameterBindings name="Key_4" objectPath="reduce"/>
+    <returnValueBindings name="SelectionKey" objectPath="JumpTarget"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="Jump18"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump18">
+    <startNode referencedName="SecureJump-Start"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue0">
+    <configurationValues name="Name" value="JumpTarget"/>
+    <configurationValues name="Value" value="ViewPaymentHistory-ShowPaymentHistory"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 11,9-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetPaymentTransactionBO"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper3"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="PaymentTransactionUUID" type="java.lang.String"/>
+    <parameters name="OrderID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetOrderBO2"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;OrderBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="OrderBORepository"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderBO2">
+    <pipelet href="enfinity:/bc_order/pipelets/GetOrderBO.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="OrderBO:Extension(&quot;Payment&quot;):PaymentTransactionBOs">
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <entry key="PaymentTransactionBO">
+<!--@BendPoints 5,10-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode1"/>
+    </entry>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="PaymentTransactionBO:ID"
+      operator="str_eq" conditionItem="PaymentTransactionUUID">
+    <nodeSuccessors name="decision_yes" next="EndNode1"/>
+<!--@BendPoints 5,12 4,12 4,9-->
+    <nodeSuccessors name="decision_no" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="PaymentTransactionBO" type="com.intershop.component.payment.capi.PaymentTransactionBO"/>
+    <returnValues name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="Error" strict="true"/>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" name="PaymentCancel">
+    <nodeSuccessors name="next" next="CallNode3"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="CallNode4"/>
+<!--@BendPoints 15,17-->
+    <nodeSuccessors name="Error" next="LogMessage7"/>
+    <startNode referencedName="ViewPaymentHistory-GetPaymentTransactionBO"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="LogMessage1"/>
+    <nodeSuccessors name="Error" next="LogMessage1"/>
+    <nodeSuccessors name="Pending" next="LogMessage1"/>
+    <parameterBindings name="PaymentBO" objectPath="PaymentTransactionBO:PaymentBO"/>
+    <startNode referencedName="ProcessPayment-Cancel"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage1">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentRequest:ServletRequest:LocalAddr"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentOrganization:Domain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam3" objectPath="Result:State"/>
+    <parameterBindings name="MessageParam4" objectPath="PaymentTransactionBO:PaymentBO:PaymentServiceBO:PaymentServiceID"/>
+    <parameterBindings name="MessageText" constant="{} : {} : {} : Payment Action - Payment Cancellation: {}; Payment Service ID: {}"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="Jump22"/>
+  </nodes>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump22">
+    <startNode referencedName="ViewPaymentHistory-ShowPaymentHistory"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage7">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 15,23-->
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentRequest:ServletRequest:LocalAddr"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentOrganization:Domain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam3" objectPath="PaymentTransactionUUID"/>
+    <parameterBindings name="MessageText" constant="{} : {} : {} : Payment Action - Payment Cancel ERROR: No Payment Transaction found for {}"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" name="PaymentCapture">
+    <nodeSuccessors name="next" next="CallNode2"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="CallNode0"/>
+<!--@BendPoints 9,17-->
+    <nodeSuccessors name="Error" next="LogMessage6"/>
+    <startNode referencedName="ViewPaymentHistory-GetPaymentTransactionBO"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="LogMessage4"/>
+    <nodeSuccessors name="Error" next="LogMessage4"/>
+    <nodeSuccessors name="Pending" next="LogMessage4"/>
+    <parameterBindings name="PaymentBO" objectPath="PaymentTransactionBO:PaymentBO"/>
+    <startNode referencedName="ProcessPayment-Capture"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage4">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentRequest:ServletRequest:LocalAddr"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentOrganization:Domain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam3" objectPath="Result:State"/>
+    <parameterBindings name="MessageParam4" objectPath="PaymentTransactionBO:PaymentBO:PaymentServiceBO:PaymentServiceID"/>
+    <parameterBindings name="MessageText" constant="{} : {} : {} : Payment Action - Payment Capture: {}; Payment Service ID: {}"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="Jump21"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump21">
+    <startNode referencedName="ViewPaymentHistory-ShowPaymentHistory"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage6">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 9,23-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentRequest:ServletRequest:LocalAddr"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentOrganization:Domain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam3" objectPath="PaymentTransactionUUID"/>
+    <parameterBindings name="MessageText" constant="{} : {} : {} : Payment Action - Payment Capture ERROR: No Payment Transaction found for {}"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="PaymentReauthorize">
+    <nodeSuccessors name="next" next="CallNode14"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode14">
+    <nodeSuccessors name="next" next="CallNode13"/>
+<!--@BendPoints 3,17-->
+    <nodeSuccessors name="Error" next="LogMessage2"/>
+    <startNode referencedName="ViewPaymentHistory-GetPaymentTransactionBO"/>
+  </nodes>
+<!--@Location 0,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode13">
+    <nodeSuccessors name="next" next="LogMessage0"/>
+    <nodeSuccessors name="Error" next="LogMessage0"/>
+    <nodeSuccessors name="Pending" next="LogMessage0"/>
+    <parameterBindings name="PaymentBO" objectPath="PaymentTransactionBO:PaymentBO"/>
+    <startNode referencedName="ProcessPayment-Authorize"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage0">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentRequest:ServletRequest:LocalAddr"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentOrganization:Domain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam3" objectPath="Result:State"/>
+    <parameterBindings name="MessageParam4" objectPath="PaymentTransactionBO:PaymentBO:PaymentServiceBO:PaymentServiceID"/>
+    <parameterBindings name="MessageText" constant="{} : {} : {} : Payment Action - Payment Reauthorization: {}; Payment Service ID: {}"/>
+  </nodes>
+<!--@Location 0,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JumpNode0"/>
+  </nodes>
+<!--@Location 0,12-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode0">
+    <startNode referencedName="ViewPaymentHistory-ShowPaymentHistory"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage2">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 3,23-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentRequest:ServletRequest:LocalAddr"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentOrganization:Domain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam3" objectPath="PaymentTransactionUUID"/>
+    <parameterBindings name="MessageText" constant="{} : {} : {} : Payment Action - Payment Reauthorization ERROR: No Payment Transaction found for {}"/>
+  </nodes>
+<!--@Location 17,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" name="PaymentReduce">
+    <nodeSuccessors name="next" next="CallNode7"/>
+  </nodes>
+<!--@Location 17,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="VerifyMoney2"/>
+<!--@BendPoints 39,17-->
+    <nodeSuccessors name="Error" next="LogMessage15"/>
+    <startNode referencedName="ViewPaymentHistory-GetPaymentTransactionBO"/>
+  </nodes>
+<!--@Location 17,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyMoney2">
+    <configurationValues name="MinValue" value="0"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyMoney.xml"/>
+    <nodeSuccessors name="next" next="CallNode8"/>
+<!--@BendPoints 37,19-->
+    <nodeSuccessors name="pipelet_error" next="LogMessage10"/>
+    <parameterBindings name="CurrencyMnemonic" objectPath="PaymentTransactionBO:Amount:CurrencyMnemonic"/>
+    <parameterBindings name="LocalizedString" objectPath="AmountToReduce"/>
+    <returnValueBindings name="ErrorCode" objectPath="ReduceAmountErrorCode"/>
+  </nodes>
+<!--@Location 17,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="SetDictionaryValue4"/>
+<!--@BendPoints 33,21-->
+    <nodeSuccessors name="Error" next="LoopNode2"/>
+    <nodeSuccessors name="Pending" next="SetDictionaryValue4"/>
+    <parameterBindings name="PaymentBO" objectPath="PaymentTransactionBO:PaymentBO"/>
+    <parameterBindings name="ReduceByAmount" objectPath="MoneyValue"/>
+    <startNode referencedName="ProcessPayment-Reduce"/>
+  </nodes>
+<!--@Location 17,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue4">
+    <configurationValues name="Name" value="Reduce_Success"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="LogMessage11"/>
+  </nodes>
+<!--@Location 17,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage11">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode28"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentRequest:ServletRequest:LocalAddr"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentOrganization:Domain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam3" objectPath="Result:State"/>
+    <parameterBindings name="MessageParam4" objectPath="PaymentTransactionBO:PaymentBO:PaymentServiceBO:PaymentServiceID"/>
+    <parameterBindings name="MessageText" constant="{} : {} : {} : Payment Action - Payment Reduced: {}; Payment Service ID: {} "/>
+  </nodes>
+<!--@Location 17,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode28">
+    <nodeSuccessors name="next" next="Jump23"/>
+  </nodes>
+<!--@Location 17,14-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump23">
+    <startNode referencedName="ViewPaymentHistory-ShowReduceDialog"/>
+  </nodes>
+<!--@Location 16,11-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Result:Errors">
+<!--@BendPoints 33,27-->
+    <nodeSuccessors name="next" next="JoinNode28"/>
+    <entry key="ReduceAmountError">
+      <nodeSuccessors name="loop_entry_next" next="KeyMapper1"/>
+    </entry>
+  </nodes>
+<!--@Location 15,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 31,24 32,24-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <parameterBindings name="InValue_1" objectPath="ReduceAmountError:ReasonCode"/>
+    <returnValueBindings name="OutValue_1" objectPath="ReduceAmountErrorCode"/>
+  </nodes>
+<!--@Location 18,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage10">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentRequest:ServletRequest:LocalAddr"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentOrganization:Domain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam3" objectPath="ErrorCode"/>
+    <parameterBindings name="MessageText" constant="{} : {} : {} : Payment Action - Payment Reduce ERROR {}"/>
+  </nodes>
+<!--@Location 18,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="JoinNode28"/>
+  </nodes>
+<!--@Location 19,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage15">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 39,27-->
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentRequest:ServletRequest:LocalAddr"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentOrganization:Domain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam3" objectPath="PaymentTransactionUUID"/>
+    <parameterBindings name="MessageText" constant="{} : {} : {} : Payment Action - Payment Reduce ERROR: No Payment Transaction found for {}"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode12" name="PaymentRefund">
+    <nodeSuccessors name="next" next="CallNode11"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+    <nodeSuccessors name="next" next="VerifyMoney1"/>
+<!--@BendPoints 27,17-->
+    <nodeSuccessors name="Error" next="LogMessage13"/>
+    <startNode referencedName="ViewPaymentHistory-GetPaymentTransactionBO"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyMoney1">
+    <configurationValues name="MinValue" value="0"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyMoney.xml"/>
+    <nodeSuccessors name="next" next="CallNode6"/>
+<!--@BendPoints 25,19-->
+    <nodeSuccessors name="pipelet_error" next="LogMessage9"/>
+    <parameterBindings name="CurrencyMnemonic" objectPath="PaymentTransactionBO:Amount:CurrencyMnemonic"/>
+    <parameterBindings name="LocalizedString" objectPath="RefundAmount"/>
+    <returnValueBindings name="ErrorCode" objectPath="RefundAmountErrorCode"/>
+  </nodes>
+<!--@Location 11,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="SetDictionaryValue1"/>
+    <nodeSuccessors name="Pending" next="SetDictionaryValue1"/>
+    <nodeSuccessors name="Error" next="LoopNode0"/>
+    <parameterBindings name="PaymentBO" objectPath="PaymentTransactionBO:PaymentBO"/>
+    <parameterBindings name="RefundAmount" objectPath="MoneyValue"/>
+    <startNode referencedName="ProcessPayment-Refund"/>
+  </nodes>
+<!--@Location 11,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="Refund_Success"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="LogMessage8"/>
+  </nodes>
+<!--@Location 11,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage8">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode25"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentRequest:ServletRequest:LocalAddr"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentOrganization:Domain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam3" objectPath="Result:State"/>
+    <parameterBindings name="MessageParam4" objectPath="PaymentTransactionBO:PaymentBO:PaymentServiceBO:PaymentServiceID"/>
+    <parameterBindings name="MessageText" constant="{} : {} : {} : Payment Action - Payment Refund: {}; Payment Service ID: {}"/>
+  </nodes>
+<!--@Location 11,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode25">
+    <nodeSuccessors name="next" next="Jump24"/>
+  </nodes>
+<!--@Location 11,15-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump24">
+    <startNode referencedName="ViewPaymentHistory-ShowRefundDialog"/>
+  </nodes>
+<!--@Location 10,11-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="Result:Errors">
+<!--@BendPoints 21,28-->
+    <nodeSuccessors name="next" next="JoinNode25"/>
+    <entry key="RefundAmountError">
+      <nodeSuccessors name="loop_entry_next" next="KeyMapper0"/>
+    </entry>
+  </nodes>
+<!--@Location 9,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 19,24 20,24-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <parameterBindings name="InValue_1" objectPath="RefundAmountError:ReasonCode"/>
+    <returnValueBindings name="OutValue_1" objectPath="RefundAmountErrorCode"/>
+  </nodes>
+<!--@Location 12,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage9">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentRequest:ServletRequest:LocalAddr"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentOrganization:Domain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam3" objectPath="ErrorCode"/>
+    <parameterBindings name="MessageText" constant="{} : {} : {} : Payment Action - Payment Refund ERROR: {}"/>
+  </nodes>
+<!--@Location 12,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="JoinNode25"/>
+  </nodes>
+<!--@Location 13,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage13">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 27,29-->
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentRequest:ServletRequest:LocalAddr"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentOrganization:Domain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam3" objectPath="PaymentTransactionUUID"/>
+    <parameterBindings name="MessageText" constant="{} : {} : {} : Payment Action - Payment Refund ERROR: No Payment Transaction found for {}"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="ShowPaymentHistory">
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="ReverseIterator0"/>
+    <startNode referencedName="ViewPaymentHistory-GetPaymentTransactionBO"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ReverseIterator0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ReverseIterator.xml"/>
+    <nodeSuccessors name="next" next="PrepareApplicationView9"/>
+    <parameterBindings name="Iterator" objectPath="PaymentTransactionBO:PaymentHistoryEntryBOs:Iterator"/>
+    <returnValueBindings name="ReversedIterator" objectPath="PaymentHistoryEntryBOs"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PrepareApplicationView9">
+    <configurationValues name="Dynamic" value="false"/>
+    <configurationValues name="SelectedMenuItem" value="Orders"/>
+    <configurationValues name="WorkingTemplate" value="order/PaymentHistory.isml"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionEnd10"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionEnd10">
+    <template referencedName="application/ApplicationFrame"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="ShowReduceDialog">
+    <nodeSuccessors name="next" next="CallNode12"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode12">
+<!--@BendPoints 22,7-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <nodeSuccessors name="Error" next="JoinNode2"/>
+    <startNode referencedName="ViewPaymentHistory-GetPaymentTransactionBO"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="PrepareApplicationView1"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PrepareApplicationView1">
+    <configurationValues name="Dynamic" value="false"/>
+    <configurationValues name="SelectedMenuItem" value="Orders"/>
+    <configurationValues name="WorkingTemplate" value="order/PaymentHistoryReduceDialog.isml"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode1"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode1">
+    <template referencedName="application/IFrameApplicationFrame"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" name="ShowRefundDialog">
+    <nodeSuccessors name="next" next="CallNode5"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+<!--@BendPoints 18,7-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <nodeSuccessors name="Error" next="JoinNode1"/>
+    <startNode referencedName="ViewPaymentHistory-GetPaymentTransactionBO"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="PrepareApplicationView0"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PrepareApplicationView0">
+    <configurationValues name="Dynamic" value="false"/>
+    <configurationValues name="SelectedMenuItem" value="Orders"/>
+    <configurationValues name="WorkingTemplate" value="order/PaymentHistoryRefundDialog.isml"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode0"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode0">
+    <template referencedName="application/IFrameApplicationFrame"/>
+  </nodes>
+</pipeline:Pipeline>

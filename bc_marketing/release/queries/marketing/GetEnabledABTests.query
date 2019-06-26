@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Returns all ABTests, that are running at the defined date for the defined Domain. i.e. That are not in status Completed and (by default) are enabled. Via parameter &quot;AlsoDsabled&quot; the enabled flag can be ignored. If TargetGroups are provided, only ABTests are returned that are applicable to those user groups.">
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="CurrentDate" type="java.util.Date" optional="false" description="The running state is checked based on this Date."/>
+	<parameter name="TargetGroups" type="java.util.Iterator" optional="true" description="Only return ABTests, where target groups are matching with these user groups."/>
+	<parameter name="AlsoDisabled" type="java.lang.Boolean" optional="true" description="If this Flag is set, the query also returns disabled ABTests."/>
+</parameters>
+<return-mappings>
+	<return-mapping name="ABTest" type="orm" class="com.intershop.component.marketing.internal.abtest.ABTestPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	SELECT a.UUID AS UUID, count(a.UUID) over() AS "rowcount" 
+	FROM ABTEST a
+
+		<template-if condition="isDefined(TargetGroups)">
+			inner join USERGROUP u ON u.id = a.TARGETGROUPID
+			AND u.DOMAINID = a.TARGETGROUPDOMAINID
+		</template-if>
+
+	WHERE a.DOMAINID = <template-variable value="Domain:UUID"/>
+		<template-if condition="(NOT isDefined(AlsoDisabled)) OR (isDefined(AlsoDisabled) AND NOT AlsoDisabled)">
+			AND a.ENABLEDFLAG = 1 
+		</template-if>
+		AND a.STATUS BETWEEN 0 AND 2
+		AND a.STARTDATE &lt;= <template-variable value="CurrentDate"/> 
+		AND (a.ENDDATE &gt; <template-variable value="CurrentDate"/> OR a.STATUS BETWEEN 0 AND 1)
+		<template-if condition="isDefined(TargetGroups)">     
+			AND 
+			(
+				<template-loop iterator="TargetGroups" alias="UserGroup"><loop-statement> ( u.DOMAINID= <template-variable value="UserGroup:DomainID"/> AND u.ID= <template-variable value="UserGroup:ID"/> )</loop-statement>
+				<loop-separator> OR </loop-separator>
+				</template-loop>
+			)
+		</template-if>
+</template>
+</query>

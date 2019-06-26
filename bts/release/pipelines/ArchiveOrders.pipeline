@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline is used to perform order archiving.
+@Group Order-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ArchiveOrders" type="backoffice">
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="AccessControl1"/>
+<!--The name of the business unit.-->
+    <parameters name="StoreName" type="java.lang.String" optional="true"/>
+<!--An impex interactor (com.intershop.beehive.core.capi.impex.ImpexInterator).-->
+    <parameters name="Interactor" type="com.intershop.beehive.core.capi.impex.ImpexInteractor"
+        optional="true"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AccessControl1">
+    <configurationValues name="AccessControlPermission" value="MANAGE_ORDERS"/>
+    <configurationValues name="PerformAccessControl" value="true"/>
+    <configurationValues name="PerformIPRangeCheck" value="false"/>
+    <configurationValues name="RequireHTTPS" value="false"/>
+    <pipelet href="enfinity:/core/pipelets/AccessControl.xml"/>
+    <nodeSuccessors name="next" next="CreateImpexUnitFileStructure1"/>
+    <nodeSuccessors name="pipelet_error" next="End8"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateImpexUnitFileStructure1">
+    <pipelet href="enfinity:/core/pipelets/CreateImpexUnitFileStructure.xml"/>
+    <nodeSuccessors name="next" next="DetermineConfiguration1"/>
+    <nodeSuccessors name="pipelet_error" next="End3"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineConfiguration1">
+    <configurationValues name="CartridgeName" value="bts"/>
+    <configurationValues name="Controller.Class" value="com.intershop.beehive.core.capi.impex.Controller"/>
+    <configurationValues name="File" value="BOArchiveOrders.properties"/>
+    <configurationValues name="PerformAccessControl" value="true"/>
+    <configurationValues name="PipeletID" value="DetermineConfiguration"/>
+    <configurationValues name="PropertyMapping" value="CreateFileLogger.File=FileLogger.File;CreateFileLogger.RolloverSize=FileLogger.RolloverSize;CreateFileLogger.Truncate=FileLogger.Truncate;CreateFileLogger.Level=FileLogger.Level;DetermineConfiguration.SessionLocale=SessionLocale;DetermineConfiguration.File=PropertyFileName;SQLLDRFinish.DumpFiles.Delete=LoaderCleanup.DumpFiles.Delete;SQLLDRFinish.LogFiles.Delete=LoaderCleanup.LogFiles.Delete;SQLLDRFinish.ScriptFiles.Delete=LoaderCleanup.LogFiles.Delete;SQLLDRFinish.ControlFiles.Delete=LoaderCleanup.LogFiles.Delete"/>
+    <configurationValues name="UIDescription" value="DetermineConfiguration"/>
+    <pipelet href="enfinity:/core/pipelets/DetermineConfiguration.xml"/>
+    <nodeSuccessors name="next" next="CreateFileLogger1"/>
+    <nodeSuccessors name="pipelet_error" next="End1"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateFileLogger1">
+    <configurationValues name="BufferSize" value="1024"/>
+    <configurationValues name="Facility" value="default"/>
+    <configurationValues name="FlushTime" value="0"/>
+    <configurationValues name="Level" value="ERROR | WARN"/>
+    <configurationValues name="PipeletID" value="CreateFileLogger"/>
+    <configurationValues name="RolloverSize" value="102400"/>
+    <configurationValues name="UIDescription" value="CreateFileLogger"/>
+    <pipelet href="enfinity:/core/pipelets/CreateFileLogger.xml"/>
+    <nodeSuccessors name="next" next="LockImport1"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LockImport1">
+    <configurationValues name="IsDomainSpecific" value="true"/>
+    <configurationValues name="PipeletID" value="LockImport"/>
+    <configurationValues name="ResourceList" value="OrderImport"/>
+    <configurationValues name="Timeout" value="60"/>
+    <configurationValues name="UIDescription" value="LockImport"/>
+    <pipelet href="enfinity:/core/pipelets/LockImport.xml"/>
+    <nodeSuccessors name="next" next="OpenFile6"/>
+<!--@BendPoints 17,11-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="OpenFile6">
+    <configurationValues name="FileID" value="targetfile"/>
+    <configurationValues name="PipeletID" value="OpenFileExport"/>
+    <configurationValues name="StreamID" value="archive"/>
+    <configurationValues name="Type" value="ARCHIVE_OUT"/>
+    <configurationValues name="UIDescription" value="OpenExportFile"/>
+    <pipelet href="enfinity:/core/pipelets/OpenFile.xml"/>
+    <nodeSuccessors name="next" next="CreateExportIterator1"/>
+<!--@BendPoints 13,13-->
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateExportIterator1">
+    <configurationValues name="Determiner.Class" value="com.intershop.beehive.bts.internal.impex.ExportIteratorDeterminerArchivableOrders"/>
+    <configurationValues name="Iterator.Name" value="exportObjects"/>
+    <configurationValues name="LogFacility" value="default"/>
+    <configurationValues name="PipeletID" value="CreateExportIterator"/>
+    <configurationValues name="StatisticsID" value="statistics"/>
+    <configurationValues name="UIDescription" value="CreateExportIterator"/>
+    <pipelet href="enfinity:/core/pipelets/CreateExportIterator.xml"/>
+    <nodeSuccessors name="next" next="OpenFilter1"/>
+<!--@BendPoints 7,15-->
+    <nodeSuccessors name="pipelet_error" next="Join3"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="OpenFilter1">
+    <configurationValues name="Filter.Class" value="com.intershop.beehive.core.internal.impex.XMLExportFilter"/>
+    <configurationValues name="FilterID" value="targetfilter"/>
+    <configurationValues name="PipeletID" value="OpenFilterExport"/>
+    <configurationValues name="TargetID" value="archive"/>
+    <pipelet href="enfinity:/core/pipelets/OpenFilter.xml"/>
+    <nodeSuccessors name="next" next="Export1"/>
+<!--@BendPoints 5,17-->
+    <nodeSuccessors name="pipelet_error" next="Join6"/>
+  </nodes>
+<!--@Location 0,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Export1">
+    <configurationValues name="PipeletID" value="Export"/>
+    <configurationValues name="TargetID" value="targetfilter"/>
+    <configurationValues name="Template" value="BTSExport.isml"/>
+    <configurationValues name="UIDescription" value="XMLExport"/>
+    <pipelet href="enfinity:/core/pipelets/Export.xml"/>
+    <nodeSuccessors name="next" next="CloseFilter1"/>
+<!--@BendPoints 2,19-->
+    <nodeSuccessors name="pipelet_error" next="CloseFilter2"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CloseFilter1">
+    <configurationValues name="FilterID" value="targetfilter"/>
+    <configurationValues name="PipeletID" value="CloseFilterExport"/>
+    <pipelet href="enfinity:/core/pipelets/CloseFilter.xml"/>
+    <nodeSuccessors name="next" next="CloseFile10"/>
+<!--@BendPoints 7,21-->
+    <nodeSuccessors name="pipelet_error" next="Join3"/>
+  </nodes>
+<!--@Location 0,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CloseFile10">
+    <configurationValues name="PipeletID" value="CloseFileExport"/>
+    <configurationValues name="StreamID" value="archive"/>
+    <configurationValues name="UIDescription" value="CloseExportFile"/>
+    <pipelet href="enfinity:/core/pipelets/CloseFile.xml"/>
+    <nodeSuccessors name="next" next="SQLLDRPrepare2"/>
+  </nodes>
+<!--@Location 0,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SQLLDRPrepare2">
+    <configurationValues name="DrainID" value="drain"/>
+    <configurationValues name="PipeletID" value="SQLLDRPrepare"/>
+    <configurationValues name="UIDescription" value="SQLLDRPrepare"/>
+    <pipelet href="enfinity:/core/pipelets/SQLLDRPrepare.xml"/>
+    <nodeSuccessors name="next" next="OpenFile3"/>
+<!--@BendPoints 5,25-->
+    <nodeSuccessors name="pipelet_error" next="Join4"/>
+  </nodes>
+<!--@Location 0,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="OpenFile3">
+    <configurationValues name="FileID" value="targetfile"/>
+    <configurationValues name="PipeletID" value="OpenXMLFileImport"/>
+    <configurationValues name="StreamID" value="archive"/>
+    <configurationValues name="Type" value="ARCHIVE_IN"/>
+    <configurationValues name="UIDescription" value="OpenXMLFile"/>
+    <pipelet href="enfinity:/core/pipelets/OpenFile.xml"/>
+    <nodeSuccessors name="next" next="SQLLDRImport2"/>
+    <nodeSuccessors name="pipelet_error" next="Join4"/>
+  </nodes>
+<!--@Location 0,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SQLLDRImport2">
+    <configurationValues name="Bulker.Class" value="com.intershop.beehive.bts.internal.impex.ElementBulkerSQLLDROrder"/>
+    <configurationValues name="Bulker.DirectMode" value="false"/>
+    <configurationValues name="ContentHandler.Class" value="com.intershop.beehive.bts.internal.impex.XMLParseContentHandlerOrder"/>
+    <configurationValues name="DefaultImportMode" value="DELETE"/>
+    <configurationValues name="DrainID" value="drain"/>
+    <configurationValues name="IgnoreXMLVersion" value="false"/>
+    <configurationValues name="ImportManager.Class" value="com.intershop.beehive.core.internal.impex.sqlloader.SQLLDRImportMgr"/>
+    <configurationValues name="MaximumErrorsAllowed" value="0"/>
+    <configurationValues name="PipeletID" value="SQLLDRImport"/>
+    <configurationValues name="SessionLocalized" value="true"/>
+    <configurationValues name="SourceID" value="archive"/>
+    <configurationValues name="StatisticsID" value="statistics"/>
+    <configurationValues name="UIDescription" value="SQLLDRImport"/>
+    <configurationValues name="Validator.Class" value="com.intershop.beehive.bts.internal.impex.ElementValidatorArchiveOrder"/>
+    <pipelet href="enfinity:/core/pipelets/SQLLDRImport.xml"/>
+    <nodeSuccessors name="next" next="CloseFile4"/>
+    <nodeSuccessors name="pipelet_error" next="CloseFile1"/>
+  </nodes>
+<!--@Location 0,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CloseFile4">
+    <configurationValues name="PipeletID" value="CloseXMLFileImport"/>
+    <configurationValues name="StreamID" value="archive"/>
+    <configurationValues name="UIDescription" value="CloseXMLFile"/>
+    <pipelet href="enfinity:/core/pipelets/CloseFile.xml"/>
+    <nodeSuccessors name="next" next="Pipelet1"/>
+  </nodes>
+<!--@Location 0,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="PipeletID" value="LockOrderSQLLoader"/>
+    <configurationValues name="ResourceList" value="Orders"/>
+    <pipelet href="enfinity:/core/pipelets/LockImport.xml"/>
+    <nodeSuccessors name="next" next="SQLLDRRun2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+  </nodes>
+<!--@Location 0,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SQLLDRRun2">
+    <configurationValues name="DataSourceSpec" value="beehive:comp/env/jdbc/bts/defaultDB"/>
+    <configurationValues name="DrainID" value="drain"/>
+    <configurationValues name="PipeletID" value="SQLLDRRun"/>
+    <configurationValues name="UIDescription" value="SQLLDRRun"/>
+    <pipelet href="enfinity:/core/pipelets/SQLLDRRun.xml"/>
+    <nodeSuccessors name="next" next="Pipelet3"/>
+    <nodeSuccessors name="pipelet_error" next="Pipelet2"/>
+  </nodes>
+<!--@Location 0,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="PipeletID" value="UnlockOrderSQLLoader"/>
+    <pipelet href="enfinity:/core/pipelets/UnlockImport.xml"/>
+    <nodeSuccessors name="next" next="SQLLDRFinish2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+  </nodes>
+<!--@Location 0,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SQLLDRFinish2">
+    <configurationValues name="DrainID" value="drain"/>
+    <configurationValues name="DumpFiles.Delete" value="false"/>
+    <configurationValues name="LogFiles.Delete" value="false"/>
+    <configurationValues name="PipeletID" value="SQLLDRFinish"/>
+    <configurationValues name="ScriptFiles.Delete" value="false"/>
+    <configurationValues name="UIDescription" value="SQLLDRFinish"/>
+    <pipelet href="enfinity:/core/pipelets/SQLLDRFinish.xml"/>
+    <nodeSuccessors name="next" next="Pipelet4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+  </nodes>
+<!--@Location 0,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="PersistentClassName_0" value="com.intershop.beehive.bts.internal.orderprocess.fulfillment.OrderPO"/>
+    <configurationValues name="PersistentClassName_1" value="com.intershop.beehive.bts.internal.orderprocess.StaticAddressPO"/>
+    <configurationValues name="PersistentClassName_2" value="com.intershop.beehive.bts.internal.orderprocess.ServiceLineItemPO"/>
+    <configurationValues name="PersistentClassName_3" value="com.intershop.beehive.bts.internal.orderprocess.ProductLineItemPO"/>
+    <configurationValues name="PersistentClassName_4" value="com.intershop.beehive.bts.internal.orderprocess.BundledProductLineItemPO"/>
+    <configurationValues name="PersistentClassName_5" value="com.intershop.beehive.bts.internal.orderprocess.LineItemGroupPO"/>
+    <configurationValues name="PersistentClassName_6" value="com.intershop.beehive.bts.internal.payment.PaymentTransactionPO"/>
+    <configurationValues name="PersistentClassName_7" value="com.intershop.beehive.bts.internal.payment.PaymentInstrumentInfoPO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+    <nodeSuccessors name="next" next="UnlockImport1"/>
+  </nodes>
+<!--@Location 0,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UnlockImport1">
+    <configurationValues name="PipeletID" value="UnlockImport"/>
+    <configurationValues name="UIDescription" value="UnlockImport"/>
+    <pipelet href="enfinity:/core/pipelets/UnlockImport.xml"/>
+    <nodeSuccessors name="next" next="Join7"/>
+<!--@BendPoints 2,43 2,45-->
+    <nodeSuccessors name="pipelet_error" next="Join7"/>
+  </nodes>
+<!--@Location 0,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+    <nodeSuccessors name="next" next="CloseLoggers1"/>
+  </nodes>
+<!--@Location 0,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CloseLoggers1">
+    <configurationValues name="PipeletID" value="CloseLoggers"/>
+    <configurationValues name="UIDescription" value="CloseLoggers"/>
+    <pipelet href="enfinity:/core/pipelets/CloseLoggers.xml"/>
+    <nodeSuccessors name="next" next="Join9"/>
+<!--@BendPoints 2,47 2,49-->
+    <nodeSuccessors name="pipelet_error" next="Join9"/>
+  </nodes>
+<!--@Location 0,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join9">
+    <nodeSuccessors name="next" next="End13"/>
+  </nodes>
+<!--@Location 0,25-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End13"/>
+<!--@Location 1,19-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="RefreshCache1"/>
+  </nodes>
+<!--@Location 2,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshCache1">
+    <configurationValues name="PersistentClassName_0" value="com.intershop.beehive.bts.internal.orderprocess.fulfillment.OrderPO"/>
+    <configurationValues name="PersistentClassName_1" value="com.intershop.beehive.bts.internal.orderprocess.StaticAddressPO"/>
+    <configurationValues name="PersistentClassName_2" value="com.intershop.beehive.bts.internal.orderprocess.ServiceLineItemPO"/>
+    <configurationValues name="PersistentClassName_3" value="com.intershop.beehive.bts.internal.orderprocess.ProductLineItemPO"/>
+    <configurationValues name="PersistentClassName_4" value="com.intershop.beehive.bts.internal.orderprocess.BundledProductLineItemPO"/>
+    <configurationValues name="PersistentClassName_5" value="com.intershop.beehive.bts.internal.orderprocess.LineItemGroupPO"/>
+    <configurationValues name="PersistentClassName_6" value="com.intershop.beehive.bts.internal.payment.PaymentTransactionPO"/>
+    <configurationValues name="PersistentClassName_7" value="com.intershop.beehive.bts.internal.payment.PaymentInstrumentInfoPO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+<!--@BendPoints 7,39-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 3,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 3,17-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="Join5"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+<!--@BendPoints 13,27-->
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="UnlockImport2"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UnlockImport2">
+    <configurationValues name="PipeletID" value="UnlockImportError"/>
+    <configurationValues name="UIDescription" value="UnlockImport"/>
+    <pipelet href="enfinity:/core/pipelets/UnlockImport.xml"/>
+    <nodeSuccessors name="next" next="Join1"/>
+<!--@BendPoints 15,20 17,20-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+  </nodes>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="CloseLoggers2"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CloseLoggers2">
+    <configurationValues name="PipeletID" value="CloseLoggersError"/>
+    <configurationValues name="UIDescription" value="Close Loggers"/>
+    <pipelet href="enfinity:/core/pipelets/CloseLoggers.xml"/>
+    <nodeSuccessors name="next" next="End4"/>
+    <nodeSuccessors name="pipelet_error" next="End2"/>
+  </nodes>
+<!--@Location 10,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4" name="error"/>
+<!--@Location 9,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2" name="error"/>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="PipeletID" value="UnlockOrderSQLLoader"/>
+    <pipelet href="enfinity:/core/pipelets/UnlockImport.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+<!--@BendPoints 4,37-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CloseFile1">
+    <configurationValues name="PipeletID" value="CloseXMLFileImportError"/>
+    <configurationValues name="StreamID" value="archive"/>
+    <configurationValues name="UIDescription" value="CloseXMLFile"/>
+    <pipelet href="enfinity:/core/pipelets/CloseFile.xml"/>
+<!--@BendPoints 5,29-->
+    <nodeSuccessors name="next" next="Join4"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+    <nodeSuccessors name="next" next="Join5"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+    <nodeSuccessors name="next" next="CloseFile2"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CloseFile2">
+    <configurationValues name="Delete" value="true"/>
+    <configurationValues name="PipeletID" value="CloseFileExportError"/>
+    <configurationValues name="StreamID" value="archive"/>
+    <configurationValues name="UIDescription" value="CloseExportFile"/>
+    <pipelet href="enfinity:/core/pipelets/CloseFile.xml"/>
+<!--@BendPoints 10,19-->
+    <nodeSuccessors name="next" next="WriteImpexLogMessage1"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="WriteImpexLogMessage1">
+    <configurationValues name="PipeletID" value="LogTemplateError"/>
+    <pipelet href="enfinity:/core/pipelets/WriteImpexLogMessage.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+    <parameterBindings name="Level" constant="ERROR"/>
+    <parameterBindings name="MessageKey" constant="core.impex.pipelet.Export_E_TEMPLATEPROCESSOR"/>
+    <parameterBindings name="Parameter0" objectPath="Exception"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CloseFilter2">
+    <configurationValues name="FilterID" value="targetfilter"/>
+    <configurationValues name="PipeletID" value="CloseFilterExportError"/>
+    <pipelet href="enfinity:/core/pipelets/CloseFilter.xml"/>
+    <nodeSuccessors name="next" next="Join6"/>
+<!--@BendPoints 3,20 5,20-->
+    <nodeSuccessors name="pipelet_error" next="Join6"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+    <nodeSuccessors name="next" next="Join3"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1" name="error"/>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3" name="error"/>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End8" name="no permission"/>
+</pipeline:Pipeline>

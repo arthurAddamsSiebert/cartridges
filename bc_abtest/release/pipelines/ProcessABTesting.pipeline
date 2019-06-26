@@ -1,0 +1,1447 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Handles abtest related functions like the assignment of users to abtestgroups and the logging of abtest events.
+@Group OnlineMarketing-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessABTesting" type="process">
+<!--TODO Pipeline rework:
+* Still retrieves CurrentSession.
+Must be handed in via parameter!
+@Location 2,17-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--TODO Pipeline rework:
+find:
+* needs CurrentSession.
+* needsCurrentRequest.
+* needs CurrentDomain
+* needs CurrentUser
+Must be handed in via parameter!
+@Location 0,9-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text10"/>
+<!--TODO Pipeline rework:
+Put:
+* needs CurrentSession.
+Must be handed in via parameter!
+@Location 0,10-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text11"/>
+<!--@Deprecated since IS 7.3.2
+Use SetABTestModeForSession instead!
+
+This is only a delegate with 
+fallbacks for missing parameters.
+@Location 13,17-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text14"/>
+<!--TODO Pipeline rework:
+* Still retrieves CurrentSession.
+Must be handed in via parameter!
+@Location 10,17-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2"/>
+<!--TODO Pipeline rework:
+* needs CurrentSession.
+* needs CurrentRequest.
+* needs CurrentDomain
+* needs CurrentUser
+Must be handed in via parameter!
+@Location 2,7-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text3"/>
+<!--TODO Pipeline rework:
+check:
+* needs CurrentSession
+Must be handed in via parameter!
+@Location 0,8-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text9"/>
+<!--See creation of Sessionvariable
+"T_CurrentUserUserGroupKeys"
+in ProcessUserGroups.xml
+@Location 4,9-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--See creation of Sessionvariable
+"T_CurrentUserUserGroupKeys"
+in ProcessUserGroups.xml
+@Location 7,9-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode3"/>
+<!--Add group to the iterator
+@Location 16,16-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode4"/>
+<!--@Location 3,36-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode21" strict="true" name="AssignABTestRepositoryToApplication"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateApplicationDomainRelation0"/>
+    <parameters name="Application" type="com.intershop.beehive.core.capi.domain.Application"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 3,37-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateApplicationDomainRelation0">
+    <pipelet href="enfinity:/core/pipelets/CreateApplicationDomainRelation.xml"/>
+    <nodeSuccessors name="next" next="EndNode28"/>
+    <parameterBindings name="Domain" objectPath="Repository:RepositoryDomain"/>
+    <parameterBindings name="RelationName" constant="ABTestRepository"/>
+  </nodes>
+<!--@Location 3,38-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode28" strict="true"/>
+<!--@Location 9,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode14" strict="true" name="CheckABTestMode"
+      callMode="Private">
+<!--@BendPoints 19,36-->
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+  </nodes>
+<!--@Location 9,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="CurrentSession:getObject(&quot;T_ABTestMode&quot;)"
+      operator="str_eq" conditionValue="Enabled">
+<!--@BendPoints 19,40-->
+    <nodeSuccessors name="decision_yes" next="EndNode14"/>
+<!--@BendPoints 21,37 21,38-->
+    <nodeSuccessors name="decision_no" next="AddObjectToVector9"/>
+  </nodes>
+<!--@Location 9,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" strict="true"/>
+<!--@Location 10,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector9">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 21,40-->
+    <nodeSuccessors name="next" next="AddObjectToVector15"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CurrentABTestGroups"/>
+  </nodes>
+<!--@Location 10,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector15">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 21,42-->
+    <nodeSuccessors name="next" next="EndNode15"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CurrentAssignedABTestGroups"/>
+  </nodes>
+<!--@Location 10,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" name="ABTestingDisabled" strict="true">
+    <returnValues name="CurrentABTestGroups" type="java.util.Iterator"/>
+    <returnValues name="CurrentAssignedABTestGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@displayNearNode@Exclude all active promotions which are included somewhere 
+outside of ABTests and at the same time explicitely assigned 
+to an ABTest Control Group where one of this ABTest's Test 
+Groups is inside the UserGroups. 
+Exception: promotions which are explicitely assigned to an 
+ABTest Group that belongs to the UserGroups. These 
+promotions must not be excluded.
+@Location 0,36-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="FilterABTestPromotionUserGroups"
+      callMode="Private">
+    <nodeSuccessors name="next" next="FilterABTestPromotionUserGroups0"/>
+    <parameters name="ABTestGroups" type="java.util.Iterator&lt;com.intershop.component.marketing.capi.abtest.ABTestGroup>"/>
+    <parameters name="UserGroups" type="java.util.Iterator&lt;com.intershop.beehive.core.capi.user.UserGroup>"/>
+  </nodes>
+<!--@Location 0,37-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FilterABTestPromotionUserGroups0">
+    <pipelet href="enfinity:/bc_abtest/pipelets/FilterABTestPromotionUserGroups.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <returnValueBindings name="RebuildedUserGroups" objectPath="UserGroups"/>
+  </nodes>
+<!--@Location 0,38-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="UserGroups" type="java.util.Iterator&lt;com.intershop.beehive.core.capi.user.UserGroup>"/>
+  </nodes>
+<!--@Since IS 7.3.2
+Returns all applicable ABTests for the user (defined by "TargetGroups" equals users usergroups).
+@deprecated since 7.5.0. Use the BO API to get accessible A/B tests instead.
+@Location 10,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" strict="true" name="FindApplicableABTests"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetCurrentDate1"/>
+<!--The Organization to search in.-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+<!--The Target Groups of a user to find their ABTests .-->
+    <parameters name="TargetGroups" type="java.util.Iterator"/>
+<!--If set, the Pipeline retreives enabled and disabled ABTests.-->
+    <parameters name="AlsoDisabled" type="java.lang.Boolean" optional="true"/>
+<!--The used domain to resolve the query name.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 10,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <pipelet href="enfinity:/core/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="CallNode18"/>
+  </nodes>
+<!--@Location 10,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode18">
+    <nodeSuccessors name="next" next="ExecutePageableQuery0"/>
+    <startNode referencedName="ProcessABTesting-GetABTestRepositoryDomain"/>
+  </nodes>
+<!--@Location 10,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery0">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="DefaultPageSize" value="0"/>
+    <configurationValues name="ParameterName_01" value="CurrentDate"/>
+    <configurationValues name="ParameterName_02" value="Domain"/>
+    <configurationValues name="ParameterName_03" value="TargetGroups"/>
+    <configurationValues name="ParameterName_04" value="AlsoDisabled"/>
+    <configurationValues name="QueryName" value="marketing/GetEnabledABTests"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+    <nodeSuccessors name="next" next="FilterABTestsByTargetGroup0"/>
+    <nodeSuccessors name="pipelet_error" next="AddObjectToVector5"/>
+    <parameterBindings name="CurrentDomain" objectPath="Domain"/>
+    <parameterBindings name="ParameterValue_01" objectPath="CurrentDate"/>
+    <parameterBindings name="ParameterValue_02" objectPath="ABTestRepositoryDomain"/>
+    <parameterBindings name="ParameterValue_04" objectPath="AlsoDisabled"/>
+    <returnValueBindings name="SearchResult" objectPath="ABTests"/>
+  </nodes>
+<!--@Location 10,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FilterABTestsByTargetGroup0">
+    <pipelet href="enfinity:/bc_abtest/pipelets/FilterABTestsByTargetGroup.xml"/>
+    <nodeSuccessors name="next" next="CreatePageableFromIterator0"/>
+  </nodes>
+<!--@Location 10,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePageableFromIterator0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableFromIterator.xml"/>
+    <nodeSuccessors name="next" next="JoinNode30"/>
+    <parameterBindings name="Iterator" objectPath="FilteredABTests"/>
+    <returnValueBindings name="Pageable" objectPath="ApplicableABTests"/>
+  </nodes>
+<!--@Location 10,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode30">
+    <nodeSuccessors name="next" next="EndNode13"/>
+  </nodes>
+<!--Returns all the currently applicable ABTests for the provided TargetGroups.
+@Location 10,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" strict="true">
+<!--All currently applicable ABTests for the provided TargetGroups.-->
+    <returnValues name="ApplicableABTests" type="com.intershop.beehive.core.capi.paging.PageableIterator"/>
+  </nodes>
+<!--@Location 9,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector5">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 19,27-->
+    <nodeSuccessors name="next" next="JoinNode30"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="ApplicableABTests"/>
+  </nodes>
+<!--Returns all ABTestGroups of the user, regardless whether they have any promotion or pagelets assigned.
+@Location 3,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="GetABTestGroupsByUser"
+      callMode="Private">
+<!--@BendPoints 7,16-->
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="TargetGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="CurrentABTestGroups"
+      operator="undef">
+<!--@BendPoints 7,18-->
+    <nodeSuccessors name="decision_yes" next="CheckABTestSessionUserGroupKeys1"/>
+<!--@BendPoints 11,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode31"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckABTestSessionUserGroupKeys1">
+    <pipelet href="enfinity:/bc_abtest/pipelets/CheckABTestSessionUserGroupKeys.xml"/>
+<!--@BendPoints 7,20-->
+    <nodeSuccessors name="next" next="DecisionNode12"/>
+    <parameterBindings name="KeyNewSessionUserGroupKeys" constant="T_CurrentUserUserGroupKeys"/>
+    <parameterBindings name="KeySavedSessionUserGroupKeys" constant="T_CurrentABTestGroupUUIDs"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="CurrentSession:getObject(&quot;T_CurrentABTestGroupUUIDs&quot;)"
+      operator="undef">
+<!--@BendPoints 7,24-->
+    <nodeSuccessors name="decision_yes" next="CallNode17"/>
+<!--@BendPoints 9,21 9,24-->
+    <nodeSuccessors name="decision_no" next="CallNode12"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode17">
+<!--@BendPoints 7,31-->
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <startNode referencedName="ProcessABTesting-RefreshABTestGroupsByUser"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 9,32-->
+    <nodeSuccessors name="next" next="EndNode24"/>
+  </nodes>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode24" strict="true">
+    <returnValues name="CurrentABTestGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode12">
+<!--@BendPoints 9,26-->
+    <nodeSuccessors name="next" next="CallNode6"/>
+    <nodeSuccessors name="ABTestingDisabled" next="JoinNode31"/>
+    <startNode referencedName="ProcessABTesting-CheckABTestMode"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <nodeSuccessors name="ERROR" next="JoinNode11"/>
+    <startNode referencedName="ProcessABTesting-GetCurrentABTestGroupsFromSession"/>
+  </nodes>
+<!--@Location 5,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+<!--@BendPoints 11,31-->
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 5,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode31">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 5,36-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode23" strict="true" name="GetABTestRepository"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+  </nodes>
+<!--@Location 5,37-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper4"/>
+  </nodes>
+<!--@Location 5,38-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode9"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Extension(&quot;(Class)com.intershop.beehive.core.capi.domain.PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <returnValueBindings name="OutValue_1" objectPath="CurrentApplication"/>
+  </nodes>
+<!--@Location 5,39-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="EndNode29"/>
+    <parameterBindings name="Application" objectPath="CurrentApplication"/>
+    <startNode referencedName="This:GetABTestRepositoryByApplication"/>
+  </nodes>
+<!--@Location 5,40-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode29" strict="true">
+    <returnValues name="ABTestRepository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 8,36-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode24" strict="true" name="GetABTestRepositoryByApplication"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper5"/>
+    <parameters name="Application" type="java.lang.Object"/>
+  </nodes>
+<!--@Location 8,37-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode16"/>
+    <parameterBindings name="InValue_1" objectPath="Application:RelatedDomain(&quot;ABTestRepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ABTestRepositoryDomain"/>
+  </nodes>
+<!--@Location 8,38-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode16" conditionKey="ABTestRepositoryDomain">
+    <nodeSuccessors name="decision_yes" next="JoinNode35"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper7"/>
+  </nodes>
+<!--@Location 8,39-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode35">
+    <nodeSuccessors name="next" next="GetRepositoryByRepositoryDomain0"/>
+  </nodes>
+<!--@Location 8,40-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="EndNode27"/>
+<!--@BendPoints 19,81-->
+    <nodeSuccessors name="pipelet_error" next="EndNode19"/>
+    <parameterBindings name="RepositoryDomain" objectPath="ABTestRepositoryDomain"/>
+    <returnValueBindings name="Repository" objectPath="ABTestRepository"/>
+  </nodes>
+<!--@Location 8,41-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode27" strict="true">
+    <returnValues name="ABTestRepository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 9,41-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode19" name="Error" strict="true"/>
+<!--@Location 7,38-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper7">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 15,79-->
+    <nodeSuccessors name="next" next="JoinNode35"/>
+    <parameterBindings name="InValue_1" objectPath="Application:RelatedDomain(&quot;DefaultRepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ABTestRepositoryDomain"/>
+  </nodes>
+<!--@Location 10,36-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode22" strict="true" name="GetABTestRepositoryDomain"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode14"/>
+  </nodes>
+<!--@Location 10,37-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode14">
+    <nodeSuccessors name="next" next="KeyMapper6"/>
+    <startNode referencedName="ProcessABTesting-GetABTestRepository"/>
+  </nodes>
+<!--@Location 10,38-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper6">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode26"/>
+    <parameterBindings name="InValue_1" objectPath="ABTestRepository:RepositoryDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="ABTestRepositoryDomain"/>
+  </nodes>
+<!--@Location 10,39-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode26" strict="true">
+    <returnValues name="ABTestRepositoryDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+  </nodes>
+<!--Returns all ABTestGroups of the user, which have any promotion or pagelets assigned.
+@Location 6,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode20" strict="true" name="GetAssignedABTestGroupsByUser"
+      callMode="Private">
+<!--@BendPoints 13,16-->
+    <nodeSuccessors name="next" next="DecisionNode11"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="TargetGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="CurrentAssignedABTestGroups"
+      operator="undef">
+<!--@BendPoints 13,18-->
+    <nodeSuccessors name="decision_yes" next="CheckABTestSessionUserGroupKeys0"/>
+<!--@BendPoints 17,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode32"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckABTestSessionUserGroupKeys0">
+    <pipelet href="enfinity:/bc_abtest/pipelets/CheckABTestSessionUserGroupKeys.xml"/>
+<!--@BendPoints 13,20-->
+    <nodeSuccessors name="next" next="DecisionNode23"/>
+    <parameterBindings name="KeyNewSessionUserGroupKeys" constant="T_CurrentUserUserGroupKeys"/>
+    <parameterBindings name="KeySavedSessionUserGroupKeys" constant="T_CurrentAssignedABTestGroupUUIDs"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode23" conditionKey="CurrentSession:getObject(&quot;T_CurrentAssignedABTestGroupUUIDs&quot;)"
+      operator="undef">
+<!--@BendPoints 13,24-->
+    <nodeSuccessors name="decision_yes" next="CallNode19"/>
+<!--@BendPoints 15,21 15,24-->
+    <nodeSuccessors name="decision_no" next="CallNode20"/>
+  </nodes>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode19">
+<!--@BendPoints 13,31-->
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <startNode referencedName="ProcessABTesting-RefreshABTestGroupsByUser"/>
+  </nodes>
+<!--@Location 7,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 15,32-->
+    <nodeSuccessors name="next" next="EndNode25"/>
+  </nodes>
+<!--@Location 7,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode25" strict="true">
+    <returnValues name="CurrentAssignedABTestGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode20">
+<!--@BendPoints 15,26-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <nodeSuccessors name="ABTestingDisabled" next="JoinNode32"/>
+    <startNode referencedName="ProcessABTesting-CheckABTestMode"/>
+  </nodes>
+<!--@Location 7,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <nodeSuccessors name="ERROR" next="JoinNode12"/>
+    <startNode referencedName="ProcessABTesting-GetCurrentAssignedABTestGroupsFromSession"/>
+  </nodes>
+<!--@Location 8,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 17,31-->
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 8,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode32">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--Returns all the ABTestGroups of the current session, regardless whether the ABTestGroups have any promotion or pagelet assigned or not.
+Does not refrehes the groups, but checks, whether their ABTests are still active.
+@Location 3,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" strict="true" name="GetCurrentABTestGroupsFromSession"
+      callMode="Private">
+<!--@BendPoints 7,36-->
+    <nodeSuccessors name="next" next="GetCurrentDate2"/>
+<!--The session-->
+    <parameters name="Session" type="com.intershop.beehive.core.capi.request.Session"
+        optional="true"/>
+  </nodes>
+<!--@Location 3,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate2">
+    <pipelet href="enfinity:/core/pipelets/GetCurrentDate.xml"/>
+<!--@BendPoints 7,38-->
+    <nodeSuccessors name="next" next="AddObjectToVector3"/>
+  </nodes>
+<!--@Location 3,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector3">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode17"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CurrentABTestGroups"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentABTestGroupsVector"/>
+  </nodes>
+<!--@Location 3,20-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode17" conditionKey="Session">
+    <nodeSuccessors name="decision_yes" next="JoinNode36"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper8"/>
+  </nodes>
+<!--@Location 3,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode36">
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 3,22-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="Session:getObject(&quot;T_CurrentABTestGroupUUIDs&quot;)">
+<!--@BendPoints 7,46-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode5"/>
+<!--@BendPoints 9,45-->
+    <nodeSuccessors name="decision_no" next="JoinNode13"/>
+  </nodes>
+<!--@Location 3,23-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="Session:getObject(&quot;T_CurrentABTestGroupUUIDs&quot;)"
+      operator="has_elements">
+<!--@BendPoints 7,48-->
+    <nodeSuccessors name="decision_yes" next="LoopNode2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode13"/>
+  </nodes>
+<!--@Location 3,24-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Session:getObject(&quot;T_CurrentABTestGroupUUIDs&quot;)">
+<!--@BendPoints 10,49-->
+    <nodeSuccessors name="next" next="EndNode9"/>
+    <entry key="ABTestGroupUUID">
+<!--@BendPoints 7,50-->
+      <nodeSuccessors name="loop_entry_next" next="GetABTestGroupByUUID0"/>
+    </entry>
+  </nodes>
+<!--@Location 3,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetABTestGroupByUUID0">
+    <pipelet href="enfinity:/bc_abtest/pipelets/GetABTestGroupByUUID.xml"/>
+<!--@BendPoints 7,52-->
+    <nodeSuccessors name="next" next="DecisionNode18"/>
+<!--@BendPoints 9,51-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode15"/>
+    <parameterBindings name="UUID" objectPath="ABTestGroupUUID"/>
+    <returnValueBindings name="ABTestGroup" objectPath="ABTestGroup"/>
+  </nodes>
+<!--@Location 3,26-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode18" conditionKey="ABTestGroup:Test:Enabled"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 7,54-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode19"/>
+    <nodeSuccessors name="decision_no" next="JoinNode15"/>
+  </nodes>
+<!--@Location 3,27-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode19" conditionKey="ABTestGroup:Test:StartDate:Time"
+      operator="lte" conditionItem="CurrentDate:Time">
+<!--@BendPoints 7,56-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode20"/>
+    <nodeSuccessors name="decision_no" next="JoinNode24"/>
+  </nodes>
+<!--@Location 3,28-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode20" conditionKey="ABTestGroup:Test:EndDate:Time"
+      operator="gt" conditionItem="CurrentDate:Time">
+<!--@BendPoints 7,58-->
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector4"/>
+    <nodeSuccessors name="decision_no" next="JoinNode25"/>
+  </nodes>
+<!--@Location 3,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector4">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="InVector" objectPath="CurrentABTestGroupsVector"/>
+    <parameterBindings name="Object" objectPath="ABTestGroup"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CurrentABTestGroups"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentABTestGroupsVector"/>
+  </nodes>
+<!--@Location 3,30-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 6,61 6,49-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 4,28-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode25">
+<!--@BendPoints 9,61-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 4,27-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode24">
+    <nodeSuccessors name="next" next="JoinNode25"/>
+  </nodes>
+<!--@Location 4,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="JoinNode24"/>
+  </nodes>
+<!--@Location 5,24-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" strict="true">
+    <returnValues name="CurrentABTestGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 4,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+<!--@BendPoints 10,47-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 5,23-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="ERROR" strict="true">
+    <returnValues name="CurrentABTestGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 4,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper8">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 9,43-->
+    <nodeSuccessors name="next" next="JoinNode36"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentSession"/>
+    <returnValueBindings name="OutValue_1" objectPath="Session"/>
+  </nodes>
+<!--Returns all the ABTestGroups of the current session which have assigned promotions or pagelets of any type. So it's a subgroup of 'CurrentABTestGroups'.
+Does not refrehes the groups, but checks, whether their ABTests are still active.
+@Location 6,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" strict="true" name="GetCurrentAssignedABTestGroupsFromSession"
+      callMode="Private">
+<!--@BendPoints 13,36-->
+    <nodeSuccessors name="next" next="GetCurrentDate3"/>
+  </nodes>
+<!--@Location 6,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate3">
+    <pipelet href="enfinity:/core/pipelets/GetCurrentDate.xml"/>
+<!--@BendPoints 13,38-->
+    <nodeSuccessors name="next" next="AddObjectToVector13"/>
+  </nodes>
+<!--@Location 6,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector13">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 13,40-->
+    <nodeSuccessors name="next" next="DecisionNode13"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CurrentAssignedABTestGroups"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentAssignedABTestGroupsVector"/>
+  </nodes>
+<!--@Location 6,20-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="CurrentSession:getObject(&quot;T_CurrentAssignedABTestGroupUUIDs&quot;)">
+<!--@BendPoints 13,42-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode10"/>
+<!--@BendPoints 15,41-->
+    <nodeSuccessors name="decision_no" next="JoinNode14"/>
+  </nodes>
+<!--@Location 6,21-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="CurrentSession:getObject(&quot;T_CurrentAssignedABTestGroupUUIDs&quot;)"
+      operator="has_elements">
+<!--@BendPoints 13,44-->
+    <nodeSuccessors name="decision_yes" next="LoopNode10"/>
+    <nodeSuccessors name="decision_no" next="JoinNode14"/>
+  </nodes>
+<!--@Location 6,22-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode10" loop="CurrentSession:getObject(&quot;T_CurrentAssignedABTestGroupUUIDs&quot;)">
+<!--@BendPoints 16,45-->
+    <nodeSuccessors name="next" next="EndNode11"/>
+    <entry key="AssignedABTestGroupUUID">
+<!--@BendPoints 13,46-->
+      <nodeSuccessors name="loop_entry_next" next="GetABTestGroupByUUID1"/>
+    </entry>
+  </nodes>
+<!--@Location 6,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetABTestGroupByUUID1">
+    <pipelet href="enfinity:/bc_abtest/pipelets/GetABTestGroupByUUID.xml"/>
+<!--@BendPoints 13,48-->
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+<!--@BendPoints 15,47-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode19"/>
+    <parameterBindings name="UUID" objectPath="AssignedABTestGroupUUID"/>
+    <returnValueBindings name="ABTestGroup" objectPath="AssignedABTestGroup"/>
+  </nodes>
+<!--@Location 6,24-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="AssignedABTestGroup:Test:Enabled"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 13,50-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode9"/>
+    <nodeSuccessors name="decision_no" next="JoinNode19"/>
+  </nodes>
+<!--@Location 6,25-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="AssignedABTestGroup:Test:StartDate:Time"
+      operator="lte" conditionItem="CurrentDate:Time">
+<!--@BendPoints 13,52-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode6"/>
+    <nodeSuccessors name="decision_no" next="JoinNode21"/>
+  </nodes>
+<!--@Location 6,26-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="AssignedABTestGroup:Test:EndDate:Time"
+      operator="gt" conditionItem="CurrentDate:Time">
+<!--@BendPoints 13,54-->
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector12"/>
+    <nodeSuccessors name="decision_no" next="JoinNode28"/>
+  </nodes>
+<!--@Location 6,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector12">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode27"/>
+    <parameterBindings name="InVector" objectPath="CurrentAssignedABTestGroupsVector"/>
+    <parameterBindings name="Object" objectPath="AssignedABTestGroup"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CurrentAssignedABTestGroups"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentAssignedABTestGroupsVector"/>
+  </nodes>
+<!--@Location 6,28-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode27">
+<!--@BendPoints 12,57 12,45-->
+    <nodeSuccessors name="next" next="LoopNode10_Entry"/>
+  </nodes>
+<!--@Location 7,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode28">
+<!--@BendPoints 15,57-->
+    <nodeSuccessors name="next" next="JoinNode27"/>
+  </nodes>
+<!--@Location 7,25-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode21">
+    <nodeSuccessors name="next" next="JoinNode28"/>
+  </nodes>
+<!--@Location 7,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 8,22-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" strict="true">
+    <returnValues name="CurrentAssignedABTestGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 7,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+<!--@BendPoints 16,43-->
+    <nodeSuccessors name="next" next="EndNode20"/>
+  </nodes>
+<!--@Location 8,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode20" name="ERROR" strict="true">
+    <returnValues name="CurrentAssignedABTestGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 15,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode25" strict="true" name="InvalidatePageCache"
+      callMode="Private">
+    <nodeSuccessors name="next" next="AddObjectToCollection0"/>
+    <parameters name="ABTest" type="com.intershop.component.marketing.capi.abtest.ABTest"/>
+    <parameters name="Site" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--collection of additional keywords-->
+    <parameters name="AdditionalKeywords" type="java.util.Collection&lt;java.lang.String>"
+        optional="true"/>
+  </nodes>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection0">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="InvalidatePageCache0"/>
+    <parameterBindings name="InCollection" objectPath="AdditionalKeywords"/>
+    <parameterBindings name="InObject" objectPath="ABTest:Id"/>
+    <returnValueBindings name="OutIterator" objectPath="Keywords"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="InvalidatePageCache0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/InvalidatePageCache.xml"/>
+    <nodeSuccessors name="next" next="EndNode30"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode30" strict="true"/>
+<!--@Since IS 7.3.2
+Creates a log entry for ABTestSessionCreatedEvent.
+@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode12" strict="true" name="LogABTestSessionCreatedEvent"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LogABTestEvent3"/>
+<!--The ABTestGroup that was assigned.-->
+    <parameters name="ABTestGroup" type="com.intershop.component.marketing.capi.abtest.ABTestGroup"/>
+<!--The User to log the event of an assigned ABTestGroup.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+<!--The session of the user.-->
+    <parameters name="Session" type="com.intershop.beehive.core.capi.request.Session"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogABTestEvent3">
+    <configurationValues name="Type" value="ABTestSessionCreatedEvent"/>
+    <pipelet href="enfinity:/bc_abtest/pipelets/LogABTestEvent.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="ABTestGroup" objectPath="ABTestGroup"/>
+    <parameterBindings name="ABTestGroups" nullBinding="true"/>
+    <parameterBindings name="CurrentSession" objectPath="Session"/>
+    <parameterBindings name="CurrentUser" objectPath="User"/>
+    <parameterBindings name="DoubleValue" nullBinding="true"/>
+    <parameterBindings name="MoneyValue" nullBinding="true"/>
+    <parameterBindings name="TestObject" nullBinding="true"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true"/>
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="LogApplyEvent"
+      callMode="Private">
+<!--@BendPoints 17,2-->
+    <nodeSuccessors name="next" next="LogABTestEvent2"/>
+<!--Reference to the test object when known-->
+    <parameters name="TestObject" type="com.intershop.beehive.core.capi.domain.PersistentObject"/>
+<!--A test group to log an event for.-->
+    <parameters name="ABTestGroup" type="com.intershop.component.marketing.capi.abtest.ABTestGroup"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogABTestEvent2">
+    <configurationValues name="Type" value="TestObjectAppliedEvent"/>
+    <pipelet href="enfinity:/bc_abtest/pipelets/LogABTestEvent.xml"/>
+    <nodeSuccessors name="next" next="JoinNode34"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode34"/>
+    <parameterBindings name="ABTestGroup" objectPath="ABTestGroup"/>
+    <parameterBindings name="ABTestGroups" nullBinding="true"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode34">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode16" strict="true" name="LogBasketCreationEvent"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="CurrentSession:getObject(&quot;T_ABTestMode&quot;)"
+      operator="str_eq" conditionValue="Enabled">
+    <nodeSuccessors name="decision_yes" next="CallNode8"/>
+<!--@BendPoints 20,3 19,3 19,9 20,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode16"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+<!--@BendPoints 21,6-->
+    <nodeSuccessors name="next" next="LogABTestEvent4"/>
+<!--@BendPoints 23,5-->
+    <nodeSuccessors name="ERROR" next="JoinNode4"/>
+    <startNode referencedName="ProcessABTesting-GetCurrentABTestGroupsFromSession"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogABTestEvent4">
+    <configurationValues name="Type" value="ShoppingCartEvent"/>
+    <pipelet href="enfinity:/bc_abtest/pipelets/LogABTestEvent.xml"/>
+    <nodeSuccessors name="next" next="JoinNode16"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="ABTestGroup" nullBinding="true"/>
+    <parameterBindings name="ABTestGroups" objectPath="CurrentABTestGroups"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+<!--@BendPoints 21,10-->
+    <nodeSuccessors name="next" next="EndNode22"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode22" strict="true"/>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 23,9-->
+    <nodeSuccessors name="next" next="JoinNode16"/>
+  </nodes>
+<!--@Location 12,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode18" strict="true" name="LogCheckoutEvent"
+      callMode="Private">
+<!--@BendPoints 25,2-->
+    <nodeSuccessors name="next" next="CallNode4"/>
+  </nodes>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 25,4-->
+    <nodeSuccessors name="next" next="LogABTestEvent5"/>
+<!--@BendPoints 27,3-->
+    <nodeSuccessors name="ERROR" next="JoinNode18"/>
+    <startNode referencedName="ProcessABTesting-GetCurrentABTestGroupsFromSession"/>
+  </nodes>
+<!--@Location 12,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogABTestEvent5">
+    <configurationValues name="Type" value="CheckoutEvent"/>
+    <pipelet href="enfinity:/bc_abtest/pipelets/LogABTestEvent.xml"/>
+    <nodeSuccessors name="next" next="JoinNode17"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode18"/>
+    <parameterBindings name="ABTestGroup" nullBinding="true"/>
+    <parameterBindings name="ABTestGroups" objectPath="CurrentABTestGroups"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+<!--@BendPoints 25,8-->
+    <nodeSuccessors name="next" next="EndNode16"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" strict="true"/>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+<!--@BendPoints 27,7-->
+    <nodeSuccessors name="next" next="JoinNode17"/>
+  </nodes>
+<!--mainly used for pagelets
+see ABTestURLComposerBuilder.java
+@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="LogViewEvent"
+      callMode="Private">
+<!--@BendPoints 9,2-->
+    <nodeSuccessors name="next" next="LogABTestEvent1"/>
+<!--Reference to the test object when known-->
+    <parameters name="TestObject" type="com.intershop.beehive.core.capi.domain.PersistentObject"/>
+<!--A test group to log an event for.-->
+    <parameters name="ABTestGroup" type="com.intershop.component.marketing.capi.abtest.ABTestGroup"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogABTestEvent1">
+    <configurationValues name="Type" value="TestObjectViewedEvent"/>
+    <pipelet href="enfinity:/bc_abtest/pipelets/LogABTestEvent.xml"/>
+    <nodeSuccessors name="next" next="JoinNode33"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode33"/>
+    <parameterBindings name="ABTestGroup" objectPath="ABTestGroup"/>
+    <parameterBindings name="ABTestGroups" nullBinding="true"/>
+    <parameterBindings name="CurrentSession" objectPath="CurrentSession"/>
+    <parameterBindings name="CurrentUser" objectPath="CurrentUser"/>
+    <parameterBindings name="DoubleValue" nullBinding="true"/>
+    <parameterBindings name="MoneyValue" nullBinding="true"/>
+    <parameterBindings name="TestObject" objectPath="TestObject"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode33">
+    <nodeSuccessors name="next" next="EndNode8"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" strict="true"/>
+<!--mainly used for promotions
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="LogViewEvents"
+      callMode="Private">
+<!--@BendPoints 3,2-->
+    <nodeSuccessors name="next" next="CallNode16"/>
+<!--Reference to the test objects when known-->
+    <parameters name="TestObjects" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode16">
+    <nodeSuccessors name="next" next="LoopNode3"/>
+<!--@BendPoints 5,4-->
+    <nodeSuccessors name="ERROR" next="JoinNode1"/>
+    <startNode referencedName="ProcessABTesting-GetCurrentAssignedABTestGroupsFromSession"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="TestObjects">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <entry key="TestObject">
+<!--@BendPoints 3,6-->
+      <nodeSuccessors name="loop_entry_next" next="GetABTestGroupsByObjectAssignment0"/>
+    </entry>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetABTestGroupsByObjectAssignment0">
+    <pipelet href="enfinity:/bc_abtest/pipelets/GetABTestGroupsByObjectAssignment.xml"/>
+<!--@BendPoints 3,8-->
+    <nodeSuccessors name="next" next="LoopNode11"/>
+<!--@BendPoints 5,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+    <parameterBindings name="ABTestGroups" objectPath="CurrentAssignedABTestGroups"/>
+    <parameterBindings name="TestObject" objectPath="TestObject"/>
+    <returnValueBindings name="AssignedABTestGroups" objectPath="AssignedABTestGroups"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode11" loop="AssignedABTestGroups">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <entry key="ABTestGroup">
+<!--@BendPoints 3,10-->
+      <nodeSuccessors name="loop_entry_next" next="LogABTestEvent0"/>
+    </entry>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogABTestEvent0">
+    <configurationValues name="Type" value="TestObjectViewedEvent"/>
+    <pipelet href="enfinity:/bc_abtest/pipelets/LogABTestEvent.xml"/>
+<!--@BendPoints 3,12 2,12 2,9-->
+    <nodeSuccessors name="next" next="LoopNode11_Entry"/>
+    <parameterBindings name="ABTestGroup" objectPath="ABTestGroup"/>
+    <parameterBindings name="ABTestGroups" nullBinding="true"/>
+    <parameterBindings name="CurrentSession" objectPath="CurrentSession"/>
+    <parameterBindings name="CurrentUser" objectPath="CurrentUser"/>
+    <parameterBindings name="DoubleValue" nullBinding="true"/>
+    <parameterBindings name="MoneyValue" nullBinding="true"/>
+    <parameterBindings name="TestObject" objectPath="TestObject"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 5,13 1,13 1,5-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 6,5-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--Returns all ABTestGroups of the user, which have any promotion or pagelets assigned.
+Also stores CurrentABTestGroups and CurrentAssignedABTestGroups into the session.
+@Location 1,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" strict="true" name="PutCurrentABTestgroupsToSession"
+      callMode="Private">
+<!--@BendPoints 3,36-->
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+    <parameters name="CurrentABTestGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 3,38-->
+    <nodeSuccessors name="next" next="AddObjectToVector6"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentABTestGroupUUIDs"/>
+  </nodes>
+<!--@Location 1,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector6">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 3,40-->
+    <nodeSuccessors name="next" next="AddObjectToVector7"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentAssignedABTestGroupUUIDs"/>
+  </nodes>
+<!--@Location 1,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector7">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 3,42-->
+    <nodeSuccessors name="next" next="LoopNode5"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CurrentAssignedABTestGroups"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentAssignedABTestGroupsVector"/>
+  </nodes>
+<!--@Location 1,21-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode5" loop="CurrentABTestGroups">
+<!--@BendPoints 5,43 5,54 1,54-->
+    <nodeSuccessors name="next" next="ExchangeSessionObject1"/>
+    <entry key="ABTestGroup">
+<!--@BendPoints 3,44-->
+      <nodeSuccessors name="loop_entry_next" next="AddObjectToVector2"/>
+    </entry>
+  </nodes>
+<!--@Location 1,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 3,46-->
+    <nodeSuccessors name="next" next="IsABTestGroupAssignedToObject0"/>
+    <parameterBindings name="InVector" objectPath="CurrentABTestGroupUUIDs"/>
+    <parameterBindings name="Object" objectPath="ABTestGroup:UUID"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentABTestGroupUUIDs"/>
+  </nodes>
+<!--@Location 1,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="IsABTestGroupAssignedToObject0">
+    <pipelet href="enfinity:/bc_abtest/pipelets/IsABTestGroupAssignedToObject.xml"/>
+<!--@BendPoints 3,48-->
+    <nodeSuccessors name="next" next="AddObjectToVector8"/>
+<!--@BendPoints 4,47 4,53-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode20"/>
+    <parameterBindings name="ABTestGroup" objectPath="ABTestGroup"/>
+  </nodes>
+<!--@Location 1,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector8">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 3,50-->
+    <nodeSuccessors name="next" next="AddObjectToVector10"/>
+    <parameterBindings name="InVector" objectPath="CurrentAssignedABTestGroupUUIDs"/>
+    <parameterBindings name="Object" objectPath="ABTestGroup:UUID"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentAssignedABTestGroupUUIDs"/>
+  </nodes>
+<!--@Location 1,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector10">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode20"/>
+    <parameterBindings name="InVector" objectPath="CurrentAssignedABTestGroupsVector"/>
+    <parameterBindings name="Object" objectPath="ABTestGroup"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CurrentAssignedABTestGroups"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentAssignedABTestGroupsVector"/>
+  </nodes>
+<!--@Location 1,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+<!--@BendPoints 1,53 1,43 2,43-->
+    <nodeSuccessors name="next" next="LoopNode5_Entry"/>
+  </nodes>
+<!--@Location 0,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject1">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_CurrentABTestGroupUUIDs"/>
+    <pipelet href="enfinity:/core/pipelets/ExchangeSessionObject.xml"/>
+<!--@BendPoints 1,56-->
+    <nodeSuccessors name="next" next="ExchangeSessionObject3"/>
+<!--@BendPoints 3,55-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="SaveObject" objectPath="CurrentABTestGroupUUIDs"/>
+    <returnValueBindings name="LoadObject" nullBinding="true"/>
+  </nodes>
+<!--@Location 0,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject3">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_CurrentAssignedABTestGroupUUIDs"/>
+    <pipelet href="enfinity:/core/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="SaveObject" objectPath="CurrentAssignedABTestGroupUUIDs"/>
+    <returnValueBindings name="LoadObject" nullBinding="true"/>
+  </nodes>
+<!--@Location 0,31-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+<!--@BendPoints 1,64-->
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 0,32-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" strict="true">
+    <returnValues name="CurrentAssignedABTestGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 1,28-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 3,58-->
+    <nodeSuccessors name="next" next="RemoveDictionaryValues0"/>
+  </nodes>
+<!--@Location 1,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValues0">
+    <configurationValues name="Keys" value="CurrentAssignedABTestGroups CurrentAssignedABTestGroupsVector"/>
+    <pipelet href="enfinity:/core/pipelets/RemoveDictionaryValues.xml"/>
+<!--@BendPoints 3,60-->
+    <nodeSuccessors name="next" next="AddObjectToVector11"/>
+  </nodes>
+<!--@Location 1,30-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector11">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 3,63-->
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CurrentAssignedABTestGroups"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentAssignedABTestGroupsVector"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="RefreshABTestGroupsByUser"
+      callMode="Private">
+<!--@BendPoints 3,16-->
+    <nodeSuccessors name="next" next="CallNode11"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="TargetGroups" type="java.util.Iterator"/>
+    <parameters name="TestGroupUUIDParams" type="java.util.Iterator&lt;java.lang.String>"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+    <nodeSuccessors name="next" next="CallNode2"/>
+<!--@BendPoints 5,19-->
+    <nodeSuccessors name="ABTestingDisabled" next="EndNode21"/>
+    <startNode referencedName="ProcessABTesting-CheckABTestMode"/>
+  </nodes>
+<!--Returns all ABTestGroups of the user, regardless whether they have any promotion or pagelets assigned.
+@Location 1,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 3,20-->
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <parameterBindings name="Domain" objectPath="CurrentDomain"/>
+    <parameterBindings name="Request" objectPath="CurrentRequest"/>
+    <parameterBindings name="Session" objectPath="CurrentSession"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="ProcessABTesting-RetrieveABTestGroups"/>
+  </nodes>
+<!--Returns all ABTestGroups of the user, which have any promotion or pagelets assigned.
+Also stores CurrentABTestGroups and CurrentAssignedABTestGroups into the session.
+@Location 1,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+<!--@BendPoints 3,22-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <startNode referencedName="ProcessABTesting-PutCurrentABTestgroupsToSession"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true">
+    <returnValues name="CurrentABTestGroups" type="java.util.Iterator"/>
+    <returnValues name="CurrentAssignedABTestGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode21" name="ERROR" strict="true">
+    <returnValues name="CurrentABTestGroups" type="java.util.Iterator"/>
+    <returnValues name="CurrentAssignedABTestGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Since IS 7.3.2
+Searches for all assignable ABTests for the given Target Groups and assigns the corresponing ABTestGroups to the users Session. 
+For every assignment an ABTestSessionCreatedEvent is fired.
+@Location 17,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="RetrieveABTestGroups"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+<!--The used Organization-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+<!--The Target Groups of a user to find their ABTests .-->
+    <parameters name="TargetGroups" type="java.util.Iterator"/>
+<!--ABTestGroupUUIDs that shall be assigned manually.-->
+    <parameters name="TestGroupUUIDParams" type="java.util.Iterator&lt;java.lang.String>"
+        optional="true"/>
+<!--The User to log the event of an assigned ABTestGroup.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+<!--The used domain to resolve the query name.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The used Request for the cookie handling.-->
+    <parameters name="Request" type="com.intershop.beehive.core.capi.request.Request"/>
+<!--The used Session to assign the ABTestGroups to.-->
+    <parameters name="Session" type="com.intershop.beehive.core.capi.request.Session"/>
+  </nodes>
+<!--@Location 17,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 17,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector0"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;ABTestBORepository&quot;):AccessibleABTestBOs"/>
+    <returnValueBindings name="OutValue_1" objectPath="AccessibleABTestBOs"/>
+  </nodes>
+<!--@Location 17,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector0">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CurrentABTestGroups"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentABTestGroupsVector"/>
+  </nodes>
+<!--@Location 17,11-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="AccessibleABTestBOs">
+<!--@BendPoints 37,23-->
+    <nodeSuccessors name="next" next="EndNode18"/>
+    <entry key="ABTestBO">
+      <nodeSuccessors name="loop_entry_next" next="KeyMapper3"/>
+    </entry>
+  </nodes>
+<!--@Location 17,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="AssignABTestToSession0"/>
+    <parameterBindings name="InValue_1" objectPath="ABTestBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <returnValueBindings name="OutValue_1" objectPath="ABTest"/>
+  </nodes>
+<!--@Location 17,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignABTestToSession0">
+    <pipelet href="enfinity:/bc_abtest/pipelets/AssignABTestToSession.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+  </nodes>
+<!--@Location 17,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="ParticipantStatus"
+      operator="str_neq" conditionValue="NO_PARTICIPANT">
+    <nodeSuccessors name="decision_yes" next="DecisionNode7"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 17,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="ParticipantStatus"
+      operator="str_eq" conditionValue="NEW_PARTICIPANT">
+<!--@BendPoints 35,32-->
+    <nodeSuccessors name="decision_yes" next="CallNode10"/>
+<!--@BendPoints 36,31 36,35-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 17,16-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="ABTestGroup" objectPath="ABTestGroup"/>
+    <startNode referencedName="ProcessABTesting-LogABTestSessionCreatedEvent"/>
+  </nodes>
+<!--@Location 17,17-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 35,36-->
+    <nodeSuccessors name="next" next="AddObjectToVector14"/>
+  </nodes>
+<!--@Location 17,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector14">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 33,37-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InVector" objectPath="CurrentABTestGroupsVector"/>
+    <parameterBindings name="Object" objectPath="ABTestGroup"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CurrentABTestGroups"/>
+    <returnValueBindings name="OutVector" objectPath="CurrentABTestGroupsVector"/>
+  </nodes>
+<!--@Location 16,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 33,23-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--Returns all the ABTestGroups, that are assigned to the user.
+@Location 18,19-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode18" strict="true">
+<!--The now assigned ABTestGroups of the user.-->
+    <returnValues name="CurrentABTestGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Deprecated since IS 7.3.2
+Use SetABTestModeForSession instead!
+This is only a delegate with fallbacks for missing parameters.
+
+Description:
+Sets a flag to the session, whether there are currently any ABTests.
+This is valid for the whole runtime of the session.
+@Location 12,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode19" strict="true" name="SetABTestMode"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode14"/>
+<!--The organization of the session.-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+<!--The Session to set the ABTest mode for..-->
+    <parameters name="Session" type="com.intershop.beehive.core.capi.request.Session"
+        optional="true"/>
+<!--The associated Domain of the session to get the Domain preference from.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+  </nodes>
+<!--@Location 12,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="Session">
+    <nodeSuccessors name="decision_yes" next="DecisionNode15"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper0"/>
+  </nodes>
+<!--@Location 12,19-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode15" conditionKey="Domain">
+    <nodeSuccessors name="decision_yes" next="CallNode13"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper1"/>
+  </nodes>
+<!--@Location 12,20-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode13">
+    <nodeSuccessors name="next" next="EndNode23"/>
+    <startNode referencedName="ProcessABTesting-SetABTestModeForSession"/>
+  </nodes>
+<!--@Location 12,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode23" strict="true"/>
+<!--@Location 13,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 27,41-->
+    <nodeSuccessors name="next" next="CallNode13"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="Domain"/>
+  </nodes>
+<!--@Location 13,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 26,38-->
+    <nodeSuccessors name="next" next="DecisionNode15"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentSession"/>
+    <returnValueBindings name="OutValue_1" objectPath="Session"/>
+  </nodes>
+<!--@Since IS 7.3.2
+Sets a flag to the session, whether there are currently any ABTests.
+This is valid for the whole runtime of the session.
+@Location 15,18-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode17" strict="true" name="SetABTestModeForSession"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetCurrentDate0"/>
+<!--The organization of the session.-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+<!--The Session to set the ABTest mode for..-->
+    <parameters name="Session" type="com.intershop.beehive.core.capi.request.Session"/>
+<!--The associated Domain of the session to get the Domain preference from.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 15,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate0">
+    <pipelet href="enfinity:/core/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="CallNode15"/>
+  </nodes>
+<!--@Location 15,20-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode15">
+    <nodeSuccessors name="next" next="ExecuteCountQuery0"/>
+    <startNode referencedName="ProcessABTesting-GetABTestRepositoryDomain"/>
+  </nodes>
+<!--@Location 15,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCountQuery0">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="ParameterName_01" value="CurrentDate"/>
+    <configurationValues name="ParameterName_02" value="Domain"/>
+    <configurationValues name="QueryName" value="marketing/GetEnabledABTests"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCountQuery.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode21"/>
+<!--@BendPoints 35,43-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode29"/>
+    <parameterBindings name="CurrentDomain" objectPath="Domain"/>
+    <parameterBindings name="ParameterValue_01" objectPath="CurrentDate"/>
+    <parameterBindings name="ParameterValue_02" objectPath="ABTestRepositoryDomain"/>
+    <returnValueBindings name="Count" objectPath="RunningABTestsCount"/>
+  </nodes>
+<!--@Location 15,22-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode21" conditionKey="RunningABTestsCount"
+      operator="lte" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="ExchangeSessionObject0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode29"/>
+  </nodes>
+<!--@Location 15,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject0">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_ABTestMode"/>
+    <pipelet href="enfinity:/core/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="JoinNode26"/>
+<!--@BendPoints 33,47-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode22"/>
+    <parameterBindings name="SaveObject" constant="Disabled"/>
+    <parameterBindings name="SessionObjectName" nullBinding="true"/>
+    <parameterBindings name="TargetSession" objectPath="Session"/>
+    <returnValueBindings name="LoadObject" nullBinding="true"/>
+  </nodes>
+<!--@Location 15,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode26">
+    <nodeSuccessors name="next" next="EndNode17"/>
+  </nodes>
+<!--@Location 15,25-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" strict="true"/>
+<!--@Location 16,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode22">
+    <nodeSuccessors name="next" next="JoinNode26"/>
+  </nodes>
+<!--@Location 17,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode29">
+<!--@BendPoints 35,46-->
+    <nodeSuccessors name="next" next="ExchangeSessionObject2"/>
+  </nodes>
+<!--@Location 17,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject2">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_ABTestMode"/>
+    <pipelet href="enfinity:/core/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="JoinNode23"/>
+<!--@BendPoints 36,47 36,49-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode23"/>
+    <parameterBindings name="SaveObject" constant="Enabled"/>
+    <parameterBindings name="SessionObjectName" nullBinding="true"/>
+    <parameterBindings name="TargetSession" objectPath="Session"/>
+    <returnValueBindings name="LoadObject" nullBinding="true"/>
+  </nodes>
+<!--@Location 17,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode23">
+    <nodeSuccessors name="next" next="JoinNode22"/>
+  </nodes>
+</pipeline:Pipeline>

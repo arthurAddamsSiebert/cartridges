@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Search promotions for export">
+<parameters>
+	<parameter name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Promotion" type="orm" class="com.intershop.component.marketing.internal.rebate.PromotionPO">
+		<return-attribute name="PROMOTIONUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+	SELECT p.UUID as PROMOTIONUUID, COUNT(UUID) over() as "ROWCOUNT", p.ID
+	FROM PROMOTION p
+	WHERE p.DOMAINID = <template-variable value="JobConfiguration:Domain:UUID"/>
+	
+	<!-- Check if dynamic assignment is configured -->
+	<template-if condition="isDefined(JobConfiguration:DynamicAssignment) AND JobConfiguration:DynamicAssignment">
+	
+		<!-- Check if any rule for dynamic assignment exists -->
+		<template-if condition="JobConfiguration:ChangedWithin  OR JobConfiguration:ActiveOnly OR JobConfiguration:WithStartDate OR JobConfiguration:WithEndDate">
+		
+			<!-- Changed within last time -->
+			<template-if condition="JobConfiguration:ChangedWithin">
+			
+				<!-- Check parameter for changed-within last time -->		
+				<template-if condition="isDefined(JobConfiguration:ChangedWithinLastTime) AND isDefined(JobConfiguration:ChangedWithinLastTimeUnit)">
+				
+					<!-- Use job execution time instead of UTC TIMESTAMP if available -->
+					<template-if condition="isDefined(JobConfiguration:LastExecutionTime)">
+						<sql-dialect name="Oracle">
+							<template-if condition="JobConfiguration:ChangedWithinLastTimeUnit == 0"><!-- 0=minutes -->
+								AND p.LASTMODIFIED &gt;= <template-variable value="JobConfiguration:LastExecutionTime"/>-(<template-variable value="JobConfiguration:ChangedWithinLastTime"/>/60/24)
+							</template-if>
+							<template-if condition="JobConfiguration:ChangedWithinLastTimeUnit == 1"><!-- 1=days -->
+								AND p.LASTMODIFIED &gt;= <template-variable value="JobConfiguration:LastExecutionTime"/>-<template-variable value="JobConfiguration:ChangedWithinLastTime"/>
+							</template-if>
+							<template-if condition="JobConfiguration:ChangedWithinLastTimeUnit == 2"><!-- 2=weeks -->
+								AND p.LASTMODIFIED &gt;= <template-variable value="JobConfiguration:LastExecutionTime"/>-(<template-variable value="JobConfiguration:ChangedWithinLastTime"/>*7)
+							</template-if>
+						</sql-dialect>
+						<sql-dialect name="Microsoft">
+							<template-if condition="JobConfiguration:ChangedWithinLastTimeUnit == 0"><!-- 0=minutes -->
+								AND DATEDIFF(minute, p.LASTMODIFIED, <template-variable value="JobConfiguration:LastExecutionTime"/>) &lt;= <template-variable value="JobConfiguration:ChangedWithinLastTime"/>
+							</template-if>
+							<template-if condition="JobConfiguration:ChangedWithinLastTimeUnit == 1"><!-- 1=days -->
+								AND DATEDIFF(day, p.LASTMODIFIED, <template-variable value="JobConfiguration:LastExecutionTime"/>) &lt;= <template-variable value="JobConfiguration:ChangedWithinLastTime"/>
+							</template-if>
+							<template-if condition="JobConfiguration:ChangedWithinLastTimeUnit == 2"><!-- 2=weeks -->
+								AND DATEDIFF(week, p.LASTMODIFIED, <template-variable value="JobConfiguration:LastExecutionTime"/>) &lt;= <template-variable value="JobConfiguration:ChangedWithinLastTime"/>
+							</template-if>
+						</sql-dialect>
+					<if-else/>
+						<sql-dialect name="Oracle">
+							<template-if condition="JobConfiguration:ChangedWithinLastTimeUnit == 0"><!-- 0=minutes -->
+								AND p.LASTMODIFIED &gt;= utctimestamp - (<template-variable value="JobConfiguration:ChangedWithinLastTime"/>/60/24)
+							</template-if>
+							<template-if condition="JobConfiguration:ChangedWithinLastTimeUnit == 1"><!-- 1=days -->
+								AND p.LASTMODIFIED &gt;= utctimestamp - <template-variable value="JobConfiguration:ChangedWithinLastTime"/>
+							</template-if>
+							<template-if condition="JobConfiguration:ChangedWithinLastTimeUnit == 2"><!-- 2=weeks -->
+								AND p.LASTMODIFIED &gt;= utctimestamp - (<template-variable value="JobConfiguration:ChangedWithinLastTime"/>*7)
+							</template-if>
+						</sql-dialect>
+						<sql-dialect name="Microsoft">
+							<template-if condition="JobConfiguration:ChangedWithinLastTimeUnit == 0"><!-- 0=minutes -->
+								AND DATEDIFF(minute, p.LASTMODIFIED, dbo.utctimestamp()) &lt;= <template-variable value="JobConfiguration:ChangedWithinLastTime"/>
+							</template-if>
+							<template-if condition="JobConfiguration:ChangedWithinLastTimeUnit == 1"><!-- 1=days -->
+								AND DATEDIFF(day, p.LASTMODIFIED, dbo.utctimestamp()) &lt;= <template-variable value="JobConfiguration:ChangedWithinLastTime"/>
+							</template-if>
+							<template-if condition="JobConfiguration:ChangedWithinLastTimeUnit == 2"><!-- 2=weeks -->
+								AND DATEDIFF(week, p.LASTMODIFIED, dbo.utctimestamp()) &lt;= <template-variable value="JobConfiguration:ChangedWithinLastTime"/>
+							</template-if>
+						</sql-dialect>
+					</template-if>
+				<if-else/>
+					AND 1=2
+				</template-if>
+			</template-if>
+			
+			<!-- Active Only -->
+			<template-if condition="JobConfiguration:ActiveOnly">
+				AND p.ENABLEDFLAG=1
+			</template-if>
+			
+			<!-- StartDate before/ after -->
+			<template-if condition="JobConfiguration:WithStartDate">
+				<template-if condition="isDefined(JobConfiguration:StartDate)">
+					<template-if condition="isDefined(JobConfiguration:StartDateBefore) AND JobConfiguration:StartDateBefore">
+						AND p.STARTDATE &lt; <template-variable value="JobConfiguration:StartDate"/>
+					<if-else/>
+					 	AND p.STARTDATE &gt;= <template-variable value="JobConfiguration:StartDate"/>
+					</template-if>
+				<if-else/>
+					AND 1=2 
+				</template-if>
+			</template-if>
+			
+			<!-- EndDate before/ after -->
+			<template-if condition="JobConfiguration:WithEndDate">
+				<template-if condition="isDefined(JobConfiguration:EndDate)">
+					<template-if condition="isDefined(JobConfiguration:EndDateBefore) AND JobConfiguration:EndDateBefore">
+						AND p.ENDDATE &lt; <template-variable value="JobConfiguration:EndDate"/>
+					<if-else/>
+					 	AND p.ENDDATE &gt;= <template-variable value="JobConfiguration:EndDate"/>
+					</template-if>
+				<if-else/>
+					AND 1=2
+				</template-if>
+			</template-if>
+		<if-else/><!-- no dynamic rule is defined to select promotions -->
+			AND 1=2
+		</template-if>
+	<if-else/>
+		AND 1=2
+	</template-if>
+	ORDER BY	
+	<sql-dialect name="Oracle">
+        p.id 
+        ASC 
+        NULLS LAST
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+    	CASE
+    		WHEN p.id IS NULL 
+    		THEN 1
+    		ELSE 0
+    	END,
+        p.id
+        ASC 
+	</sql-dialect>
+</template>
+</query>

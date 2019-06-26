@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Maintains \- updates or rebuilds \- all search indexes of all domains.
+@Group SearchIndex-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="MaintainSearchIndexes" type="process">
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="CheckDomainName"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+<!--check for a specific index domain name-->
+    <parameters name="SearchIndexDomainName" type="java.lang.String" optional="true"/>
+<!--current domain to check-->
+    <parameters name="CurrentDomainName" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="SearchIndexDomainName">
+    <nodeSuccessors name="decision_yes" next="DecisionNode6"/>
+<!--@BendPoints 16,16 16,19-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="CurrentDomainName"
+      operator="str_eq" conditionItem="SearchIndexDomainName">
+    <nodeSuccessors name="decision_yes" next="JoinNode6"/>
+    <nodeSuccessors name="decision_no" next="EndNode6"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 15,20-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="" strict="true"/>
+<!--@Location 8,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="NO" strict="true"/>
+<!--gets all search indexes to build or update. can pass parameters to restrict the indexes to specific index properties
+@Location 1,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetAllSearchIndexes"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery2"/>
+<!--online, offline or all (empty)-->
+    <parameters name="SearchIndexOnlineStatus" type="java.lang.String" optional="true"/>
+<!--check for a specific index domain name-->
+    <parameters name="SearchIndexDomainName" type="java.lang.String" optional="true"/>
+<!--a specific search index type e.g. SFProductSearch, SFContentSearch, SFProductSearchSuggest-->
+    <parameters name="SearchIndexType" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery2">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="TypeCodes"/>
+    <configurationValues name="QueryName" value="channel/GetChannelsByTypeCode"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector0"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode8"/>
+    <parameterBindings name="Connection" nullBinding="true"/>
+    <parameterBindings name="ParameterValue_01" constant="52 42 32 21"/>
+    <parameterBindings name="Parameters" nullBinding="true"/>
+    <parameterBindings name="Query" nullBinding="true"/>
+    <returnValueBindings name="SearchResult" objectPath="Channels"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector0">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector3"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="SuggestSearchIndexes"/>
+    <returnValueBindings name="OutVector" objectPath="SuggestSearchIndexesVector"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector3">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToCollection3"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="AllSearchIndexes"/>
+    <returnValueBindings name="OutVector" objectPath="AllSearchIndexesVector"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection3">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="InCollection" objectPath="ProcessedOwningDomains"/>
+    <parameterBindings name="InObject" nullBinding="true"/>
+    <returnValueBindings name="OutCollection" objectPath="ProcessedOwningDomains"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Channels">
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <entry key="CurrentChannel">
+      <nodeSuccessors name="loop_entry_next" next="ContainsElement0"/>
+    </entry>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ContainsElement0">
+    <pipelet href="enfinity:/core/pipelets/ContainsElement.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <nodeSuccessors name="pipelet_error" next="AddObjectToCollection4"/>
+    <parameterBindings name="Collection" objectPath="ProcessedOwningDomains"/>
+    <parameterBindings name="Element" objectPath="CurrentChannel:OwningDomain"/>
+  </nodes>
+<!--@Location 0,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 1,23-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection4">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <parameterBindings name="InCollection" objectPath="ProcessedOwningDomains"/>
+    <parameterBindings name="InObject" objectPath="CurrentChannel:OwningDomain"/>
+    <returnValueBindings name="OutCollection" objectPath="ProcessedOwningDomains"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="GetApplications0"/>
+<!--@BendPoints 2,29-->
+    <nodeSuccessors name="NO" next="JoinNode0"/>
+    <parameterBindings name="CurrentDomainName" objectPath="CurrentChannel:Domain:DomainName"/>
+    <startNode referencedName="This:CheckDomainName"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplications0">
+    <pipelet href="enfinity:/core/pipelets/GetApplications.xml"/>
+    <nodeSuccessors name="next" next="LoopNode3"/>
+    <parameterBindings name="Domain" objectPath="CurrentChannel:OwningDomain"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="Applications">
+<!--@BendPoints 1,33-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <entry key="Application">
+      <nodeSuccessors name="loop_entry_next" next="KeyMapper0"/>
+    </entry>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="ExecutePipeline0"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentChannel:OwningDomain:Site"/>
+    <returnValueBindings name="OutValue_1" objectPath="Domain"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline0">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelineName" value="ProcessSearchIndex"/>
+    <configurationValues name="PipelineStartNode" value="GetIndexes"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="LoopNode5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+  </nodes>
+<!--@Location 3,18-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode5" loop="PipelineResult:PipelineDictionary:SearchIndexes">
+<!--@BendPoints 9,37 9,43-->
+    <nodeSuccessors name="next" next="RemoveDictionaryValue0"/>
+    <entry key="SearchIndex">
+      <nodeSuccessors name="loop_entry_next" next="CallNode4"/>
+    </entry>
+  </nodes>
+<!--@Location 3,19-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+    <nodeSuccessors name="NO" next="LoopNode5_Entry"/>
+    <parameterBindings name="CurrentDomainName" objectPath="SearchIndex:Domain:DomainName"/>
+    <startNode referencedName="This:CheckDomainName"/>
+  </nodes>
+<!--@Location 3,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="LoopNode5_Entry"/>
+    <parameterBindings name="InVector" objectPath="AllSearchIndexesVector"/>
+    <parameterBindings name="Object" objectPath="SearchIndex"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="AllSearchIndexes"/>
+    <returnValueBindings name="OutVector" objectPath="AllSearchIndexesVector"/>
+  </nodes>
+<!--@Location 1,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue0">
+    <configurationValues name="Key" value="PipelineResult"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 1,22-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="SearchIndexType">
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+    <nodeSuccessors name="decision_no" next="CallNode_BC6NoGsiEeizEOa2hk2sWQ"/>
+  </nodes>
+<!--@Location 0,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 0,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+  </nodes>
+<!--@Location 1,23-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_BC6NoGsiEeizEOa2hk2sWQ">
+    <nodeSuccessors name="End" next="CallNode_d5TKIGsiEeizEOa2hk2sWQ"/>
+    <parameterBindings name="SearchIndexType" constant="SFProductSearchSuggest"/>
+    <parameterBindings name="SearchIndexesVector" objectPath="SuggestSearchIndexesVector"/>
+    <startNode referencedName="MaintainSearchIndexes-GetSearchSuggestIndexesByType"/>
+    <returnValueBindings name="SearchIndexes" objectPath="SuggestSearchIndexes"/>
+    <returnValueBindings name="SearchIndexesVector" objectPath="SuggestSearchIndexesVector"/>
+  </nodes>
+<!--@Location 0,23-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_d5TKIGsiEeizEOa2hk2sWQ">
+    <nodeSuccessors name="End" next="JoinNode5"/>
+    <parameterBindings name="SearchIndexType" constant="SFObjectSuggestSearch"/>
+    <parameterBindings name="SearchIndexesVector" objectPath="SuggestSearchIndexesVector"/>
+    <startNode referencedName="MaintainSearchIndexes-GetSearchSuggestIndexesByType"/>
+    <returnValueBindings name="SearchIndexes" objectPath="SuggestSearchIndexes"/>
+    <returnValueBindings name="SearchIndexesVector" objectPath="SuggestSearchIndexesVector"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="AllSearchIndexes" type="java.util.Iterator" optional="true"/>
+    <returnValues name="SuggestSearchIndexes" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="ERROR" strict="true"/>
+<!--@Location 5,24-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_JW5kcGsfEeizEOa2hk2sWQ" strict="true"
+      name="GetSearchSuggestIndexesByType" callMode="Private">
+    <nodeSuccessors name="next" next="ExecutePipeline1"/>
+    <parameters name="SearchIndexType" type="java.lang.String"/>
+    <parameters name="Application" type="com.intershop.beehive.core.capi.domain.Application"/>
+    <parameters name="SearchIndexesVector" type="java.util.Vector" optional="true"/>
+    <parameters name="SearchIndexDomainName" type="java.lang.String" optional="true"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="SearchIndexOnlineStatus" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 5,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline1">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelineName" value="ProcessSearchIndex"/>
+    <configurationValues name="PipelineStartNode" value="GetIndexes"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="LoopNode4"/>
+<!--@BendPoints 14,51-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+  </nodes>
+<!--@Location 5,26-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode4" loop="PipelineResult:PipelineDictionary:SearchIndexes">
+<!--@BendPoints 13,53-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <entry key="SearchIndex">
+      <nodeSuccessors name="loop_entry_next" next="CallNode2"/>
+    </entry>
+  </nodes>
+<!--@Location 5,27-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="AddObjectToVector2"/>
+    <nodeSuccessors name="NO" next="LoopNode4_Entry"/>
+    <parameterBindings name="CurrentDomainName" objectPath="SearchIndex:Domain:DomainName"/>
+    <startNode referencedName="This:CheckDomainName"/>
+  </nodes>
+<!--@Location 5,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="LoopNode4_Entry"/>
+    <parameterBindings name="InVector" objectPath="SearchIndexesVector"/>
+    <parameterBindings name="Object" objectPath="SearchIndex"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="SearchIndexes"/>
+    <returnValueBindings name="OutVector" objectPath="SearchIndexesVector"/>
+  </nodes>
+<!--@Location 7,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="EndNode_Svj88GsfEeizEOa2hk2sWQ"/>
+  </nodes>
+<!--@Location 7,27-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_Svj88GsfEeizEOa2hk2sWQ" name="End"
+      strict="true">
+    <returnValues name="SearchIndexes" type="java.util.Iterator" optional="true"/>
+    <returnValues name="SearchIndexesVector" type="java.util.Vector" optional="true"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="Rebuild"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+<!--online, offline or all (empty)-->
+    <parameters name="SearchIndexOnlineStatus" type="java.lang.String" optional="true"/>
+<!--check for a specific index domain name-->
+    <parameters name="SearchIndexDomainName" type="java.lang.String" optional="true"/>
+<!--a specific search index type e.g. SFProductSearch, SFContentSearch, SFProductSearchSuggest-->
+    <parameters name="SearchIndexType" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <nodeSuccessors name="ERROR" next="JoinNode3"/>
+    <startNode referencedName="MaintainSearchIndexes-GetAllSearchIndexes"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="MaintainSearchIndexes3"/>
+    <startNode referencedName="This:RemoveSuggestIndexes"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="MaintainSearchIndexes3">
+    <configurationValues name="RebuildMode" value="FULL_REBUILD"/>
+    <pipelet href="enfinity:/bc_search/pipelets/MaintainSearchIndexes.xml"/>
+    <nodeSuccessors name="next" next="MaintainSearchIndexes0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="SearchIndexes" objectPath="SearchIndexes1"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="MaintainSearchIndexes0">
+    <configurationValues name="RebuildMode" value="FULL_REBUILD"/>
+    <pipelet href="enfinity:/bc_search/pipelets/MaintainSearchIndexes.xml"/>
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+    <parameterBindings name="SearchIndexes" objectPath="SuggestSearchIndexes"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true"/>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="ERROR" strict="true"/>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="RemoveSuggestIndexes"
+      callMode="Private">
+    <nodeSuccessors name="next" next="AddObjectToCollection0"/>
+<!--the list of search indexes to select from-->
+    <parameters name="AllSearchIndexes" type="java.util.Iterator"/>
+    <parameters name="SuggestSearchIndexes" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection0">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <parameterBindings name="InCollection" nullBinding="true"/>
+    <parameterBindings name="InObject" nullBinding="true"/>
+    <returnValueBindings name="OutCollection" objectPath="SearchIndexesList1"/>
+    <returnValueBindings name="OutIterator" objectPath="SearchIndexes1"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="AllSearchIndexes">
+<!--@BendPoints 13,19-->
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <entry key="SearchIndex">
+      <nodeSuccessors name="loop_entry_next" next="AddObjectToCollection2"/>
+    </entry>
+  </nodes>
+<!--@Location 5,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection2">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+<!--@BendPoints 9,21-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <parameterBindings name="InCollection" objectPath="SearchIndexesList1"/>
+    <parameterBindings name="InObject" objectPath="SearchIndex"/>
+    <returnValueBindings name="OutCollection" objectPath="SearchIndexesList1"/>
+    <returnValueBindings name="OutIterator" objectPath="SearchIndexes1"/>
+  </nodes>
+<!--@Location 5,11-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="SuggestSearchIndexes">
+    <nodeSuccessors name="next" next="AddObjectToCollection1"/>
+    <entry key="SearchIndex">
+      <nodeSuccessors name="loop_entry_next" next="RemoveObjectFromCollection0"/>
+    </entry>
+  </nodes>
+<!--@Location 5,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveObjectFromCollection0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveObjectFromCollection.xml"/>
+<!--@BendPoints 9,25-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <parameterBindings name="InCollection" objectPath="SearchIndexesList1"/>
+    <parameterBindings name="InCollection2" nullBinding="true"/>
+    <parameterBindings name="InObject" objectPath="SearchIndex"/>
+    <returnValueBindings name="OutCollection" objectPath="SearchIndexesList1"/>
+  </nodes>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection1">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <parameterBindings name="InCollection" objectPath="SearchIndexesList1"/>
+    <parameterBindings name="InObject" nullBinding="true"/>
+    <returnValueBindings name="OutCollection" objectPath="SearchIndexesList1"/>
+    <returnValueBindings name="OutIterator" objectPath="SearchIndexes1"/>
+  </nodes>
+<!--@Location 6,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="SearchIndexes1" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="Update"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode3"/>
+<!--online, offline or all (empty)-->
+    <parameters name="SearchIndexOnlineStatus" type="java.lang.String" optional="true"/>
+<!--check for a specific index domain name-->
+    <parameters name="SearchIndexDomainName" type="java.lang.String" optional="true"/>
+<!--a specific search index type id e.g. SFProductSearch, SFContentSearch, SFProductSearchSuggest-->
+    <parameters name="SearchIndexType" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="CallNode6"/>
+<!--@BendPoints 9,3-->
+    <nodeSuccessors name="ERROR" next="JoinNode2"/>
+    <startNode referencedName="MaintainSearchIndexes-GetAllSearchIndexes"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="MaintainSearchIndexes1"/>
+    <startNode referencedName="This:RemoveSuggestIndexes"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="MaintainSearchIndexes1">
+    <configurationValues name="RebuildMode" value="FULL_UPDATE_OR_REBUILD"/>
+    <pipelet href="enfinity:/bc_search/pipelets/MaintainSearchIndexes.xml"/>
+    <nodeSuccessors name="next" next="MaintainSearchIndexes2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="SearchIndexes" objectPath="SearchIndexes1"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="MaintainSearchIndexes2">
+    <configurationValues name="RebuildMode" value="FULL_UPDATE_OR_REBUILD"/>
+    <pipelet href="enfinity:/bc_search/pipelets/MaintainSearchIndexes.xml"/>
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="SearchIndexes" objectPath="SuggestSearchIndexes"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="ERROR" strict="true"/>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+</pipeline:Pipeline>

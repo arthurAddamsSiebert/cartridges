@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="@deprecated since IS 7.3.1: 
+this is no longer needed, as the ABTests should be assigned via affiliate usergroups automatically in ProcessABTesting-RefreshABTestGroupsByUser. 
+For this to work, the AffiliateInclude Pipelines has to be called on all requests with an assigned affiliate parameter.  
+
+Description: 
+Select all ABTests for a specific affiliate partner where the affiliate is assigned as target group.">
+<parameters>
+	<parameter name="AffiliatePartnerUUID" type="java.lang.String" optional="false" description="The UUID of the affiliate partner to select ABTests for."/>
+	<parameter name="SelectOnlyEnabledABTests" type="java.lang.String" optional="true" description="If set to true only enabled ABTests are selected, otherwise all ABTests for the affiliate."/>
+	<parameter name="SelectOnlyInProgress" type="java.lang.String" optional="true" description="Select only ABTests which are currently in active progress, otherwise select all."/>
+</parameters>
+<return-mappings>
+	<return-mapping name="ABTest" type="orm" class="com.intershop.component.marketing.internal.abtest.ABTestPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	SELECT abt.uuid AS UUID, count(abt.uuid) over() AS "rowcount"
+	FROM abtest abt, affiliatepartner afp, usergroupassignment uga
+	WHERE afp.uuid = <template-variable value="AffiliatePartnerUUID"/> 
+	AND afp.partnerusergroupid = uga.childusergroupid 
+	AND abt.targetgroupid = uga.parentusergroupid
+	<template-if condition="isDefined(SelectOnlyInProgress) AND SelectOnlyInProgress EQ &quot;true&quot;">
+		AND abt.status = 1
+	</template-if>
+	<template-if condition="isDefined(SelectOnlyEnabledABTests) AND SelectOnlyEnabledABTests EQ &quot;true&quot;">
+		AND abt.enabledflag = 1
+	</template-if>
+</template>
+</query>

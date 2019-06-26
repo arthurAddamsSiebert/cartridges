@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This is the new process pipeline for quotes
+@Group quote-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessQuote" overrideMode="Inherit" type="process">
+<!--Adds the given quote products to the basket.
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="AddQuoteProductsToBasket"
+      callMode="Private">
+    <nodeSuccessors name="next" next="VerifyBoolean0"/>
+<!--The quote-->
+    <parameters name="QuoteBO" type="com.intershop.component.quote.capi.QuoteBO"/>
+<!--The basket the product has to be added to.-->
+    <parameters name="BasketBO" type="com.intershop.component.basket.capi.BasketBO"/>
+<!--The ProductBORepository-->
+    <parameters name="ProductBORepository" type="com.intershop.component.product.capi.ProductBORepository"/>
+<!--Flag for calculating the basket after adding the products. Defaults to "false".-->
+    <parameters name="Calculate" type="java.lang.Boolean" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyBoolean0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyBoolean.xml"/>
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <parameterBindings name="NoneLocalizedString" constant="true"/>
+    <returnValueBindings name="BooleanValue" objectPath="ForceSeparateLineItem"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="QuoteBO:QuoteLineItemBOs">
+<!--@BendPoints 6,5 6,6 6,11-->
+    <nodeSuccessors name="next" next="AddMultipleEntriesToMap0"/>
+    <entry key="QuoteLineItemBO">
+      <nodeSuccessors name="loop_entry_next" next="CallNode_uArxkGehEeeMnpPC4ZW48Q"/>
+    </entry>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_uArxkGehEeeMnpPC4ZW48Q">
+    <nodeSuccessors name="next" next="AddAddToBasketRecord0"/>
+    <nodeSuccessors name="Error" next="JoinNode_4iMBcGehEeeMnpPC4ZW48Q"/>
+    <parameterBindings name="SKU" objectPath="QuoteLineItemBO:SKU"/>
+    <startNode referencedName="This:GetProductBOForQuoteItem"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddAddToBasketRecord0">
+    <pipelet href="enfinity:/bc_basket/pipelets/CreateAddToBasketRecord.xml"/>
+<!--@BendPoints 5,9-->
+    <nodeSuccessors name="next" next="JoinNode_4iMBcGehEeeMnpPC4ZW48Q"/>
+    <parameterBindings name="FixedSingleBasePrice" objectPath="QuoteLineItemBO:SinglePrice"/>
+    <parameterBindings name="ForceSeparateLineItem" objectPath="ForceSeparateLineItem"/>
+    <parameterBindings name="ProductBO" objectPath="ProductBORepository:ProductBOBySKU(QuoteLineItemBO:SKU)"/>
+    <parameterBindings name="Quantity" objectPath="QuoteLineItemBO:Quantity"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_4iMBcGehEeeMnpPC4ZW48Q">
+<!--@BendPoints 5,6-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddMultipleEntriesToMap0">
+    <configurationValues name="Mode" value="OverwriteValue"/>
+    <pipelet href="enfinity:/core/pipelets/AddMultipleEntriesToMap.xml"/>
+    <nodeSuccessors name="next" next="AddGlobalAddToBasketParameters0"/>
+    <parameterBindings name="InMap" objectPath="AdditionalParameters"/>
+    <parameterBindings name="Key1" constant="quoteID"/>
+    <parameterBindings name="Value1" objectPath="QuoteBO:ID"/>
+    <returnValueBindings name="OutMap" objectPath="AdditionalParameters"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddGlobalAddToBasketParameters0">
+    <pipelet href="enfinity:/bc_basket/pipelets/AddGlobalAddToBasketParameters.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="EndNode5"/>
+<!--@BendPoints 5,15-->
+    <nodeSuccessors name="Error" next="EndNode4"/>
+    <parameterBindings name="Basket" objectPath="BasketBO"/>
+    <startNode referencedName="ProcessBasket-AddProducts"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true">
+    <returnValues name="AddToBasketResults" type="com.intershop.component.basket.capi.AddToBasketResults"/>
+    <returnValues name="ERROR_Basket_Product" type="java.lang.Boolean" optional="true"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="Error" strict="true">
+    <returnValues name="AddToBasketResults" type="com.intershop.component.basket.capi.AddToBasketResults"
+        optional="true"/>
+    <returnValues name="ERROR_Basket_Product" type="java.lang.Boolean" optional="true"/>
+    <returnValues name="ErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_qhyo0GehEeeMnpPC4ZW48Q" strict="true"
+      name="GetProductBOForQuoteItem" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode_qh59kGehEeeMnpPC4ZW48Q"/>
+    <parameters name="SKU" type="java.lang.String" optional="true"/>
+    <parameters name="ProductBORepository" type="com.intershop.component.product.capi.ProductBORepository"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_qh59kGehEeeMnpPC4ZW48Q"
+      conditionKey="SKU">
+    <nodeSuccessors name="decision_yes" next="DecisionNode_qh59kmehEeeMnpPC4ZW48Q"/>
+<!--@BendPoints 11,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode_qh6koGehEeeMnpPC4ZW48Q"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_qh59kmehEeeMnpPC4ZW48Q"
+      conditionKey="ProductBORepository:ProductBOBySKU(SKU)">
+    <nodeSuccessors name="decision_yes" next="KeyMapper_qh26QWehEeeMnpPC4ZW48Q"/>
+    <nodeSuccessors name="decision_no" next="JoinNode_qh6koGehEeeMnpPC4ZW48Q"/>
+  </nodes>
+<!--@DisplayName GetProductBO
+
+
+
+
+
+
+
+
+
+@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_qh26QWehEeeMnpPC4ZW48Q">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_qh5WgWehEeeMnpPC4ZW48Q"/>
+    <parameterBindings name="InValue_1" objectPath="ProductBORepository:ProductBOBySKU(SKU)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProductBO"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_qh5WgWehEeeMnpPC4ZW48Q"
+      conditionKey="ProductBO">
+    <nodeSuccessors name="decision_yes" next="DecisionNode_qh2TMGehEeeMnpPC4ZW48Q"/>
+    <nodeSuccessors name="decision_no" next="JoinNode_qh26QGehEeeMnpPC4ZW48Q"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_qh2TMGehEeeMnpPC4ZW48Q"
+      conditionKey="ProductBO:Online" operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="EndNode_qh0eAGehEeeMnpPC4ZW48Q"/>
+    <nodeSuccessors name="decision_no" next="JoinNode_qh59kWehEeeMnpPC4ZW48Q"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_qh0eAGehEeeMnpPC4ZW48Q" name=""
+      strict="true">
+    <returnValues name="ProductBO" type="com.intershop.component.product.capi.ProductBO"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_qh59kWehEeeMnpPC4ZW48Q">
+    <nodeSuccessors name="next" next="EndNode_qh5WgGehEeeMnpPC4ZW48Q"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_qh5WgGehEeeMnpPC4ZW48Q" name="Error"
+      strict="true"/>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_qh26QGehEeeMnpPC4ZW48Q">
+    <nodeSuccessors name="next" next="JoinNode_qh59kWehEeeMnpPC4ZW48Q"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_qh6koGehEeeMnpPC4ZW48Q">
+    <nodeSuccessors name="next" next="JoinNode_qh26QGehEeeMnpPC4ZW48Q"/>
+  </nodes>
+</pipeline:Pipeline>

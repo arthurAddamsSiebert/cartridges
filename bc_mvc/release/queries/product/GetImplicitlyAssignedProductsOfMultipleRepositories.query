@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="ProductRepositories" type="java.util.Iterator" optional="false"/>
+    <parameter name="BindingAttribute" type="java.lang.String" optional="false"/>
+    <parameter name="BindingValue" type="java.lang.String" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+    <parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttributeType" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttributeLocalizedFlag" type="java.lang.Integer" optional="true"/>
+    <parameter name="Currency" type="java.lang.String" optional="true"/>
+    <parameter name="Online" type="java.lang.Integer" optional="true"/>
+    <parameter name="Filters" type="java.util.Iterator" optional="true"/>
+    <parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Product" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+        <return-attribute name="UUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+	SELECT * FROM (
+		SELECT 
+			p.uuid AS UUID, 
+			count(*) over() as "ROWCOUNT",
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'value')">
+			plp.value AS SORTING
+		<if-else/>
+			<template-call name="product/inc/ProductSorting">
+				<call-parameter name="ProductAlias" value="'p'"/>
+				<call-parameter name="SortAttribute" value="SortAttribute"/>
+				<call-parameter name="SortAttributeType" value="SortAttributeType"/>
+				<call-parameter name="SortAttributeLocalizedFlag" value="SortAttributeLocalizedFlag"/>
+				<call-parameter name="LocaleInformation" value="LocaleInformation"/>
+			</template-call> AS SORTING
+		</template-if>
+		FROM 
+		product p
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'value')">
+			, productlistprice plp
+		</template-if>
+		WHERE 1=1
+		<template-call name="product/inc/ProductBindingFilter">
+			<call-parameter name="ProductAlias" value="'p'"/>
+			<call-parameter name="BindingAttribute" value="BindingAttribute"/>
+			<call-parameter name="BindingValue" value="BindingValue"/>
+		</template-call>
+		AND p.domainid IN
+		(
+			<template-loop iterator="ProductRepositories" alias="Repository">
+				<loop-statement>
+				<template-variable value="Repository:DomainID"/>
+				</loop-statement>
+				<loop-separator>,</loop-separator>
+			</template-loop>
+		)
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'value')">
+			AND (plp.productid = p.uuid OR plp.productid IS NULL)
+			AND (plp.currency = <template-variable value="Currency"/> OR plp.currency IS NULL)
+		</template-if>
+		<template-if condition="isDefined(Online)">
+			AND p.onlineflag=<template-variable value="Online"/>
+		</template-if>
+		<template-if condition="isDefined(Filters) AND hasElements(Filters)">
+			AND EXISTS (SELECT * FROM product_ra ra 
+						WHERE p.uuid = ra.ao_uuid
+						AND (ra.usergroupid, ra.usergroupdomainid) IN (
+							<template-loop iterator="Filters" alias="Filter">
+								<loop-statement>
+									(<template-variable value="Filter:FilterGroup:ID"/>, <template-variable value="Filter:FilterGroup:DomainID"/>)
+								</loop-statement>
+								<loop-separator>,</loop-separator>
+							</template-loop>
+							)
+						)
+		</template-if>
+		<template-call name="product/inc/NameOrIDFilter">
+			<call-parameter name="ProductAlias" value="'p'"/>
+			<call-parameter name="NameOrID" value="NameOrID"/>
+			<call-parameter name="LocaleInformation" value="LocaleInformation"/>
+		</template-call>
+	) a
+		ORDER BY SORTING
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			DESC
+		<if-else/>
+			ASC
+		</template-if>
+</template>
+</query>

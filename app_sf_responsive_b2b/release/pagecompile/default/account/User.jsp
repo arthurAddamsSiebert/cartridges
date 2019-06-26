@@ -1,0 +1,70 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% {try{String currentCacheTime = (String)((com.intershop.beehive.core.capi.request.ServletResponse)response).getHeaderValue(TemplateConstants.PAGECACHE_HEADER);if (currentCacheTime!=null && !"00".equals(currentCacheTime)) {Logger.debug(this, "ISCACHE 'forbidden' overwrites prior caching declaration.");}response.setHeader(TemplateConstants.PAGECACHE_HEADER, "00");}catch(Exception e){Logger.error(this,"ISCACHE failed. Line: {2}",e);}} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"modules/B2BModules", null, "3");} %><% {Object temp_obj = (getObject("CustomerBO:Extension(\"GroupCustomer\"):UserBOByID(UserID)")); getPipelineDictionary().put("SelectedUser", temp_obj);} %><% {Object temp_obj = (getObject("SelectedUser:Extension(\"UserBOOrderApprovalExtension\")")); getPipelineDictionary().put("OrderApprovalExtension", temp_obj);} %><% {Object temp_obj = (getObject("SelectedUser:Extension(\"UserBORoleExtension\"):RoleIDs")); getPipelineDictionary().put("SelectedUserRoleIDs", temp_obj);} %><% processOpenTag(response, pageContext, "userpermissions", new TagParameter[] {
+new TagParameter("permissions","SelectedUserPermissions"),
+new TagParameter("user",getObject("SelectedUser"))}, 11); %><div class="breadcrumbs row"><% processOpenTag(response, pageContext, "accountbreadcrumb", new TagParameter[] {
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewUsers-Start",null))))),
+new TagParameter("trailtext",context.getFormattedValue(getObject("SelectedUser:FirstName"),null) + context.getFormattedValue(" ",null) + context.getFormattedValue(getObject("SelectedUser:LastName"),null)),
+new TagParameter("text",localizeText(context.getFormattedValue("account.users.link",null)))}, 15); %></div>
+<div class="marketing-area"><% processOpenTag(response, pageContext, "marketingslot", new TagParameter[] {
+new TagParameter("id","baseMarketing")}, 20); %></div>
+<div class="account-wrapper" data-testing-id="user-details-page">
+<div class="row account-main">
+<div class="col-md-3 account-nav-box"><% processOpenTag(response, pageContext, "accountnavigation", new TagParameter[] {
+new TagParameter("selecteditem","USERS")}, 29); %></div>
+<div class="col-md-9">
+<div class="marketing-area"><% processOpenTag(response, pageContext, "marketingslot", new TagParameter[] {
+new TagParameter("id","contentMarketing")}, 34); %></div>
+<h1><% {out.write(localizeISText("account.user.details.heading","",null,null,null,null,null,null,null,null,null,null,null));} %></h1>
+<div class="row section">
+<div class="col-md-4 pull-right col-xs-2">
+<a data-testing-id="edit-profile-button" class="btn-tool" title="<% {out.write(localizeISText("account.profile.update.link","",null,null,null,null,null,null,null,null,null,null,null));} %>" href="<%=context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewUserProfile-View",null))), (new URLParameterSet().addURLParameter(context.getFormattedValue("UserID",null),context.getFormattedValue(getObject("SelectedUser:ID"),null)))),null)%>">
+<span class="glyphicon glyphicon-pencil"></span>
+</a>
+</div>
+<div class="col-md-8 col-xs-10">
+<h3><% {out.write(localizeISText("account.user.details.profile.heading","",null,null,null,null,null,null,null,null,null,null,null));} %></h3>
+<div class="row">
+<div class="col-sm-12">
+<dl class="dl-horizontal dl-separator">
+<dt><% {out.write(localizeISText("account.profile.name.label","",null,null,null,null,null,null,null,null,null,null,null));} %></dt>
+<dd><% _boolean_result=false;try {_boolean_result=((Boolean)((((((Boolean) (disableErrorMessages().isDefined(getObject("SelectedUser:Title")))).booleanValue() && ((Boolean) (((!(context.getFormattedValue(getObject("SelectedUser:Title"),null).equals(context.getFormattedValue("",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE)))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",55,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:Title"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {55}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>&nbsp;<% } %><% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:FirstName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {55}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %> <% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:LastName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {55}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></dd><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("SelectedUser:Department")))).booleanValue() && ((Boolean) (((!(context.getFormattedValue(getObject("SelectedUser:Department"),null).equals(context.getFormattedValue("",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",58,e);}if (_boolean_result) { %><dt><% {out.write(localizeISText("account.profile.department.label","",null,null,null,null,null,null,null,null,null,null,null));} %></dt>
+<dd><% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:Department"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {60}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></dd><% } %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("SelectedUser:PhoneBusiness")))).booleanValue() && ((Boolean) (((!(context.getFormattedValue(getObject("SelectedUser:PhoneBusiness"),null).equals(context.getFormattedValue("",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",63,e);}if (_boolean_result) { %><dt><% {out.write(localizeISText("account.profile.phone.label","",null,null,null,null,null,null,null,null,null,null,null));} %></dt>
+<dd><% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:PhoneBusiness"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {65}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></dd><% } %><dt><% {out.write(localizeISText("account.profile.email.label","",null,null,null,null,null,null,null,null,null,null,null));} %></dt>
+<dd><% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:Email"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {69}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+<div class="row section">
+<div class="col-md-4 pull-right col-xs-2">
+<a class="btn-tool" title="<% {out.write(localizeISText("account.profile.update.link","",null,null,null,null,null,null,null,null,null,null,null));} %>" href="<%=context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewUserRole-View",null))), (new URLParameterSet().addURLParameter(context.getFormattedValue("UserID",null),context.getFormattedValue(getObject("SelectedUser:ID"),null)))),null)%>">
+<span class="glyphicon glyphicon-pencil"></span>
+</a>
+</div>
+<div class="col-md-8 col-xs-10">
+<h3><% {out.write(localizeISText("account.user.details.profile.role_and_budget_limits.heading","",null,null,null,null,null,null,null,null,null,null,null));} %></h3>
+<div class="row">
+<div class="col-sm-12">
+<dl class="dl-horizontal dl-separator">
+<dt><% {out.write(localizeISText("account.user.new.role.label","",null,null,null,null,null,null,null,null,null,null,null));} %></dt>
+<dd><% while (loop("SelectedUserRoleIDs","RoleID",null)) { %><% {Object temp_obj = (getObject("CustomerBO:Extension(\"CustomerBOSecurityExtension\"):RoleByID(RoleID)")); getPipelineDictionary().put("UserRole", temp_obj);} %><% {String value = null;try{value=context.getFormattedValue(getObject("UserRole:Name"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {93}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% _boolean_result=false;try {_boolean_result=((Boolean)((hasNext("RoleID") ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",94,e);}if (_boolean_result) { %>, <% } %><% } %></dd>
+<dt><% {out.write(localizeISText("account.user.new.permissions.label","",null,null,null,null,null,null,null,null,null,null,null));} %></dt>
+<dd><% while (loop("SelectedUserPermissions","Permission",null)) { %><% {String value = null;try{value=context.getFormattedValue(getObject("Permission"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {101}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% _boolean_result=false;try {_boolean_result=((Boolean)((hasNext("Permission") ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",101,e);}if (_boolean_result) { %><br/><% } %><% } %></dd>
+</dl>
+<dl class="dl-horizontal dl-separator">
+<dt><% {out.write(localizeISText("account.user.new.order_spend_limit.label","",null,null,null,null,null,null,null,null,null,null,null));} %></dt>
+<dd><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("OrderApprovalExtension:SingleOrderThresholdAmount:Available"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",108,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("OrderApprovalExtension:SingleOrderThresholdAmount"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {109}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } else { %><% {out.write(localizeISText("approval.details.threshold.unlimited","",null,null,null,null,null,null,null,null,null,null,null));} %><% } %></dd><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("OrderApprovalExtension:Budget(OrderApprovalExtension:BudgetType):Available"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",115,e);}if (_boolean_result) { %><dt><% {out.write(localizeISText("account.budget.common.per_type","",null,(context.getFormattedValue(getObject("OrderApprovalExtension:BudgetType"),null).toLowerCase()),null,null,null,null,null,null,null,null,null));} %></dt>
+<dd><% {String value = null;try{value=context.getFormattedValue(getObject("OrderApprovalExtension:Budget(OrderApprovalExtension:BudgetType)"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {120}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></dd><% } else { %><dt><% {out.write(localizeISText("account.user.budget.label","",null,null,null,null,null,null,null,null,null,null,null));} %></dt>
+<dd><% {out.write(localizeISText("account.budget.common.undefined","",null,null,null,null,null,null,null,null,null,null,null));} %></dd><% } %></dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div><% printFooter(out); %>

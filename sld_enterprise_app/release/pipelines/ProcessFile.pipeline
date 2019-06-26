@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--The pipeline is responsible for processing files e.g. uploading or copying into shared file system.
+@Group File-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessFile" type="process">
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="CopyFile"
+      callMode="Private">
+<!--@BendPoints 9,2-->
+    <nodeSuccessors name="next" next="GetLocale2"/>
+    <parameters name="UnitDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="TargetDirectoryPath" type="java.lang.String" optional="true"/>
+    <parameters name="Secure" type="java.lang.String" optional="true"/>
+    <parameters name="FileNames" type="java.util.Iterator"/>
+    <parameters name="LocaleId" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale2">
+    <configurationValues name="LocaleFallback" value="Request Locale"/>
+    <pipelet href="enfinity:/core/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="FileNames">
+<!--@BendPoints 12,5-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <entry key="FileName">
+      <nodeSuccessors name="loop_entry_next" next="ResolveFilename0"/>
+    </entry>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ResolveFilename0">
+    <configurationValues name="UnitDirectory" value="IMPEX_DIR"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ResolveFilename.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+    <parameterBindings name="DirectoryPath" constant="upload"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="File:Size"
+      operator="gt" conditionItem="&quot;(Long)0&quot;">
+    <nodeSuccessors name="decision_yes" next="DecisionNode13"/>
+<!--@BendPoints 12,9-->
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue7"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="Secure">
+    <nodeSuccessors name="decision_yes" next="DecisionNode8"/>
+<!--@BendPoints 11,11-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="Secure"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 9,14-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode11"/>
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="File:Extension"
+      operator="str_eq" conditionValue="zip">
+    <nodeSuccessors name="decision_yes" next="VerifyZipFile1"/>
+<!--@BendPoints 11,15-->
+    <nodeSuccessors name="decision_no" next="JoinNode12"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyZipFile1">
+    <configurationValues name="DefaultDirectoryPath" value="upload"/>
+    <configurationValues name="DefaultUnitDirectory" value="IMPEX_DIR"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyZipFile.xml"/>
+    <nodeSuccessors name="next" next="Pipelet12"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="DirectoryPath" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="UnitDirectory" nullBinding="true"/>
+    <parameterBindings name="ZipFile" objectPath="FileName"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet12">
+    <configurationValues name="Overwrite" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExtractCompressedFile.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 10,20 10,21-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="FileName" objectPath="FileName"/>
+    <parameterBindings name="SourceDirectoryPath" constant="upload"/>
+    <parameterBindings name="SourceUnitDirectory" constant="IMPEX_DIR"/>
+    <parameterBindings name="SourceUnitDomain" objectPath="UnitDomain"/>
+    <parameterBindings name="TargetUnitDirectory" constant="SECURE_STATIC_DIR"/>
+    <parameterBindings name="TargetUnitDomain" objectPath="UnitDomain"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 9,26-->
+    <nodeSuccessors name="next" next="Pipelet4"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="DefaultDirectoryPath" value="upload"/>
+    <configurationValues name="UnitDirectory" value="IMPEX_DIR"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/DeleteFile.xml"/>
+<!--@BendPoints 9,28 8,28 8,5-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <parameterBindings name="DirectoryPath" nullBinding="true"/>
+    <parameterBindings name="FileName" objectPath="FileName"/>
+    <parameterBindings name="Locale" objectPath="void"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 16,21-->
+    <nodeSuccessors name="next" next="SetDictionaryValue9"/>
+  </nodes>
+<!--@Location 8,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue9">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="FileUploadError"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 8,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 11,18-->
+    <nodeSuccessors name="next" next="Pipelet1"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="DefaultSourceDirectoryPath" value="upload"/>
+    <configurationValues name="DefaultSourceUnitDirectory" value="IMPEX_DIR"/>
+    <configurationValues name="DefaultTargetUnitDirectory" value="SECURE_STATIC_DIR"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CopyFile.xml"/>
+    <nodeSuccessors name="next" next="JoinNode13"/>
+<!--@BendPoints 12,19-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="SourceFileName" objectPath="FileName"/>
+    <parameterBindings name="SourceUnitDomain" objectPath="UnitDomain"/>
+    <parameterBindings name="TargetFileName" objectPath="FileName"/>
+    <parameterBindings name="TargetUnitDomain" objectPath="UnitDomain"/>
+  </nodes>
+<!--@Location 5,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 11,14 13,14-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="File:Extension"
+      operator="str_eq" conditionValue="zip">
+    <nodeSuccessors name="decision_yes" next="Pipelet11"/>
+<!--@BendPoints 15,15-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet11">
+    <configurationValues name="DefaultDirectoryPath" value="upload"/>
+    <configurationValues name="DefaultUnitDirectory" value="IMPEX_DIR"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyZipFile.xml"/>
+    <nodeSuccessors name="next" next="Pipelet5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="DirectoryPath" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="UnitDirectory" nullBinding="true"/>
+    <parameterBindings name="UnitDomain" objectPath="UnitDomain"/>
+    <parameterBindings name="ZipFile" objectPath="FileName"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <configurationValues name="Overwrite" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExtractCompressedFile.xml"/>
+    <nodeSuccessors name="next" next="JoinNode24"/>
+<!--@BendPoints 14,19-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+    <parameterBindings name="FileName" objectPath="FileName"/>
+    <parameterBindings name="SourceDirectoryPath" constant="upload"/>
+    <parameterBindings name="SourceUnitDirectory" constant="IMPEX_DIR"/>
+    <parameterBindings name="SourceUnitDomain" objectPath="UnitDomain"/>
+    <parameterBindings name="TargetUnitDirectory" constant="STATIC_CONTENT_DIR"/>
+    <parameterBindings name="TargetUnitDomain" objectPath="UnitDomain"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode24">
+    <nodeSuccessors name="next" next="JoinNode13"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 15,18-->
+    <nodeSuccessors name="next" next="Pipelet2"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="DefaultSourceDirectoryPath" value="upload"/>
+    <configurationValues name="DefaultSourceUnitDirectory" value="IMPEX_DIR"/>
+    <configurationValues name="DefaultTargetUnitDirectory" value="STATIC_CONTENT_DIR"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CopyFile.xml"/>
+<!--@BendPoints 15,23-->
+    <nodeSuccessors name="next" next="JoinNode24"/>
+<!--@BendPoints 17,19 17,22-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue9"/>
+    <parameterBindings name="SourceFileName" objectPath="FileName"/>
+    <parameterBindings name="SourceUnitDomain" objectPath="UnitDomain"/>
+    <parameterBindings name="TargetFileName" objectPath="FileName"/>
+    <parameterBindings name="TargetUnitDomain" objectPath="UnitDomain"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue7">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="ZeroFileLenght"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 19,9 19,25-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="ErrorCode" type="java.lang.String" optional="true"/>
+    <returnValues name="Secure" type="java.lang.String" optional="true"/>
+    <returnValues name="DirectoryPath" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="UploadFile"
+      callMode="Private">
+<!--@BendPoints 3,2-->
+    <nodeSuccessors name="next" next="ProcessMultipartRequest0"/>
+    <parameters name="UnitDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMultipartRequest0">
+    <configurationValues name="DirectoryPath" value="upload"/>
+    <configurationValues name="MaxFileSize" value="100"/>
+    <configurationValues name="UnitDirectory" value="IMPEX_DIR"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ProcessMultipartRequest.xml"/>
+    <nodeSuccessors name="next" next="GetLocale1"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode2"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <configurationValues name="LocaleFallback" value="Request Locale"/>
+    <pipelet href="enfinity:/core/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode14"/>
+    <parameterBindings name="InValue_1" objectPath="DirectoryPath"/>
+    <returnValueBindings name="OutValue_1" objectPath="TargetDirectoryPath"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="Secure"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue10"/>
+<!--@BendPoints 5,9 5,10-->
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue11"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue10">
+    <configurationValues name="Name" value="TargetUnitDirectoryName"/>
+    <configurationValues name="Value" value="SECURE_STATIC_DIR"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode25"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode25">
+<!--@BendPoints 3,14-->
+    <nodeSuccessors name="next" next="AddObjectToVector4"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector4">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="LoopNode4"/>
+    <returnValueBindings name="Iterator" objectPath="ExistingFiles"/>
+    <returnValueBindings name="OutVector" objectPath="ExistingFilesVector"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode4" loop="FileNames">
+<!--@BendPoints 5,17 5,18-->
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+    <entry key="FileName">
+<!--@BendPoints 3,18-->
+      <nodeSuccessors name="loop_entry_next" next="CheckForExistingFiles0"/>
+    </entry>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForExistingFiles0">
+    <configurationValues name="Recursive" value="false"/>
+    <configurationValues name="SourceDirectoryPath" value="upload"/>
+    <configurationValues name="SourceUnitDirectory" value="IMPEX_DIR"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForExistingFiles.xml"/>
+<!--@BendPoints 3,20-->
+    <nodeSuccessors name="next" next="AddObjectToVector3"/>
+    <parameterBindings name="SourceDirectoryPath" nullBinding="true"/>
+    <parameterBindings name="SourceUnitDomain" objectPath="UnitDomain"/>
+    <parameterBindings name="TargetUnitDirectory" objectPath="TargetUnitDirectoryName"/>
+    <parameterBindings name="TargetUnitDomain" objectPath="UnitDomain"/>
+    <returnValueBindings name="Files" objectPath="ExistingFiles"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector3">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 3,22 2,22 2,17-->
+    <nodeSuccessors name="next" next="LoopNode4_Entry"/>
+    <parameterBindings name="InVector" objectPath="ExistingFilesVector"/>
+    <parameterBindings name="Objects" objectPath="ExistingFiles"/>
+    <returnValueBindings name="Iterator" objectPath="ExistingFiles"/>
+    <returnValueBindings name="OutVector" objectPath="ExistingFilesVector"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="ExistingFiles"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="KeyMapper2"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper4"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode6"/>
+    <parameterBindings name="InValue_1" objectPath="Locale:LocaleID"/>
+    <returnValueBindings name="OutValue_1" objectPath="LocaleId"/>
+  </nodes>
+<!--Note: Return LocaleId from request if given, else from session
+@Location 2,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="FilesAlreadyExist" strict="true">
+    <returnValues name="ExistingFiles" type="java.util.Iterator"/>
+    <returnValues name="FileName" type="java.lang.String"/>
+    <returnValues name="Secure" type="java.lang.String" optional="true"/>
+    <returnValues name="DirectoryPath" type="java.lang.String" optional="true"/>
+    <returnValues name="Upload" type="java.lang.String" optional="true"/>
+<!--An iterator containing the names of the uploaded files.-->
+    <returnValues name="FileNames" type="java.util.Iterator" optional="true"/>
+<!--
+		
+        -->
+    <returnValues name="LocaleId" type="java.lang.String"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <parameterBindings name="InValue_1" objectPath="Locale:LocaleID"/>
+    <returnValueBindings name="OutValue_1" objectPath="LocaleId"/>
+  </nodes>
+<!--Note: Return LocaleId from request if given, else from session
+@Location 3,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+    <returnValues name="DirectoryPath" type="java.lang.String" optional="true"/>
+    <returnValues name="Secure" type="java.lang.String" optional="true"/>
+<!--An iterator containing the names of the uploaded files.-->
+    <returnValues name="FileNames" type="java.util.Iterator"/>
+    <returnValues name="Upload" type="java.lang.String" optional="true"/>
+    <returnValues name="LocaleId" type="java.lang.String"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue11">
+    <configurationValues name="Name" value="TargetUnitDirectoryName"/>
+    <configurationValues name="Value" value="STATIC_CONTENT_DIR"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 5,13-->
+    <nodeSuccessors name="next" next="JoinNode25"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="Error" strict="true">
+    <returnValues name="ErrorCode" type="java.lang.String" optional="true"/>
+    <returnValues name="Secure" type="java.lang.String" optional="true"/>
+    <returnValues name="DirectoryPath" type="java.lang.String" optional="true"/>
+<!--An iterator containing the names of the uploaded files.-->
+    <returnValues name="FileNames" type="java.util.Iterator" optional="true"/>
+  </nodes>
+</pipeline:Pipeline>

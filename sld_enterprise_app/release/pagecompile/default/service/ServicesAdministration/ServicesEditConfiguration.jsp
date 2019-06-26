@@ -1,0 +1,54 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><!-- Working Area --><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("text1",context.getFormattedValue(" - ",null) + context.getFormattedValue(localizeText(context.getFormattedValue("ServicesEditConfiguration.Configuration.text1",null)),null)),
+new TagParameter("listview","false"),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewServiceEdit-Dispatch",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ServiceConfigurationID",null),context.getFormattedValue(getObject("ServiceConfigurationID"),null))))),
+new TagParameter("id","ViewServiceConfiguration"),
+new TagParameter("text",getObject("ServiceConfiguration:DisplayName(Locale)"))}, 4); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"service/ServicesAdministration/ServicesEditTabs", null, "7");} %><table border="0" cellspacing="0" cellpadding="0" width="100%">
+<tr>
+<td class="table_title e w s"><% {String value = null;try{value=context.getFormattedValue(getObject("ServiceConfiguration:DisplayName(Locale)"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {12}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("confirmDelete"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",16,e);}if (_boolean_result) { %><% URLPipelineAction action316 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewServiceEdit-Delete",null)))),null));String site316 = null;String serverGroup316 = null;String actionValue316 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewServiceEdit-Delete",null)))),null);if (site316 == null){  site316 = action316.getDomain();  if (site316 == null)  {      site316 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup316 == null){  serverGroup316 = action316.getServerGroup();  if (serverGroup316 == null)  {      serverGroup316 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewServiceEdit-Delete",null)))),null));out.print("\"");out.print(" name=\"");out.print("deleteForm");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue316, site316, serverGroup316,true)); %><input type="hidden" name="ServiceConfigurationID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("ServiceConfiguration:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {18}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" readonly="readonly" />
+<input type="hidden" name="DeleteJumpTarget" value="ViewServiceEdit-Configuration" /><% processOpenTag(response, pageContext, "messagebox", new TagParameter[] {
+new TagParameter("cancelbtnname","Cancel"),
+new TagParameter("okbtnname","delete"),
+new TagParameter("message",localizeText(context.getFormattedValue("ServicesEditConfiguration.AreYouSureThatYouWantToDeleteTheServiceConfigurati.message",null))),
+new TagParameter("type","mdc")}, 21); %><% out.print("</form>"); %><% } %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("FormFieldsRequired")))).booleanValue() || ((Boolean) (disableErrorMessages().isDefined(getObject("FormFieldsInvalid")))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",25,e);}if (_boolean_result) { %><tr>
+<td class="error_box e w s">
+<table border="0" cellspacing="0" cellpadding="4" width="100%" class="">
+<tr>
+<td class="error_icon e"><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+<td class="error" width="100%"><% {out.write(localizeISText("ServicesEditConfiguration.ConfigurationCouldNotBeSaved.error",null,null,null,null,null,null,null,null,null,null,null,null));} %> 
+<% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("FormFieldsRequired"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",33,e);}if (_boolean_result) { %><% {out.write(localizeISText("ServicesEditConfiguration.PleaseEnterAllRequiredFields.error",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } else {_boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("FormFieldsInvalid"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",35,e);}if (_boolean_result) { %><% {out.write(localizeISText("ServicesEditConfiguration.TheFollowingEntriesAreInvalid.error",null,null,null,null,null,null,null,null,null,null,null,null));} %>:
+<div id="InvalidFields"></div><% }} %></td>
+</tr>
+</table>
+</td>
+</tr><% } %><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("validateError"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",46,e);}if (_boolean_result) { %><tr>
+<td class="error_box e w s">
+<table border="0" cellspacing="0" cellpadding="4" width="100%" class="">
+<tr>
+<td class="error_icon e"><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+<td class="error" width="100%"><% {out.write(localizeISText("ServicesEditConfiguration.PleaseFillOutAllRequiredFieldsAndClickOnNextAgain.error",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table>
+</td>
+</tr><% } %><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("saveSuccessful"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",60,e);}if (_boolean_result) { %><tr>
+<td class="table_detail information e w s"><% {out.write(localizeISText("ServicesEditConfiguration.ChangesSavedSuccessfully.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% } %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"service/ServicesAdministration/ServiceSharingInformation", null, "67");} %><tr>
+<td class="table_title_description e w"><% {out.write(localizeISText("ServicesEditConfiguration.HereYouCanSetTheGlobalServiceConfigurationValues.table_title_description",null,null,"star",null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("ServiceConfiguration:ServiceDefinition:ServiceInformation:ConfigurationLinkOrganization")))).booleanValue() && !((Boolean) ((((context.getFormattedValue("service/ConfigurationLinkOrganization.isml",null).equals(context.getFormattedValue(getObject("ServiceConfiguration:ServiceDefinition:ServiceInformation:ConfigurationLinkOrganization"),null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",75,e);}if (_boolean_result) { %><table width="100%" class="n w e s" border="0" cellSpacing="0" cellPadding="0">
+<tr>
+<td><img width="1" border="0" height="4" alt="" src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif"></td>
+</tr>
+<tr>
+<td class="table_detail"><% {out.write(localizeISText("ServicesEditConfiguration.ThisServiceUsesAnExternalConfigurationPleaseFollow.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %>: <% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,context.getFormattedValue(getObject("ServiceConfiguration:ServiceDefinition:ServiceInformation:ConfigurationLinkOrganization"),null), null, "82");} %></td>
+</tr>
+<tr>
+<td><img width="1" border="0" height="4" alt="" src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif"></td>
+</tr>
+</table><% } else { %><% {Object temp_obj = ("true"); getPipelineDictionary().put("isOrganizationUserPermission", temp_obj);} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"service/ServicesAdministration/ServicesEditConfiguration_inc", null, "91");} %><% } %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/BackToList", null, "94");} %><% printFooter(out); %>

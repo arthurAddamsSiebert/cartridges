@@ -1,0 +1,1144 @@
+<!--- TEMPLATENAME: OrderDetails_52.isml --->
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<%@page import="java.util.Iterator"%>
+<%@page import="java.util.LinkedHashMap"%>
+<%@page import="java.util.Map"%>
+<%@page import="com.intershop.beehive.bts.capi.state.StateDefinition"%>
+<%@page import="com.intershop.beehive.core.capi.domain.Domain"%>
+<%@page import="com.intershop.beehive.core.capi.naming.NamingMgr"%>
+<%@page import="com.intershop.beehive.core.capi.pipeline.PipelineDictionary"%>
+<%@page import="com.intershop.component.mvc.capi.catalog.MVCatalogMgr"%>
+<%@page import="com.intershop.component.mvc.capi.catalog.Repository"%>
+<%@page import="com.intershop.component.order.capi.OrderProductLineItemBO"%>
+
+<ismodule template = "inc/AddressInfoSmall_52.isml" name="AddressInfo" attribute="address">
+<ismodule template="inc/LongStringToDate" name="LongStringToDate" attribute="longstring">
+<!--- Garble strings, eg. sensitive datas --->
+<ismodule template = "inc/GarbleStringInc.isml"
+	name="GarbleString"
+	attribute="text"
+	attribute="direction"
+	attribute="length"
+	attribute="character"
+	attribute="output"
+>
+
+<%!
+public void groupPLIStates(Object plis)
+{
+	groupPLIStates((Iterator<OrderProductLineItemBO>)plis);
+}
+
+public void groupPLIStates(Iterator<OrderProductLineItemBO> plis)
+{
+	LinkedHashMap<String, Integer> r = new LinkedHashMap();
+	if (plis != null)
+	{
+		while(plis.hasNext())
+		{
+			OrderProductLineItemBO pli = plis.next();
+			if (r.isEmpty())
+			{
+				for(StateDefinition s: pli.getOrderBO().getRepository().getPLIFulfillmentStatuses())
+				{
+					r.put(s.getDisplayName(), 0);
+				}
+			}
+			String s = pli.getFulfillmentStatusDisplayName();
+			Integer c = r.get(s);
+			if (c == null)
+			{
+				r.put(s, 1);	
+			}
+			else
+			{
+				r.put(s, c + 1);
+			}
+		}
+	}
+	
+	LinkedHashMap<String, Integer> x = new LinkedHashMap();
+	for(Map.Entry<String,Integer> e: r.entrySet())
+	{
+		if (e.getValue() != 0)
+		{
+			x.put(e.getKey(), e.getValue());
+		}
+	}
+	
+	getPipelineDictionary().put("GroupedPLIStates", x);
+}
+%>
+
+<!---
+	Calculator for money objects.
+
+	Parameters:
+		- method (requried) [add|substract|multiply|divide]:
+			the calculation method to use
+		- operand1 (requried):
+			left money operand for the calculation
+		- operand1 (requried):
+			right money operand for the calculation
+		- result (requried):
+			The name of the key under which the result is  stored in the dictionary.
+	Example:
+		...
+			<ISMoneyCalculator
+				method="add"
+				operand1="#ProductLineItem:GrossPricePC#"
+				operand2="#SubTotalPC#"
+				result="SubTotalPC">
+		...
+--->
+<!--- 
+<ismodule template = "inc/MoneyCalculator.isml"
+	name="MoneyCalculator"
+	attribute="method"
+	attribute="operand1"
+	attribute="operand2"
+	attribute="result"
+>
+--->
+
+<!-- Working Area -->
+<!-- Page Navigation -->
+<isif condition="#isDefined(Order)#">
+	<ISBreadcrumbTrail listview="true" id="#Order:UUID#" link="#URL(Action('ViewSellerOrder-FindByNumber'),Parameter('OrderID',Order:UUID),Parameter('ChannelID1', CurrentChannel:UUID))#" text="#localizeText('OrderDetails_52.Order.text').': '#" text1="#Order:DocumentNo.' - '.localizeText('OrderDetails_52.Breadcrumb.General.text')#">
+</isif>
+<isset scope="request" name="SelectedTab" value="General">
+<isinclude template="order/OrderTabs_52">
+<!-- EO Page Navigation -->
+
+<!-- Main Content -->
+<isif condition="#isDefined(Order)#">
+
+	<isset name="OrderShippingBucket" 	value="#OrderBO:Extension("ShippingBucket")#" 	scope="request"/>
+	<isset name="OrderShippingMethod"   value="#OrderBO:Extension("ShippingMethod")#"   scope="request"/>
+	<isset name="OrderAppliedRebate" 	value="#OrderBO:Extension("AppliedRebate")#" 	scope="request"/>
+	<isset name="OrderWarranty" 		value="#OrderBO:Extension("Warranty")#" 		scope="request"/>	
+	<isset name="OrderGifting" 			value="#OrderBO:Extension("Gifting")#"			scope="request"/>	
+	<isset name="OrderPayment" 			value="#OrderBO:Extension("Payment")#" 			scope="request"/>	
+	<isset name="OrderPersistentObject" value="#OrderBO:Extension("PersistentObjectBOExtension")#" scope="request"/>	
+	<isset name="CompanyCustomer" value="#OrderBO:Extension("CompanyCustomer")#" scope="request"/>
+	<isset name="ZeroMoney" value="#OrderBO:ItemSubtotal:ZeroMoney(OrderBO:ItemSubtotal:CurrencyMnemonic)#" scope="request"/>
+	
+	<table border="0" cellpadding="0" cellspacing="0" class="w100">
+		<tr>
+			<td class="table_title w e s w100"><istext key="OrderDetails_52.Order.table_title" encoding="off"/> <isprint value="#OrderBO:DocumentNo#"></td>
+		</tr>
+	</table>
+	<table border="0" cellpadding="0" cellspacing="0" class="w100">
+		<colgroup>
+			<col width="20%" />
+			<col width="80%" />
+		</colgroup>
+		<!---General order and customer data --->
+		<tr><td colspan="2"><img height="4" width="1" border="0" alt="" src="#WebRoot()#/images/space.gif" /></td></tr>
+		<tr>
+			<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.DateReceived.label" encoding="off"/>:</label></td>
+			<td class="table_detail left e" nowrap="nowrap"><isprint value="#OrderBO:CreationDate#" style="DATE_SHORT"> <isprint value="#OrderBO:CreationDate#" style="DATE_TIME"></td>
+		</tr>
+		
+		<isinclude extensionpoint="OrderDetailsOrderDataLaunching"/>
+			
+		<isif condition="#(OrderBO:Status EQ 'EXPORTFAILED')#">
+			<tr>
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.Status.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap"><isprint value="#OrderBO:StatusDisplayName#"> - <isprint value="#OrderBO:LastModified#" style="DATE_TIME"></td>
+			</tr>
+			<tr>
+				<td class="label w" nowrap="nowrap">&nbsp;</td>
+				<td class="table_detail left e" nowrap="nowrap"><isprint value="#OrderBO:StatusReasonDisplayName#"></td>
+			</tr>
+			<isif condition="#isDefined(OrderBO:StatusReasonDescription)#">
+				<tr>
+					<td class="label w" nowrap="nowrap">&nbsp;</td>
+					<td class="table_detail left e" nowrap="nowrap"><isprint value="#OrderBO:StatusReasonDescription#"></td>
+				</tr>
+			</isif>
+ 		<iselse/>
+			<tr>
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.Status.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap"><isprint value="#OrderBO:StatusDisplayName#"></td>
+			</tr>
+		</isif>
+
+		<!--- Show channel display name only in master.  --->
+		<isif condition="#NOT isDefined(CurrentChannel) #">
+			<isset name="OrderDomain" value="#OrderBO:Extension("PersistentObjectBOExtension"):PersistentObject:Domain#" scope="request">  
+			<% 
+				PipelineDictionary dict = getPipelineDictionary();
+				Domain orderDomain = (Domain)getObject("OrderDomain");
+				if(orderDomain != null)
+				{
+					MVCatalogMgr mgr = NamingMgr.getManager(MVCatalogMgr.class);
+					Repository orderRepository = mgr.getRepositoryByRepositoryDomain(orderDomain);
+					if (orderRepository != null)
+					{
+						dict.put("OrderRepositoryDisplayName", orderRepository.getDisplayName());
+					} 
+				}
+			%>
+			<tr>
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.Channel.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap"><isprint value="#OrderRepositoryDisplayName#"></td>
+			</tr>
+		</isif>
+
+		<tr><td class="w e" colspan="2">&nbsp;</td></tr>
+		<isif condition="#(isDefined(CompanyCustomer))#"> 
+			<tr>	
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.Customer.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap">
+					<isif condition="#isDefined(CompanyCustomer:CompanyName)#">
+						<isif condition="#isDefined(OrderBO:CustomerBO) AND isDefined(CurrentChannelPermissionMap:SLD_VIEW_CONSUMERS)#">
+							<a href="#URL(Action('ViewCustomer_52-Show'), Parameter('CustomerID', OrderBO:CustomerBO:ID))#" class="table_detail_link">
+								<isprint value="#CompanyCustomer:CompanyName#">
+							</a>
+						<iselse/>
+							<isprint value="#CompanyCustomer:CompanyName#">
+						</isif>
+					<iselse>
+						<isif condition="#isDefined(OrderBO:InvoiceToAddressBO:CompanyName)#">
+							<isprint value="#OrderBO:InvoiceToAddressBO:CompanyName#">
+						<iselse/>
+							<isprint value="#OrderBO:InvoiceToAddressBO:FirstName#">&nbsp;<isprint value="#OrderBO:InvoiceToAddressBO:LastName#">
+						</isif>
+						<br/>
+					</isif>
+				</td>
+			</tr>
+			<tr><td class="w e" colspan="2">&nbsp;</td></tr>
+			<tr>	
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.CompanyName.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap">
+					<isprint value="#CompanyCustomer:CompanyName#">&nbsp;
+				</td>
+			</tr>
+			<tr>	
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.CompanyName2.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap">
+					<isprint value="#CompanyCustomer:CompanyName2#">&nbsp;
+				</td>
+			</tr>
+			<tr>	
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.UserName.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap">
+					<isprint value="#OrderBO:BuyerFirstName#">&nbsp;<isprint value="#OrderBO:BuyerLastName#">
+				</td>
+			</tr>
+			<tr>
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.UserEMail.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap">
+					<isif condition="#isDefined(OrderBO:UserBO:Email)#">
+						<isprint value="#OrderBO:UserBO:Email#">
+					<iselse>
+						<isprint value="#OrderBO:NotificationEmailAddress#">
+					</isif>&nbsp;
+				</td>
+			</tr>
+			<tr>	
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.Department.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap">
+					<isprint value="#CompanyCustomer:Department#">&nbsp;
+				</td>
+			</tr>
+			<tr>	
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.TaxationID.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap">
+					<isprint value="#CompanyCustomer:TaxationID#">&nbsp;
+				</td>
+			</tr>
+			<tr><td class="w e" colspan="2">&nbsp;</td></tr>
+		<iselse/>
+			<tr>	
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.Customer.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap">
+					<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_VIEW_CONSUMERS) AND isDefined(OrderBO:CustomerBO:ID)#">
+						<a href="#URL(Action('ViewCustomer_52-Show'), Parameter('CustomerID', OrderBO:CustomerBO:ID))#" class="table_detail_link">
+					</isif>
+					<isif condition="#(isDefined(OrderBO:BuyerFirstName) AND NOT(OrderBO:BuyerFirstName EQ '')) OR (isDefined(OrderBO:BuyerLastName) AND NOT(OrderBO:BuyerLastName EQ ''))#">
+						<isprint value="#OrderBO:BuyerFirstName#">&nbsp;<isprint value="#OrderBO:BuyerLastName#">
+					<iselse/>
+						<isprint value="#OrderBO:InvoiceToAddressBO:FirstName#">&nbsp;<isprint value="#OrderBO:InvoiceToAddressBO:LastName#">
+					</isif>
+					<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_VIEW_CONSUMERS)#">
+						</a>
+					</isif>&nbsp;
+				</td>
+			</tr>
+			<tr>
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.EMail.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap">
+					<isif condition="#isDefined(OrderBO:UserBO:Email)#">
+						<isprint value="#OrderBO:UserBO:Email#">
+					<iselseif condition="#isDefined(OrderBO:NotificationEmailAddress)#">
+						<isprint value="#OrderBO:NotificationEmailAddress#">
+					<iselse>
+						<isprint value="#OrderBO:InvoiceToAddressBO:EMail#">
+					</isif>&nbsp;
+				</td>
+			</tr>
+			<isif condition="#OrderBO:ExtensibleObject:AttributeValue("Department"):StringValue NE ''#">
+				<tr>
+					<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.Department.label" encoding="off"/>:</label></td>
+					<td class="table_detail left e" nowrap="nowrap">
+						<isprint value="#OrderBO:ExtensibleObject:AttributeValue("Department"):StringValue#">&nbsp;
+					</td>
+				</tr>
+			</isif>
+			<isif condition="#OrderBO:ExtensibleObject:AttributeValue("TaxationID"):StringValue NE ''#">
+				<tr>	
+					<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.TaxationID.label" encoding="off"/>:</label></td>
+					<td class="table_detail left e" nowrap="nowrap">
+						<isprint value="#OrderBO:ExtensibleObject:AttributeValue("TaxationID"):StringValue#">&nbsp;
+					</td>
+				</tr>
+			</isif>
+		</isif>
+
+		<tr>
+			<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.PhoneMobile.label" encoding="off"/>:</label></td>
+			<td class="table_detail left e" nowrap="nowrap">
+				<isif condition="#OrderBO:UserBO:PhoneMobile NE ''#">
+					<isprint value="#OrderBO:UserBO:PhoneMobile#">
+				<iselse>
+					<isprint value="#OrderBO:InvoiceToAddressBO:Mobile#">
+				</isif>&nbsp;
+			</td>
+		</tr>
+		<tr>
+			<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.PhoneBusiness.label" encoding="off"/>:</label></td>
+			<td class="table_detail left e" nowrap="nowrap">
+				<isif condition="#OrderBO:UserBO:PhoneMobile NE ''#">
+					<isprint value="#OrderBO:UserBO:PhoneBusiness#">
+				<iselse>
+					<isprint value="#OrderBO:InvoiceToAddressBO:PhoneBusiness#">
+				</isif>&nbsp;				
+			</td>
+		</tr>	
+		<tr>
+			<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.PhoneHome.label" encoding="off"/>:</label></td>
+			<td class="table_detail left e" nowrap="nowrap">
+				<isif condition="#OrderBO:UserBO:PhoneHome NE ''#">
+					<isprint value="#OrderBO:UserBO:PhoneHome#">
+				<iselse>
+					<isprint value="#OrderBO:InvoiceToAddressBO:PhoneHome#">
+				</isif>&nbsp;
+			</td>
+		</tr>
+		<tr>
+			<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.Fax.label" encoding="off"/>:</label></td>
+			<td class="table_detail left e" nowrap="nowrap">
+				<isif condition="#OrderBO:UserBO:Fax NE ''#">
+					<isprint value="#OrderBO:UserBO:Fax#">
+				<iselse>
+					<isprint value="#OrderBO:InvoiceToAddressBO:Fax#">
+				</isif>&nbsp;
+			</td>
+		</tr>
+		<tr>
+			<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.InvoiceAddress.label" encoding="off"/>:</label></td>
+			<td class="table_detail left e" nowrap="nowrap">
+				<isif condition="#isDefined(OrderBO:InvoiceToAddressBO:CompanyName1) AND (OrderBO:InvoiceToAddressBO:CompanyName1 NE '')#">
+					<isprint value="#OrderBO:InvoiceToAddressBO:CompanyName1#">,
+					<isif condition="#isDefined(OrderBO:InvoiceToAddressBO:CompanyName2) AND (OrderBO:InvoiceToAddressBO:CompanyName2 NE '')#">
+						<isprint value="#OrderBO:InvoiceToAddressBO:CompanyName2#">,
+					</isif>
+				</isif>
+				<isif condition="#isDefined(OrderBO:InvoiceToAddressBO:Title) AND (OrderBO:InvoiceToAddressBO:Title NE '')#">
+					<isprint value="#OrderBO:InvoiceToAddressBO:Title#"> 
+				</isif>
+				<isprint value="#OrderBO:InvoiceToAddressBO:FirstName#">&nbsp;<isprint value="#OrderBO:InvoiceToAddressBO:LastName#">,
+				<isprint value="#OrderBO:InvoiceToAddressBO:AddressLine1#">,
+				<isif condition="#isDefined(OrderBO:InvoiceToAddressBO:AddressLine2) AND (OrderBO:InvoiceToAddressBO:AddressLine2 NE '')#">
+					<isprint value="#OrderBO:InvoiceToAddressBO:AddressLine2#">,
+				</isif>
+				<isif condition="#isDefined(OrderBO:InvoiceToAddressBO:AddressLine3) AND (OrderBO:InvoiceToAddressBO:AddressLine3 NE '')#">
+					<isprint value="#OrderBO:InvoiceToAddressBO:AddressLine3#">,
+				</isif>
+				<isprint value="#OrderBO:InvoiceToAddressBO:PostalCode#">&nbsp;<isprint value="#OrderBO:InvoiceToAddressBO:City#">,
+				<isprint value="#OrderBO:InvoiceToAddressBO:Country#">&nbsp;
+			</td>
+		</tr>
+		<isif condition="#OrderPayment:PaymentTransactionsByService("BPS_GIFT_CARD"):Size > 0#">
+			<isset name="NumberOfGiftcardsUsed" value="#OrderPayment:PaymentTransactionsByService("BPS_GIFT_CARD"):Size#" scope="request"/>
+			<iselse/>
+			<isset name="NumberOfGiftcardsUsed" value="#OrderPayment:PaymentTransactionsByService("ISH_GIFT_CARD"):Size#" scope="request"/>
+		</isif>
+		
+		<isif condition="#OrderBO:ExtensibleObject:AttributeValue("orderReferenceID"):StringValue NE ''#">
+			<tr><td class="w e" colspan="2">&nbsp;</td></tr>
+			<tr>
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.OrderReferenceID.label"></label></td>
+				<td class="table_detail left e" nowrap="nowrap"><isprint value="#OrderBO:ExtensibleObject:AttributeValue("orderReferenceID"):StringValue#"></td>
+			</tr>
+		</isif>
+		
+		<isinclude extensionpoint="OrderDetailsOrderDataAdding"/>
+		
+		<tr><td class="w e" colspan="2">&nbsp;</td></tr>
+		<isif condition="#Order:CreatedFromAuction EQ 'true'#">
+			<tr>
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.SummaryInformation.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap"><istext key="OrderDetails_52.TheOrderWasCreatedFromAnAuction.table_detail" encoding="off"/></td>
+			</tr>
+			<tr>
+				<td class="table_detail w" nowrap="nowrap">&nbsp;</td>
+				<td class="table_detail left e" nowrap="nowrap"><istext key="OrderDetails_52.ShippingToDestinationsGiftCardsUsedTotal.table_detail" parameter0="#getValue(OrderShippingBucket:NumberOfShippingBuckets)#" parameter1="#getValue(NumberOfGiftcardsUsed)#" parameter2="#getValue(OrderAppliedRebate:AppliedRebates:Size)#" parameter3="#getValue(OrderBO:GrandTotalGross)#" encoding="off"/></td>
+			</tr>
+		<iselse>
+			<tr>
+				<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.SummaryInformation.label" encoding="off"/>:</label></td>
+				<td class="table_detail left e" nowrap="nowrap"><istext key="OrderDetails_52.ShippingToDestinationsGiftCardsUsedTotal.table_detail" parameter0="#getValue(OrderShippingBucket:ShippingBucketBOs:Size)#" parameter1="#getValue(NumberOfGiftcardsUsed)#" parameter2="#getValue(OrderAppliedRebate:AppliedRebates:Size)#" parameter3="#getValue(OrderBO:GrandTotalGross)#" encoding="off"/></td>
+			</tr>
+		</isif>
+
+		<tr>
+			<td class="label w" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.Currency.label" encoding="off"/>:</label></td>
+			<td class="table_detail left e" nowrap="nowrap"><isprint value="#OrderBO:PurchaseCurrency:CurrencyName#">&nbsp;</td>
+		</tr>
+		<tr><td colspan="2" class="e w s"><img height="4" width="1" border="0" alt="" src="#WebRoot()#/images/space.gif" /></td></tr>
+		
+		<!--- Fulfillment and Payment --->
+		<tr><td colspan="2" class="e w"><img height="4" width="1" border="0" alt="" src="#WebRoot()#/images/space.gif" /></td></tr>
+		<tr>			
+			<td class="w label" nowrap="nowrap" width="20%"><label class="label label_light"><istext key="OrderDetails_52.Fulfillment.label" encoding="off"/>:</label></td>
+			<td colspan="3" class="table_detail e" nowrap="nowrap" width="20%">
+				<table class="w100" border="0" cellpadding="0" cellspacing="0">
+					<% groupPLIStates(getObject("OrderBO:ProductLineItemBOs:Iterator")); %>
+					<isloop iterator="GroupedPLIStates:EntrySet" alias="e">
+						<tr>
+							<td ><isprint value="#e:Value#">&nbsp;<istext key="OrderDetails_52.Items" encoding="off"/>&nbsp;<isprint value="#e:Key#"></td>
+						</tr>
+					</isloop>
+				</table>
+			</td>
+		</tr>
+		<tr>
+ 			<td class="w table_detail">
+				<a href="#URL(Action('ViewSellerOrder-ShowGiftcards'), Parameter('OrderID', Order:UUID),Parameter('ChannelID1', CurrentChannel:UUID))#" class="table_detail_link" ><istext key="OrderDetails_52.Payment.link" encoding="off"/>:</a> 
+			 </td>		
+			<td colspan="3" class="table_detail e" nowrap="nowrap">	
+				<isif condition="#hasLoopElements(OrderPayment:PaymentTransactionBOs)#">
+					<table cellpadding="0" cellspacing="0">
+						<isloop iterator="OrderPayment:PaymentTransactionBOs" alias="PT">
+							<tr>
+								<td class="left" >
+									<isprint value="#PT:PaymentBO:PaymentServiceBO:DisplayName#"/>
+									&nbsp;
+								</td>
+								<td>&nbsp;</td>
+								<td>
+									<isprint value="#PT:PaymentBO:PaymentInstrumentBO:AccountIdentifier#"/>
+									&nbsp;
+								</td>
+								<td class="right" >
+									<isif condition="#isDefined(PT:Amount) AND (PT:Amount:Available)#">
+										<isprint value="#PT:Amount#">
+									<iselse>
+										<isprint value="#ZeroMoney#">
+									</isif>
+									&nbsp;
+								</td>
+								<td>&nbsp;</td>
+								<td class="left" ><isprint value="#PT:StatusDisplayName#">&nbsp;
+								<isif condition="#PT:StatusPending#"><istext key="PaymentHistory.Status.pending" encoding="off"/></isif>
+								</td>
+							</tr>
+						</isloop>
+					</table>
+				</isif>
+			</td>
+		</tr>
+		<tr><td colspan="2" class="e w s"><img height="4" width="1" border="0" alt="" src="#WebRoot()#/images/space.gif" /></td></tr>
+		
+		<!--- Cost Summary --->
+		<tr><td colspan="2" class="e w"><img height="4" width="1" border="0" alt="" src="#WebRoot()#/images/space.gif" /></td></tr>
+		<tr>
+			<td class="w e" colspan="2">
+				<table class="w100" border="0" cellpadding="0" cellspacing="0">
+					<colgroup>
+						<col width="20%" />
+						<col width="5%" />
+						<col width="75%"/>
+					</colgroup>
+					<tr>
+						<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.ItemTotal.label" encoding="off"/>:</label></td>
+						<td class="table_detail right" nowrap="nowrap"><isprint value="#OrderBO:ItemSubtotal#"></td>
+
+						<isif condition="#OrderWarranty:hasWarrantyTotal#">
+							<td class="table_detail" nowrap="nowrap"><istext key="OrderDetails_52.IncludesWarranties.label" parameter0="#getValue(OrderWarranty:WarrantyTotal)#" /></td>
+						</isif>
+					</tr>
+					
+					<tr>
+						<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.ItemPromotions.label" encoding="off"/>:</label></td>
+						<td class="table_detail information right" nowrap="nowrap">
+							<isif condition="#hasLoopElements(OrderAppliedRebate:AppliedItemValueRebates)#">
+								<isprint value="#OrderAppliedRebate:ItemValueRebatesTotal#">
+							<iselse>
+								<isprint value="#ZeroMoney#">
+							</isif>
+						</td>
+					</tr>
+					
+					<tr>
+						<td class="label" nowrap="nowrap"><label class="label label_light">
+							<a href="#URL(Action('ViewSellerOrder-ShowPromotions'), Parameter('OrderID', Order:UUID), Parameter('ChannelID1', CurrentChannel:UUID))#" class="table_detail_link"><istext key="OrderDetails_52.OrderPromotions.link" encoding="off"/>: </a></label>
+						</td>
+						<td class="table_detail information right" nowrap="nowrap">
+							<isif condition="#isDefined(OrderAppliedRebate:OrderValueDiscount) AND (OrderAppliedRebate:OrderValueDiscount:Available)#">
+								<isprint value="#OrderAppliedRebate:OrderValueDiscount#">
+							<iselse>
+								<isprint value="#ZeroMoney#">
+							</isif>
+						</td>	
+						<td class="table_detail" nowrap="nowrap">
+							<isif condition="#isDefined(OrderAppliedRebate:ValueRebatesTotal) AND (OrderAppliedRebate:ValueRebatesTotal:Available)#">
+								<istext key="OrderDetails_52.TotalPromotions.table_detail" parameter0="#getValue(OrderAppliedRebate:ValueRebatesTotal:Negated)#"/>
+							<iselse>
+								<istext key="OrderDetails_52.TotalPromotions.table_detail" parameter0="#getValue(ZeroMoney)#"/>
+							</isif>
+						</td>
+					</tr>
+			
+					<tr>
+						<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.ShippingCosts.label" encoding="off"/>:</label></td>
+						<td class="table_detail right" nowrap="nowrap"><isprint value="#OrderBO:ShippingTotalWithoutSurcharges#"></td>
+					</tr>
+
+					<tr>
+						<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.ItemShippingPromotions.label" encoding="off"/>:</label></td>
+						<td class="table_detail information right" nowrap="nowrap">
+							<isif condition="#isDefined(OrderAppliedRebate:ItemShippingRebatesTotal) AND (OrderAppliedRebate:ItemShippingRebatesTotal:Available)#">
+								<isprint value="#OrderAppliedRebate:ItemShippingRebatesTotal#">
+							<iselse>
+								<isprint value="#ZeroMoney#">
+							</isif>
+						</td>
+					</tr>
+					
+					<tr>
+						<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.BucketShippingPromotions.label" encoding="off"/>:</label></td>
+						<td class="table_detail information right"  nowrap="nowrap">
+							<isif condition="#isDefined(OrderAppliedRebate:BucketShippingRebatesTotal) AND (OrderAppliedRebate:BucketShippingRebatesTotal:Available)#">
+								<isprint value="#OrderAppliedRebate:BucketShippingRebatesTotal#">
+							<iselse>
+								<isprint value="#ZeroMoney#">
+							</isif>	
+						</td>
+					</tr>
+
+					<tr>
+						<td class="label" nowrap="nowrap"><label class="label label_light">
+							<a href="#URL(Action('ViewSellerOrder-ShowPromotions'), Parameter('OrderID', Order:UUID), Parameter('ChannelID1', CurrentChannel:UUID))#" class="table_detail_link"><istext key="OrderDetails_52.OrderShippingPromotions.link" encoding="off"/>: </a></label>
+						</td>
+						<td class="table_detail information right" nowrap="nowrap">
+							<isif condition="#isDefined(OrderAppliedRebate:OrderShippingRebatesTotal) AND (OrderAppliedRebate:OrderShippingRebatesTotal:Available)#">
+								<isprint value="#OrderAppliedRebate:OrderShippingRebatesTotal:Negated#">
+							<iselse>
+								<isprint value="#ZeroMoney#">
+							</isif>
+						</td>
+						<td class="table_detail" nowrap="nowrap">
+							<isif condition="#hasLoopElements(OrderAppliedRebate:AppliedShippingRebates)#">
+								<istext key="OrderDetails_52.TotalShippingPromotions.table_detail" parameter0="#getValue(OrderAppliedRebate:ShippingRebatesTotal:Negated)#"/>
+							<iselse>
+								<istext key="OrderDetails_52.TotalShippingPromotions.table_detail" parameter0="#getValue(ZeroMoney)#"/>
+							</isif>
+						</td>
+					</tr>
+
+					<isif condition="#OrderWarranty:hasWarrantyTotal#">
+						<tr>
+							<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.Warranties.label" encoding="off"/>:</label></td>
+							<td class="table_detail right" nowrap="nowrap"><isprint value="#OrderWarranty:WarrantyTotal#"></td>
+						</tr>
+
+						<isif condition="#hasLoopElements(OrderWarranty:WarrantyTaxesGroupedByTaxRate)#">
+							<isloop iterator="OrderWarranty:WarrantyTaxesGroupedByTaxRate" alias="OrderWarrantyTax"> 
+								<tr>
+									<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.TaxForWarranties.label" encoding="off"/> <isif condition="#isDefined(OrderWarrantyTax:Rate)#">&nbsp;(<isprint value="#OrderWarrantyTax:Rate#"> %)</isif>:</label></td>
+									<td class="table_detail right" nowrap="nowrap"><isprint value="#OrderWarrantyTax:Amount#"></td>		
+								</tr>
+							</isloop>
+						</isif>
+					</isif>
+	
+					<tr>
+						<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.GiftingCosts.label" encoding="off"/>:</label></td>
+						<td class="table_detail right" nowrap="nowrap"><isprint value="#OrderGifting:GiftingTotal#"></td>
+					</tr>
+					<isif condition="#hasLoopElements(OrderGifting:GiftOptionTaxesGroupedByTaxRate)#">
+						<isloop iterator="OrderGifting:GiftOptionTaxesGroupedByTaxRate" alias="GiftingTax"> 
+							<tr>
+								<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.TaxForGifting.label" encoding="off"/> <isif condition="#isDefined(GiftingTax:Rate)#">&nbsp;(<isprint value="#GiftingTax:Rate#"> %)</isif>:</label></td>
+								<td class="table_detail right" nowrap="nowrap"><isprint value="#GiftingTax:Amount#"></td>		
+							</tr>
+						</isloop>
+					</isif>
+					<tr>
+						<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.AdditionalSurcharges.label" encoding="off"/>:</label></td>
+						<td class="table_detail right" nowrap="nowrap"><isif condition="#isDefined(OrderBO:SurchargeTotal) AND (OrderBO:SurchargeTotal:Available)#"><isprint value="#OrderBO:SurchargeTotal#"><iselse><isprint value="#ZeroMoney#"></isif></td>		
+					</tr>
+
+					<tr>
+						<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.PaymentCosts.label" encoding="off"/>:</label></td>
+						<td class="table_detail right" nowrap="nowrap"><isif condition="#isDefined(OrderPayment:PaymentCostsTotal)AND (OrderPayment:PaymentCostsTotal:Available)#"><isprint value="#OrderPayment:PaymentCostsTotal#"><iselse><isprint value="#ZeroMoney#"></isif></td>		
+					</tr>
+					
+					<isif condition="#hasLoopElements(OrderShippingBucket:ShippingTaxTotalsByTaxRate)#"> 
+						<isloop iterator="OrderShippingBucket:ShippingTaxTotalsByTaxRate" alias="ShippingTax"> 
+							<tr>
+								<td class="label" nowrap="nowrap"><label class="label label_light">
+									<isif condition="#isDefined(ShippingTax:Rate)#">
+										<istext key="OrderDetails_52.TaxForShippingPercentage.label" parameter0="#getValue(ShippingTax:Rate)#">
+									<iselse/>
+										<istext key="OrderDetails_52.TaxForShipping.label">
+									</isif>
+								</label></td>
+								<td class="table_detail information right" nowrap="nowrap"><isprint value="#ShippingTax:Amount#"></td>		
+							</tr>
+						</isloop>
+					</isif>
+					
+					<isif condition="#hasLoopElements(OrderShippingBucket:SurchargeTaxTotalsByTaxRate)#"> 
+						<isloop iterator="OrderShippingBucket:SurchargeTaxTotalsByTaxRate" alias="SurchargeTax"> 
+							<tr>
+								<td class="label" nowrap="nowrap"><label class="label label_light">
+									<isif condition="#isDefined(SurchargeTax:Rate)#">
+										<istext key="OrderDetails_52.TaxForSurchargesPercentage.label" parameter0="#getValue(SurchargeTax:Rate)#">
+									<iselse/>
+										<istext key="OrderDetails_52.TaxForSurcharges.label">
+									</isif>
+								</label></td>
+								<td class="table_detail information right" nowrap="nowrap"><isprint value="#SurchargeTax:Amount#"></td>		
+							</tr>
+						</isloop>
+					</isif>
+					
+					<isif condition="#hasLoopElements(OrderPayment:PaymentTaxes)#"> 
+						<isloop iterator="OrderPayment:PaymentTaxes" alias="PaymentTax"> 
+							<tr>
+								<td class="label" nowrap="nowrap"><label class="label label_light">
+									<isif condition="#isDefined(PaymentTax:Rate)#">
+										<istext key="OrderDetails_52.TaxForPaymentPercentage.label" parameter0="#getValue(PaymentTax:Rate)#">
+									<iselse/>
+										<istext key="OrderDetails_52.TaxForPayment.label">
+									</isif>
+								</label></td>
+								<td class="table_detail information right" nowrap="nowrap"><isprint value="#PaymentTax:Amount#"></td>
+							</tr>
+						</isloop>
+					</isif>
+					
+					<isif condition="#hasLoopElements(OrderBO:SalesTaxTotalsByTaxRate)#"> 
+						<isloop iterator="OrderBO:SalesTaxTotalsByTaxRate" alias="SalesTax"> 
+							<tr>
+								<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.SalesTax.label" parameter0="#getValue(SalesTax:Rate)#" /></label></td>
+								<td class="table_detail information right" nowrap="nowrap"><isprint value="#SalesTax:Amount#"></td>
+								<isif condition="#NOT hasNext(SalesTax)#">
+									<td class="table_detail"><istext key="OrderDetails_52.TotalTax.table_detail" parameter0="#getValue(OrderBO:TaxTotal)#">
+										<isif condition="#OrderWarranty:hasWarrantyTotal#">:<istext key="OrderDetails_52.IncludesTaxForWarranties.label" encoding="off"/></isif> 
+										<isif condition="#OrderGifting:hasGiftingCosts#">:<istext key="OrderDetails_52.IncludesTaxForGifting.label" encoding="off"/></isif> 
+									</td>
+								</isif>
+							</tr>
+						</isloop>
+					</isif>
+					
+					<tr>
+						<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.Duties.label" encoding="off"/>:</label></td>
+						<td class="table_detail right" nowrap="nowrap"><isprint value="#OrderBO:DutiesAndSurchargesTotal#"></td>
+					</tr>
+					
+					<tr><td colspan="3">&nbsp;</td></tr>
+					
+					<tr>
+						<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.Total.label" encoding="off"/>:</label></td>
+						<td class="table_detail right" nowrap="nowrap"><b><isprint value="#OrderBO:GrandTotalGross#"></b></td>
+						<td class="table_detail" nowrap="nowrap"><istext key="OrderDetails_52.TotalExclTax.table_detail" parameter0="#getValue(OrderBO:GrandTotalNet, MONEY_LONG)#" encoding="off"/></td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+		<tr><td class="table_detail w e s" colspan="3"></td></tr>	
+	</table>
+			
+	<!---Display of buckets and order items --->
+	<isloop iterator="OrderShippingBucket:ShippingBucketBOs" alias="bucket">
+		<div><img height="10" border="0" width="1" alt="" src="#WebRoot()#/images/space.gif"></div>
+		<table class="w100" border="0" cellpadding="0" cellspacing="0">
+			<tr>
+				<isif condition="#isDefined(bucket:ShipToAddressBO) AND ('EmailAddress' EQ bucket:ShipToAddressBO:AddressName)#">
+					<td class="table_title2 n w e s">
+						<isif condition="#isDefined(bucket:ShipToAddressBO:LastName) AND (bucket:ShipToAddressBO:LastName NE '')#">
+							<isprint value="#bucket:ShipToAddress:LastName#">, 
+						</isif>
+						<isif condition="#isDefined(bucket:ShipToAddressBO:FirstName) AND (bucket:ShipToAddressBO:FirstName NE '')#">
+							<isprint value="#bucket:ShipToAddressBO:FirstName#">: 
+						</isif>
+						<isprint value="#bucket:ShipToAddressBO:EMail#">
+					</td>
+				<iselse>
+					<td class="table_title2 n w e s">
+						<isif condition="#isDefined(bucket:ShipToAddressBO:CompanyName) AND (bucket:ShipToAddressBO:CompanyName NE '')#">
+							<isprint value="#bucket:ShipToAddressBO:CompanyName#">,
+							<isif condition="#isDefined(bucket:ShipToAddressBO:CompanyName2) AND (bucket:ShipToAddressBO:CompanyName2 NE '')#">
+								<isprint value="#bucket:ShipToAddressBO:CompanyName2#">,
+							</isif>
+						</isif>
+						<isif condition="#isDefined (bucket:ShipToAddress:Extension("Store"))#"><!--- store address --->
+							<isprint value="#bucket:ShipToAddress:AddressName#">,
+						</isif>
+						<isif condition="#isDefined(bucket:ShipToAddressBO:Title) AND (OrderBO:InvoiceToAddressBO:Title NE '')#">
+							<isprint value="#bucket:ShipToAddressBO:Title#"> 
+						</isif>
+						<isif condition="#(bucket:ShipToAddressBO:FirstName NE '') OR (bucket:ShipToAddressBO:LastName NE '')#">
+							<isprint value="#bucket:ShipToAddressBO:FirstName#">&nbsp;<isprint value="#bucket:ShipToAddressBO:LastName#">,
+						</isif>	
+						<isprint value="#bucket:ShipToAddressBO:AddressLine1#">,
+						<isif condition="#isDefined(bucket:ShipToAddressBO:AddressLine2) AND (bucket:ShipToAddressBO:AddressLine2 NE '')#">
+							<isprint value="#bucket:ShipToAddressBO:AddressLine2#">,
+						</isif>
+						<isprint value="#bucket:ShipToAddressBO:PostalCode#">&nbsp;<isprint value="#bucket:ShipToAddressBO:City#">,
+						<isprint value="#bucket:ShipToAddressBO:Country#">
+					</td>
+				</isif>	
+			</tr>
+		</table>
+
+		<table border="0" cellpadding="4" cellspacing="0" class="infobox w100 w e ">
+			<colgroup>
+				<col width="10%">
+				<col >
+			</colgroup>
+			<!--- Shipping Method --->
+			<tr>
+				<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.ShippingMethod.label" encoding="off"/>:</label></td>
+				<td class="table_detail" nowrap="nowrap">
+					<isprint value="#bucket:ShippingMethodDisplayName#">
+				</td>
+			</tr>
+			<!--- Shipping Status --->
+			<tr>
+				<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.ShippingStatus.label" encoding="off"/>:</label></td>
+				<td class="table_detail" nowrap="nowrap">
+					<% groupPLIStates(getObject("bucket:ProductLineItemBOs:Iterator")); %>
+					<isloop iterator="GroupedPLIStates:EntrySet" alias="e">
+						<isprint value="#e:Value#">&nbsp;<istext key="OrderDetails_52.ItemS.table_detail" encoding="off"/>&nbsp;<isprint value="#e:Key#"><isif condition="#hasNext(e)#">,</isif> 
+					</isloop>
+				</td>
+			</tr>
+			<!--- Packslip Message + Shipping Instructions--->
+			<isif condition="#isDefined(bucket:PackSlipMessage)#">
+				<tr>				
+					<td class="label top" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.PackslipMessage.label" encoding="off"/>:</label></td>
+					<td class="table_detail top" nowrap="nowrap">
+						<istext key="OrderDetails_52.From.table_detail" encoding="off"/>: <isprint value="#bucket:PackSlipMessage:Message:From#"><br />
+						<istext key="OrderDetails_52.To.table_detail" encoding="off"/>: <isprint value="#bucket:PackSlipMessage:Message:To#"><br />
+						<istext key="OrderDetails_52.Message.table_detail" encoding="off"/>: <isprint value="#bucket:PackSlipMessage:Message:Message#" encoding="nl2br,html">
+					</td>				
+				</tr>
+			</isif>
+			<isif condition="#isDefined(bucket:ShippingInstructions) AND (bucket:ShippingInstructions NE '')#">
+				<tr>				
+					<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.ShippingInstructions.label" encoding="off"/>:</label></td>
+					<td class="table_detail" nowrap="nowrap">
+						<isprint value="#bucket:ShippingInstructions#" encoding="nl2br,html">
+					</td>				
+				</tr>
+			</isif>
+			<!--- Desired Delivery Date --->
+			<isif condition="#isDefined(bucket:RequestedDeliveryDate)#">
+				<tr>				
+					<td class="label" nowrap="nowrap"><label class="label label_light"><istext key="OrderDetails_52.DesiredDelivery.label" encoding="off"/>:</label></td>
+					<td class="table_detail"><isprint value="#bucket:RequestedDeliveryDate#" style="DATE_SHORT"></td>				
+				</tr>
+			</isif>
+		</table>
+		
+		<table id="tableOrderDetails" class="w100 n" border="0" cellspacing="0" cellpadding="0">
+			<tr>
+				<th class="table_header w e s" nowrap="nowrap" width="40%" colspan="2"><istext key="OrderDetails_52.Name.table_header" encoding="off"/></th>
+				<th class="table_header e s" nowrap="nowrap"><istext key="OrderDetails_52.ProductID.table_header" encoding="off"/></th>
+				<th class="table_header e s" nowrap="nowrap"><istext key="OrderDetails_52.Quantity.table_header" encoding="off"/></th>
+				<th class="table_header e s" nowrap="nowrap"><isif condition="#(OrderBO:isNetCalculation)#"><istext key="OrderDetails_52.Net.table_header" encoding="off"/><iselse><istext key="OrderDetails_52.Gross.table_header" encoding="off"/></isif> <istext key="OrderDetails_52.Price.table_header" encoding="off"/></th>
+				<th class="table_header e s" nowrap="nowrap"><isif condition="#(OrderBO:isNetCalculation)#"><istext key="OrderDetails_52.Net.table_header" encoding="off"/><iselse><istext key="OrderDetails_52.Gross.table_header" encoding="off"/></isif> <istext key="OrderDetails_52.Discounts.table_header" encoding="off"/></th>
+				<th class="table_header e s" nowrap="nowrap"><istext key="OrderDetails_52.NetTotal.table_header" encoding="off"/></th>
+				<th class="table_header e s" nowrap="nowrap"><istext key="OrderDetails_52.TaxRate.table_header" encoding="off"/></th>
+				<th class="table_header e s" nowrap="nowrap"><istext key="OrderDetails_52.SalesTaxTotal.table_header" encoding="off"/></th>
+				<th class="table_header e s" nowrap="nowrap"><istext key="OrderDetails_52.GrossTotal.table_header" encoding="off"/></th>
+				<th class="table_header e s" nowrap="nowrap"><istext key="OrderDetails_52.Duties.table_header" encoding="off"/></th>
+				<th class="table_header e s" nowrap="nowrap"><istext key="OrderDetails_52.Fulfillment.table_header" encoding="off"/></th>
+				<th class="table_header e s" nowrap="nowrap"><istext key="OrderDetails_52.DesiredDelivery.table_header" encoding="off"/></th>
+				<th class="table_header e s" nowrap="nowrap">&nbsp;</th>
+			</tr>
+
+			<isloop iterator="bucket:AllOrderProductLineItemBOs" alias="PLI">
+				<isif condition="#(PLI:isHiddenGift) OR (PLI:isFreeGift)#">
+					<tr>
+						<td class="table_detail w e s" colspan="2">
+							<isif condition="#PLI:isHiddenGift#">
+								<istext key="OrderDetails_52.HiddenGift.table_detail" encoding="off"/>:
+							<iselsif condition="#PLI:isFreeGift#">
+								<istext key="OrderDetails_52.FreeGift.table_detail" encoding="off"/>:
+							</isif>
+							<isif condition="#isDefined(CurrentChannel) AND isDefined(PLI:ProductBO) AND isDefined(CurrentChannelPermissionMap:SLD_VIEW_PRODUCTS)#">
+								<a href="#URL(Action('ViewProduct_52-Edit'), Parameter('ProductID', PLI:ProductBO:ID))#" class="table_detail_link"><isprint value="#PLI:ProductName#"></a>
+							<iselse>
+								<isprint value="#PLI:ProductName#">
+							</isif>
+						</td>
+
+						<!--- ProductID --->
+						<td class="table_detail e s" nowrap="nowrap">
+							<isif condition="#(isDefined(CurrentChannel) AND isDefined(PLI:ProductBO)) AND isDefined(CurrentChannelPermissionMap:SLD_VIEW_PRODUCTS)#">
+								<a href="#URL(Action('ViewProduct_52-Edit'), Parameter('ProductID', PLI:ProductBO:ID))#" class="table_detail_link">
+									<isprint value="#PLI:ProductBO:SKU#">
+								</a>
+							<iselse>
+								<isprint value="#PLI:ProductRef:ProductSKU#">
+							</isif>
+						</td>
+						
+						<!--- Quantity --->
+						<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLI:Quantity#" style="QUANTITY_SHORT"></td>
+						<!--- 5 SubTotals --->
+						<td class="table_detail e s right" nowrap="nowrap" colspan="5"></td>
+						<!--- GrossTotal --->
+						<td class="table_detail e s right" nowrap="nowrap"><isprint value="#ZeroMoney#"></td>
+						<!--- Duties --->
+						<td class="table_detail e s right" nowrap="nowrap"></td>
+						<!--- FulfillmentStatus --->
+						<td class="table_detail e s" nowrap="nowrap"><isprint value="#PLI:FulfillmentStatusDisplayName#"></td>
+						<!--- Desired Delivery Date --->
+						<td class="table_detail e s right" nowrap="nowrap"></td>
+						<!--- Details Link --->
+						<td class="table_detail center e s" nowrap="nowrap">
+							<a href="#URL(Action('ViewSellerOrder-ShowLineItemDetail'),Parameter('LineItemUUID',PLI:ID),Parameter('OrderID',Order:UUID), Parameter('ChannelID1', CurrentChannel:UUID))#" class="table_detail_link"><istext key="OrderDetails_52.Details.link" encoding="off"/></a>
+						</td>
+					</tr>
+				<iselse>
+					<isset name="PLIWarranty"	   value="#PLI:Extension("Warranty")#"	  		scope="request"/>
+					<isset name="PLIGifting"		value="#PLI:Extension("Gifting")#"	   		scope="request"/>
+					<isset name="PLIAppliedRebate"  value="#PLI:Extension("AppliedRebate")#" 		scope="request"/>
+			
+					<tr>
+						<!--- Name --->
+						<td class="table_detail w e s" colspan="2">
+							<isif condition="#isDefined(CurrentChannel) AND isDefined(PLI:Product) AND isDefined(CurrentChannelPermissionMap:SLD_VIEW_PRODUCTS)#">
+								<a href="#URL(Action('ViewProduct_52-Edit'), Parameter('ProductID', PLI:Product:ID))#" class="table_detail_link"><isprint value="#PLI:ProductName#"></a>
+							<iselse>
+								<isprint value="#PLI:ProductName#">
+							</isif>
+							<isif condition="#isDefined(PLIAppliedRebate:AppliedRebates) AND hasLoopElements(PLIAppliedRebate:AppliedRebates)#">
+								&nbsp;
+								<a href="#URL(Action('ViewSellerOrder-ShowLineItemDetail'), Parameter('LineItemUUID',PLI:ID),Parameter('OrderID',Order:UUID), Parameter('ChannelID1', CurrentChannel:UUID))#" style="text-decoration:none">
+									<img src="#WebRoot()#/images/ic_promotion.gif" alt="#localizeText('OrderDetails_52.PromotionsApply.alt')#" title="#localizeText('OrderDetails_52.PromotionsApply.title')#" border="0"/>
+								</a>
+							</isif>
+							<isif condition="#isDefined(PLI:DutiesTotal)AND(PLI:DutiesTotal:Value > 0.00)#">
+								&nbsp;
+								<a href="#URL(Action('ViewSellerOrder-ShowLineItemDetail'), Parameter('LineItemUUID',PLI:ID),Parameter('OrderID',Order:UUID), Parameter('ChannelID1', CurrentChannel:UUID))#" style="text-decoration:none">
+									<img src="#WebRoot()#/images/ic_duties.gif" alt="#localizeText('OrderDetails_52.DutiesApply.alt')#" title="#localizeText('OrderDetails_52.DutiesApply.title')#" border="0"/>
+								</a>
+							</isif>
+						</td>
+						
+						<!--- ProductID --->
+						<td class="table_detail e s" nowrap="nowrap">
+							<isif condition="#(isDefined(CurrentChannel) AND isDefined(PLI:Product)) AND isDefined(CurrentChannelPermissionMap:SLD_VIEW_PRODUCTS)#">
+								<a href="#URL(Action('ViewProduct_52-Edit'), Parameter('ProductID', PLI:Product:ID))#" class="table_detail_link">
+									<isprint value="#PLI:ProductBO:SKU#">
+								</a>
+							<iselse>
+								<isprint value="#PLI:ProductRef:ProductSKU#">
+							</isif>
+							<br/>
+						</td>
+
+						<!--- Quantity --->
+						<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLI:Quantity#" style="QUANTITY_SHORT"></td>
+						<!--- NetPrice or GrossPrice --->
+						<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLI:SingleBasePrice#"></td>
+						<!--- NetDiscounts or GrossDiscounts --->
+						<td class="table_detail e s right" nowrap="nowrap"><isif condition="#isDefined(PLIAppliedRebate:ItemValueRebatesTotal) AND NOT (PLIAppliedRebate:ItemValueRebatesTotal EQ 'N/A')#"><isprint value="#PLIAppliedRebate:ItemValueRebatesTotal#"><iselse>&nbsp;</isif></td>
+						<!--- NetTotal --->
+						<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLI:DiscountedPriceNet#"></td>
+						<!--- TaxRate --->
+						<td class="table_detail e s right" nowrap="nowrap"><isif condition="#NOT PLI:SalesTaxes:Empty#"><isprint value="#PLI:SalesTaxes:First:Rate * 100#"> %<iselse>&nbsp;</isif></td>
+						<!--- TaxTotal --->
+						<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLI:SalesTaxTotal#"></td>
+						<!--- GrossTotal --->
+						<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLI:DiscountedPriceGross#"></td>
+						<!--- Duties --->
+						<td class="table_detail e s right" nowrap="nowrap"><isif condition="#isDefined(PLI:DutiesTotal) AND NOT (PLI:DutiesTotal EQ 'N/A')#"><isprint value="#PLI:DutiesTotal#"><iselse>&nbsp;</isif></td>
+						<!--- FulfillmentStatus --->
+						<td class="table_detail e s" nowrap="nowrap"><isprint value="#PLI:FulfillmentStatusDisplayName#"></td>
+						<!--- Desired Delivery Date --->
+						<td class="table_detail e s" nowrap="nowrap"><isprint value="#PLI:DesiredDeliveryDate#" formatter="MM/dd/yyyy"/></td>
+						<!--- Details Link --->
+						<td class="table_detail center e s" nowrap="nowrap">
+							<a href="#URL(Action('ViewSellerOrder-ShowLineItemDetail'),Parameter('LineItemUUID',PLI:ID),Parameter('OrderID',Order:UUID), Parameter('ChannelID1', CurrentChannel:UUID))#" class="table_detail_link"><istext key="OrderDetails_52.Details.link" encoding="off"/></a>
+						</td>
+					</tr>
+	
+					<!--- Warranties --->
+					<isif condition="#isDefined(PLIWarranty:OrderWarrantyLineItemBO)#">
+						<tr>
+							<td class="table_detail w s" nowrap="nowrap">&nbsp;</td>
+							<td class="table_detail e s" nowrap="nowrap">
+								<istext key="OrderDetails_52.Warranty.table_detail" encoding="off"/>:&nbsp;
+								<isif condition="#(isDefined(CurrentChannel) AND isDefined(PLIWarranty:OrderWarrantyLineItemBO:ProductBO)) AND isDefined(CurrentChannelPermissionMap:SLD_VIEW_PRODUCTS)#">
+									<a href="#URL(Action('ViewProduct_52-Edit'), Parameter('ProductID', PLIWarranty:OrderWarrantyLineItemBO:ProductBO:ID))#" class="table_detail_link">
+										<isprint value="#PLIWarranty:OrderWarrantyLineItemBO:ProductName#">
+									</a>
+								<iselse>
+									<isprint value="#PLIWarranty:OrderWarrantyLineItemBO:ProductName#">
+								</isif>
+							</td>
+							<td class="table_detail e s" nowrap="nowrap">
+								<isif condition="#(isDefined(CurrentChannel) AND isDefined(PLIWarranty:OrderWarrantyLineItemBO:Product)) AND isDefined(CurrentChannelPermissionMap:SLD_VIEW_PRODUCTS)#">
+									<a href="#URL(Action('ViewProduct_52-Edit'), Parameter('ProductID', PLIWarranty:OrderWarrantyLineItemBO:Product:ID) )#" class="table_detail_link">
+										<isprint value="#PLIWarranty:OrderWarrantyLineItemBO:ProductBO:SKU#">
+									</a>
+								<iselse>
+									<isprint value="#PLIWarranty:OrderWarrantyLineItemBO:ProductBO:SKU#">
+								</isif>
+							</td>
+	
+							<!--- Quantity --->
+							<!--- Note: Display Quantity of line item here. Because there is always only 1 warranty assigned per product --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLI:Quantity#" style="QUANTITY_SHORT"></td>
+							<!--- NetPrice or GrossPrice --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIWarranty:OrderWarrantyLineItemBO:SingleBasePrice#"></td>
+							<!--- NetDiscounts or GrossDiscounts --->
+							<td class="table_detail e s right" nowrap="nowrap">&nbsp;</td>
+							<!--- NetTotal --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIWarranty:OrderWarrantyLineItemBO:PriceNet#"></td>
+							<!--- TaxRate --->
+							<td class="table_detail e s right" nowrap="nowrap"><isif condition="#NOT PLIWarranty:OrderWarrantyLineItemBO:SalesTaxes:Empty#"><isprint value="#PLIWarranty:OrderWarrantyLineItemBO:SalesTaxes:First:Rate * 100#"> %<iselse>&nbsp;</isif></td>
+							<!--- TaxTotal --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIWarranty:OrderWarrantyLineItemBO:SalesTaxTotal#"></td>
+							<!--- GrossTotal --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIWarranty:OrderWarrantyLineItemBO:PriceGross#"></td>
+							<!--- Duties --->
+							<td class="table_detail e s right" nowrap="nowrap"><isif condition="#isDefined(PLIWarranty:OrderWarrantyLineItemBO:DutiesTotal) AND NOT (PLIWarranty:OrderWarrantyLineItemBO:DutiesTotal EQ 'N/A')#"><isprint value="#PLIWarranty:OrderWarrantyLineItemBO:DutiesTotal#"><iselse>&nbsp;</isif></td>
+							<!--- FulfillmentStatus --->
+							<td class="table_detail e s" nowrap="nowrap">&nbsp;</td>
+							<!--- DesiredDeliveryDate --->
+							<td class="table_detail e s" nowrap="nowrap">&nbsp;</td> 
+							<!--- Details Link --->
+							<td class="table_detail e s" nowrap="nowrap">&nbsp;</td>
+						</tr>
+					</isif>
+	
+					<!--- GiftWrap --->	
+					<isif condition="#PLIGifting:hasGiftWrap#">
+						<tr>
+							<td class="table_detail w s" nowrap="nowrap">&nbsp;</td>
+							<td class="table_detail e s" nowrap="nowrap">
+								<istext key="OrderDetails_52.GiftWrap.table_detail" encoding="off"/>:&nbsp;
+								<isif condition="#(isDefined(CurrentChannel) AND isDefined(PLIGifting:OrderGiftWrapLineItemBO:ProductBO)) AND isDefined(CurrentChannelPermissionMap:SLD_VIEW_PRODUCTS)#">
+									<a href="#URL(Action('ViewProduct_52-Edit'), Parameter('ProductID', PLIGifting:OrderGiftWrapLineItemBO:ProductBOPLIGifting:OrderGiftWrapLineItemBO:ProductBOPLIGifting:OrderGiftWrapLineItemBO:ProductBO))#" class="table_detail_link">
+										<isprint value="#PLIGifting:OrderGiftWrapLineItemBO:ProductName#">
+									</a>
+								<iselse>
+									<isprint value="#PLIGifting:OrderGiftWrapLineItemBO:ProductName#">
+								</isif>
+							</td>
+							<td class="table_detail e s" nowrap="nowrap">
+								<isif condition="#(isDefined(CurrentChannel) AND isDefined(PLIGifting:OrderGiftWrapLineItemBO:ProductBO)) AND isDefined(CurrentChannelPermissionMap:SLD_VIEW_PRODUCTS)#">
+									<a href="#URL(Action('ViewProduct_52-Edit'), Parameter('ProductID', PLIGifting:OrderGiftWrapLineItemBO:ProductBO:ID))#" class="table_detail_link">
+										<isprint value="#PLIGifting:OrderGiftWrapLineItemBO:ProductSKU#">
+									</a>
+								<iselse>
+									<isprint value="#PLIGifting:OrderGiftWrapLineItemBO:ProductSKU#">
+								</isif>
+							</td>
+							<!--- Quantity --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIGifting:OrderGiftWrapLineItemBO:Quantity#" style="QUANTITY_SHORT"></td>
+							<!--- NetPrice or GrossPrice --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIGifting:OrderGiftWrapLineItemBO:SingleBasePrice#"></td>
+							<!--- NetDiscounts or GrossDiscounts --->
+							<td class="table_detail e s right" nowrap="nowrap">&nbsp;</td>
+							<!--- NetTotal --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIGifting:OrderGiftWrapLineItemBO:PriceNet#"></td>
+							<!--- TaxRate --->
+							<td class="table_detail e s right" nowrap="nowrap"><isif condition="#NOT PLIGifting:OrderGiftWrapLineItemBO:SalesTaxes:Empty#"><isprint value="#PLIGifting:OrderGiftWrapLineItemBO:SalesTaxes:First:Rate * 100#"> %<iselse>&nbsp;</isif></td>
+							<!--- TaxTotal --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIGifting:OrderGiftWrapLineItemBO:SalesTaxTotal#"></td>
+							<!--- GrossTotal --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIGifting:OrderGiftWrapLineItemBO:PriceGross#"></td>
+							<!--- Duties --->
+							<td class="table_detail e s right" nowrap="nowrap"><isif condition="#isDefined(PLIGifting:GiftWrap:DutiesTotal) AND NOT (PLIGifting:GiftWrap:DutiesTotal EQ 'N/A')#"><isprint value="#PLIGifting:GiftWrap:DutiesTotal#"><iselse>&nbsp;</isif></td>
+							<!--- FulfillmentStatus --->
+							<td class="table_detail e s" nowrap="nowrap">&nbsp;</td>
+							<!--- DesiredDeliveryDate --->
+							<td class="table_detail e s" nowrap="nowrap">&nbsp;</td> 
+							<!--- Details Link --->
+							<td class="table_detail e s" nowrap="nowrap">&nbsp;</td>
+						</tr>
+					</isif>
+					
+					<!--- GiftMessage --->
+					<isif condition="#PLIGifting:hasGiftMessage#">
+						<tr>
+							<td class="table_detail w s"  nowrap="nowrap">&nbsp;</td>
+							<td class="table_detail e s" nowrap="nowrap">
+								<istext key="OrderDetails_52.GiftMessage.table_detail" encoding="off"/>:&nbsp; 
+								<isif condition="#(isDefined(CurrentChannel) AND isDefined(PLIGifting:OrderGiftMessageLineItemBO:ProductBO)) AND isDefined(CurrentChannelPermissionMap:SLD_VIEW_PRODUCTS)#">
+									<a href="#URL(Action('ViewProduct_52-Edit'), Parameter('ProductID', PLIGifting:OrderGiftMessageLineItemBO:ProductBO:ID))#" class="table_detail_link">
+										<isprint value="#PLIGifting:OrderGiftMessageLineItemBO:ProductName#">
+									</a>
+								<iselse>
+									<isprint value="#PLIGifting:OrderGiftMessageLineItemBO:ProductName#">
+								</isif>
+							</td>
+							<td class="table_detail e s" nowrap="nowrap">
+								<isif condition="#(isDefined(CurrentChannel) AND isDefined(PLIGifting:OrderGiftMessageLineItemBO:ProductBO)) AND isDefined(CurrentChannelPermissionMap:SLD_VIEW_PRODUCTS)#">
+									<a href="#URL(Action('ViewProduct_52-Edit'), Parameter('ProductID', PLIGifting:OrderGiftMessageLineItemBO:ProductBO:ID))#" class="table_detail_link">
+										<isprint value="#PLIGifting:OrderGiftMessageLineItemBO:ProductSKU#">
+									</a>
+								<iselse>
+									<isprint value="#PLIGifting:OrderGiftMessageLineItemBO:ProductSKU#">
+								</isif>
+							</td>
+							
+							<!--- Quantity --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIGifting:OrderGiftMessageLineItemBO:Quantity#" style="QUANTITY_SHORT"></td>
+							<!--- NetPrice or GrossPrice --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIGifting:OrderGiftMessageLineItemBO:SingleBasePrice#"></td>
+							<!--- NetDiscounts or GrossDiscounts --->
+							<td class="table_detail e s right" nowrap="nowrap">&nbsp;</td>
+							<!--- NetTotal --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIGifting:OrderGiftMessageLineItemBO:PriceNet#"></td>
+							<!--- TaxRate --->
+							<td class="table_detail e s right" nowrap="nowrap"><isif condition="#NOT PLIGifting:OrderGiftMessageLineItemBO:SalesTaxes:Empty#"><isprint value="#PLIGifting:OrderGiftMessageLineItemBO:SalesTaxes:First:Rate * 100#"> %<iselse>&nbsp;</isif></td>
+							<!--- TaxTotal --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIGifting:OrderGiftMessageLineItemBO:SalesTaxTotal#"></td>
+							<!--- GrossTotal --->
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#PLIGifting:OrderGiftMessageLineItemBO:PriceGross#"></td>
+							<!--- Duties --->
+							<td class="table_detail e s right" nowrap="nowrap"><isif condition="#isDefined(PLIGifting:GiftMessage:DutiesTotal) AND NOT (PLIGifting:GiftMessage:DutiesTotal EQ 'N/A')#"><isprint value="#PLIGifting:GiftMessage:DutiesTotal#"><iselse>&nbsp;</isif></td>
+							<!--- FulfillmentStatus --->
+							<td class="table_detail e s" nowrap="nowrap">&nbsp;</td>
+							<!--- DesiredDeliveryDate --->
+							<td class="table_detail e s" nowrap="nowrap">&nbsp;</td> 
+							<!--- Details Link --->
+							<td class="table_detail e s" nowrap="nowrap">&nbsp;</td>
+						</tr>
+					</isif>	
+					
+					<!--- Item Surcharges --->
+					<isif condition="#hasLoopElements(PLI:AllItemSurchargeBOs)#">
+						<isloop iterator="PLI:AllItemSurchargeBOs" alias="pliSurcharge">
+							<tr>
+								<td class="table_detail w s" nowrap="nowrap">&nbsp;</td>
+								<td class="table_detail s" nowrap="nowrap"><isif condition="#isDefined(pliSurcharge:DisplayName)#"><isprint value="#pliSurcharge:DisplayName#"><iselse><istext key="OrderDetails_52.ItemSurcharge.table_detail" encoding="off"/></isif></td>
+								<td class="table_detail e s" nowrap="nowrap" colspan="4">&nbsp;</td>
+								<!--- NetTotal --->
+								<td class="table_detail e s right" nowrap="nowrap"><isprint value="#pliSurcharge:AmountNet#"></td>
+								<!--- TaxRate --->
+								<td class="table_detail e s right" nowrap="nowrap">
+									<isif condition="#hasLoopElements(pliSurcharge:Taxes)#">
+										<isloop iterator="pliSurcharge:Taxes" alias="tax">
+											<isprint value="#(tax:Rate * 100)#"> %
+										</isloop>
+									</isif>
+								</td>
+								<!--- TaxTotal --->
+								<td class="table_detail e s right" nowrap="nowrap">
+									<isif condition="#hasLoopElements(pliSurcharge:Taxes)#">
+										<isloop iterator="pliSurcharge:Taxes" alias="tax">
+											<isprint value="#tax:Amount#">
+										</isloop>
+									</isif>
+								</td>
+								<!--- GrossTotal --->	
+								<td class="table_detail e s right" nowrap="nowrap"><isprint value="#pliSurcharge:AmountGross#"></td>
+								<!--- Duties --->
+								<td class="table_detail e s" nowrap="nowrap">&nbsp;</td>
+								<!--- FulfillmentStatus --->
+								<td class="table_detail e s" nowrap="nowrap">&nbsp;</td>
+								<!--- DesiredDeliveryDate --->
+								<td class="table_detail e s" nowrap="nowrap">&nbsp;</td>
+								<!--- Details Link --->
+								<td class="table_detail e s" nowrap="nowrap">&nbsp;</td>
+							</tr>
+						</isloop>
+					</isif>
+				</isif>
+			</isloop>
+			
+			<!--- Shipping Section --->
+			<tr>
+				<td class="table_detail right w e s" nowrap="nowrap" colspan="9"><strong><istext key="OrderDetails_52.ShippingCosts.table_detail_name" encoding="off"/></strong></td>
+				<td class="table_detail e s" nowrap="nowrap">&nbsp;</td>
+				<td class="table_detail e s" nowrap="nowrap" colspan="4">&nbsp;</td>
+			</tr>
+			<tr>
+				<td class="table_detail right w e s" nowrap="nowrap" colspan="9">
+					<isprint value="#bucket:ShippingMethodDisplayName#">
+				</td>
+				<td class="table_detail e s right" nowrap="nowrap"><isprint value="#bucket:PriceGross#"></td>
+				<td class="table_detail e s" nowrap="nowrap" colspan="4"></td>
+			</tr>
+			<isif condition="#isDefined(bucket:BucketSurchargeBOs) AND hasLoopElements(bucket:BucketSurchargeBOs)#">
+				<tr>
+					<td class="table_detail e s" nowrap="nowrap" colspan="9">&nbsp;</td>
+					<td class="table_detail e s right" nowrap="nowrap"><isprint value="#bucket:SurchargeTotalGross#"></td>
+					<td class="table_detail e s" nowrap="nowrap" colspan="4"></td>
+				</tr>
+			</isif>
+			
+			<isset name="BucketRebates" value="#bucket:Extension("AppliedRebate")#" scope="request" />
+
+			<isif condition="#isDefined(BucketRebates)#">
+				<isif condition="#hasLoopElements(BucketRebates:AppliedShippingRebates)#">
+					<isloop iterator="BucketRebates:AppliedShippingRebates" alias="BucketShipPromo" >
+						<tr>
+							<td class="table_detail right w s" nowrap="nowrap" colspan="9"><isprint value="#BucketShipPromo:PromotionID#"></td>
+							<td class="table_detail e s right" nowrap="nowrap"><isprint value="#BucketShipPromo:AmountGross:Negated#"></td>
+							<td class="table_detail e s" nowrap="nowrap" colspan="4"></td>
+						</tr>
+					</isloop>
+				</isif>
+			</isif>
+
+			<!--- Additional Surcharges Section --->
+			<isif condition="#isDefined(bucket:BucketSurchargeBOs) AND hasLoopElements(bucket:BucketSurchargeBOs)#">
+				<tr>
+					<td class="table_detail w e s right" nowrap="nowrap" colspan="9"><strong><istext key="OrderDetails_52.ItemSurcharges.table_detail_name" encoding="off"/></strong></td>
+					<td class="table_detail e s right" nowrap="nowrap">&nbsp;</td>
+					<td class="table_detail e s" nowrap="nowrap" colspan="4"></td>
+				</tr>
+	
+				<isloop iterator="bucket:BucketSurchargeBOs" alias="Surcharge">
+					<tr>
+						<td class="table_detail right w s" nowrap="nowrap" colspan="9"><isprint value="#Surcharge:DisplayName#"></td>
+						<td class="table_detail e s right" nowrap="nowrap"><isprint value="#Surcharge:AmountGross#"></td>
+						<td class="table_detail e s" nowrap="nowrap" colspan="4"></td>
+					</tr>
+				</isloop>
+				<tr>
+					<td nowrap="nowrap" colspan="13">&nbsp;</td>
+				</tr>
+			</isif>
+		</table>
+	</isloop><!--- bucket loop --->
+<!--- order is not available --->
+<iselse>
+	<table class="w100" border="0" cellpadding="0" cellspacing="0">
+		<tr>
+			<td class="table_detail w e s">
+				<istext key="OrderDetails_52.TheSelectedOrderIsNotLongerAvailable.table_detail" encoding="off"/>
+			</td>
+		</tr>
+	</table>
+</isif>
+
+<isinclude template="inc/BackToList">

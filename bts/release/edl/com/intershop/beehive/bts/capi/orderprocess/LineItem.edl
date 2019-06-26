@@ -1,0 +1,228 @@
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/LineItemCtnr.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/LineItemGroup.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/Domain.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObject.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+import "enfinity:/bc_shipping_data/edl/com/intershop/component/shipping_data/capi/shippingmethod/ShippingMethod.edl";
+
+external Address type "com.intershop.beehive.core.capi.profile.Address";
+
+namespace com.intershop.beehive.bts.capi.orderprocess
+{
+    cartridge interface LineItem extends ExtensibleObject
+    {
+        /*
+         * Price net of tax in purchase currency.
+         * 
+         * <P>Note: this attribute and all LineItem price attributes have a subclass-dependent contents  (for instance in subclass ProductLineItem this is the price net of tax paid for the given quantity of a product, in subclass Subtotal this is the price net of tax summed for all products held in the LineItemCtnr).
+         */
+        attribute netPricePC : Money required;
+
+        /*
+         * Tax in purchase currency.
+         * 
+         * <P>Note: this attribute and all LineItem price attributes have a subclass-dependent contents  (for instance in subclass ProductLineItem this is the tax paid for the product, in subclass Subtotal this is the tax summed for all products held in the LineItemCtnr).
+         */
+        attribute taxPC : Money required;
+
+        /*
+         * Price gross of tax in purchase currency.
+         * 
+         * <P>Note: this attribute and all LineItem price attributes have a subclass-dependent contents  (for instance in subclass ProductLineItem this is the price including tax paid for the product, in subclass Subtotal this is the total price including tax for all products held in the LineItemCtnr).
+         */
+        attribute grossPricePC : Money required;
+
+        /*
+         * UUID of ServiceLineItem or ProductLineItem stored as gift wrap or message.
+         */
+        attribute parentLineItemID : uuid readonly;
+
+		/*
+		 * URN of line item's ship-to address.
+		 */
+		attribute shipToAddressURN : string;
+
+        relation sellingDomain : Domain[0..1] readonly;
+
+        relation lineItemGroup : LineItemGroup[0..1];
+
+        relation supplyingDomain : Domain[0..1] readonly;
+
+        relation lineItemCtnr : LineItemCtnr[0..1] readonly;
+
+        relation shippingMethod : ShippingMethod[0..1];
+
+		/*
+		 * @deprecated Deprecated since 7.8. Use {@link com.intershop.component.address.capi.resolver.AddressBOResolver} instead.
+		 */
+        relation shipToAddress : Address[0..1];
+        
+        relation parentLineItem : LineItem[0..1];
+        
+        relation dependentLineItems : LineItem[0..n];
+		
+        /*
+         * Returns whether the net-price calculation mechanism (i.e. calculate tax
+         * and gross price from net price) or the gross-price calculation mechanism
+         * (i.e. calculate tax and net price from gross price) is to be used for
+         * this LineItem. <P>
+         * The decision only becomes relevant with ProductLineItems and
+         * ServiceLineItems but is present in LineItem allowing both subclasses to
+         * be handled together. The following table shows the basic differences
+         * between the net-price and gross-proce calculation mechanisms: <P>
+         * (!) = to many decimal places, these prices are <I>not</I> rounded to the
+         * number of decimal places expected for the currency to correctly handle
+         * tax summation. This also usually means these prices should <I>not</I>
+         * be displayed in the user interface.
+         * <TABLE BORDER=1>
+         * <TR>
+         * <TD><I>isBaseOnNetPrice</I></TD>
+         * <TD><I>PricePC</I></TD>
+         * <TD><I>TaxPC</I></TD>
+         * <TD><I>GrossPricePC</I></TD>
+         * </TR>
+         * <TR>
+         * <TD>true</TD>
+         * <TD>(basis of calculation, not derived)</TD>
+         * <TD>= TaxRate * PricePC (!)</TD>
+         * <TD>= TaxPC + PricePC (!)</TD>
+         * </TR>
+         * <TR>
+         * <TD>false</TD>
+         * <TD>= GrossPricePC - TaxPC (!)</TD>
+         * <TD>= GrossPricePC * (1 - ( 1 / (1 + TaxRate))) (!)</TD>
+         * <TD>(basis of calculation, not derived)</TD>
+         * </TR>
+         * </TABLE>
+         * 
+         * @return whether LineItem calculation is based upon Net or Gross price
+         * @isattribute BasedOnNetPrice
+         */
+        operation isBasedOnNetPrice() : boolean;
+
+        /*
+         * Return TaxClass.taxClassCode . Note in non-taxable subclasses this
+         * method will return null.
+         * 
+         * @return taxable LineItems return their TaxClassCode
+         * @see com.intershop.beehive.bts.capi.LineItem#isTaxable()
+         */
+        operation getTaxClassCode() : string;
+
+        /*
+         * Set TaxClass.taxCode . Note in non-taxable subclasses this method will
+         * have no effect.
+         */
+        operation setTaxClassCode(aTaxCode : string) : void;
+
+        /*
+         * Return double TaxRate, where a value of 0.1 represents 10% tax. Note in
+         * non-taxable subclasses this method will return 0.0.
+         * 
+         * @return taxable LineItems return their TaxClass
+         * @see com.intershop.beehive.bts.capi.orderprocess.LineItem#isTaxable()
+         * @isattribute TaxRate
+         */
+        operation getTaxRate() : decimal;
+
+        /*
+         * Set double TaxRate, where a value of 0.1 represents 10% tax. Note in
+         * non-taxable subclasses this method will have no effect.
+         * 
+         */
+        operation setTaxRate(aTaxRate : decimal) : void;
+
+        /*
+         * Returns the value of attribute 'netPriceLC'.<p>
+         * Price net of tax in lead currency, converted from the equivalent
+         * price in the purchase currency.
+         * <bt>Note this price is calculated dynamically, and is not persistent.
+         * 
+         * @return the value of the attribute 'netPriceLC'
+         */
+        operation getNetPriceLC() : Money;
+
+        /*
+         * Returns the value of attribute 'taxLC'.<p>
+         * Tax in lead currency, converted from the equivalent price in the
+         * purchase currency.
+         * <bt>Note this price is calculated dynamically, and is not persistent.
+         * 
+         * @return the value of the attribute 'taxLC'
+         */
+        operation getTaxLC() : Money;
+
+        /*
+         * Returns the value of attribute 'grossPriceLC'.<p>
+         * Price gross of tax in lead currency, converted from the equivalent
+         * price in the purchase currency.
+         * <bt>Note this price is calculated dynamically, and is not persistent.
+         * 
+         * @return the value of the attribute 'grossPriceLC'
+         */
+        operation getGrossPriceLC() : Money;
+
+        /*
+         * Returns a string description of the LineItem for use in debugging.
+         * 
+         * @return a string description of the LineItem for use in debugging.
+         */
+        operation toDescription() : string;
+
+        /*
+         * Set net price (i.e. excluding tax) in the lead currency. This price is made available for reporting: it is made persistent by ProductLineItem but ignored by ServiceLineItem.
+         * 
+         */
+        operation setNetPriceLC(aValue : Money) : void;
+
+        /*
+         * Checks whether the value of the attribute 'NetPricePC' is null.<p>
+         */
+        operation getNetPricePCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'NetPricePC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setNetPricePCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'TaxPC' is null.<p>
+         */
+        operation getTaxPCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'TaxPC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setTaxPCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'GrossPricePC' is null.<p>
+         */
+        operation getGrossPricePCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'GrossPricePC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setGrossPricePCNull(aFlag : boolean) : void;
+        
+        /*
+         * Is this instance dependent upon another instance of LineItem
+         * (i.e. has it a parent ProductLineItem or ServiceLineItem?). LineItems can be
+         * placed in a child / parent relationship to one another, which has an
+         * effect upon their basic handling. For example, the deletion of a
+         * parent instance would automatically result in the deletion of its
+         * children.
+         * 
+         * @return Whether this instance is dependent upon another instance of
+         * LineItem
+         * @see com.intershop.beehive.bts.capi.orderprocess.LineItemCtnr#createDependentProductLineItemsIterator()
+         */
+        operation isDependent() : boolean;
+    }
+}

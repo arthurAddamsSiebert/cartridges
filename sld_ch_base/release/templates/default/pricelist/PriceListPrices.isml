@@ -1,0 +1,345 @@
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<!-- Working Area -->
+
+
+<!-- Page Navigator -->
+<isif condition="#PriceList:DisplayName EQ ''#">
+<ISBreadcrumbTrail id="#PriceList:UUID#" listview="true" link="#URL(Action('ViewChannelPriceListPrices-Paging'), Parameter('ChannelID', CurrentChannel:UUID), Parameter('PriceListUUID', PriceList:UUID), Parameter('SelectCurrencyMnemonic', Currency:Mnemonic), Parameter('SearchType', SearchType), Parameter('WFSimpleSearch_NameOrID', WFSimpleSearch_NameOrID))#" text="#localizeText('PriceListPrices.NoName.text')#" text1="#' - '.localizeText('PriceListPrices.Prices.text1')#">
+<iselse>
+<ISBreadcrumbTrail id="#PriceList:UUID#" listview="true" link="#URL(Action('ViewChannelPriceListPrices-Paging'), Parameter('ChannelID', CurrentChannel:UUID), Parameter('PriceListUUID', PriceList:UUID), Parameter('SelectCurrencyMnemonic', Currency:Mnemonic), Parameter('SearchType', SearchType), Parameter('WFSimpleSearch_NameOrID', WFSimpleSearch_NameOrID))#" text="#PriceList:DisplayName#" text1="#' - '.localizeText('PriceListPrices.Prices.text1')#">
+</isif>
+<!-- EO Page Navigator -->
+
+<!-- Tabs -->
+<%getPipelineDictionary().put("SelectedTab", "Prices");%>
+<isinclude template="#'inc/PriceListTabs_'.CurrentChannel:TypeCode#">
+<!-- EO Tabs -->
+
+<isform action="#URL(Action('ViewChannelPriceListPrices-Dispatch'))#" name="priceListPricesForm" method="post">
+	<input type="hidden" name="ChannelID" value="<isprint value="#CurrentChannel:UUID#">"/>
+	<input type="hidden" name="PriceListUUID" value="<isprint value="#PriceList:UUID#">"/>
+	<input type="hidden" name="SelectedCurrencyMnemonic" value="<isprint value="#Currency:Mnemonic#">"/>
+	<table border="0" cellpadding="0" cellspacing="0" width="100%">
+		<tr>
+			<td width="100%" class="table_title w e s"><isif condition="#PriceList:DisplayName EQ ''#"><istext key="PriceListPrices.NoName.table_title" encoding="off"/><iselse><isprint value="#PriceList:DisplayName#">&nbsp;</isif> </td>
+		</tr>
+	
+		<!-- delete confirmation if one is selected -->
+		<isif condition="#isDefined(confirmDelete) AND hasLoopElements(Clipboard:ObjectUUIDs)#">
+			<ISMessageBox subject="#localizeText('PriceListPrices.ListPrice.subject')#" type="mdc" okbtnname="delete" message="#localizeText('PriceListPrices.DeleteAllPricesOfTheSelectedProducts.message')#">
+		</isif>
+		
+		<isif condition="#isDefined(selectStagingTarget) AND (NOT(hasLoopElements(Clipboard:ObjectUUIDs)))#">
+			<ISMessageBox type="mde" message="#localizeText('PriceListPrices.YouHaveNotSelectedAnyPricesToBePublished.message')#" colspan="1">
+		</isif>
+		
+		<!-- delete confirmation if nothing is selected-->
+		<isif condition="#isDefined(confirmDeleteSingle)#">
+			<tr>
+				<td>
+					<input type="hidden" name="PriceScaleTableUUID" value="<isprint value="#PriceScaleTableUUID#">"/>
+					<input type="hidden" name="ProductUUID" value="<isprint value="#ProductUUID#">"/>
+					<table border="0" cellpadding="0" cellspacing="0" width="100%">
+						<tr>
+							<ISMessageBox subject="#localizeText('PriceListPrices.ListPrice.subject')#" type="sdc" okbtnname="deleteSingle" message="#localizeText('PriceListPrices.AreYouSureYouWantToDeleteThisPrice.message')#">
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</isif>
+	</table>
+	<!-- EO delete confirmation if one is selected -->
+
+	<!-- delete confirmation if nothing is selected-->
+	<isif condition="#isDefined(confirmDelete) AND (NOT(hasLoopElements(Clipboard:ObjectUUIDs)))#">
+		<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box w e s">
+			<tr>
+				<td class="error_icon e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+				<td class="error" width="100%"><istext key="PriceListPrices.PleaseSelectAtLeastOneProduct.error" encoding="off"/></td>
+			</tr>
+		</table>
+	</isif>
+	<!-- EO delete confirmation if nothing is selected-->
+
+	<isif condition="#isDefined(LockErrorKeys) AND hasElements(LockErrorKeys)#">
+		<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box w e s">
+			<tr valign="top">
+				<td class="error_icon top e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+				<td class="error top" width="100%"><istext key="PriceListPrices.TheFollowingProductsAreCurrentlyLockedBy.error" encoding="off"/>:
+					<isloop iterator="ErrorMap:KeySet:Iterator" alias="ErrorID">
+						<br/><isprint value="#ProductIDs:get(ErrorID)#">
+					</isloop>
+				</td>
+			</tr>
+		</table>
+	</isif>
+
+	<isinclude template="inc/PriceListSearchMessages">
+
+	<!-- delete confirmation if one is selected, script is found in inc/ConfirmationScript.isml-->
+	<isif condition="#(isDefined(PriceDeletionFailed) AND (PriceDeletionFailed EQ 'ProductLocked'))#">
+		<table border="0" cellspacing="0" cellpadding="4" width="100%" class="confirm_box w e s">
+			<tr>
+				<td class="error_icon e"><img src="#WebRoot()#/images/confirmation.gif" width="16" height="15" alt="" border="0"/></td>
+				<td class="error" width="100%"><istext key="PriceListPrices.SomePricesCouldNotBeDeletedBecauseProductsLocked.error" encoding="off"/></td>
+			</tr>
+		</table>
+	</isif>
+	<table border="0" cellpadding="0" cellspacing="0" width="100%">
+		<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_PRICES)#">
+			<tr>
+				<td class="table_title_description w e s">
+					<istext key="PriceListPrices.ClickTheAddPriceLinkToCreateANewPriceOrDelete.table_title_description" encoding="off"/>
+				</td>
+			</tr>
+		<iselse>
+			<tr>
+				<td class="table_title_description w e s">
+					<istext key="PriceListPrices.ViewOnYourCustomerPriceList.table_title_description" encoding="off"/>
+				</td>
+			</tr>
+		</isif>
+	</table>
+	<table border="0" cellpadding="4" cellspacing="0" width="100%" class="infobox e w s">
+		<tr>
+			<td>
+				<table border="0" cellspacing="0" cellpadding="0">
+					<tr>
+						<td class="infobox_item" nowrap="nowrap" valign="middle"><istext key="PriceListPrices.SelectCurrency.infobox_item" encoding="off"/>:</td>
+						<td class="infobox_item">
+							<select name="SelectCurrencyMnemonic" class="select inputfield_en">
+								<isloop iterator="Currencies">
+									<option value="<isprint value="#Currencies:Mnemonic#">" <isif condition="#Currencies:Mnemonic EQ Currency:Mnemonic#">selected="selected" </isif>><isprint value="#Currencies:CurrencyName#"></option>
+								</isloop>
+							</select>&nbsp;
+						</td>
+						<td class="button"><input type="submit" name="changeCurrency" value="#localizeText('PriceListPrices.Apply.button')#" class="button"/></td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+
+	<table border="0" cellpadding="0" cellspacing="0" width="100%">
+		<tr>
+			<td class="w e s"><img src="#WebRoot()#/images/space.gif" width="1" height="6" alt="" border="0"/></td>
+		</tr>
+	</table>
+	
+	<!-- include simple price list search mask -->
+	<table border="0" cellpadding="5" cellspacing="0" width="100%" class="infobox w e s">
+		<tr>
+			<td class="infobox_title" nowrap="nowrap"><istext key="PriceListPrices.ProductSearch.infobox_title" encoding="off"/></td>
+		</tr>
+		<isinclude template="inc/PriceListSimpleSearchMask">
+	</table>
+	<!-- Main Content -->
+
+	<table width="100%" border="0" cellspacing="0" cellpadding="0">
+		<tr>
+			<td>
+				<isif condition="#NOT hasLoopElements(Products)#">
+					<table border="0" cellpadding="0" cellspacing="0" width="100%" class="w e s">
+						<isinclude template="inc/PriceListSearchNoResult">
+					</table>
+				<iselse>
+					<table width="100%" border="0" cellspacing="0" cellpadding="0" class="w">
+						<tr>
+							<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_PRICES)#">
+								<td class="e s" nowrap="nowrap" width="80">
+									<div id="A">
+										<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+											<tr>
+												<td nowrap="nowrap"><a href="javascript:selectAll('priceListPricesForm','SelectedObjectUUID','A','B');" class="tableheader"><istext key="PriceListPrices.SelectAll.link" encoding="off"/></a></td>
+											</tr>
+										</table>
+									</div>
+									<div id="B" style="display:none">
+										<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+											<tr>
+												<td nowrap="nowrap"><a href="javascript:selectAll('priceListPricesForm','SelectedObjectUUID','A','B');" class="tableheader"><istext key="PriceListPrices.ClearAll.link" encoding="off"/></a></td>
+											</tr>
+										</table>
+									</div>
+								</td>
+							</isif>
+							<isif condition="#(isDefined(SortByProduct)) AND (SortByProduct EQ 'name') AND (SortDirection EQ 'desc')#">
+								<td class="table_header e s"><a href="#URL(Action('ViewChannelPriceListPrices-ListAll'), Parameter('SortByProduct', 'name'),Parameter('SortDirection','asc'),Parameter('ChannelID',CurrentChannel:UUID), Parameter('PriceListUUID',PriceList:UUID), Parameter('SearchType',SearchType), Parameter('WFSimpleSearch_NameOrID',WFSimpleSearch_NameOrID), Parameter('SelectCurrencyMnemonic',Currency:Mnemonic))#" class="tableheader"><istext key="PriceListPrices.Name.link" encoding="off"/></a></td>
+							<iselse>
+								<td class="table_header e s"><a href="#URL(Action('ViewChannelPriceListPrices-ListAll'), Parameter('SortByProduct', 'name'),Parameter('SortDirection','desc'),Parameter('ChannelID',CurrentChannel:UUID), Parameter('PriceListUUID',PriceList:UUID), Parameter('SearchType',SearchType), Parameter('WFSimpleSearch_NameOrID',WFSimpleSearch_NameOrID), Parameter('SelectCurrencyMnemonic',Currency:Mnemonic))#" class="tableheader"><istext key="PriceListPrices.Name.link" encoding="off"/></a></td>
+							</isif>
+							<isif condition="#(isDefined(SortByProduct)) AND (SortByProduct EQ 'SKU') AND (SortDirection EQ 'asc')#">
+								<td class="table_header e s" nowrap="nowrap"><a href="#URL(Action('ViewChannelPriceListPrices-ListAll'), Parameter('SortByProduct', 'SKU'),Parameter('SortDirection','desc'),Parameter('ChannelID',CurrentChannel:UUID), Parameter('PriceListUUID',PriceList:UUID), Parameter('SearchType',SearchType), Parameter('WFSimpleSearch_NameOrID',WFSimpleSearch_NameOrID), Parameter('SelectCurrencyMnemonic',Currency:Mnemonic))#" class="tableheader"><istext key="PriceListPrices.ID.link" encoding="off"/></a></td>
+							<iselse>
+								<td class="table_header e s" nowrap="nowrap"><a href="#URL(Action('ViewChannelPriceListPrices-ListAll'), Parameter('SortByProduct', 'SKU'),Parameter('SortDirection','asc'),Parameter('ChannelID',CurrentChannel:UUID), Parameter('PriceListUUID',PriceList:UUID), Parameter('SearchType',SearchType), Parameter('WFSimpleSearch_NameOrID',WFSimpleSearch_NameOrID), Parameter('SelectCurrencyMnemonic',Currency:Mnemonic))#" class="tableheader"><istext key="PriceListPrices.ID.link" encoding="off"/></a></td>
+							</isif>
+							<isif condition="#(isDefined(SortByListPrice)) AND (SortDirection EQ 'asc')#">
+								<td class="table_header e s right" nowrap="nowrap"><a href="#URL(Action('ViewChannelPriceListPrices-ListAll'), Parameter('SortByListPrice', 'true'),Parameter('SortDirection','desc'),Parameter('ChannelID',CurrentChannel:UUID), Parameter('PriceListUUID',PriceList:UUID), Parameter('SearchType',SearchType), Parameter('WFSimpleSearch_NameOrID',WFSimpleSearch_NameOrID), Parameter('SelectCurrencyMnemonic',Currency:Mnemonic))#" class="tableheader"><istext key="PriceListPrices.ListPrice.link" parameter0="#encodeValue(Currency:CurrencyName)#" encoding="off"/></a></td>
+							<iselse>
+								<td class="table_header e s right" nowrap="nowrap"><a href="#URL(Action('ViewChannelPriceListPrices-ListAll'), Parameter('SortByListPrice', 'true'),Parameter('SortDirection','asc'),Parameter('ChannelID',CurrentChannel:UUID), Parameter('PriceListUUID',PriceList:UUID), Parameter('SearchType',SearchType), Parameter('WFSimpleSearch_NameOrID',WFSimpleSearch_NameOrID), Parameter('SelectCurrencyMnemonic',Currency:Mnemonic))#" class="tableheader"><istext key="PriceListPrices.ListPrice.link" parameter0="#encodeValue(Currency:CurrencyName)#" encoding="off"/></a></td>
+							</isif>
+							<td class="table_header e s right" nowrap="nowrap"><istext key="PriceListPrices.Price.table_header" encoding="off"/></td>
+							<td class="table_header e s left" nowrap="nowrap"><istext key="PriceListPrices.ValidFrom.table_header" encoding="off"/></td>
+							<td class="table_header e s left" nowrap="nowrap"><istext key="PriceListPrices.ValidTo.table_header" encoding="off"/></td>
+							<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_PRICES)#">
+								<td class="table_header e s center" nowrap="nowrap"><istext key="PriceListPrices.Action.table_header" encoding="off"/></td>
+							</isif>
+						</tr>
+						<isloop iterator="Products" alias="Product">
+							<tr>
+								<isset scope="request" name ="RowSpan" value="#1#">
+								<isloop iterator="PriceScaleTablesMap:get(Product:UUID)" alias="Table">
+									<isset scope="request" name ="RowSpan" value="#RowSpan + 1#">
+								</isloop>
+
+								<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_PRICES)#">
+									<td class="e s middle center" rowspan="<isprint value = "#RowSpan#" style="INTEGER">">
+										<input type="checkbox" name="SelectedObjectUUID" value="#Product:UUID#" <isif condition="#Product:UUID EQ Clipboard:ObjectUUID(Product:UUID)#">checked="checked"</isif>/><input type="hidden" name="ObjectUUID" value="#Product:UUID#"/>
+									</td>
+								</isif>
+								
+								<td class="table_detail middle e s" width="50%" rowspan="<isprint value = "#RowSpan#" style="INTEGER">">
+									<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_VIEW_PRODUCTS)#">
+										<a href="#URL(Action('ViewProduct_'.CurrentChannel:TypeCode.'-Edit'), Parameter('ChannelID', ChannelID), Parameter('ProductID', Product:UUID))#" class="table_detail_link"><isprint value="#Product:Name#"></a>&nbsp;
+									<iselse>
+										<isprint value="#Product:Name#">&nbsp;
+									</isif>
+								</td>
+								<td class="table_detail middle e s" nowrap="nowrap" rowspan="<isprint value = "#RowSpan#" style="INTEGER">">
+									<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_VIEW_PRODUCTS)#">
+										<a href="#URL(Action('ViewProduct_'.CurrentChannel:TypeCode.'-Edit'), Parameter('ChannelID', ChannelID), Parameter('ProductID', Product:UUID))#" class="table_detail_link"><isprint value="#Product:SKU#"></a>&nbsp;
+									<iselse>
+										<isprint value="#Product:SKU#">&nbsp;
+									</isif>
+								</td>
+								<td class="table_detail middle e s right" nowrap="nowrap" rowspan="<isprint value = "#RowSpan#" style="INTEGER">">
+									<isprint value="#Product:ListPrice(Currency:Mnemonic):Amount#" style="MONEY_SHORT">&nbsp;
+								</td>
+								<isset scope="request" name ="HasEntries" value="False">
+								<isset scope="request" name ="count" value="#0#">
+								
+								<isloop iterator="PriceScaleTablesMap:get(Product:UUID)" alias="Table">
+									<!--- <isset scope="request" name ="PriceListRowSpan" value="#PriceLists:PageSize#"> --->
+									<isif condition="#count > 0#">
+										<tr>
+									</isif>
+									<td class="table_detail e s" align="right">
+										<!---isnoloc---><input type="hidden" name="<isprint value="#Product:UUID#" />" value="<isprint value="#Table:UUID#" />" /><!---/isnoloc--->
+										<isif condition="#hasLoopElements(Table:PriceScales)#">
+											<table border="0" cellspacing="0" cellpadding="0">
+												<isloop iterator="Table:PriceScales" alias="PriceScale">
+													<tr>
+														<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_PRICES)#">
+															<td class="table_detail right" nowrap="nowrap">
+																<a href="#URL(Action('ViewChannelProductScalePrices-Edit'), Parameter('ChannelID', CurrentChannel:UUID), Parameter('ProductID', Product:UUID), Parameter('PriceListUUID',PriceList:UUID), Parameter('CurrencyMnemonic',Currency:Mnemonic), Parameter('TableUUID',Table:UUID), Parameter('backToPriceList','true'))#" class="table_detail_link2">
+																	<isif condition="#(PriceScale:QuantityLevel EQ '1') AND (NOT hasNext(PriceScale))#">
+																		<isif condition="#PriceScale:TypeCode EQ '1'#">
+																			<isprint value = "#PriceScale:SingleBasePrice#">
+																		<iselse>
+																			<isprint value = "#PriceScale:Percentage#">%
+																		</isif>
+																	<iselse>
+																		<isif condition="#PriceScale:TypeCode EQ '1'#">
+																			<istext key="PriceListPrices.XForYEach.link" parameter0="#getValue(PriceScale:QuantityLevel)#" parameter1="#getValue(PriceScale:SingleBasePrice)#" encoding="off"/>
+																		<iselse>
+																			<istext key="PriceListPrices.XForYPercentOff.link" parameter0="#getValue(PriceScale:QuantityLevel)#" parameter1="#getValue(PriceScale:Percentage)#" encoding="off"/>
+																		</isif>
+																	</isif>
+																</a>
+															</td>
+														<iselse>
+															<td class="table_detail right" nowrap="nowrap">
+																<a class="table_detail_link2">
+																	<isif condition="#(PriceScale:QuantityLevel EQ '1') AND (NOT hasNext(PriceScale))#">
+																		<isif condition="#PriceScale:TypeCode EQ '1'#">
+																			<isprint value = "#PriceScale:SingleBasePrice#">
+																		<iselse>
+																			<isprint value = "#PriceScale:Percentage#">%
+																		</isif>
+																	<iselse>
+																		<isif condition="#PriceScale:TypeCode EQ '1'#">
+																			<istext key="PriceListPrices.XForYEach.link" parameter0="#getValue(PriceScale:QuantityLevel)#" parameter1="#getValue(PriceScale:SingleBasePrice)#" encoding="off"/>
+																		<iselse>
+																			<istext key="PriceListPrices.XForYPercentOff.link" parameter0="#getValue(PriceScale:QuantityLevel)#" parameter1="#getValue(PriceScale:Percentage)#" encoding="off"/>
+																		</isif>
+																	</isif>
+																</a>
+															</td>
+														</isif>
+													</tr>
+												</isloop>
+											</table>
+										<iselse>&nbsp;
+										</isif>
+									</td>
+									<td class="table_detail e s" nowrap="nowrap"><isprint value="#getValue(Table:ValidFrom, DATE_INPUT)#"><br/><isprint value="#getValue(Table:ValidFrom, DATE_TIME)#"></td>
+									<td class="table_detail e s" nowrap="nowrap"><isprint value="#getValue(Table:ValidTo, DATE_INPUT)#"><br/><isprint value="#getValue(Table:ValidTo, DATE_TIME)#"></td>
+									<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_PRICES)#">
+										<td class="table_detail e s center"><a href="#URL(Action('ViewChannelPriceListPrices-Paging'), Parameter('ChannelID', ChannelID), Parameter('ProductID', Product:UUID), Parameter('PriceListUUID',PriceList:UUID), Parameter('CurrencyMnemonic',Currency:Mnemonic), Parameter('PriceScaleTableUUID',Table:UUID), Parameter('confirmDeleteSingle','true'), Parameter('backToPriceList','true'), Parameter('SelectCurrencyMnemonic', Currency:Mnemonic), Parameter('SearchType', SearchType), Parameter('WFSimpleSearch_NameOrID', WFSimpleSearch_NameOrID), Parameter('ProductUUID', Product:UUID))#" class="table_detail_link2"><istext key="PriceListPrices.Delete.link" encoding="off"/></a></td>
+									</isif>
+									<isset scope="request" name ="HasEntries" value="True">
+									<isif condition="#count > 0#">
+										</tr>
+									</isif>
+									<isset scope="request" name ="count" value="#count+1#">
+								</isloop>
+								
+								<isif condition="#HasEntries EQ 'False'#">
+									<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_PRICES)#">
+										<td class="table_detail2 e s" colspan="3">&nbsp;</td>
+										<td class="table_detail2 e s center" nowrap="nowrap"><a href="#URL(Action('ViewChannelScalePricesWizard-New'), Parameter('ChannelID', ChannelID), Parameter('ProductID', Product:UUID), Parameter('PriceListUUID',PriceList:UUID), Parameter('CurrencyMnemonic',Currency:Mnemonic), Parameter('BuyingOrganizationUUID','All'), Parameter('WizardMode','false'), Parameter('backToPriceList','true'))#" class="table_detail_link2"><istext key="PriceListPrices.AddPrice.link" encoding="off"/></a></td>
+									</isif>
+								<iselse>
+									</tr>
+									<tr>
+									<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_PRICES)#">
+										<td class="table_detail2 e s" colspan="3">&nbsp;</td>
+										<td class="table_detail2 e s center" nowrap="nowrap"><a href="#URL(Action('ViewChannelScalePricesWizard-New'), Parameter('ChannelID', ChannelID), Parameter('ProductID', Product:UUID), Parameter('PriceListUUID',PriceList:UUID), Parameter('CurrencyMnemonic',Currency:Mnemonic), Parameter('BuyingOrganizationUUID','All'), Parameter('backToPriceList','true'))#" class="table_detail_link2"><istext key="PriceListPrices.AddPrice.link" encoding="off"/></a></td>
+									</isif>
+								</isif>
+							</tr>
+						</isloop>
+					</table>
+					<table class="w e s" width="100%" border="0" cellspacing="0" cellpadding="0">
+						<tr>
+							<td align="right">
+								<table border="0" cellspacing="4" cellpadding="0">
+									<tr>
+										<isif condition="#hasElements(TargetClusters) AND ((isDefined(SearchType) AND (SearchType EQ 'priceForCurrency')) OR (NOT isDefined(SearchType)))#">
+											<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_REPLICATE_PRICELIST_WO_PROVIDER) 
+															  OR isDefined(CurrentUserPermissionMap:SLD_REPLICATE_PRICELIST_WO_PROVIDER)
+															  OR isDefined(CurrentUserPermissionMap:SLD_REPLICATE_PRICESCALETABLE_WO_PROVIDER)
+															  OR isDefined(CurrentUserPermissionMap:SLD_REPLICATE_PRICESCALETABLE_WO_PROVIDER)#">
+												<td class="button">
+													<input type="submit" name="selectStagingTarget" value="#localizeText('PriceListPrices.PublishToLiveSystem.button')#" class="button"/>
+												</td>
+											</isif>
+										</isif>
+										<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_PRICES)#">
+											<td class="button"><input type="submit" name="confirmDelete" value="#localizeText('PriceListPrices.Delete.button')#" class="button"/></td>
+										<iselse>
+											&nbsp;
+										</isif>
+									</tr>
+								</table>
+							</td>
+						</tr>
+					</table>
+					<table width="100%" border="0" cellspacing="0" cellpadding="0">
+						<tr>
+							<td><img src="#WebRoot()#/images/space.gif" width="1" height="6" alt="" border="0"/></td>
+						</tr>
+					</table>
+					<!-- Start Page Cursor -->
+					<table width="100%" border="0" cellspacing="0" cellpadding="0">
+						<tr>
+							<td><ISPagingBar pageable="Products"></td>
+						</tr>
+					</table>
+					<!-- End Page Cursor -->
+				</isif>
+			</td>
+		</tr>
+	</table>
+</isform>
+<isinclude template="inc/BackToList">

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="Repositories" type="java.util.Iterator" optional="true"/>
+	<parameter name="Filters" type="java.util.Iterator" optional="true"/>
+	<parameter name="ExpNameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="Currency" type="java.lang.String" optional="true"/>
+	<parameter name="SupplierValue" type="java.lang.String" optional="true"/>
+	<parameter name="ExpSupplier" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="ExpContractID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="ProductID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="ProductName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="ManufacturerName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="Description" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="Online" type="java.lang.Integer" optional="true"/>
+	<parameter name="Available" type="java.lang.Integer" optional="true"/>
+	<parameter name="TypeCode" type="java.lang.Integer" optional="true"/>
+	<parameter name="TypeCodeIterator" type="java.util.Iterator" optional="true"/>
+	<parameter name="PriceFrom" type="java.lang.Double" optional="true"/>
+	<parameter name="PriceTo" type="java.lang.Double" optional="true"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="GroupBy" type="java.lang.String" optional="true"/>
+	<parameter name="Categorized" type="java.lang.String" optional="true"/>
+	<parameter name="Category" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="true"/>
+	<parameter name="BuyerDomainID" type="java.lang.String" optional="true"/>
+	<parameter name="Offered" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Product" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="cSupplier" input="ExpSupplier" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cContractID" input="ExpContractID" processing="SearchExpression2Contains"/>
+</processor>
+<template type="countedobjects">
+	SELECT
+	    p.uuid,
+	    <template-variable value="ProductDomain:UUID"/> AS DOMAINID,
+	<template-if condition="GroupBy EQ &apos;displayName&apos;">
+		    cc.NAME,
+	</template-if>
+	<template-if condition="(SortBy EQ &apos;value&apos;) OR (SortBy EQ &apos;name&apos;) OR (SortBy EQ &apos;SKU&apos;)">
+		    p.sorting AS SORTING,
+	</template-if>
+	    count(p.uuid) over() as "ROWCOUNT"
+	FROM 
+	(
+	<template-call name="product/GetProductsByAdvancedSearch">
+       <call-parameter name="ProductDomain" value="ProductDomain"/>
+       <call-parameter name="ProductRepositories" value="Repositories"/>
+	   <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+	   <call-parameter name="NameOrID" value="ExpNameOrID"/>
+	   <call-parameter name="ProductID" value="ProductID"/>
+	   <call-parameter name="ProductName" value="ProductName"/>
+	   <call-parameter name="ManufacturerName" value="ManufacturerName"/>
+	   <call-parameter name="Description" value="Description"/>
+	   <call-parameter name="Filters" value="Filters"/>
+	   <call-parameter name="Currency" value="Currency"/>
+	   <call-parameter name="TypeCode" value="TypeCode"/>
+	   <call-parameter name="PriceFrom" value="PriceFrom"/>
+	   <call-parameter name="PriceTo" value="PriceTo"/>
+	   <call-parameter name="Online" value="Online"/>
+	   <call-parameter name="Available" value="Available"/>
+	   <call-parameter name="Categorized" value="Categorized"/>
+	   <call-parameter name="SortAttribute" value="SortBy"/>
+    </template-call>
+	<template-if condition="isDefined(TypeCodeIterator) AND hasElements(TypeCodeIterator)">
+		AND
+		    p.typecode IN (
+		<template-loop iterator="TypeCodeIterator" alias="TC"><loop-statement> 
+				            <template-variable value="TC"/> 
+				            </loop-statement>
+			<loop-separator> , </loop-separator>
+		</template-loop>
+		    )
+	</template-if>
+	<template-if condition="isDefined(Offered)AND isDefined(BuyerDomainID)">
+		AND 
+		    p.uuid 
+		    <template-if condition="Offered EQ &apos;false&apos;">             
+			    NOT     
+			    </template-if>
+		    IN 
+		    (
+		        SELECT 
+		            c.offeredproductid 
+		        FROM 
+		            product c
+		        WHERE 
+		            c.offeredproductid is not null 
+		        AND 
+		            c.domainid = <template-variable value="BuyerDomainID"/>
+		    )
+	</template-if>	
+	<template-if condition="isDefined(ExpSupplier) and ExpSupplier:NotEmpty">
+		<template-call name="inc/SearchExpression2Like">
+			<call-parameter name="SearchExpression" value="ExpSupplier"/>
+			<call-parameter name="ColumnNames" value="&quot;p.suppliername&quot;"/>
+			<call-parameter name="CaseInsensitive" value="true()"/>
+			<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+		</template-call>
+	</template-if>
+	<template-if condition="isDefined(ExpContractID) and ExpContractID:NotEmpty">
+		<template-call name="product/inc/XMLAttributeFilter">
+			<call-parameter name="Alias" value="&apos;p&apos;"/>
+			<call-parameter name="Name" value="&apos;ContractID&apos;"/>
+			<call-parameter name="Type" value="&apos;string&apos;"/>
+			<call-parameter name="SearchTerm" value="ExpContractID"/>
+		</template-call>
+	</template-if>
+	<template-if condition="isDefined(SupplierValue) AND (SupplierValue NE &apos;&apos;)">
+		AND (p.suppliername LIKE '%' || <template-variable value="SupplierValue"/> || '%')
+	</template-if>
+	) p
+	<template-if condition="(GroupBy EQ &apos;displayName&apos;)">
+		JOIN
+		    ieproductcategoryassignment pca ON (pca.productid = p.uuid)
+		JOIN
+		    catalogcategory cc ON (
+		        cc.uuid = pca.categoryid
+		    <template-if condition="isDefined(Category)">
+			    AND cc.domainid=<template-variable value="Category:DomainID"/>
+			</template-if>
+		    )
+	</template-if>    
+	<template-if condition="isDefined(CatalogCategory)">
+	WHERE 
+	<template-call name="product/inc/ExistsInCategoryAndSubCategoriesFilter">
+	    <call-parameter name="ProductDomain" value="ProductDomain"/>
+	    <call-parameter name="ProductAlias" value="'p'"/>
+	    <call-parameter name="CatalogCategory" value="Category"/>
+	</template-call>
+	</template-if>
+	ORDER BY
+	<sql-dialect name="Oracle">
+		<template-if condition="GroupBy EQ &apos;displayName&apos;"> 
+				cc.NAME asc ,
+		</template-if>
+		<template-if condition="isDefined(SortBy)">
+				SORTING
+			<if-else/>
+				p.uuid
+		</template-if>
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+				DESC NULLS FIRST
+				<if-else/>
+				ASC NULLS LAST
+		</template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		<template-if condition="GroupBy EQ &apos;displayName&apos;"> 
+				CASE WHEN cc.NAME IS NULL THEN 1 ELSE 0 END 
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+				DESC, cc.NAME DESC, 
+			<if-else/>
+				ASC, cc.NAME ASC, 
+			</template-if>
+		</template-if>
+		<template-if condition="isDefined(SortBy)">
+			CASE WHEN SORTING IS NULL THEN 1 ELSE 0 END 
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+				DESC, SORTING DESC
+			<if-else/>
+				ASC, SORTING ASC
+			</template-if>
+			<if-else/>
+				CASE WHEN p.uuid IS NULL THEN 1 ELSE 0 END 
+				<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+					DESC, p.uuid DESC 
+				<if-else/>
+					ASC, p.uuid ASC
+				</template-if>
+		</template-if>
+	</sql-dialect>
+</template>
+</query>

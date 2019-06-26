@@ -1,0 +1,26 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><tr>
+	<% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) getObject("CreateProduct:ProductID:isMissing")).booleanValue() || ((Boolean) (((((Boolean) (disableErrorMessages().isDefined(getObject("ExistingProduct")))).booleanValue() || ((Boolean) ((((Boolean) getObject("IsUniqueSKU")).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",2,e);}if (_boolean_result) { %>
+		<td nowrap="nowrap" class="label"><label class="label label_error" for="CreateProduct_ProductID"><% {out.write(localizeISText("sld_enterprise_app.ID.label",null,null,null,null,null,null,null,null,null,null,null,null));} %>:<span class="star">*</span></label></td>
+	<% } else { %>
+		<td nowrap="nowrap" class="label"><label class="label" for="CreateProduct_ProductID"><% {out.write(localizeISText("sld_enterprise_app.ID.label",null,null,null,null,null,null,null,null,null,null,null,null));} %>:<span class="star">*</span></label></td>
+	<% } %>
+	<td class="table_detail" width="100%">
+		<table cellpadding="0" cellspacing="0" border="0">
+			<tr>
+				<td>
+					<input type="text" name="CreateProduct_ProductID" id="CreateProduct_ProductID" maxlength="256" size="45" value="<% {String value = null;try{value=context.getFormattedValue(getObject("CreateProduct:ProductID:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {11}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" class="inputfield_en" />
+				</td>
+				<td class="input_checkbox"><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("CreateProduct:ProductOnlineStatus:Value"),null).equals(context.getFormattedValue("online",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",13,e);}if (_boolean_result) { %><input type="checkbox" name="CreateProduct_ProductOnlineStatus" id="CreateProduct_ProductOnlineStatus" checked="checked" value="online" /><% } else { %><input type="checkbox" name="CreateProduct_ProductOnlineStatus" id="CreateProduct_ProductOnlineStatus" value="online" /><% } %></td>
+				<td  class="label_checkbox_text"><label class="label label_checkbox_text label_light" for="CreateProduct_ProductOnlineStatus"><% {out.write(localizeISText("sld_enterprise_app.Online.label",null,null,null,null,null,null,null,null,null,null,null,null));} %></label></td>
+				<td class="input_checkbox"><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("CreateProduct:ProductAvailableStatus:Value"),null).equals(context.getFormattedValue("available",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",15,e);}if (_boolean_result) { %><input type="checkbox" name="CreateProduct_ProductAvailableStatus" id="CreateProduct_ProductAvailableStatus" checked="checked" value="available" /><% } else { %><input type="checkbox" name="CreateProduct_ProductAvailableStatus" id="CreateProduct_ProductAvailableStatus" value="available" /><% } %></td>
+				<td  class="label_checkbox_text"><label class="label label_checkbox_text label_light" for="CreateProduct_ProductAvailableStatus"><% {out.write(localizeISText("sld_enterprise_app.InStock.label",null,null,null,null,null,null,null,null,null,null,null,null));} %></label></td>
+			</tr>
+		</table>
+	</td>
+</tr>
+<% printFooter(out); %>

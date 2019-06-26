@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ClusterID" type="java.lang.String" optional="false"/>
+	<parameter name="BlockSize" type="java.lang.Integer" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="DeletedProducts" type="orm" class="com.intershop.beehive.xcs.internal.product.DeletedProductPO">
+		<return-attribute name="PRODUCTID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+<sql-dialect name="Microsoft">
+with cte as (
+	select productid, ROW_NUMBER() OVER(order by productid) AS RowNumber
+	from deletedproduct
+	WHERE 
+	(
+		deletedIn IS NULL OR deletedIN &lt;&gt; <template-variable value="ClusterID"/>
+	)
+)
+select productid
+from cte where RowNumber &lt;= <template-variable value="BlockSize"/>
+</sql-dialect>
+<sql-dialect name="Oracle">
+SELECT productid
+FROM DELETEDPRODUCT 
+WHERE (deletedIn IS NULL OR deletedIn&lt;&gt; <template-variable value="ClusterID"/>)
+AND ROWNUM &lt;= <template-variable value="BlockSize"/>
+</sql-dialect>
+
+</template>
+</query>

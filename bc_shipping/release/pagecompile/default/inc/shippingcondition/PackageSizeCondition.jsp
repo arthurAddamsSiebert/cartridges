@@ -1,0 +1,20 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %>
+<% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% {try{executePipeline("ProcessShippingConditionConfiguration-GetUnitsOfMeasurement",((java.util.Map)(((new ParameterMap().addParameter(new ParameterEntry("ChannelDomain",getObject("ChannelDomain"))))))),"resultDict");}catch(Exception e){Logger.error(this,"ISPIPELINE failed. Line: 4.",e);}} %><% {Object temp_obj = (getObject("resultDict:UnitsOfLength")); getPipelineDictionary().put("UnitsOfLength", temp_obj);} %><input type="hidden" name="EditConditionID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("Condition:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {10}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<table border="0" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class="label_text"><label class="label label_text"><% {out.write(localizeISText("PackageSizeCondition.Condition.fielditem2","",null,null,null,null,null,null,null,null,null,null,null));} %></label></td>
+<td class="table_detail w100"><% {out.write(localizeISText("PackageSizeCondition.Threshold.fielditem2","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+<tr>
+<td class="label_select" nowrap="nowrap"><label class="label label_select"><% {out.write(localizeISText("PackageSizeCondition.Threshold.fielditem","",null,null,null,null,null,null,null,null,null,null,null));} %><span class="star">*</span></label></td>
+<td class="table_detail" nowrap="nowrap">
+<input type="text" name="ConditionConfiguration_packageSizeConditionThreshold" maxlength="10" size=10 value="<% {String value = null;try{value=context.getFormattedValue(getObject("ConditionForm:packageSizeConditionThreshold:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {19}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" class="inputfield_en"/>
+<select name="ConditionConfiguration_packageSizeConditionUnit" size="1" class="inputfield_en" ><% while (loop("UnitsOfLength","UNIT",null)) { %><option <% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("UNIT"),null).equals(context.getFormattedValue(getObject("ConditionForm:packageSizeConditionUnit:Value"),null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",22,e);}if (_boolean_result) { %>selected<% } %> ><% {String value = null;try{value=context.getFormattedValue(getObject("UNIT"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {22}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></option><% } %></select> 
+</td>
+</tr>
+</table><% printFooter(out); %>

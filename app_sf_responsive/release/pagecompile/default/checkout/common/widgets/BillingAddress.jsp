@@ -1,0 +1,12 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%response.setHeader(TemplateConstants.PERSONALIZED_HEADER, "1");setEncodingType("text/html"); %><div class="infobox" data-testing-id='address-slot-invoice-to-address'>
+<a class="pull-right btn-tool" href="<%=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewCheckoutAddressBook-EditAddress",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("AddressID",null),context.getFormattedValue(getObject("CurrentCartBO:InvoiceToAddressBO:URN"),null)))),null)%>" title="<% {out.write(localizeISText("checkout.address.update.label","",null,null,null,null,null,null,null,null,null,null,null));} %>">
+<span class="glyphicon glyphicon-pencil"></span>
+</a>
+<h3><% {out.write(localizeISText("checkout.widget.billing-address.heading","",null,null,null,null,null,null,null,null,null,null,null));} %></h3><% processOpenTag(response, pageContext, "address", new TagParameter[] {
+new TagParameter("showemail",(((Boolean) (getObject("CurrentSession:LoggedIn"))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) ),
+new TagParameter("address",getObject("CurrentCartBO:InvoiceToAddressBO"))}, 9); %></div><% printFooter(out); %>

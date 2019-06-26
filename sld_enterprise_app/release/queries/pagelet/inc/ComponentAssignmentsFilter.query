@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+  <parameters>
+    <parameter name="ComponentTableAlias" type="java.lang.String" optional="false"/>
+    <parameter name="AssignmentType" type="java.lang.String" optional="false" description="'page'/'component'"/>
+    <parameter name="PageletAssignmentsOption" type="java.lang.String" optional="true" description="The selected by user search option for filtering by parent page/component. Possible values: 'all', 'assigned', 'notAssigned', 'assignedToFilteredPagelet'"/>
+    <parameter name="ComponentSearchParameters" type="java.util.Map" optional="false"/>
+    <parameter name="ParentPageletSearchParameters" type="java.util.Map" optional="true" description="The search parameters for the parent page/component."/>
+    <parameter name="ParentComponentParentPageSearchParameters" type="java.util.Map" optional="true" description="The search parameters for the parent page of the parent component."/>
+
+    <parameter name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the pagelet belongs to."/>	
+    <parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false" description="Search in context of the given locale."/>
+    <parameter name="AllLocales" type="java.util.Iterator" optional="false" description="All available locales."/>
+  </parameters>
+<processor name="OracleSQL"/>
+
+<template>
+  <template-if condition = "isDefined(PageletAssignmentsOption) and (PageletAssignmentsOption ne &apos;all&apos;)">
+    <template-if condition = "PageletAssignmentsOption eq &apos;assignedToFilteredPagelet&apos;">
+      <template-if condition = "isDefined(ParentPageletSearchParameters)">
+        and exists (select 1 
+           FROM
+             (
+                <template-call name = "pagelet/inc/GetPageletAssignmentsWithParents"/>
+             ) pagelet_assignments_parents
+                      JOIN (
+                          <template-if condition="AssignmentType eq 'page'">
+                            <template-call name="pagelet/PageSearch">
+                              <call-parameter name="PageSearchParameters" value="ParentPageletSearchParameters"/>
+                              <call-parameter name="Repository" value="Repository"/>
+                              <call-parameter name="Locale" value="Locale"/>
+                              <call-parameter name="AllLocales" value="AllLocales"/>
+                            </template-call>
+                          <if-else/><!-- AssignmentType = 'component' -->
+                            <template-call name="pagelet/inc/BaseComponentSearch">
+                              <call-parameter name="ComponentSearchParameters" value="ParentPageletSearchParameters"/>
+                              <call-parameter name="ParentPageSearchParameters" value="ParentComponentParentPageSearchParameters"/>
+                              <call-parameter name="Repository" value="Repository"/>
+                              <call-parameter name="Locale" value="Locale"/>
+                              <call-parameter name="AllLocales" value="AllLocales"/>
+                            </template-call>
+                          </template-if>) parent_pagelet
+                      ON (pagelet_assignments_parents.parent_pageletuuid = parent_pagelet.pageletuuid)
+                     where <template-variable value="ComponentTableAlias" processing="text"/>.pageletuuid = pagelet_assignments_parents.pageletuuid
+                           <template-call name="pagelet/inc/PublishingFilter">
+                             <call-parameter name="TableAlias" value="&apos;pagelet_assignments_parents&apos;"/>
+                             <call-parameter name="WhereClause" value="false()"/>
+                             <call-parameter name="PublishingOption" value="ComponentSearchParameters:AssignmentsVisibility"/>
+                             <call-parameter name="PublishedFromOption" value="ComponentSearchParameters:AssignmentsVisibleFrom"/>
+                             <call-parameter name="PublishedToOption" value="ComponentSearchParameters:AssignmentsVisibleTo"/>
+                             <call-parameter name="PublishedFromSinceDate" value="ComponentSearchParameters:AssignmentsVisibleFromSinceDate"/>
+                             <call-parameter name="PublishedFromTillDate" value="ComponentSearchParameters:AssignmentsVisibleFromTillDate"/>
+                             <call-parameter name="PublishedToSinceDate" value="ComponentSearchParameters:AssignmentsVisibleToSinceDate"/>
+                             <call-parameter name="PublishedToTillDate" value="ComponentSearchParameters:AssignmentsVisibleToTillDate"/>
+                           </template-call>)
+        </template-if>
+      <if-else/><!-- PageletAssignmentsOption = 'assigned' or 'notAssigned' -->
+        and <template-if condition="PageletAssignmentsOption eq &apos;notAssigned&apos;">not </template-if>exists (
+            select 1 
+              from  <template-call name = "pagelet/inc/GetAssignedComponents">
+                      <call-parameter name = "AssignmentType" value = "AssignmentType"/>
+                      <call-parameter name = "PageletAssignmentsOption" value = "PageletAssignmentsOption"/>
+                      <call-parameter name = "ComponentSearchParameters" value = "ComponentSearchParameters"/>
+                      <call-parameter name = "UsePublishingFilter" value = "PageletAssignmentsOption ne &apos;notAssigned&apos;"/>
+                    </template-call> assigned_components
+             where <template-variable value="ComponentTableAlias" processing="text"/>.pageletuuid = assigned_components.pageletuuid
+            )
+      </template-if>
+    </template-if>
+  </template>
+</query>

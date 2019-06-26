@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Pagelet-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessSynchronizePagelets" type="process">
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="PerformSynchronization"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode4"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <startNode referencedName="ProcessContentRepository-GetContentRepository"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameterBindings name="ContentDomain" objectPath="ContentRepository:RepositoryDomain"/>
+    <startNode referencedName="ProcessPageletEntryPointSynchronization-PerformSynchronize"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="LogMessage0"/>
+    <nodeSuccessors name="ERROR" next="LogMessage1"/>
+    <parameterBindings name="PageletModelRepository" objectPath="ApplicationBO:Extension(&quot;(Class)com.intershop.sellside.pmc.capi.modelrepository.ApplicationBOPageletModelRepository&quot;)"/>
+    <parameterBindings name="RepositoryDomain" objectPath="ContentRepository:RepositoryDomain"/>
+    <startNode referencedName="SynchronizePagelets-Start"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage0">
+    <configurationValues name="Level" value="Debug"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="MessageParam0" objectPath="ContentRepository:RepositoryDomain:DomainName"/>
+    <parameterBindings name="MessageText" constant="Successfully synchronized CMS objects of repository '{}'"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage1">
+    <configurationValues name="Level" value="Error"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="MessageParam0" objectPath="ContentRepository:RepositoryDomain:DomainName"/>
+    <parameterBindings name="MessageText" constant="Failed to synchronized CMS objects of repository '{}'"/>
+  </nodes>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="SynchronizeChannels"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+<!--@BendPoints 13,4-->
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery0"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery0">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="Domain"/>
+    <configurationValues name="ParameterName_02" value="LocaleInformation"/>
+    <configurationValues name="QueryName" value="channel/GetAllChannels"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 13,6-->
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <parameterBindings name="ParameterValue_01" objectPath="ApplicationBO:Extension(&quot;(Class)com.intershop.beehive.core.capi.domain.PersistentObjectBOExtension&quot;):PersistentObject:Domain"/>
+    <parameterBindings name="ParameterValue_02" objectPath="CurrentRequest:Locale"/>
+    <returnValueBindings name="SearchResult" objectPath="Channels"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="Channels">
+<!--@BendPoints 14,7-->
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <entry key="Channel">
+      <nodeSuccessors name="loop_entry_next" next="DetermineChannelApplication0"/>
+    </entry>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineChannelApplication0">
+    <pipelet href="enfinity:/sld_enterprise_app/pipelets/DetermineChannelApplication.xml"/>
+    <nodeSuccessors name="next" next="ConcatenateStrings0"/>
+    <parameterBindings name="Repository" objectPath="Channel"/>
+    <returnValueBindings name="Application" objectPath="ChannelApplication"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings0">
+    <configurationValues name="DefaultString0" value="ProcessSynchronizePagelets_"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+<!--@BendPoints 13,12-->
+    <nodeSuccessors name="next" next="ExecutePipeline0"/>
+    <parameterBindings name="String1" objectPath="Channel:TypeCode"/>
+    <returnValueBindings name="Concatenated" objectPath="PipelineName"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline0">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelineStartNode" value="SynchronizeChannel"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+<!--@BendPoints 14,13 14,15-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="App" nullBinding="true"/>
+    <parameterBindings name="Application" objectPath="ChannelApplication"/>
+    <parameterBindings name="CurrentDomain" nullBinding="true"/>
+    <parameterBindings name="PipelineDomain" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainID" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainName" nullBinding="true"/>
+    <parameterBindings name="PipelineName" objectPath="PipelineName"/>
+    <parameterBindings name="PipelineStartNode" nullBinding="true"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 12,15 12,8-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="SynchronizeOrganization"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode3"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <startNode referencedName="This:PerformSynchronization"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="SynchronizeOrganizationAndChannels"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode2"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <startNode referencedName="This:SynchronizeOrganization"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <startNode referencedName="This:SynchronizeChannels"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+</pipeline:Pipeline>

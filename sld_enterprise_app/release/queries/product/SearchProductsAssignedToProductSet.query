@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="AdvancedProductSearchParameters" type="java.util.Map" optional="false"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Product" type="provider" class="ProductViewProvider">
+        <return-attribute name="UUID"/>
+        <return-attribute name="DOMAINID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+SELECT
+    uuid,
+    <template-variable value="ProductDomain:UUID"/> AS DOMAINID,
+    COUNT(p.UUID) OVER() AS "ROWCOUNT",
+    sorting
+FROM
+(
+<template-call name="product/GetProductsByAdvancedSearch">
+	<call-addall map="AdvancedProductSearchParameters"/>
+    <call-parameter name="ProductDomain" value="ProductDomain"/>
+    <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+</template-call>
+) p
+JOIN
+	productsetassignment psa ON (psa.productuuid = p.uuid)
+WHERE
+	psa.productsetuuid = <template-variable value="ProductSet:UUID"/>
+<sql-dialect name="Oracle">	
+ORDER BY SORTING
+<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+    DESC NULLS FIRST
+    <if-else/>
+    ASC NULLS LAST
+</template-if>
+</sql-dialect>
+<sql-dialect name="Microsoft">	
+ORDER BY
+<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+    CASE
+    	WHEN sorting IS NULL THEN 0
+	    ELSE 1
+    END, SORTING DESC
+    <if-else/>
+    CASE    	
+    	WHEN sorting IS NULL THEN 1
+	    ELSE 0
+    END, SORTING ASC
+</template-if>
+</sql-dialect>
+</template>
+</query>

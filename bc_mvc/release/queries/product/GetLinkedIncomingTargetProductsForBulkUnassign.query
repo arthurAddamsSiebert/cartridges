@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="TypeCodeIterator" type="java.util.Iterator" optional="false"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="ProductUUIDIterator" type="java.util.Iterator" optional="true"/>
+    <parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="AdvancedProductSearchParameters" type="java.util.Map" optional="true"/>
+    <parameter name="TargetNameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="TargetAdvancedProductSearchParameters" type="java.util.Map" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="count" type="rename">
+        <return-attribute name="count"/>
+    </return-mapping>
+	<return-mapping name="LinkedProductBulkWrapper" type="constructor" class="com.intershop.beehive.xcs.capi.product.LinkedProductBulkWrapper">
+		<return-attribute name="uuid"/>
+		<return-attribute name="domainid"/>
+		<return-attribute name="typecode"/>
+		<return-attribute name="isincomingtargetproductlink"/>
+		<return-attribute name="linkcount"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	SELECT pl.sourceid as uuid, pl.domainid as domainid, pl.typecode as typecode, 'true' as isincomingtargetproductlink, count(pl.sourceid) as linkcount, 
+       <template-call name="product/inc/ProductSorting">
+           <call-parameter name="ProductAlias" value="'p3'"/>
+           <call-parameter name="SortAttribute" value="'name'"/>
+           <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+       </template-call>
+	FROM 
+	(
+	    <template-call name="product/inc/GetLinkedIncomingTargetProductsForBulkUnassignInclude">
+            <call-parameter name="Domain" value="Domain"/>
+		    <call-parameter name="NameOrID" value="NameOrID"/>
+		    <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+			<call-parameter name="TypeCodeIterator" value="TypeCodeIterator"/>
+			<call-parameter name="ProductUUIDIterator" value="ProductUUIDIterator"/>
+			<call-parameter name="AdvancedProductSearchParameters" value="AdvancedProductSearchParameters"/>
+		    <call-parameter name="TargetNameOrID" value="TargetNameOrID"/>
+			<call-parameter name="TargetAdvancedProductSearchParameters" value="TargetAdvancedProductSearchParameters"/>
+	    </template-call>
+	) pl
+	JOIN product p3 ON (pl.sourceid=p3.uuid)
+	GROUP BY pl.sourceid, pl.typecode, pl.domainid, <template-call name="product/inc/ProductSorting">
+           <call-parameter name="ProductAlias" value="'p3'"/>
+           <call-parameter name="SortAttribute" value="'name'"/>
+           <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+       </template-call>
+    order by CASE WHEN <template-call name="product/inc/ProductSorting">
+           <call-parameter name="ProductAlias" value="'p3'"/>
+           <call-parameter name="SortAttribute" value="'name'"/>
+           <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+       </template-call> IS NULL THEN 1 ELSE 0 END ASC, <template-call name="product/inc/ProductSorting">
+														   <call-parameter name="ProductAlias" value="'p3'"/>
+														   <call-parameter name="SortAttribute" value="'name'"/>
+														   <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+												       </template-call> ASC
+</template>
+<template type="count">
+SELECT COUNT(*) AS COUNT from (
+	SELECT distinct pl.sourceid, pl.typecode
+	FROM 
+	(
+	    <template-call name="product/inc/GetLinkedIncomingTargetProductsForBulkUnassignInclude">
+            <call-parameter name="Domain" value="Domain"/>
+		    <call-parameter name="NameOrID" value="NameOrID"/>
+		    <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+			<call-parameter name="TypeCodeIterator" value="TypeCodeIterator"/>
+			<call-parameter name="ProductUUIDIterator" value="ProductUUIDIterator"/>
+			<call-parameter name="AdvancedProductSearchParameters" value="AdvancedProductSearchParameters"/>
+		    <call-parameter name="TargetNameOrID" value="TargetNameOrID"/>
+			<call-parameter name="TargetAdvancedProductSearchParameters" value="TargetAdvancedProductSearchParameters"/>
+	    </template-call>
+	) pl
+) p
+</template>
+</query>

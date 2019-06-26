@@ -1,0 +1,1218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessOrderREST" overrideMode="Inherit" type="process">
+<!--ToCheck after GiftCard\-Implementation
+@Location 36,3-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--No RedirectPayment in MSK 1.0
+@Location 21,20-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--No GiftCards in MSK 1.0
+@Location 20,24-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2"/>
+<!--No Wishlist update in MSK 1.0
+@Location 20,26-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text3"/>
+<!--@Location 40,\-4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode13" strict="true" name="CancelOrder"
+      callMode="Include">
+    <nodeSuccessors name="next" next="GetOrderByID1"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+    <parameters name="OrderID" type="java.lang.String"/>
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--@Location 40,\-3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderByID1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/GetOrderByID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode17"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode35"/>
+    <parameterBindings name="Domain" objectPath="Repository:Domain"/>
+  </nodes>
+<!--@Location 40,\-2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode17" conditionKey="CurrentUser:ID"
+      operator="str_eq" conditionItem="Order:User:ID">
+    <nodeSuccessors name="decision_yes" next="KeyMapper3"/>
+    <nodeSuccessors name="decision_no" next="EndNode37"/>
+  </nodes>
+<!--@Location 40,\-1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetOrderBO1"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Extension(&quot;Order&quot;):getOrderBORepository(Order)"/>
+    <returnValueBindings name="OutValue_1" objectPath="OrderBORepository"/>
+  </nodes>
+<!--@Location 40,0-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderBO1">
+    <pipelet href="enfinity:/bc_order/pipelets/GetOrderBO.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode18"/>
+  </nodes>
+<!--@Location 40,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode18" conditionKey="Order:StatusStateName"
+      operator="str_eq" conditionValue="NEW">
+    <nodeSuccessors name="decision_yes" next="CallNode26"/>
+    <nodeSuccessors name="decision_no" next="EndNode36"/>
+  </nodes>
+<!--@Location 40,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode26">
+    <nodeSuccessors name="next" next="DecisionNode19"/>
+    <parameterBindings name="ProductLineItems" objectPath="OrderBO:AllProductLineItemBOs:Iterator"/>
+    <startNode referencedName="ProcessGiftCard-HasGiftCards"/>
+  </nodes>
+<!--@Location 40,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode19" conditionKey="GiftCardProductLineItems"
+      operator="undef">
+<!--@BendPoints 79,7 79,13-->
+    <nodeSuccessors name="decision_yes" next="JoinNode23"/>
+    <nodeSuccessors name="decision_no" next="CallNode27"/>
+  </nodes>
+<!--@Location 40,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode23">
+    <nodeSuccessors name="next" next="CallNode28"/>
+  </nodes>
+<!--@Location 40,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode28">
+    <nodeSuccessors name="next" next="EndNode27"/>
+    <nodeSuccessors name="ERROR" next="EndNode31"/>
+    <parameterBindings name="Organization" objectPath="CurrentOrganization"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="ProcessOrders-CancelOrder"/>
+  </nodes>
+<!--@Location 40,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode27" strict="true"/>
+<!--@Location 41,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode31" name="ERROR" strict="true"/>
+<!--@Location 40,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode27">
+    <nodeSuccessors name="next" next="DecisionNode20"/>
+    <startNode referencedName="ProcessGiftCard-OrderCanBeCanceled"/>
+    <returnValueBindings name="Result" objectPath="OrderCanBeCancelled"/>
+  </nodes>
+<!--@Location 40,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode20" conditionKey="OrderCanBeCancelled"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="JoinNode23"/>
+    <nodeSuccessors name="decision_no" next="EndNode38"/>
+  </nodes>
+<!--@Location 41,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode38" name="NOT_POSSIBLE" strict="true"/>
+<!--@Location 41,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode36" name="WRONG_STATUS" strict="true"/>
+<!--@Location 41,\-2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode37" name="FORBIDDEN" strict="true"/>
+<!--@Location 41,\-3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode35" name="NOT_FOUND" strict="true"/>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" strict="true" name="CheckBasketContinueCheckoutIfTaxServiceUnavailable"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainPreference1"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference1">
+    <configurationValues name="DefaultPreferenceKey" value="BasketContinueCheckoutIfTaxServiceUnavailable"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+<!--@BendPoints 7,23-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="PreferenceDomain" objectPath="CurrentOrganization:OrganizationDomain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="BasketContinueCheckoutIfTaxServiceUnavailable"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="BasketContinueCheckoutIfTaxServiceUnavailable"
+      operator="str_eq" conditionValue="false">
+    <nodeSuccessors name="decision_yes" next="DecisionNode9"/>
+    <nodeSuccessors name="decision_no" next="JoinNode8"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="CurrentCartBO:TaxCalculated"
+      operator="str_eq" conditionValue="false">
+    <nodeSuccessors name="decision_yes" next="EndNode6"/>
+    <nodeSuccessors name="decision_no" next="JoinNode7"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="ERROR" strict="true"/>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="CheckTermsAndConditions"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainPreference3"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="termsAndConditions" type="java.lang.Boolean" optional="true"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference3">
+    <configurationValues name="DefaultPreferenceKey" value="BasketTermsAndConditions"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode13"/>
+<!--@BendPoints 9,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="PreferenceDomain" objectPath="CurrentOrganization:OrganizationDomain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="BasketTermsAndConditions"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="BasketTermsAndConditions"
+      operator="str_eq" conditionValue="on">
+    <nodeSuccessors name="decision_yes" next="DecisionNode12"/>
+    <nodeSuccessors name="decision_no" next="JoinNode12"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="termsAndConditions"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="JoinNode9"/>
+<!--@BendPoints 1,13-->
+    <nodeSuccessors name="decision_no" next="EndNode2"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="ERROR" strict="true"/>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 9,15-->
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 19,\-4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="CreateOrder"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode_mTlxgOlGEeaITOMQjhDkuA"/>
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="BasketBORepository" type="com.intershop.component.basket.capi.BasketBORepository"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"
+        optional="true"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 19,\-3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_mTlxgOlGEeaITOMQjhDkuA"
+      conditionKey="ApplicationBO:Configuration:getString(&quot;intershop.order.creationchain.enable&quot;)"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode_mTo00OlGEeaITOMQjhDkuA"/>
+    <nodeSuccessors name="decision_no" next="GetBasketBO1"/>
+  </nodes>
+<!--@Location 21,\-3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_mTo00OlGEeaITOMQjhDkuA">
+    <nodeSuccessors name="next" next="EndNode_wsRckOlGEeaITOMQjhDkuA"/>
+    <startNode referencedName="ProcessOrder-CreateOrder"/>
+  </nodes>
+<!--@Location 22,\-3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_wsRckOlGEeaITOMQjhDkuA" strict="true"/>
+<!--@Location 19,\-2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetBasketBO1">
+    <pipelet href="enfinity:/bc_basket/pipelets/GetBasketBO.xml"/>
+    <nodeSuccessors name="next" next="ExtensionPointNode1"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+  </nodes>
+<!--@Location 19,\-1-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode1" name="CreateOrder"
+      strict="true">
+    <nodeSuccessors name="next" next="CallNode8" action="begin"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode18"/>
+<!--The Basket to create the Order from-->
+    <parameters name="BasketBO" type="com.intershop.component.basket.capi.BasketBO"/>
+  </nodes>
+<!--@Location 19,0-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="JoinNode11" action="rollback"/>
+    <nodeSuccessors name="CompletlyBooked" next="TryLock0"/>
+    <nodeSuccessors name="NotBooked" next="JoinNode20"/>
+    <nodeSuccessors name="PartlyBooked" next="JoinNode20"/>
+    <parameterBindings name="Domain" objectPath="PreferenceDomain"/>
+    <startNode referencedName="ProcessCart-BookBasketInventory"/>
+  </nodes>
+<!--@Location 22,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="CallNode1" action="begin"/>
+  </nodes>
+<!--@Location 22,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <startNode referencedName="ProcessCart-AdjustBasketByBookingStatus"/>
+  </nodes>
+<!--@Location 22,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="JoinNode10" action="commit"/>
+    <startNode referencedName="ProcessCart-Calculate"/>
+  </nodes>
+<!--@Location 22,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="JoinNode18"/>
+  </nodes>
+<!--@Location 22,17-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+    <nodeSuccessors name="next" next="EndNode15"/>
+  </nodes>
+<!--@Location 22,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" name="ERROR" strict="true">
+    <returnValues name="FailedInventoryIterator" type="java.util.Iterator&lt;com.intershop.beehive.xcs.capi.inventory.InventoryStatus>"
+        optional="true"/>
+    <returnValues name="AdjustedItems" type="java.util.Map" optional="true"/>
+    <returnValues name="NotAvailableProductBOs" type="java.util.Iterator" optional="true"/>
+    <returnValues name="NotAvailableProducts" type="java.util.Iterator" optional="true"/>
+    <returnValues name="Reverse_Gift_Card_Creation" type="java.lang.String" optional="true"/>
+    <returnValues name="Result" type="com.intershop.api.service.common.v1.Result"
+        optional="true"/>
+  </nodes>
+<!--@Location 19,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="TryLock0">
+    <configurationValues name="Timeout" value="10"/>
+    <pipelet href="enfinity:/core/pipelets/TryLock.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+<!--@BendPoints 41,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="LockObject" objectPath="Cart"/>
+  </nodes>
+<!--@Location 19,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="BasketBO:Status"
+      operator="str_eq" conditionValue="ORDERED">
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+    <nodeSuccessors name="decision_no" next="CreateOrdersFromBasket20"/>
+  </nodes>
+<!--@Location 20,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 20,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+<!--@Location 20,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+<!--@BendPoints 43,9-->
+    <nodeSuccessors name="next" next="JoinNode13"/>
+  </nodes>
+<!--@Location 21,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="JoinNode10" action="rollback"/>
+  </nodes>
+<!--@Location 19,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateOrdersFromBasket20">
+    <configurationValues name="OrderType" value="SellerOrder"/>
+    <configurationValues name="SelectionMode" value="IgnoreSelected"/>
+    <configurationValues name="SplitMode" value="NoSplit"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/CreateOrdersFromBasket2.xml"/>
+    <nodeSuccessors name="next" next="GetFirstElementOfIterator0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+    <parameterBindings name="OrderDomain" objectPath="CurrentOrganization:OwningDomain"/>
+  </nodes>
+<!--@Location 19,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFirstElementOfIterator0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFirstElementOfIterator.xml"/>
+    <nodeSuccessors name="next" next="AssignOrderDocumentNos0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode14"/>
+    <parameterBindings name="Iterator" objectPath="Orders"/>
+    <returnValueBindings name="FirstElement" objectPath="Order"/>
+  </nodes>
+<!--@Location 19,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignOrderDocumentNos0">
+    <configurationValues name="DomainSpecific" value="true"/>
+    <configurationValues name="NumberPattern" value="00000000"/>
+    <configurationValues name="StartWith" value="1"/>
+    <pipelet href="enfinity:/bts/pipelets/AssignOrderDocumentNos.xml"/>
+    <nodeSuccessors name="next" next="GetUserBO0"/>
+    <parameterBindings name="Orders" nullBinding="true"/>
+  </nodes>
+<!--@Location 19,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserBO0">
+    <pipelet href="enfinity:/bc_user/pipelets/GetUserBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+    <parameterBindings name="UserBORepository" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <parameterBindings name="UserID" objectPath="User:ID"/>
+  </nodes>
+<!--@Location 19,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetOrderBO4"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;OrderBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="OrderBORepository"/>
+  </nodes>
+<!--@Location 19,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderBO4">
+    <pipelet href="enfinity:/bc_order/pipelets/GetOrderBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode_89m8MERoEeen65EewLGunA"/>
+  </nodes>
+<!--@Location 19,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_89m8MERoEeen65EewLGunA">
+    <nodeSuccessors name="next" next="SetBuyerNoToOrderForUnregisteredUser0"/>
+    <startNode referencedName="ProcessPromotionCodeForBasket-RedeemPromotionCodes"/>
+  </nodes>
+<!--@Location 19,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetBuyerNoToOrderForUnregisteredUser0">
+    <pipelet href="enfinity:/bc_orderprocess/pipelets/SetBuyerNoToLineItemCtnrForUnregisteredUser.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <parameterBindings name="LineItemCtnr" objectPath="Order"/>
+  </nodes>
+<!--@Location 19,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="ApplicationBO">
+    <nodeSuccessors name="decision_yes" next="JoinNode3"/>
+    <nodeSuccessors name="decision_no" next="GetApplicationBO0"/>
+  </nodes>
+<!--@Location 19,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="CallNode7"/>
+  </nodes>
+<!--@Location 19,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="UpdateLineItemStatus0"/>
+    <nodeSuccessors name="ERROR" next="DecisionNode10"/>
+    <startNode referencedName="This:OrderPayment"/>
+  </nodes>
+<!--@Location 19,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus0">
+    <configurationValues name="StatusGroup" value="Order"/>
+    <configurationValues name="StatusID" value="10"/>
+    <configurationValues name="StatusType" value="Status"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="UpdateLineItemStatus1"/>
+    <parameterBindings name="InputStatusGroup" nullBinding="true"/>
+    <parameterBindings name="InputStatusID" nullBinding="true"/>
+    <parameterBindings name="LineItemID" nullBinding="true"/>
+    <parameterBindings name="LineItemIDs" nullBinding="true"/>
+    <parameterBindings name="Requisition" nullBinding="true"/>
+  </nodes>
+<!--@Location 19,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus1">
+    <configurationValues name="StatusGroup" value="Order"/>
+    <configurationValues name="StatusID" value="10"/>
+    <configurationValues name="StatusType" value="Status2"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="ExtensionPointNode0"/>
+    <parameterBindings name="InputStatusGroup" nullBinding="true"/>
+    <parameterBindings name="InputStatusID" nullBinding="true"/>
+    <parameterBindings name="LineItemID" nullBinding="true"/>
+    <parameterBindings name="LineItemIDs" nullBinding="true"/>
+    <parameterBindings name="Requisition" nullBinding="true"/>
+  </nodes>
+<!--@Location 19,16-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode0" name="OrderCreated"
+      strict="true">
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+    <parameters name="CurrentSession" type="com.intershop.beehive.core.capi.request.Session"/>
+    <parameterBindings name="CurrentOrder" objectPath="Order"/>
+  </nodes>
+<!--@Location 19,17-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameterBindings name="CurrentOrder" objectPath="Order"/>
+    <startNode referencedName="FireTrackingEvents-OrderPlaced"/>
+  </nodes>
+<!--@Location 19,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="CurrentSession:getObject(&quot;T_ABTestMode&quot;)"
+      operator="str_eq" conditionValue="Enabled">
+    <nodeSuccessors name="decision_yes" next="CallNode9"/>
+<!--@BendPoints 40,37 40,39-->
+    <nodeSuccessors name="decision_no" next="UpdateLineItemStatus2"/>
+  </nodes>
+<!--@Location 19,19-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="UpdateLineItemStatus2"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+    <parameterBindings name="Order" objectPath="Order"/>
+    <startNode referencedName="ProcessABTesting-LogOrderEvents"/>
+  </nodes>
+<!--@Location 19,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus2">
+    <configurationValues name="StatusGroup" value="Product"/>
+    <configurationValues name="StatusID" value="5"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="LoopNode3"/>
+    <parameterBindings name="InputStatusGroup" nullBinding="true"/>
+    <parameterBindings name="InputStatusID" nullBinding="true"/>
+    <parameterBindings name="LineItemID" nullBinding="true"/>
+    <parameterBindings name="LineItemIDs" nullBinding="true"/>
+    <parameterBindings name="Order" nullBinding="true"/>
+    <parameterBindings name="Requisition" objectPath="Cart"/>
+  </nodes>
+<!--@Location 19,21-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="OrderBO:Extension(&quot;Payment&quot;):PaymentBOs">
+<!--@BendPoints 41,43 41,50 39,50-->
+    <nodeSuccessors name="next" next="CallNode21"/>
+    <entry key="PaymentBO">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode16"/>
+    </entry>
+  </nodes>
+<!--@Location 19,22-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode16" conditionKey="PaymentBO:PaymentServiceBO:Extension(&quot;RedirectAfterCheckout&quot;)">
+    <nodeSuccessors name="decision_yes" next="UpdateOrderStatus1"/>
+<!--@BendPoints 37,45 37,43-->
+    <nodeSuccessors name="decision_no" next="LoopNode3_Entry"/>
+  </nodes>
+<!--@Location 19,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateOrderStatus1">
+    <configurationValues name="StateGroup" value="OrderStatus"/>
+    <configurationValues name="StateName" value="PENDING"/>
+    <pipelet href="enfinity:/bts/pipelets/UpdateOrderStatus.xml"/>
+    <nodeSuccessors name="next" next="EndNode26"/>
+  </nodes>
+<!--@Location 19,24-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode26" name="PAYMENT_REDIRECT_ERROR"
+      strict="true"/>
+<!--@Location 19,25-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode21">
+    <nodeSuccessors name="next" next="AddBasketToBasketHistory0"/>
+    <nodeSuccessors name="ERROR" next="CallNode22"/>
+    <parameterBindings name="Domain" objectPath="Organization:OwningDomain"/>
+    <startNode referencedName="ProcessOrders-CreateGiftCards"/>
+  </nodes>
+<!--@Location 19,26-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddBasketToBasketHistory0">
+    <configurationValues name="BasketType" value="REQUISITION"/>
+    <pipelet href="enfinity:/bts/pipelets/AddBasketToBasketHistory.xml"/>
+    <nodeSuccessors name="next" next="CallNode24"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+  </nodes>
+<!--@Location 19,27-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode24">
+    <nodeSuccessors name="next" next="ClearTransientObjectsContainerAtSession0" action="commit"/>
+    <startNode referencedName="ProcessOrders-UpdateWishlistItems"/>
+  </nodes>
+<!--@Location 19,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ClearTransientObjectsContainerAtSession0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ClearTransientObjectsContainerAtSession.xml"/>
+    <nodeSuccessors name="next" next="EndNode28"/>
+  </nodes>
+<!--@Location 19,29-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode28" strict="true">
+    <returnValues name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"/>
+    <returnValues name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+    <returnValues name="NotAvailableProducts" type="java.util.Iterator" optional="true"/>
+    <returnValues name="NotAvailableProductBOs" type="java.util.Iterator" optional="true"/>
+    <returnValues name="AdjustedItems" type="java.util.Map" optional="true"/>
+  </nodes>
+<!--@Location 21,25-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode22">
+    <nodeSuccessors name="next" next="RollbackInventoryBooking_tJJzMMSUEeer1vdsCEaOpg"/>
+    <parameterBindings name="Domain" objectPath="Organization:OwningDomain"/>
+    <startNode referencedName="ProcessOrders-VoidGiftCards"/>
+  </nodes>
+<!--@Location 21,26-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RollbackInventoryBooking_tJJzMMSUEeer1vdsCEaOpg">
+    <pipelet href="enfinity:/bts/pipelets/RollbackInventoryBooking.xml"/>
+    <nodeSuccessors name="next" next="DeterminePaymentAuthorizationSequence0"/>
+    <parameterBindings name="LineItemCtnr" objectPath="Cart"/>
+  </nodes>
+<!--@Location 21,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DeterminePaymentAuthorizationSequence0">
+    <pipelet href="enfinity:/bc_payment/pipelets/DeterminePaymentAuthorizationSequence.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue10"/>
+  </nodes>
+<!--@Location 21,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue10">
+    <configurationValues name="Name" value="Reverse_Gift_Card_Creation"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode15"/>
+  </nodes>
+<!--@Location 21,29-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode15" conditionKey="PaymentTransactionBOs"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="UpdateOrderStatus0"/>
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue11" action="rollback"/>
+  </nodes>
+<!--@Location 21,30-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateOrderStatus0">
+    <configurationValues name="StateGroup" value="OrderStatus"/>
+    <configurationValues name="StateName" value="CANCELLED"/>
+    <pipelet href="enfinity:/bts/pipelets/UpdateOrderStatus.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue11" action="commit"/>
+  </nodes>
+<!--@Location 23,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue11">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="GiftCardError"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="EndNode14"/>
+  </nodes>
+<!--@Location 24,29-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" name="GIFTCARD_ERROR" strict="true">
+    <returnValues name="AuthorizationResultsIterator" type="java.util.Iterator" optional="true"/>
+    <returnValues name="FailedInventoryIterator" type="java.util.Iterator&lt;com.intershop.beehive.xcs.capi.inventory.InventoryStatus>"
+        optional="true"/>
+    <returnValues name="AdjustedItems" type="java.util.Map" optional="true"/>
+    <returnValues name="NotAvailableProductBOs" type="java.util.Iterator" optional="true"/>
+    <returnValues name="NotAvailableProducts" type="java.util.Iterator" optional="true"/>
+    <returnValues name="PaymentReduceResultsIterator" type="java.util.Iterator" optional="true"/>
+    <returnValues name="PaymentRefundResultsIterator" type="java.util.Iterator" optional="true"/>
+    <returnValues name="Reverse_Gift_Card_Creation" type="java.lang.String" optional="true"/>
+    <returnValues name="PaymentCancelResultsIterator" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--Check if order status is 'CANCELLED'
+@Location 20,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="Order:Status"
+      operator="eq" conditionValue="6">
+    <nodeSuccessors name="decision_yes" next="RollbackInventoryBooking_vpbXkMSUEeer1vdsCEaOpg"/>
+<!--@BendPoints 43,27-->
+    <nodeSuccessors name="decision_no" next="JoinNode13"/>
+  </nodes>
+<!--@Location 20,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RollbackInventoryBooking_vpbXkMSUEeer1vdsCEaOpg">
+    <pipelet href="enfinity:/bts/pipelets/RollbackInventoryBooking.xml"/>
+    <nodeSuccessors name="next" next="UpdateLineItemStatus4"/>
+    <parameterBindings name="LineItemCtnr" objectPath="Cart"/>
+  </nodes>
+<!--@Location 20,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus4">
+    <configurationValues name="StatusGroup" value="Order"/>
+    <configurationValues name="StatusID" value="10"/>
+    <configurationValues name="StatusType" value="Status"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="UpdateLineItemStatus3"/>
+    <parameterBindings name="InputStatusGroup" nullBinding="true"/>
+    <parameterBindings name="InputStatusID" nullBinding="true"/>
+    <parameterBindings name="LineItemID" nullBinding="true"/>
+    <parameterBindings name="LineItemIDs" nullBinding="true"/>
+    <parameterBindings name="Requisition" nullBinding="true"/>
+  </nodes>
+<!--@Location 20,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus3">
+    <configurationValues name="StatusGroup" value="Order"/>
+    <configurationValues name="StatusID" value="10"/>
+    <configurationValues name="StatusType" value="Status2"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="JoinNode18" action="commit"/>
+    <parameterBindings name="InputStatusGroup" nullBinding="true"/>
+    <parameterBindings name="InputStatusID" nullBinding="true"/>
+    <parameterBindings name="LineItemID" nullBinding="true"/>
+    <parameterBindings name="LineItemIDs" nullBinding="true"/>
+    <parameterBindings name="Requisition" nullBinding="true"/>
+  </nodes>
+<!--@Location 20,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+<!--@BendPoints 41,25-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 21,0-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+    <nodeSuccessors name="next" next="EndNode32"/>
+  </nodes>
+<!--@Location 22,0-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode32" name="ERROR_BOOKING" strict="true"/>
+<!--@Location 20,\-1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode18" name="Error" strict="true"/>
+<!--@Location 29,\-4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="CreateRecurringOrder"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+    <parameters name="BasketBO" type="com.intershop.component.basket.capi.BasketBO"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="Basket" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"/>
+  </nodes>
+<!--@Location 29,\-3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="BasketBO:Extension(&quot;RecurringBasket&quot;):isRecurring"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode12"/>
+    <nodeSuccessors name="decision_no" next="EndNode20"/>
+  </nodes>
+<!--@Location 29,\-2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode12">
+    <nodeSuccessors name="next" next="CreateRecurringOrder0" action="begin"/>
+    <parameterBindings name="Cart" objectPath="Basket"/>
+    <startNode referencedName="ProcessCart-Calculate"/>
+  </nodes>
+<!--@Location 29,\-1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateRecurringOrder0">
+    <pipelet href="enfinity:/bc_order_service/pipelets/CreateRecurringOrder.xml"/>
+    <nodeSuccessors name="next" next="EndNode19" action="commit"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode22" action="rollback"/>
+    <parameterBindings name="Site" objectPath="CurrentDomain:Site"/>
+  </nodes>
+<!--@Location 29,0-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode19" name="YES" strict="true"/>
+<!--@Location 30,\-1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode22" name="ERROR" strict="true"/>
+<!--@Location 30,\-3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode20" name="NO" strict="true"/>
+<!--@Location 8,\-4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" strict="true" name="DefaultSettings"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainPreference0"/>
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.internal.ApplicationBOImpl"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"/>
+  </nodes>
+<!--@Location 8,\-3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference0">
+    <configurationValues name="DefaultPreferenceKey" value="BasketAcceleration"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+<!--@BendPoints 19,\-5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="PreferenceDomain" objectPath="CurrentOrganization:OrganizationDomain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="BasketAcceleration"/>
+  </nodes>
+<!--@Location 8,\-2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="BasketAcceleration"
+      operator="str_eq" conditionValue="on">
+    <nodeSuccessors name="decision_yes" next="CallNode17"/>
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 8,\-1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode17">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="Domain" objectPath="CurrentDomain"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="ProcessCheckout-DefaultSettings"/>
+  </nodes>
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="DecisionNode14"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="RecalculationNeeded"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode16"/>
+    <nodeSuccessors name="decision_no" next="EndNode24"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode16">
+    <nodeSuccessors name="next" next="EndNode24"/>
+    <parameterBindings name="Cart" objectPath="CurrentCart"/>
+    <startNode referencedName="ProcessCart-Calculate"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode24" strict="true"/>
+<!--@Location 9,\-2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 19,1-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,\-4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="GetOrderDetails"
+      callMode="Include">
+    <nodeSuccessors name="next" next="GetOrderByID0"/>
+    <parameters name="OrderID" type="java.lang.String"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 4,\-3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderByID0">
+    <pipelet href="enfinity:/bc_requisition/pipelets/GetOrderByID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <nodeSuccessors name="pipelet_error" next="SetRestError0"/>
+    <parameterBindings name="Domain" objectPath="Repository:Domain"/>
+  </nodes>
+<!--@Location 4,\-2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="CurrentUser:ID"
+      operator="str_eq" conditionItem="Order:User:ID">
+    <nodeSuccessors name="decision_yes" next="KeyMapper4"/>
+    <nodeSuccessors name="decision_no" next="EndNode11"/>
+  </nodes>
+<!--@Location 4,\-1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetOrderBO0"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Extension(&quot;Order&quot;):getOrderBORepository(Order)"/>
+    <returnValueBindings name="OutValue_1" objectPath="OrderBORepository"/>
+  </nodes>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderBO0">
+    <pipelet href="enfinity:/bc_order/pipelets/GetOrderBO.xml"/>
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="END" strict="true">
+    <returnValues name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+  </nodes>
+<!--@Location 6,\-2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" name="403" strict="true"/>
+<!--@Location 5,\-3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError0">
+    <configurationValues name="Code" value="order.tracking.error"/>
+    <configurationValues name="Message" value="Can't find order for given order id."/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 6,\-3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name="404" strict="true">
+    <returnValues name="ErrorMessage" type="java.lang.String" optional="true"/>
+    <returnValues name="LocalizationErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@deprecated
+Deprecated since 7.9.0.0, will be removed in one of the next releases. Use HandlerChain\-based order creation instead.
+@Location 24,\-4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="OrderPayment"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameters name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"
+        optional="true"/>
+    <parameters name="Orders" type="java.util.Iterator" optional="true"/>
+    <parameters name="OrderBORepository" type="com.intershop.component.order.capi.OrderBORepository"/>
+  </nodes>
+<!--@Location 24,\-2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Orders">
+    <nodeSuccessors name="decision_yes" next="LoopNode0"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode3"/>
+  </nodes>
+<!--@Location 24,\-1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="Orders">
+<!--@BendPoints 51,\-1-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <entry key="Order">
+      <nodeSuccessors name="loop_entry_next" next="GetOrderBO2"/>
+    </entry>
+  </nodes>
+<!--@Location 24,0-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderBO2">
+    <pipelet href="enfinity:/bc_order/pipelets/GetOrderBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode11"/>
+  </nodes>
+<!--@Location 24,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+    <nodeSuccessors name="next" next="AddObjectToCollection0"/>
+    <nodeSuccessors name="ERROR" next="JoinNode17"/>
+    <startNode referencedName="ProcessPayment-StartPayment"/>
+  </nodes>
+<!--@Location 24,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection0">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+<!--@BendPoints 47,5 47,\-1-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <parameterBindings name="InCollection" objectPath="Results"/>
+    <parameterBindings name="InObject" objectPath="Result"/>
+    <returnValueBindings name="OutCollection" objectPath="Results"/>
+  </nodes>
+<!--@Location 27,1-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+    <nodeSuccessors name="next" next="EndNode16"/>
+  </nodes>
+<!--@Location 27,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" name="ERROR" strict="true">
+    <returnValues name="Result" type="com.intershop.api.service.common.v1.Result"/>
+  </nodes>
+<!--@Location 25,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode17"/>
+  </nodes>
+<!--@Location 25,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" name="" strict="true">
+    <returnValues name="Results" type="java.util.Collection&lt;com.intershop.api.service.common.v1.Result>"
+        optional="true"/>
+  </nodes>
+<!--@Location 26,\-2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="Order">
+    <nodeSuccessors name="decision_yes" next="GetOrderBO3"/>
+<!--@BendPoints 55,\-3-->
+    <nodeSuccessors name="decision_no" next="JoinNode17"/>
+  </nodes>
+<!--@Location 26,\-1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderBO3">
+    <pipelet href="enfinity:/bc_order/pipelets/GetOrderBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode10"/>
+  </nodes>
+<!--@Location 26,0-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="AddObjectToCollection1"/>
+    <nodeSuccessors name="ERROR" next="JoinNode17"/>
+    <startNode referencedName="ProcessPayment-StartPayment"/>
+  </nodes>
+<!--@Location 26,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection1">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InCollection" objectPath="Results"/>
+    <parameterBindings name="InObject" objectPath="Result"/>
+    <returnValueBindings name="OutCollection" objectPath="Results"/>
+  </nodes>
+<!--@Location 0,\-4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="SimpleOrderSearch"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ExecutePageableQuery0"/>
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.internal.organization.OrganizationPO"/>
+    <parameters name="CurrentDomain" type="com.intershop.beehive.core.internal.domain.DomainPO"/>
+    <parameters name="PageSizeInteger" type="java.lang.Integer"/>
+    <parameters name="PageNumber" type="java.lang.String"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.internal.ApplicationBOImpl"/>
+  </nodes>
+<!--@Location 0,\-3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery0">
+    <configurationValues name="DefaultPageSize" value="5"/>
+    <configurationValues name="ParameterName_01" value="Buyer"/>
+    <configurationValues name="ParameterName_02" value="OrderDomain"/>
+    <configurationValues name="ParameterName_03" value="SearchForAuctionOrders"/>
+    <configurationValues name="QueryName" value="order/OrderSearch"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <nodeSuccessors name="pipelet_error" next="SetRestError1"/>
+    <parameterBindings name="Connection" nullBinding="true"/>
+    <parameterBindings name="PageSize" objectPath="PageSizeInteger"/>
+    <parameterBindings name="ParameterValue_01" objectPath="CurrentUser"/>
+    <parameterBindings name="ParameterValue_02" objectPath="CurrentOrganization:OwningDomain"/>
+    <parameterBindings name="ParameterValue_03" constant="(Boolean)false"/>
+    <parameterBindings name="Parameters" nullBinding="true"/>
+    <parameterBindings name="Query" nullBinding="true"/>
+    <returnValueBindings name="SearchResult" objectPath="SortedOrders"/>
+  </nodes>
+<!--@Location 0,\-2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameterBindings name="InValue_1" constant="ProcessOrderREST"/>
+    <returnValueBindings name="OutValue_1" objectPath="HandlerPipeline"/>
+  </nodes>
+<!--@Location 0,\-1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="AddMultipleEntriesToMap0"/>
+    <parameterBindings name="PageNumber" objectPath="PageNumber"/>
+    <parameterBindings name="Pageable" objectPath="SortedOrders"/>
+    <startNode referencedName="Paging-SetPageNumber"/>
+  </nodes>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddMultipleEntriesToMap0">
+    <configurationValues name="Mode" value="OverwriteValue"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddMultipleEntriesToMap.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <returnValueBindings name="OutMap" objectPath="GenericHandlerPipelineParams"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <parameterBindings name="InValue_1" objectPath="SortedOrders:ElementCount"/>
+    <returnValueBindings name="OutValue_1" objectPath="ElementCount"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="END" strict="true">
+    <returnValues name="ElementCount" type="java.lang.Object"/>
+    <returnValues name="SortedOrders" type="com.intershop.beehive.core.capi.paging.PageableIterator"/>
+    <returnValues name="ApplicationBO" type="com.intershop.component.application.internal.ApplicationBOImpl"/>
+  </nodes>
+<!--@Location 1,\-3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError1">
+    <configurationValues name="Code" value="search.error"/>
+    <configurationValues name="Message" value="Error during search"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="EndNode33"/>
+  </nodes>
+<!--@Location 2,\-3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode33" name="500" strict="true">
+    <returnValues name="ErrorMessage" type="java.lang.String" optional="true"/>
+    <returnValues name="LocalizationErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 37,\-4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="StartCancelOrder"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode25"/>
+    <parameters name="OrderID" type="java.lang.String"/>
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 37,\-3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode25">
+    <nodeSuccessors name="next" next="EndNode30"/>
+    <nodeSuccessors name="ERROR" next="SetRestError6"/>
+    <nodeSuccessors name="FORBIDDEN" next="EndNode40"/>
+    <nodeSuccessors name="NOT_FOUND" next="EndNode39"/>
+    <nodeSuccessors name="NOT_POSSIBLE" next="SetRestError7"/>
+    <nodeSuccessors name="WRONG_STATUS" next="SetRestError11"/>
+    <startNode referencedName="This:CancelOrder"/>
+  </nodes>
+<!--@Location 38,\-2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode30" strict="true"/>
+<!--@Location 35,\-1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError6">
+    <configurationValues name="Code" value="order.cancel.error"/>
+    <configurationValues name="Message" value="Cancel order failed"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="JoinNode22"/>
+  </nodes>
+<!--@Location 35,0-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode22">
+    <nodeSuccessors name="next" next="EndNode41"/>
+  </nodes>
+<!--@Location 35,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode41" name="400" strict="true">
+    <returnValues name="ErrorMessage" type="java.lang.String" optional="true"/>
+    <returnValues name="LocalizationErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 36,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode40" name="403" strict="true">
+    <returnValues name="ErrorMessage" type="java.lang.String" optional="true"/>
+    <returnValues name="LocalizationErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 37,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode39" name="404" strict="true">
+    <returnValues name="ErrorMessage" type="java.lang.String" optional="true"/>
+    <returnValues name="LocalizationErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 36,\-1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError7">
+    <configurationValues name="Code" value="order.cancel.not_possible.error"/>
+    <configurationValues name="Message" value="Cancellation not possible"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+<!--@BendPoints 72,1-->
+    <nodeSuccessors name="next" next="JoinNode22"/>
+  </nodes>
+<!--@Location 38,\-1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError11">
+    <configurationValues name="Code" value="order.cancel.not_possible.status"/>
+    <configurationValues name="Message" value="The order status has already changed and does not allow cancellation"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="EndNode25"/>
+  </nodes>
+<!--@Location 38,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode25" name="409" strict="true">
+    <returnValues name="ErrorMessage" type="java.lang.String" optional="true"/>
+    <returnValues name="LocalizationErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 11,\-4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode12" strict="true" name="StartCreateOrder"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="termsAndConditions" type="java.lang.Boolean"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"/>
+    <parameters name="CurrentCart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.internal.ApplicationBOImpl"/>
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="CurrentProductRepository" type="com.intershop.component.mvc.internal.catalog.RepositoryPO"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"/>
+    <parameters name="CurrentApplication" type="com.intershop.beehive.core.capi.domain.Application"/>
+    <parameters name="PIIData" type="java.util.HashMap&lt;java.lang.String,java.lang.String>"
+        optional="true"/>
+  </nodes>
+<!--@Location 11,\-3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="NO" next="CallNode18"/>
+<!--@BendPoints 21,\-4-->
+    <nodeSuccessors name="YES" next="EndNode21"/>
+    <nodeSuccessors name="ERROR" next="SetRestError13"/>
+    <parameterBindings name="Basket" objectPath="CurrentCart"/>
+    <parameterBindings name="BasketBO" objectPath="CurrentCartBO"/>
+    <startNode referencedName="This:CreateRecurringOrder"/>
+  </nodes>
+<!--@Location 11,\-1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode18">
+    <nodeSuccessors name="next" next="EndNode12"/>
+    <nodeSuccessors name="ERROR_BASKET_COVERAGE" next="SetRestError2"/>
+    <nodeSuccessors name="ERROR_CREATEORDER" next="SetRestError5"/>
+    <nodeSuccessors name="ERROR_GIFTCARD" next="SetRestError8"/>
+    <nodeSuccessors name="ERROR_INVENTORY" next="SetRestError9"/>
+    <nodeSuccessors name="ERROR_PAYMENT_REDIRECT" next="SetRestError10"/>
+    <nodeSuccessors name="ERROR_TAX" next="SetRestError3"/>
+    <nodeSuccessors name="ERROR_TERMS" next="SetRestError4"/>
+    <nodeSuccessors name="ERROR_MIN_TOTAL_VALUE" next="SetRestError12"/>
+    <startNode referencedName="This:SubmitOrder"/>
+  </nodes>
+<!--@Location 12,0-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" name="Success" strict="true">
+    <returnValues name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"
+        optional="true"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError2">
+    <configurationValues name="Code" value="shopping_cart.not_covered.error"/>
+    <configurationValues name="Message" value="Basket not covered by PaymentMethods"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode21">
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="400" strict="true">
+    <returnValues name="ErrorMessage" type="java.lang.String" optional="true"/>
+    <returnValues name="LocalizationErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError5">
+    <configurationValues name="Code" value="shopping_cart.create_order.error"/>
+    <configurationValues name="Message" value="Error while creating order"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError8">
+    <configurationValues name="Code" value="shopping_cart.giftcard.error"/>
+    <configurationValues name="Message" value="Problems with GiftCard"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError9">
+    <configurationValues name="Code" value="shopping_cart.inventory.error"/>
+    <configurationValues name="Message" value="Problems with Inventory status"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="JoinNode19"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError10">
+    <configurationValues name="Code" value="shopping_cart.payment_redirect.error"/>
+    <configurationValues name="Message" value="Payment redirect error"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError3">
+    <configurationValues name="Code" value="shopping_cart.tax.calculation.error"/>
+    <configurationValues name="Message" value="Error while calculating Sales taxes (tax service unavailable)"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 13,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError4">
+    <configurationValues name="Code" value="shopping_cart.terms_and_conditions.error"/>
+    <configurationValues name="Message" value="Terms And Conditions not accepted"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError12">
+    <configurationValues name="Code" value="shopping_cart.min_total_value.error"/>
+    <configurationValues name="Message" value="Basket does not reach the required minimum merchandize subtotal"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 10,\-2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode21" name="SUCCESS_CREATE_RECURRING_ORDER"
+      strict="true"/>
+<!--@Location 12,\-3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError13">
+    <configurationValues name="Code" value="shopping_cart.create_recurring_order.error"/>
+    <configurationValues name="Message" value="Error while creating recurring order"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="EndNode23"/>
+  </nodes>
+<!--@Location 13,\-3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode23" name="500" strict="true">
+    <returnValues name="ErrorMessage" type="java.lang.String" optional="true"/>
+    <returnValues name="LocalizationErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 16,\-4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" strict="true" name="SubmitOrder"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode30"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="termsAndConditions" type="java.lang.Boolean"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"/>
+    <parameters name="CurrentCart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.internal.ApplicationBOImpl"/>
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="CurrentProductRepository" type="com.intershop.component.mvc.internal.catalog.RepositoryPO"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"/>
+    <parameters name="CurrentApplication" type="com.intershop.beehive.core.capi.domain.Application"/>
+  </nodes>
+<!--@Location 16,\-3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode30">
+    <nodeSuccessors name="next" next="KeyMapper5"/>
+    <parameterBindings name="BasketBO" objectPath="CurrentCartBO"/>
+    <parameterBindings name="Cart" objectPath="CurrentCart"/>
+    <startNode referencedName="ProcessCart-Calculate"/>
+  </nodes>
+<!--@Location 16,\-2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentCart"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:Repository(&quot;CustomerBORepository&quot;):CustomerByID(CurrentUser:ID):Extension(&quot;CustomerBOPreferencesExtension&quot;):OrderConfirmationEmails"/>
+    <returnValueBindings name="OutValue_1" objectPath="Requisition"/>
+    <returnValueBindings name="OutValue_2" objectPath="OrderConfirmationEmails"/>
+  </nodes>
+<!--@Location 16,0-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="CountOrder0"/>
+    <nodeSuccessors name="ERROR_BOOKING" next="EndNode42"/>
+    <nodeSuccessors name="ERROR" next="EndNode9"/>
+    <nodeSuccessors name="GIFTCARD_ERROR" next="EndNode44"/>
+    <nodeSuccessors name="PAYMENT_REDIRECT_ERROR" next="EndNode43"/>
+    <parameterBindings name="BasketBORepository" objectPath="ApplicationBO:Extension(&quot;Basket&quot;):getBasketBORepository(CurrentCart)"/>
+    <parameterBindings name="Cart" objectPath="CurrentCart"/>
+    <parameterBindings name="Organization" objectPath="CurrentOrganization"/>
+    <parameterBindings name="PreferenceDomain" objectPath="CurrentProductRepository:Domain"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="This:CreateOrder"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CountOrder0">
+    <pipelet href="enfinity:/core/pipelets/CountOrder.xml"/>
+    <nodeSuccessors name="next" next="CreateOrderLicenseTransaction_XidcMF2JEeecydOLkMygiQ"/>
+    <parameterBindings name="DomainUUID" objectPath="CurrentApplication:SiteID"/>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateOrderLicenseTransaction_XidcMF2JEeecydOLkMygiQ">
+    <pipelet href="enfinity:/bc_order/pipelets/CreateOrderLicenseTransaction.xml"/>
+    <nodeSuccessors name="next" next="RemoveRequisitionFromSession0"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveRequisitionFromSession0">
+    <pipelet href="enfinity:/bc_requisition/pipelets/RemoveRequisitionFromSession.xml"/>
+    <nodeSuccessors name="next" next="GetDomainPreference2"/>
+    <parameterBindings name="Requisition" objectPath="CurrentCart"/>
+  </nodes>
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference2">
+    <configurationValues name="DefaultPreferenceKey" value="OrderNotificationSendNotification"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="PreferenceDomain" objectPath="CurrentApplication:Domain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="OrderNotificationSendNotification"/>
+  </nodes>
+<!--@Location 16,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="CallNode6"/>
+  </nodes>
+<!--@Location 16,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="EndNode29"/>
+    <parameterBindings name="Organization" objectPath="CurrentOrganization"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="ProcessOrders-AfterCheckoutHandling"/>
+  </nodes>
+<!--@Location 16,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode29" strict="true">
+    <returnValues name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"
+        optional="true"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode42" name="ERROR_INVENTORY" strict="true"/>
+<!--@Location 17,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="ERROR_CREATEORDER" strict="true"/>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode44" name="ERROR_GIFTCARD" strict="true"/>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode43" name="ERROR_PAYMENT_REDIRECT"
+      strict="true"/>
+</pipeline:Pipeline>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="get all indirect user groups">
+<parameters>
+    <parameter name="User" type="com.intershop.beehive.core.capi.user.User" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="UserGroup" type="orm" class="com.intershop.beehive.core.internal.user.UserGroupPO">
+		<return-attribute name="parentusergroupid"/>
+		<return-attribute name="parentusergroupdomainid"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL" />
+<template type="objects">
+<template-comment>
+Notes for the "inline" hint:
+    The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+    of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+    not a good practice.
+Solved problems:
+    Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+    if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+    data were not subsequently deleted.
+</template-comment>
+WITH parents AS (
+  SELECT usergroupid AS id, usergroupdomainid AS domainid
+  FROM usergroupuserassignment
+  WHERE userid = <template-variable value="User:ID"/>
+  UNION ALL
+  SELECT u.id, u.domainid
+  FROM usergroup u, basicprofile b
+  WHERE u.domainid = b.domainid
+  AND b.uuid = <template-variable value="User:ID"/>
+  AND u.id = 'Everyone'
+), cte(parentusergroupid, parentusergroupdomainid, lvl) AS (
+  SELECT id, domainid, 0
+  FROM parents
+  UNION ALL
+  SELECT uga.parentusergroupid, uga.parentusergroupdomainid, lvl + 1
+  FROM usergroupassignment uga JOIN cte ON (
+    uga.childusergroupid = cte.parentusergroupid
+    AND uga.childusergroupdomainid = cte.parentusergroupdomainid
+  )
+)
+SELECT DISTINCT parentusergroupid, parentusergroupdomainid
+FROM cte
+WHERE lvl &gt; 0
+</template>
+</query>

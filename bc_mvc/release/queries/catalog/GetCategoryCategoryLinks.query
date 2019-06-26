@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Retruns the category links of the given category. The sharing of the categories is taken into account.">
+<parameters>
+	<parameter name="Category" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="Catalog" type="com.intershop.component.mvc.capi.catalog.Catalog" optional="false" description="The catalog of this category that exists in the domain where the links should be."/>
+	<parameter name="LinkDirection" type="java.lang.String" optional="true" description="Specifies which links to return Direction parameter the outgoing or incomming links are returned. Valid values are &apos;incoming&apos; and &apos;outgoing&apos;. The default is &apos;outgoing&apos;."/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true" description="Specifies how the result should be sorted. The links are sorted by their position. Because of that the result can be sorted only when the outgoing links are retrieved. Valid values are &apos;ascending&apos; and &apos;descending&apos;. By default the result is unsorted."/>
+	<parameter name="TypeCode" type="java.lang.Integer" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="CatalogCategoryLink" type="orm" class="com.intershop.beehive.xcs.internal.catalog.CatalogCategoryLinkPO">
+		<return-attribute name="linkID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	
+	SELECT uuid linkID
+	FROM
+	(
+		SELECT link.uuid, link.position
+		FROM CatalogCategoryLink link,
+		     CatalogCategory category,
+		     (
+		     	<template-call name="catalog/inc/GetSharingSourceDomainsByCatalogInclude">
+		     		<call-parameter name="Catalog" value="Catalog"/>
+		     	</template-call>
+		     ) sharingDomains
+		WHERE 
+		
+		<template-if condition="LinkDirection EQ &apos;incoming&apos;">
+			
+			link.targetCategoryID = <template-variable value="Category:UUID"/>
+			AND link.sourceCategoryID = category.uuid
+			
+		<if-else/>
+			
+			link.sourceCategoryID = <template-variable value="Category:UUID"/>
+			AND link.targetCategoryID = category.uuid
+			
+		</template-if>
+	
+		AND link.typecode = <template-variable value="TypeCode"/>
+		
+		AND EXISTS
+		(
+		SELECT 1 FROM Catalog
+		WHERE domainID = <template-variable value="Catalog:OwningDomain:UUID"/>
+		AND catalogDomainID = category.domainID
+		)
+		 
+		AND link.domainID = sharingDomains.domainID
+	) a	
+	<template-if condition="((NOT isDefined(LinkDirection)) OR LinkDirection EQ &apos;outgoing&apos;) AND 
+							 isDefined(SortDirection) AND 
+							 (SortDirection EQ &apos;ascending&apos; OR SortDirection EQ  &apos;descending&apos;)">
+		<template-variable value="orderBy('a.position', direction(SortDirection), nullsLast())" processing="text"/>
+	<if-else/>
+		ORDER BY a.position	
+	</template-if>
+</template>
+</query>

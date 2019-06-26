@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Recommendation-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessProductRecommendations" type="process">
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="GetCategoryRefsByUUIDs"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameters name="CategoryIDs" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="CategoryIDs"
+      operator="str_empty">
+<!--@BendPoints 11,21-->
+    <nodeSuccessors name="decision_yes" next="JoinNode4"/>
+<!--@BendPoints 13,5 13,6-->
+    <nodeSuccessors name="decision_no" next="CreateIteratorFromConfigValues4"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 13,22-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+    <returnValues name="Categories" type="java.util.Iterator&lt;com.intershop.beehive.xcs.capi.catalog.CatalogCategory>"
+        optional="true"/>
+    <returnValues name="CategoryRefs" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromConfigValues4">
+    <configurationValues name="Delimiters" value=","/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromConfigValues.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <parameterBindings name="ValuesString" objectPath="CategoryIDs"/>
+    <returnValueBindings name="ValuesIterator" objectPath="CategoryUUIDs"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="CategoryUUIDs"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="GetCategoriesByUUIDs1"/>
+<!--@BendPoints 14,9 14,13-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoriesByUUIDs1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoriesByUUIDs.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="UUIDs" objectPath="CategoryUUIDs"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="LoopNode1"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Categories">
+<!--@BendPoints 14,15 14,21-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <entry key="Category">
+<!--@BendPoints 13,16-->
+      <nodeSuccessors name="loop_entry_next" next="ConcatenateStrings1"/>
+    </entry>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+<!--@BendPoints 13,18-->
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+    <parameterBindings name="String0" objectPath="Category:Name"/>
+    <parameterBindings name="String1" constant="@"/>
+    <parameterBindings name="String2" objectPath="Category:Domain:DomainName"/>
+    <returnValueBindings name="Concatenated" objectPath="CategoryRef"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 13,20 12,20 12,15-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <parameterBindings name="InVector" objectPath="CategoryRefVector"/>
+    <parameterBindings name="Object" objectPath="CategoryRef"/>
+    <returnValueBindings name="Iterator" objectPath="CategoryRefs"/>
+    <returnValueBindings name="OutVector" objectPath="CategoryRefVector"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="GetRandomProductsFromCategoryIDs"
+      callMode="Private">
+<!--@BendPoints 7,4-->
+    <nodeSuccessors name="next" next="GetCategoriesByUUIDs2"/>
+    <parameters name="CategoryUUIDs" type="java.util.Iterator&lt;java.lang.String>"/>
+    <parameters name="ProductDomain" type="java.lang.Object"/>
+    <parameters name="NumberOfProducts" type="java.lang.Integer" optional="true"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoriesByUUIDs2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoriesByUUIDs.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameterBindings name="UUIDs" objectPath="CategoryUUIDs"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="Categories"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="UpdateDictionary4"/>
+<!--@BendPoints 9,7-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary4">
+    <configurationValues name="Name_01" value="Categories"/>
+    <configurationValues name="Name_02" value="RecommendationsNumber"/>
+    <configurationValues name="Name_03" value="LocaleInformation"/>
+    <configurationValues name="Name_04" value="Currency"/>
+    <configurationValues name="Name_05" value="ProductDomain"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery4"/>
+    <parameterBindings name="Value_01" objectPath="Categories"/>
+    <parameterBindings name="Value_02" objectPath="NumberOfProducts"/>
+    <parameterBindings name="Value_03" objectPath="CurrentSession:Locale"/>
+    <parameterBindings name="Value_04" objectPath="CurrentSession:Currency:Mnemonic"/>
+    <parameterBindings name="Value_05" objectPath="ProductDomain"/>
+    <returnValueBindings name="OutDictionary" objectPath="Parameters"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery4">
+    <configurationValues name="QueryName" value="recommendation/GetCategoriesRecommendations"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <returnValueBindings name="SearchResult" objectPath="Products"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 7,14-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="Products" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 9,13-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+</pipeline:Pipeline>

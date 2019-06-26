@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="BasketDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="NewStatus" type="java.lang.Integer" optional="false"/>
+	<parameter name="OldStatuses" type="java.util.Collection" optional="false"/>
+    <parameter name="ExpirationDate" type="java.util.Date" optional="false"/>
+    <parameter name="UpdateHistoryDate" type="java.lang.Boolean" optional="true"/>
+    <parameter name="IgnoreSessionBasedBaskets" type="java.lang.Boolean" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="objects" sqlDialect="Oracle">
+	UPDATE basket b
+		SET	b.STATUS=<template-variable value="NewStatus"/>, b.oca = b.oca + 1,				
+		b.LASTTOUCHED = utctimestamp
+		<template-if condition="(isDefined(UpdateHistoryDate) AND (UpdateHistoryDate))">				
+			,b.HISTORYDATE = utctimestamp		
+		</template-if>	
+	WHERE 
+		b.DOMAINID = <template-variable value="BasketDomain:UUID"/> AND
+		b.TYPE NOT IN (11) AND
+        b.STATUS IN 
+		(
+			<template-loop iterator="OldStatuses" alias="OldStatus">
+				<loop-statement><template-variable value="OldStatus"/></loop-statement>
+                <loop-separator>,</loop-separator>
+			</template-loop>
+		) AND
+		<template-if condition="(isDefined(IgnoreSessionBasedBaskets) AND (IgnoreSessionBasedBaskets))">
+			b.SESSIONBASEDFLAG = 0 AND 
+		</template-if>
+		b.LASTTOUCHED &lt; <template-variable value="ExpirationDate"/>
+</template>
+<template type="objects" sqlDialect="Microsoft">
+	UPDATE basket
+		SET	STATUS=<template-variable value="NewStatus"/>, oca = oca + 1,
+		LASTTOUCHED = GETUTCDATE()
+		<template-if condition="(isDefined(UpdateHistoryDate) AND (UpdateHistoryDate))">		
+			,HISTORYDATE = GETUTCDATE()
+		</template-if>	
+	WHERE 
+		DOMAINID = <template-variable value="BasketDomain:UUID"/> AND
+		TYPE NOT IN (11) AND
+        STATUS IN 
+		(
+			<template-loop iterator="OldStatuses" alias="OldStatus">
+				<loop-statement><template-variable value="OldStatus"/></loop-statement>
+                <loop-separator>,</loop-separator>
+			</template-loop>
+		) AND
+		<template-if condition="(isDefined(IgnoreSessionBasedBaskets) AND (IgnoreSessionBasedBaskets))">
+			SESSIONBASEDFLAG = 0 AND 
+		</template-if>
+		LASTTOUCHED &lt; CAST(<template-variable value="ExpirationDate"/> AS DATE)
+</template>
+</query>

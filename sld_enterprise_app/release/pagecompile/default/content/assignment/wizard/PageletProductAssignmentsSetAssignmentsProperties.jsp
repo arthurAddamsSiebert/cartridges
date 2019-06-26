@@ -1,0 +1,57 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"content/Modules", null, "2");} %><!-- Working Area -->
+<!-- Page Navigator --><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewPageProductAssignmentsCreation-SetAssignmentsProperties",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("PageletUUID",null),context.getFormattedValue(getObject("Pagelet:UUID"),null))).addURLParameter(context.getFormattedValue("ContentRepositoryUUID",null),context.getFormattedValue(getObject("ContentRepositoryUUID"),null)).addURLParameter(context.getFormattedValue("AssignmentType",null),context.getFormattedValue(getObject("AssignmentType"),null)).addURLParameter(context.getFormattedValue("PageletEntryPointDefinitionQName",null),context.getFormattedValue(getObject("PageletEntryPointDefinitionQName"),null)).addURLParameter(context.getFormattedValue("ContextObjectRelationDefinitionQName",null),context.getFormattedValue(getObject("ContextObjectRelationDefinitionQName"),null)))),
+new TagParameter("wizard","true"),
+new TagParameter("id","PageAssignmentsSetAssignmentsProperties"),
+new TagParameter("text",localizeText(context.getFormattedValue("PageletProductAssignmentsSetAssignmentsProperties.Step3SetPriorityAndVisibility.text",null)))}, 7); %><!-- EO Page Navigator --><% URLPipelineAction action343 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPageProductAssignmentsCreation-Dispatch",null)))),null));String site343 = null;String serverGroup343 = null;String actionValue343 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPageProductAssignmentsCreation-Dispatch",null)))),null);if (site343 == null){  site343 = action343.getDomain();  if (site343 == null)  {      site343 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup343 == null){  serverGroup343 = action343.getServerGroup();  if (serverGroup343 == null)  {      serverGroup343 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPageProductAssignmentsCreation-Dispatch",null)))),null));out.print("\"");out.print(" name=\"");out.print("AssignmentPropertiesForm");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue343, site343, serverGroup343,true)); %><input name="ContentEntryPointDefinitionInclusionQName" type="hidden" value="<% {String value = null;try{value=context.getFormattedValue(getObject("ContentEntryPointDefinitionInclusionQName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {11}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input name="ViewContextUUID" type="hidden" value="<% {String value = null;try{value=context.getFormattedValue(getObject("ViewContextUUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {12}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input name="PageletUUID" type="hidden" value="<% {String value = null;try{value=context.getFormattedValue(getObject("Pagelet:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {13}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input name="ContentRepositoryUUID" type="hidden" value="<% {String value = null;try{value=context.getFormattedValue(getObject("ContentRepositoryUUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {14}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input name="AssignmentType" type="hidden" value="<% {String value = null;try{value=context.getFormattedValue(getObject("AssignmentType"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {15}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input name="SelectedTab" type="hidden" value="Assignments" /><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("Pagelet:Page"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",17,e);}if (_boolean_result) { %><input type="hidden" name="ProcessDescription" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PageletProductAssignmentsSetAssignmentsProperties.AssignPageVariantToProductPages.input",null)),null)%>"/><% } else { %><input type="hidden" name="ProcessDescription" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PageletProductAssignmentsSetAssignmentsProperties.AssignComponentToProductIncludes.input",null)),null)%>"/><% } %><table border="0" cellspacing="0" cellpadding="0" width="100%"><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("Pagelet:Page"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",23,e);}if (_boolean_result) { %><tr><td class="table_title aldi" nowrap="nowrap"><% {out.write(localizeISText("PageletProductAssignmentsSetAssignmentsProperties.AssignPageVariantToProductPagesStep3SetPriorityAnd.table_title",null,null,null,null,null,null,null,null,null,null,null,null));} %></td></tr><% } else { %><tr><td class="table_title aldi" nowrap="nowrap"><% {out.write(localizeISText("PageletProductAssignmentsSetAssignmentsProperties.AssignComponentToProductIncludesStep3SetPriorityAn.table_title",null,null,null,null,null,null,null,null,null,null,null,null));} %></td></tr><% } %></table> 
+<!-- Error Handling --><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"content/inc/PageletAssignmentPropertiesErrors", null, "30");} %><!-- EO Error Handling -->
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td class="w e s table_title_description" nowrap="nowrap"><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("Pagelet:Page"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",35,e);}if (_boolean_result) { %><% {out.write(localizeISText("PageletProductAssignmentsSetAssignmentsProperties.Step3Of3BrBrSetThePriorityAndVisibilityForTheSelec.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } else { %><% {out.write(localizeISText("PageletProductAssignmentsSetAssignmentsProperties.Step3Of3BrBrSetThePriorityAndVisibilityForTheSelec.table_title_description1",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } %></td>
+</tr>
+</table>
+<table class="infobox_item e s w" style="padding: 4px;" cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr>
+<td>
+<input type="checkbox" name="AssignOnlyIfNotAssigned" value="true" <% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("AssignOnlyIfNotAssigned"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",46,e);}if (_boolean_result) { %>checked="checked"<% } %> id="AssignOnlyIfNotAssigned"/>
+</td>
+<td width="100%"><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("Pagelet:Page"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",49,e);}if (_boolean_result) { %><label for="AssignOnlyIfNotAssigned">&nbsp;<% {out.write(localizeISText("PageletProductAssignmentsSetAssignmentsProperties.AssignOnlyIfThePageVariantIsNotAlreadyAssignedToTh.label",null,null,null,null,null,null,null,null,null,null,null,null));} %></label><% } else { %><label for="AssignOnlyIfNotAssigned">&nbsp;<% {out.write(localizeISText("PageletProductAssignmentsSetAssignmentsProperties.AssignOnlyIfTheComponentIsNotAlreadyAssignedToTheI.label",null,null,null,null,null,null,null,null,null,null,null,null));} %></label><% } %></td>
+</tr>
+</table><% processOpenTag(response, pageContext, "pageletassignmentproperties", new TagParameter[] {
+new TagParameter("DatePatternLocale",getObject("CurrentSession:Locale")),
+new TagParameter("ShowHeading","false")}, 58); %><table class="w e s" width="100%" border="0" cellspacing="0" cellpadding="0">
+<tr>
+<td align="left" colspan="2">
+<table border="0" cellspacing="4" cellpadding="0">
+<tr>
+<td class="button">
+<input type="submit" name="backToTypeSelection" value="&lt;&lt;&nbsp;<%=context.getFormattedValue(localizeText(context.getFormattedValue("PageletProductAssignmentsSetAssignmentsProperties.Previous.button",null)),null)%>" class="button"/>
+</td>
+</tr>
+</table>
+</td>
+<td align="right">
+<table border="0" cellspacing="4" cellpadding="0">
+<tr>
+<td class="button">
+<input type="submit" name="assignProducts" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PageletProductAssignmentsSetAssignmentsProperties.Finish.button",null)),null)%>" class="button"/>
+</td>
+<td class="button">
+<input type="submit" name="cancelAssign" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PageletProductAssignmentsSetAssignmentsProperties.Cancel.button",null)),null)%>" class="button"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table><% out.print("</form>"); %><!-- EO Main Content -->
+<!-- EO Working Area --><% printFooter(out); %>

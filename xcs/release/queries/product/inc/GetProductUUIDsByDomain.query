@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Returns the UUIDs of all products that are available in the given domain,
+including products that are available through sharing.
+For a product to be available in the given domain one of the following conditions must be met:
+  * The product is local for this domain.
+  * The product is shared via outbound sharing to this domain (sharing all products or via selection in an enabled sharing group) and:
+  ** Inbound sharing is disabled for this domain.
+  ** Inbound sharing is enabled for this domain and the product is activated.">
+
+<parameters>
+	<parameter optional="false" name="DomainUUID" type="java.lang.String"/>
+</parameters>
+
+<processor name="OracleSQL"/>
+
+<template>
+<template-comment>
+Notes for the "inline" hint:
+    The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+    of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+    not a good practice.
+Solved problems:
+    Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+    if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+    data were not subsequently deleted.
+</template-comment>
+	<sql-dialect name="Microsoft">
+	WITH InboundProductSet
+	AS (
+		SELECT /*+ inline - to avoid massive not released temporary tablespace data */ ips.uuid
+			,psa.productUUID
+		FROM ProductSet ips
+		LEFT OUTER JOIN ProductSetAssignment psa ON (ips.uuid = psa.productSetUUID)
+		WHERE ips.domainID =  <template-variable value="DomainUUID"/> 
+			AND ips.inboundFlag = 1
+		),
+	ProductUUIDs AS
+	(
+		SELECT DISTINCT uuid 
+		FROM Product p
+		WHERE (p.domainID = <template-variable value="DomainUUID"/>)
+			OR EXISTS (
+				SELECT 1
+				FROM ProductSet ps
+					,ProductSetDomainAssignment psda
+				WHERE ps.uuid = psda.productSetUUID
+					AND ps.activeFlag = 1
+					AND psda.domainID = <template-variable value="DomainUUID"/> 
+					AND (
+						(ps.allFlag = 1)
+						OR (
+							ps.allFlag = 0
+							AND EXISTS (
+								SELECT 1
+								FROM ProductSetAssignment psa
+								WHERE psa.productSetUUID = ps.uuid
+									AND psa.productUUID = p.uuid
+								)
+							)
+						)
+					AND (
+						NOT EXISTS (
+							SELECT 1
+							FROM InboundProductSet ips
+							)
+						OR EXISTS (
+							SELECT 1
+							FROM InboundProductSet ips
+							WHERE ips.productUUID = p.uuid
+							)
+						)
+				)	
+	)	
+	</sql-dialect>
+	<sql-dialect name="Oracle">
+			
+		
+	WITH InboundProductSet AS
+	(
+		SELECT /*+ inline - to avoid massive not released temporary tablespace data */ ips.uuid, psa.productUUID
+		FROM ProductSet ips LEFT OUTER JOIN ProductSetAssignment psa ON (ips.uuid = psa.productSetUUID)
+		WHERE
+		ips.domainID = <template-variable value="DomainUUID"/> AND
+		ips.inboundFlag = 1
+	)
+	SELECT DISTINCT uuid FROM Product p
+	WHERE
+	(
+		p.domainID = <template-variable value="DomainUUID"/>
+	) 
+	OR EXISTS 
+	(
+		SELECT 1 FROM ProductSet ps, ProductSetDomainAssignment psda
+		WHERE
+		ps.uuid = psda.productSetUUID AND
+		ps.activeFlag = 1 AND
+		psda.domainID = <template-variable value="DomainUUID"/> AND
+		(
+			(
+				ps.allFlag = 1
+			) 
+			OR
+			(
+				ps.allFlag = 0 AND
+				EXISTS 
+				(
+					SELECT 1 FROM ProductSetAssignment psa WHERE psa.productSetUUID = ps.uuid AND psa.productUUID = p.uuid
+				)
+			)
+		)
+		AND
+		(
+			NOT EXISTS
+			(
+				SELECT 1 FROM InboundProductSet ips
+			)
+			OR EXISTS
+			(
+				SELECT 1 FROM InboundProductSet ips
+				WHERE
+				ips.productUUID = p.uuid
+			)
+		)
+	)
+	</sql-dialect>
+</template>
+</query>

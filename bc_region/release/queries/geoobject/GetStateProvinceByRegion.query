@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="RegionID" type="java.lang.String" optional="false"/>
+	<parameter name="GeoObjectDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="StateProvince" type="orm" class="com.intershop.component.region.internal.geoobject.StateProvincePO">
+		<return-attribute name="uuid"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	
+	SELECT s.uuid,av.stringvalue AS state,c.id as country, COUNT(*) over()
+	AS "rowcount"
+	FROM stateprovince s
+	LEFT JOIN stateprovince_av av ON (s.uuid = av.ownerid AND av.name = &apos;displayName&apos; AND av.localeid = <template-variable value="Locale:LocaleID" />)
+	LEFT JOIN country c ON s.countryid = c.uuid
+	WHERE
+	s.domainid =
+	<template-variable value="GeoObjectDomain:DomainID"/>
+	AND
+	s.uuid in
+	(
+	select distinct geoobjectid from regiongeoobjectassignment
+	where regionid = (select uuid from region where id =
+	<template-variable value="RegionID"/> and domainid = <template-variable value="Domain:DomainID"/>)
+	)
+	
+	<sql-dialect name="Microsoft">
+		ORDER BY country, CASE WHEN av.stringvalue IS NULL THEN 0 ELSE 1 END DESC, av.stringvalue ASC 
+	</sql-dialect>
+	<sql-dialect name="Oracle">
+		ORDER BY country,state
+		ASC NULLS LAST
+	</sql-dialect>
+	
+</template>
+</query>

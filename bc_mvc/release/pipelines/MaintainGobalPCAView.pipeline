@@ -1,0 +1,586 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Catalog-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="MaintainGobalPCAView" type="process">
+<!--Invalidates the given repositories. If no repository is given the "system" repository is invalidated.
+@Location 3,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode2" height="1" width="1"/>
+<!--Updates the global pca view if any of the given repositories is invalid. If no repository is given the view is updated if any reposiory is invalid.
+@Location 0,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" name="CheckForUpdateRequired"
+      callMode="Private">
+<!--@BendPoints 15,4-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameters name="ValidationRepositories" type="java.util.Iterator" optional="true"/>
+    <parameters name="ValidationRepository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--@BendPoints 17,6-->
+    <nodeSuccessors name="AllAlreadyMarked" next="EndNode10"/>
+    <startNode referencedName="MaintainGobalPCAView-GetValidationDomains"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ValidationDomains"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="JoinNode1"/>
+<!--@BendPoints 17,9-->
+    <nodeSuccessors name="decision_no" next="Pipelet6"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="LoopNode4"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode4" loop="ValidationDomains">
+<!--@BendPoints 20,15 20,22 15,22-->
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <entry key="ValidationDomain">
+<!--@BendPoints 15,16-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode6"/>
+    </entry>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="ValidationDomain:InvalidGlobalPCAView"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="JoinNode3"/>
+<!--@BendPoints 16,17-->
+    <nodeSuccessors name="decision_no" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 15,20 14,20 14,15-->
+    <nodeSuccessors name="next" next="LoopNode4_Entry"/>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="ValidationDomain:InvalidGlobalPCAView"
+      operator="eq" conditionValue="1">
+<!--@BendPoints 19,17 19,18-->
+    <nodeSuccessors name="decision_yes" next="EndNode11"/>
+<!--@BendPoints 17,19-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" name="UpdateRequired"/>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="AllDomains:LastUpdateGlobalPCAView">
+<!--@BendPoints 15,27-->
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue1"/>
+<!--@BendPoints 16,23-->
+    <nodeSuccessors name="decision_no" next="EndNode13"/>
+  </nodes>
+<!--@Location 7,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="iepca_newstate_updated"/>
+    <configurationValues name="Value" value="1"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="GetFirstElementOfIterator1"/>
+  </nodes>
+<!--@Location 7,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFirstElementOfIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFirstElementOfIterator.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+    <parameterBindings name="Iterator" objectPath="ValidationDomains"/>
+    <returnValueBindings name="FirstElement" objectPath="FirstElement"/>
+  </nodes>
+<!--@Location 7,16-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="AllDomains:UUID"
+      operator="str_eq" conditionItem="FirstElement:UUID">
+    <nodeSuccessors name="decision_yes" next="CheckForGlobalPCAViewUpdate1"/>
+<!--@BendPoints 19,33-->
+    <nodeSuccessors name="decision_no" next="Pipelet8"/>
+  </nodes>
+<!--@Location 7,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForGlobalPCAViewUpdate1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/CheckForGlobalPCAViewUpdate.xml"/>
+    <nodeSuccessors name="next" next="EndNode5"/>
+<!--@BendPoints 17,35-->
+    <nodeSuccessors name="pipelet_error" next="EndNode14"/>
+    <parameterBindings name="ProductDomains" nullBinding="true"/>
+  </nodes>
+<!--@Location 7,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="NoUpdate"/>
+<!--@Location 8,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" name="UpdateRequired"/>
+<!--@Location 9,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet8">
+    <pipelet href="enfinity:/bc_mvc/pipelets/CheckForGlobalPCAViewUpdate.xml"/>
+<!--@BendPoints 19,36-->
+    <nodeSuccessors name="next" next="EndNode15"/>
+<!--@BendPoints 21,35-->
+    <nodeSuccessors name="pipelet_error" next="EndNode16"/>
+    <parameterBindings name="ProductDomains" objectPath="ValidationDomains"/>
+  </nodes>
+<!--@Location 9,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" name="NoUpdate"/>
+<!--@Location 10,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" name="UpdateRequired"/>
+<!--@Location 8,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" name="UpdateRequired"/>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 17,13-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" objectPath="AllDomains"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="ValidationDomains"/>
+    <returnValueBindings name="OutVector" nullBinding="true"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name="UpdateRequired"/>
+<!--@Location 0,11-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" name="Error" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+  </nodes>
+<!--@Location 0,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="Process">
+    <nodeSuccessors name="decision_yes" next="Pipelet13"/>
+<!--@BendPoints 2,25 2,31-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 0,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet13">
+    <pipelet href="enfinity:/core/pipelets/ReleaseResourcesForProcess.xml"/>
+<!--@BendPoints 1,28-->
+    <nodeSuccessors name="next" next="FinishProcess2"/>
+  </nodes>
+<!--@Location 0,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FinishProcess2">
+    <pipelet href="enfinity:/core/pipelets/FinishProcess.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 0,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="EndNode12"/>
+  </nodes>
+<!--@Location 0,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12"/>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="GetUpdateRequiredDomains"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetLocale1"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="LocaleInformation"/>
+    <configurationValues name="QueryName" value="catalog/GetUpdateRequiredDomains"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 21,8-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Locale"/>
+    <returnValueBindings name="SearchResult" objectPath="UpdateRequiredDomains"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4"/>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="GetValidationDomains"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DetermineUnit1"/>
+    <parameters name="ValidationRepositories" type="java.util.Iterator" optional="true"/>
+    <parameters name="ValidationRepository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUnit1">
+    <pipelet href="enfinity:/core/pipelets/DetermineUnit.xml"/>
+<!--@BendPoints 11,6-->
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+    <parameterBindings name="UnitName" constant="root"/>
+    <returnValueBindings name="Unit" objectPath="AllDomains"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="AllDomains:InvalidGlobalPCAView"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+<!--@BendPoints 12,7-->
+    <nodeSuccessors name="decision_no" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="ValidationRepositories">
+    <nodeSuccessors name="decision_yes" next="Pipelet11"/>
+<!--@BendPoints 13,13-->
+    <nodeSuccessors name="decision_no" next="Pipelet10"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet11">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="ValidationDomains"/>
+    <returnValueBindings name="OutVector" objectPath="ValidationDomainsSet"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="ValidationRepositories">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <entry key="ValidationRep">
+      <nodeSuccessors name="loop_entry_next" next="Pipelet9"/>
+    </entry>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet9">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 11,20 10,20 10,17-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <parameterBindings name="InVector" objectPath="ValidationDomainsSet"/>
+    <parameterBindings name="Object" objectPath="ValidationRep:RepositoryDomain"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="ValidationDomains"/>
+    <returnValueBindings name="OutVector" objectPath="ValidationDomainsSet"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3"/>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet10">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" objectPath="ValidationRepository:RepositoryDomain"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="ValidationDomains"/>
+    <returnValueBindings name="OutVector" nullBinding="true"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="AllDomains:InvalidGlobalPCAView"
+      operator="eq" conditionValue="2">
+<!--@BendPoints 14,7 14,10 13,10-->
+    <nodeSuccessors name="decision_yes" next="EndNode7"/>
+<!--@BendPoints 13,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="AllAlreadyMarked"/>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="InvalidateGlobalPCAView"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameters name="ValidationRepositories" type="java.util.Iterator" optional="true"/>
+    <parameters name="ValidationRepository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+<!--@BendPoints 9,6-->
+    <nodeSuccessors name="AllAlreadyMarked" next="EndNode8"/>
+    <startNode referencedName="MaintainGobalPCAView-GetValidationDomains"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ValidationDomains"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="Pipelet1"/>
+<!--@BendPoints 9,9 9,10-->
+    <nodeSuccessors name="decision_no" next="Pipelet4"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="DefaultAttributeName" value="InvalidGlobalPCAView"/>
+    <configurationValues name="DefaultAttributeType" value="Integer"/>
+    <configurationValues name="DefaultAttributeValue" value="1"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+<!--@BendPoints 7,12-->
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <parameterBindings name="AttributeName" nullBinding="true"/>
+    <parameterBindings name="AttributeType" nullBinding="true"/>
+    <parameterBindings name="AttributeValue" nullBinding="true"/>
+    <parameterBindings name="ExtensibleObject" objectPath="AllDomains"/>
+    <parameterBindings name="LocaleInformation" nullBinding="true"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="ValidationDomains">
+<!--@BendPoints 8,13 8,16-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <entry key="ValidationDomain">
+<!--@BendPoints 7,14-->
+      <nodeSuccessors name="loop_entry_next" next="UpdateCustomAttribute1"/>
+    </entry>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttribute1">
+    <configurationValues name="DefaultAttributeName" value="InvalidGlobalPCAView"/>
+    <configurationValues name="DefaultAttributeType" value="Integer"/>
+    <configurationValues name="DefaultAttributeValue" value="1"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+<!--@BendPoints 7,16 6,16 6,13-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <parameterBindings name="AttributeName" nullBinding="true"/>
+    <parameterBindings name="AttributeType" nullBinding="true"/>
+    <parameterBindings name="AttributeValue" nullBinding="true"/>
+    <parameterBindings name="ExtensibleObject" objectPath="ValidationDomain"/>
+    <parameterBindings name="LocaleInformation" nullBinding="true"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="DefaultAttributeName" value="InvalidGlobalPCAView"/>
+    <configurationValues name="DefaultAttributeType" value="Integer"/>
+    <configurationValues name="DefaultAttributeValue" value="2"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+<!--@BendPoints 9,12-->
+    <nodeSuccessors name="next" next="EndNode9"/>
+    <parameterBindings name="AttributeName" nullBinding="true"/>
+    <parameterBindings name="AttributeType" nullBinding="true"/>
+    <parameterBindings name="AttributeValue" nullBinding="true"/>
+    <parameterBindings name="ExtensibleObject" objectPath="AllDomains"/>
+    <parameterBindings name="LocaleInformation" nullBinding="true"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9"/>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8"/>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" name="Old62" callMode="Private">
+<!--@BendPoints 7,24-->
+    <nodeSuccessors name="next" next="GetPropertyValue1"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPropertyValue1">
+    <configurationValues name="DefaultPropertyValue" value="6.2.0.0.0"/>
+    <configurationValues name="PropertyName" value="intershop.cartridges.bc_mvc.compatible.maintain_global_iepca_snapshot"/>
+    <configurationValues name="PropertyType" value="Global"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPropertyValue.xml"/>
+<!--@BendPoints 7,26-->
+    <nodeSuccessors name="next" next="GetStringSubstitution1"/>
+    <returnValueBindings name="PropertyValue" objectPath="compatible.maintain_global_iepca"/>
+  </nodes>
+<!--Substitutes from input 1.2.* the first and second number with decimal separator '.' \- Example: input 6.1.0.0.0 output 6.1
+@Location 3,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetStringSubstitution1">
+    <configurationValues name="DefaultPattern" value="^(\d+\.\d+).*$"/>
+    <configurationValues name="DefaultSubstitutionPattern" value="\1"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetStringSubstitution.xml"/>
+<!--@BendPoints 7,28-->
+    <nodeSuccessors name="next" next="FromString1"/>
+    <parameterBindings name="InputString" objectPath="compatible.maintain_global_iepca"/>
+    <returnValueBindings name="OutputString" objectPath="compatible.maintain_global_iepca"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FromString1">
+    <configurationValues name="Type" value="Double"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/FromString.xml"/>
+<!--@BendPoints 7,30-->
+    <nodeSuccessors name="next" next="DecisionNode12"/>
+    <parameterBindings name="StringValue" objectPath="compatible.maintain_global_iepca"/>
+    <returnValueBindings name="Object" objectPath="compatible.maintain_global_iepca"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="compatible.maintain_global_iepca"
+      operator="lt" conditionValue="6.2">
+<!--@BendPoints 7,34-->
+    <nodeSuccessors name="decision_yes" next="CallNode6"/>
+<!--@BendPoints 9,31 9,32-->
+    <nodeSuccessors name="decision_no" next="CallNode5"/>
+  </nodes>
+<!--@Location 3,17-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 7,39-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <startNode referencedName="MaintainGobalPCAView-PerformUpdateGlobalPCAView_61compatible"/>
+  </nodes>
+<!--@Location 4,19-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode19"/>
+  </nodes>
+<!--@Location 4,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode19"/>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+<!--@BendPoints 11,34 11,36 11,39-->
+    <nodeSuccessors name="NoUpdate" next="JoinNode4"/>
+    <nodeSuccessors name="UpdateRequired" next="CallNode4"/>
+    <startNode referencedName="MaintainGobalPCAView-CheckForUpdateRequired"/>
+  </nodes>
+<!--@Location 4,18-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <startNode referencedName="MaintainGobalPCAView-PerformUpdateGlobalPCAView"/>
+  </nodes>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" name="PerformUpdateGlobalPCAView"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet5"/>
+  </nodes>
+<!--@Location 12,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <configurationValues name="DefaultAttributeName" value="InvalidGlobalPCAView"/>
+    <configurationValues name="DefaultAttributeType" value="Integer"/>
+    <configurationValues name="DefaultAttributeValue" value="0"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameterBindings name="AttributeName" nullBinding="true"/>
+    <parameterBindings name="AttributeType" nullBinding="true"/>
+    <parameterBindings name="AttributeValue" nullBinding="true"/>
+    <parameterBindings name="ExtensibleObject" objectPath="AllDomains"/>
+    <parameterBindings name="LocaleInformation" nullBinding="true"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="LoopNode3"/>
+    <startNode referencedName="MaintainGobalPCAView-GetUpdateRequiredDomains"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="UpdateRequiredDomains">
+<!--@BendPoints 27,9-->
+    <nodeSuccessors name="next" next="Pipelet7"/>
+    <entry key="UpdateRequiredDomain">
+<!--@BendPoints 25,10-->
+      <nodeSuccessors name="loop_entry_next" next="Pipelet3"/>
+    </entry>
+  </nodes>
+<!--@Location 12,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="DefaultAttributeName" value="InvalidGlobalPCAView"/>
+    <configurationValues name="DefaultAttributeType" value="Integer"/>
+    <configurationValues name="DefaultAttributeValue" value="0"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+<!--@BendPoints 25,12 24,12 24,9-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+    <parameterBindings name="AttributeName" nullBinding="true"/>
+    <parameterBindings name="AttributeType" nullBinding="true"/>
+    <parameterBindings name="AttributeValue" nullBinding="true"/>
+    <parameterBindings name="ExtensibleObject" objectPath="UpdateRequiredDomain"/>
+    <parameterBindings name="LocaleInformation" nullBinding="true"/>
+  </nodes>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet7">
+    <configurationValues name="DefaultAttributeName" value="LastUpdateGlobalPCAView"/>
+    <configurationValues name="DefaultAttributeType" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+<!--@BendPoints 27,12-->
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <parameterBindings name="AttributeName" nullBinding="true"/>
+    <parameterBindings name="AttributeType" nullBinding="true"/>
+    <parameterBindings name="AttributeValue" objectPath="AllDomains:LastModified:Time"/>
+    <parameterBindings name="ExtensibleObject" objectPath="AllDomains"/>
+    <parameterBindings name="LocaleInformation" nullBinding="true"/>
+  </nodes>
+<!--@Location 13,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+<!--@BendPoints 27,14-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <startNode referencedName="UpdateProductAssignmentSnapshot-Start"/>
+  </nodes>
+<!--@Location 13,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" name="PerformUpdateGlobalPCAView_61compatible"
+      callMode="Private">
+<!--@BendPoints 31,4-->
+    <nodeSuccessors name="next" next="CallNode7"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+<!--@BendPoints 31,6-->
+    <nodeSuccessors name="next" next="EndNode18"/>
+    <startNode referencedName="UpdateProductAssignmentSnapshot-Start"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode18"/>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="UpdateGlobalPCAView"
+      callMode="Private">
+<!--@BendPoints 1,4-->
+    <nodeSuccessors name="next" next="CreateProcess1"/>
+    <parameters name="ValidationRepositories" type="java.util.Iterator" optional="true"/>
+    <parameters name="ValidationRepository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateProcess1">
+    <configurationValues name="ProcessDescription" value="Ensures that the 'ieproductcategoryassignment' view is filled with consistent data."/>
+    <configurationValues name="ProcessName" value="UpdateGlobalPCAView"/>
+    <pipelet href="enfinity:/core/pipelets/CreateProcess.xml"/>
+<!--@BendPoints 1,6-->
+    <nodeSuccessors name="next" next="AcquireResourcesForProcess2"/>
+<!--@BendPoints 3,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="InitialState" nullBinding="true"/>
+    <parameterBindings name="ProcessDescription" nullBinding="true"/>
+    <parameterBindings name="ProcessName" nullBinding="true"/>
+    <parameterBindings name="Type" nullBinding="true"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AcquireResourcesForProcess2">
+    <configurationValues name="ResourceIDs" value="IEProductCategoryAssignmentView"/>
+    <pipelet href="enfinity:/core/pipelets/AcquireResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="CallNode9"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="AcquisitionTimeout" constant="(Integer)600"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+<!--@BendPoints 1,10-->
+    <nodeSuccessors name="next" next="ReleaseResourcesForProcess1"/>
+    <startNode referencedName="UpdateProductAssignmentSnapshot-Start"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ReleaseResourcesForProcess1">
+    <pipelet href="enfinity:/core/pipelets/ReleaseResourcesForProcess.xml"/>
+<!--@BendPoints 1,12-->
+    <nodeSuccessors name="next" next="FinishProcess1"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FinishProcess1">
+    <pipelet href="enfinity:/core/pipelets/FinishProcess.xml"/>
+<!--@BendPoints 1,14-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6"/>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="DecisionNode11"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="Process">
+    <nodeSuccessors name="decision_yes" next="Pipelet2"/>
+<!--@BendPoints 4,9 4,15-->
+    <nodeSuccessors name="decision_no" next="JoinNode7"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/core/pipelets/ReleaseResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="FinishProcess3"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FinishProcess3">
+    <configurationValues name="EndState" value="failed"/>
+    <pipelet href="enfinity:/core/pipelets/FinishProcess.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 3,16-->
+    <nodeSuccessors name="next" next="EndNode17"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" name="ERROR"/>
+</pipeline:Pipeline>

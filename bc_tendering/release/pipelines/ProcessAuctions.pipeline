@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Different jobs regarding auctions: finds and refreshs all invalidate auctions, repeat recurring auctions.
+@Group Job-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessAuctions" type="process">
+<!--@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="RepeatAuctions" callMode="Private">
+    <nodeSuccessors name="next" next="GetAuctions1"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctions1">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctions.xml"/>
+    <nodeSuccessors name="next" next="Join6"/>
+<!--@BendPoints 24,3 24,5-->
+    <nodeSuccessors name="pipelet_error" next="Join6"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+    <nodeSuccessors name="next" next="Loop4"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop4" loop="Auctions">
+    <nodeSuccessors name="next" next="End2"/>
+    <entry key="Auction">
+      <nodeSuccessors name="loop_entry_next" next="Decision5"/>
+    </entry>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision5" conditionKey="Auction:State"
+      operator="gte" conditionValue="1">
+    <nodeSuccessors name="decision_yes" next="Decision4"/>
+<!--@BendPoints 26,9 26,15-->
+    <nodeSuccessors name="decision_no" next="Join7"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision4" conditionKey="Auction:RepeatingCount"
+      operator="gt" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="CreateChildAuctions1"/>
+<!--@BendPoints 25,11-->
+    <nodeSuccessors name="decision_no" next="Join7"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateChildAuctions1">
+    <pipelet href="enfinity:/bc_tendering/pipelets/CreateChildAuctions.xml"/>
+<!--@BendPoints 23,15-->
+    <nodeSuccessors name="next" next="Join7"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+<!--@BendPoints 25,16 21,16 21,7-->
+    <nodeSuccessors name="next" next="Loop4_Entry"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="UpdateAuctionStates"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DetermineInvalidAuctions1"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineInvalidAuctions1">
+    <configurationValues name="DefaultAuctionState" value="1"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/DetermineInvalidAuctions.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="InvalidAuctions">
+<!--@BendPoints 7,5-->
+    <nodeSuccessors name="next" next="DetermineInvalidAuctions2"/>
+    <entry key="Auction">
+      <nodeSuccessors name="loop_entry_next" next="RefreshAuction1"/>
+    </entry>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshAuction1">
+    <pipelet href="enfinity:/bc_tendering/pipelets/RefreshAuction.xml"/>
+    <nodeSuccessors name="next" next="UpdateRunningAuctionsCounter1"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRunningAuctionsCounter1">
+    <configurationValues name="Mode" value="Increment"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/UpdateRunningAuctionsCounter.xml"/>
+<!--@BendPoints 3,10 1,10 1,5-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineInvalidAuctions2">
+    <configurationValues name="DefaultAuctionState" value="2"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/DetermineInvalidAuctions.xml"/>
+    <nodeSuccessors name="next" next="Loop2"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="InvalidAuctions">
+<!--@BendPoints 15,9-->
+    <nodeSuccessors name="next" next="DetermineInvalidAuctions3"/>
+    <entry key="Auction">
+      <nodeSuccessors name="loop_entry_next" next="RefreshAuction2"/>
+    </entry>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshAuction2">
+    <pipelet href="enfinity:/bc_tendering/pipelets/RefreshAuction.xml"/>
+    <nodeSuccessors name="next" next="Decision1"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="Auction:State"
+      operator="eq" conditionValue="4">
+    <nodeSuccessors name="decision_yes" next="ExecutePipeline1"/>
+<!--@BendPoints 9,13-->
+    <nodeSuccessors name="decision_no" next="Decision3"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline1">
+    <configurationValues name="PipelineDomainName" value="CurrentDomain"/>
+    <configurationValues name="PipelineName" value="AuctionNotification"/>
+    <configurationValues name="PipelineStartNode" value="AuctionExtended"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="Join3"/>
+<!--@BendPoints 8,15 8,17-->
+    <nodeSuccessors name="pipelet_error" next="Join3"/>
+    <parameterBindings name="PipelineDomain" objectPath="CurrentDomain"/>
+    <parameterBindings name="PipelineName" objectPath="not used"/>
+    <parameterBindings name="PipelineStartNode" objectPath="not used"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+<!--@BendPoints 7,23-->
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+<!--@BendPoints 9,24 5,24 5,9-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="Auction:State"
+      operator="eq" conditionValue="8">
+    <nodeSuccessors name="decision_yes" next="UpdateRunningAuctionsCounter2"/>
+<!--@BendPoints 11,15 11,23-->
+    <nodeSuccessors name="decision_no" next="Join1"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRunningAuctionsCounter2">
+    <configurationValues name="Mode" value="Decrement"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/UpdateRunningAuctionsCounter.xml"/>
+    <nodeSuccessors name="next" next="ExecutePipeline3"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline3">
+    <configurationValues name="PipelineDomainName" value="CurrentDomain"/>
+    <configurationValues name="PipelineName" value="AuctionNotification"/>
+    <configurationValues name="PipelineStartNode" value="AuctionFinished"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="Join5"/>
+<!--@BendPoints 10,19 10,21-->
+    <nodeSuccessors name="pipelet_error" next="Join5"/>
+    <parameterBindings name="PipelineDomain" objectPath="CurrentDomain"/>
+    <parameterBindings name="PipelineName" objectPath="not used"/>
+    <parameterBindings name="PipelineStartNode" objectPath="not used"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineInvalidAuctions3">
+    <configurationValues name="DefaultAuctionState" value="4"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/DetermineInvalidAuctions.xml"/>
+    <nodeSuccessors name="next" next="Loop3"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop3" loop="InvalidAuctions">
+<!--@BendPoints 17,13-->
+    <nodeSuccessors name="next" next="End1"/>
+    <entry key="Auction">
+      <nodeSuccessors name="loop_entry_next" next="RefreshAuction3"/>
+    </entry>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshAuction3">
+    <pipelet href="enfinity:/bc_tendering/pipelets/RefreshAuction.xml"/>
+    <nodeSuccessors name="next" next="Decision2"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="Auction:State"
+      operator="eq" conditionValue="8">
+    <nodeSuccessors name="decision_yes" next="UpdateRunningAuctionsCounter3"/>
+<!--@BendPoints 17,17 17,25-->
+    <nodeSuccessors name="decision_no" next="Join2"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRunningAuctionsCounter3">
+    <configurationValues name="Mode" value="Decrement"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/UpdateRunningAuctionsCounter.xml"/>
+    <nodeSuccessors name="next" next="ExecutePipeline2"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline2">
+    <configurationValues name="PipelineDomainName" value="CurrentDomain"/>
+    <configurationValues name="PipelineName" value="AuctionNotification"/>
+    <configurationValues name="PipelineStartNode" value="AuctionFinished"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="Join4"/>
+<!--@BendPoints 16,21 16,23-->
+    <nodeSuccessors name="pipelet_error" next="Join4"/>
+    <parameterBindings name="PipelineDomain" objectPath="CurrentDomain"/>
+    <parameterBindings name="PipelineName" objectPath="not used"/>
+    <parameterBindings name="PipelineStartNode" objectPath="not used"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+<!--@BendPoints 15,26 13,26 13,13-->
+    <nodeSuccessors name="next" next="Loop3_Entry"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+</pipeline:Pipeline>

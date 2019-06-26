@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Query for retrieving all addresses for a given basket.">
+	<parameters>
+		<parameter name="BasketID" type="java.lang.String" optional="false" description="The ID of the basket whose addresses should be retrieved."/>
+		<parameter name="Usages" type="java.util.Collection" optional="true" description="Boolean collection for comparison with usage. Bits are in ascending value order (i. e. first element in collection is lowest value bit). Null values may be used if a certain usage bit should not be checked." />
+	</parameters>
+	<return-mappings>
+		<return-mapping name="Addresses" type="bo-orm" class="com.intershop.beehive.bts.internal.orderprocess.basket.BasketAddressPO" mapperclass="BasketAddressPOToAddressBOMapper">
+			<return-attribute name="UUID" />
+		</return-mapping>
+	</return-mappings>
+	<processor name="OracleSQL" />
+	<template type="objects">
+		SELECT ba.uuid AS uuid
+		FROM basketaddress ba
+		WHERE ba.basketid = <template-variable value="BasketID" /> 
+		<template-if condition="isDefined(Usages)">
+			AND 
+			<!-- convert address usage to bit string and fill with leading zeroes, e. g. 5 -> "00101" -->
+			<sql-dialect name="Oracle">
+				RPAD('0', <template-variable value="Usages:Size" />, '0') || conversion.to_bin(ba.usage)
+			</sql-dialect>
+			<sql-dialect name="Microsoft">
+				REPLICATE('0', <template-variable value="Usages:Size" />) + dbo.CONVERSION$to_bin(ba.usage)
+			</sql-dialect> 
+			LIKE 
+			<!-- reverse so that lowest value bit is at the end -->
+			REVERSE(
+			<!-- combine booleans to comparable bit string; true = 1, false = 0, null = _ (single wildcard character) -->
+			<template-loop iterator="Usages" alias="UsageBit">
+				<loop-statement>
+					<template-if condition="isDefined(UsageBit)">
+						<template-if condition="UsageBit">
+							<sql-dialect name="Oracle">'1' ||</sql-dialect>
+							<sql-dialect name="Microsoft">'1' +</sql-dialect>
+						<if-else />
+							<sql-dialect name="Oracle">'0' ||</sql-dialect>
+							<sql-dialect name="Microsoft">'0' +</sql-dialect>
+						</template-if>
+					<if-else />
+						<sql-dialect name="Oracle">'_' ||</sql-dialect>
+						<sql-dialect name="Microsoft">'_' +</sql-dialect>
+					</template-if>
+				</loop-statement>
+			</template-loop>
+			<!-- add wildcard character at beginning of comparison string so that e. g. an input [true, null, false] 
+			     for parameter "Usages" (== "%0_1") will also match address with usage 27 (= "11011") -->
+			'%')
+		</template-if>
+		<template-variable value="orderBy(column('ba.firstname', nullsFirst()),column('ba.lastname', nullsFirst()), column('ba.city', nullsFirst()))" processing="text" />
+	</template>
+</query>

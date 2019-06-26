@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Provides operations for product set processing
+@Group ProductSet-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessProductSet" type="process">
+<!--@Location 7,16-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" name="Error" callMode="Private">
+<!--@BendPoints 15,34-->
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 7,17-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+<!--@BendPoints 15,36-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+    <startNode referencedName="This:UnlockResources"/>
+  </nodes>
+<!--@Location 7,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6"/>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="LockResources"
+      callMode="Private">
+<!--@BendPoints 3,34-->
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameters name="UpdateAssignmentsProcess" type="com.intershop.beehive.core.capi.locking.Process"
+        optional="true"/>
+    <parameters name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="UpdateAssignmentsProcess">
+<!--@BendPoints 5,35-->
+    <nodeSuccessors name="decision_yes" next="GetResourceByName1"/>
+<!--@BendPoints 3,45-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 2,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetResourceByName1">
+    <pipelet href="enfinity:/core/pipelets/GetResourceByName.xml"/>
+    <nodeSuccessors name="next" next="GetResourceByName0"/>
+<!--@BendPoints 7,37-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+    <parameterBindings name="Domain" nullBinding="true"/>
+    <parameterBindings name="ParentResource" nullBinding="true"/>
+    <parameterBindings name="ResourceName" constant="Products"/>
+    <returnValueBindings name="Resource" objectPath="SystemSpecificResource"/>
+  </nodes>
+<!--@Location 2,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetResourceByName0">
+    <pipelet href="enfinity:/core/pipelets/GetResourceByName.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+    <parameterBindings name="Domain" objectPath="ProductSet:Domain"/>
+    <parameterBindings name="ParentResource" objectPath="SystemSpecificResource"/>
+    <parameterBindings name="ResourceName" constant="Products"/>
+    <returnValueBindings name="Resource" objectPath="DomainSpecificResource"/>
+  </nodes>
+<!--@Location 2,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="AcquireResourcesForProcess0"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" objectPath="DomainSpecificResource"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="Resources"/>
+  </nodes>
+<!--@Location 2,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AcquireResourcesForProcess0">
+    <pipelet href="enfinity:/core/pipelets/AcquireResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="AcquisitionTimeout" constant="(Integer)60"/>
+    <parameterBindings name="Process" objectPath="UpdateAssignmentsProcess"/>
+    <parameterBindings name="ResourceIDs" nullBinding="true"/>
+  </nodes>
+<!--@Location 2,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 5,46-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 2,23-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true">
+<!--A container storing acquisitions by process.-->
+    <returnValues name="Acquisitions" type="com.intershop.beehive.core.capi.locking.Acquisitions"
+        optional="true"/>
+  </nodes>
+<!--@Location 3,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 7,46-->
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 3,23-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="ERROR" strict="true"/>
+<!--@Location 3,19-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="RefreshProductSetAssignedManufacturerAliases"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameters name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ProductSet:ProductSelectionRule:AssignedManufacturerAliases"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="LoopNode1"/>
+<!--@BendPoints 10,5-->
+    <nodeSuccessors name="decision_no" next="EndNode2"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="ProductSet:ProductSelectionRule:AssignedManufacturerAliases">
+<!--@BendPoints 11,7 11,8-->
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+    <entry key="AName">
+<!--@BendPoints 9,8-->
+      <nodeSuccessors name="loop_entry_next" next="GetManufacturerNameAlias1"/>
+    </entry>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetManufacturerNameAlias1">
+    <pipelet href="enfinity:/xcs/pipelets/GetManufacturerNameAlias.xml"/>
+<!--@BendPoints 9,10-->
+    <nodeSuccessors name="next" next="AddObjectToVector7"/>
+<!--@BendPoints 10,9 10,13-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="AliasName" objectPath="AName"/>
+    <parameterBindings name="Domain" objectPath="ProductSet:Domain"/>
+    <parameterBindings name="ManufacturerNameAliasUUID" nullBinding="true"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector7">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="InVector" objectPath="ManufacturerAliases"/>
+    <parameterBindings name="Object" objectPath="ManufacturerNameAlias:NameAlias"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="ManufacturerAliases"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 8,13 8,7-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="ManufacturerAliases">
+    <nodeSuccessors name="decision_yes" next="JoinNode7"/>
+<!--@BendPoints 12,9-->
+    <nodeSuccessors name="decision_no" next="AddObjectToVector5"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="JoinString0" action="begin"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="JoinString0">
+    <configurationValues name="Separator" value="TAB"/>
+    <pipelet href="enfinity:/core/pipelets/JoinString.xml"/>
+    <nodeSuccessors name="next" next="UpdateCustomAttribute4"/>
+    <parameterBindings name="StringCollection" objectPath="ManufacturerAliases"/>
+    <returnValueBindings name="JoinedString" objectPath="JoinedManufacturerAliases"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttribute4">
+    <configurationValues name="DefaultAttributeName" value="AssignedManufacturerAliases"/>
+    <configurationValues name="DefaultAttributeType" value="Text"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6" action="commit"/>
+<!--@BendPoints 11,14-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6" action="rollback"/>
+    <parameterBindings name="AttributeName" nullBinding="true"/>
+    <parameterBindings name="AttributeType" nullBinding="true"/>
+    <parameterBindings name="AttributeValue" objectPath="JoinedManufacturerAliases"/>
+    <parameterBindings name="ExtensibleObject" objectPath="ProductSet"/>
+    <parameterBindings name="LocaleInformation" nullBinding="true"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 11,16-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+    <returnValues name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <returnValueBindings name="OutVector" objectPath="ManufacturerAliases"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet"/>
+  </nodes>
+<!--@Location 5,16-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="UnlockResources"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+<!--The process to release resources for.-->
+    <parameters name="UpdateAssignmentsProcess" type="com.intershop.beehive.core.capi.locking.Process"
+        optional="true"/>
+<!--A container storing acquisitions by process.-->
+    <parameters name="Acquisitions" type="com.intershop.beehive.core.capi.locking.Acquisitions"
+        optional="true"/>
+  </nodes>
+<!--@Location 5,17-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="UpdateAssignmentsProcess">
+    <nodeSuccessors name="decision_yes" next="ReleaseResourcesForProcess0"/>
+<!--@BendPoints 12,35 12,39-->
+    <nodeSuccessors name="decision_no" next="JoinNode8"/>
+  </nodes>
+<!--@Location 5,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ReleaseResourcesForProcess0">
+    <pipelet href="enfinity:/core/pipelets/ReleaseResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <parameterBindings name="Process" objectPath="UpdateAssignmentsProcess"/>
+  </nodes>
+<!--@Location 5,19-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 11,40-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 5,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="UpdateRuleBasedAssignments"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+<!--The product set to update the assignments.-->
+    <parameters name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet"/>
+<!--The process used to update the assignments. Used to lock / unlock resources. If no process is defined no locking / unlocking will be done.-->
+    <parameters name="UpdateAssignmentsProcess" type="com.intershop.beehive.core.capi.locking.Process"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <startNode referencedName="ProcessProductSet-RefreshProductSetAssignedManufacturerAliases"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ProductSet:isRuleBased"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 5,7-->
+    <nodeSuccessors name="decision_yes" next="CallNode2"/>
+<!--@BendPoints 3,23-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="UpdateDictionary1"/>
+<!--@BendPoints 7,9-->
+    <nodeSuccessors name="ERROR" next="EndNode7"/>
+    <startNode referencedName="This:LockResources"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary1">
+    <configurationValues name="Name_01" value="ProductSet"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="ExecuteUpdateQuery1"/>
+    <parameterBindings name="Value_01" objectPath="ProductSet"/>
+    <returnValueBindings name="OutDictionary" objectPath="QueryParameters"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteUpdateQuery1">
+    <configurationValues name="QueryName" value="productset/RefreshProductSetAssignments"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteUpdateQuery.xml"/>
+    <nodeSuccessors name="next" next="ReleaseORMObjects1"/>
+    <parameterBindings name="Parameters" objectPath="QueryParameters"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ReleaseORMObjects1">
+    <pipelet href="enfinity:/core/pipelets/ReleaseORMObjects.xml"/>
+    <nodeSuccessors name="next" next="Touch1"/>
+    <parameterBindings name="ORMObjects" objectPath="ProductSet"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Touch1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/Touch.xml"/>
+    <nodeSuccessors name="next" next="RefreshCache1"/>
+    <parameterBindings name="Object" objectPath="ProductSet"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshCache1">
+    <configurationValues name="PersistentClassName_0" value="com.intershop.beehive.xcs.internal.productset.ProductSetAssignmentPO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+    <nodeSuccessors name="next" next="CallNode3"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <startNode referencedName="This:UnlockResources"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="ERROR" strict="true"/>
+</pipeline:Pipeline>

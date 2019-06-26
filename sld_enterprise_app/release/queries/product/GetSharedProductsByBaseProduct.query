@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Based on the given base product this query gets all channel specific representations of the base product if the base product is shared.">
+<parameters>
+	<parameter name="Product" type="com.intershop.beehive.xcs.capi.product.Product" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<return-mappings>
+	<return-mapping name="Product" type="provider" class="ProductViewProvider">
+		<return-attribute name="UUID"/>
+		<return-attribute name="DOMAINID"/>
+	</return-mapping>
+</return-mappings>
+<template type="objects">
+	SELECT DISTINCT
+		<template-variable value="Product:UUID"/> AS UUID,
+		psda.domainid AS DOMAINID,
+		di.domainname
+	FROM
+		productsetdomainassignment psda
+	JOIN
+		productset ps ON (ps.uuid = psda.productsetuuid)
+	JOIN
+        domaininformation di  on di.domainid = psda.domainid
+    JOIN
+        domain d on d.uuid=psda.domainid
+        
+        WHERE
+		
+		ps.domainid = <template-variable value="Product:DomainID"/>
+		
+		<template-comment>Check if domain is live</template-comment>
+		AND d.status = 1
+		AND (
+			ps.allflag = 1
+			OR ps.uuid IN (
+				SELECT
+					productsetuuid
+				FROM
+					productsetassignment
+				WHERE
+					productuuid = <template-variable value="Product:UUID"/>
+			)
+		)
+		AND ps.activeflag &lt;&gt; 0
+	order by di.domainname
+</template>
+</query>

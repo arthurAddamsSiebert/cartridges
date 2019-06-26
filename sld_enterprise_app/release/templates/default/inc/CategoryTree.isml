@@ -1,0 +1,476 @@
+<!--- CategoryTree.isml --->
+<%@page import="java.util.LinkedList"%>
+<%@page import="java.util.Collection"%>
+<%@page import="java.util.Collections"%>
+<%@page import="java.util.ArrayList"%>
+<%@page import="com.intershop.component.foundation.internal.iterator.ComparatorAdapter"%>
+<%@page import="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"%>
+<%@page import="com.intershop.beehive.xcs.internal.catalog.CatalogCategoryPO"%>
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<!--- 
+	Module used for recursive category tree.
+	  
+	Parameters:
+	- selectmode (required):
+		"single"/"multiple"/"multiplehier" (default "multiplehier") - whether to show radio buttons ("single"), checkboxes ("multiple"), checkboxes that the root selects children ("multiplehier")  
+	- minexpandlevel (optional):
+		Number of levels that are not expandable, default 1.
+	- autoselectsubcategories:
+		"true/false" selects all sub categories if root is selected.
+	- selectedcategories (optional):
+		A list with UUIDs of categories that should be displayed as selected.
+	- lazycategories (optional):
+		A list with UUIDs of categories that will be marked as lazy. 
+		The hierarchy of category marked as lazy is loaded when the user expands the category not by initializing the whole tree.
+	- detailspagepipeline (optional):
+		The pipeline which views the category details page.		
+	- detailspageparameter (otpional):
+		The name of parameter that holds the category id.
+	- parametername [1-5] (optional):
+		the name of the parameter which will be added to the category url
+	- parametervalue [1-5](optional):
+		the value of the parameter which will be added to the category url		
+	Example:
+	<ISCategoryTreeNode
+	  	categories="#subcategory:SubCategories#"
+	  	selectmode="#selectmode#"
+	  	minexpandlevel="#minexpandlevel#"							  	
+	  	selectedcategories="#SelectedCategoriesList#"
+	  	lazycategories="#lazycategories#"
+	  	detailspagepipeline="#detailspagepipeline#"
+	  	detailspageparameter="#detailspageparameter#"
+	   	parametername="ChannelID"
+	   	parametervalue="#ChannelID#"
+	   	parametername1="PipelineComponentID"
+	   	parametervalue1="#PipelineComponentID#"	  	
+	  >
+ --->		
+<ismodule strict="true" template = "inc/CategoryTreeNode.isml"
+	name="CategoryTreeNode"	
+	attribute="categories"		
+	attribute="selectmode"
+	attribute="minexpandlevel"
+	attribute="autoselectsubcategories"	
+	attribute="selectedcategories"
+	attribute="lazycategories"
+	attribute="disabledcategories"
+	attribute="detailspagepipeline"
+	attribute="detailspageparameter"
+	attribute="parametername"
+	attribute="parametervalue"
+	attribute="parametername1"
+	attribute="parametervalue1"
+	attribute="parametername2"
+	attribute="parametervalue2"
+	attribute="parametername3"
+	attribute="parametervalue3"
+	attribute="parametername4"
+	attribute="parametervalue4"
+	attribute="parametername5"
+	attribute="parametervalue5"	
+>	
+
+<!--- isnoloc --->
+<isplacement placeholderid="CSSWebLibraries">jquery/dynatree/jquery.dynatree.css</isplacement>
+<isplacement placeholderid="CSSWebLibraries">jquery.dynatree.customized.css</isplacement>
+
+<isplacement placeholderid="JSWebLibraries">jquery-ui-1.10.3.js</isplacement>
+
+<isplacement placeholderid="JSWebLibraries">jquery/dynatree/jquery.dynatree-1.2.4.js</isplacement>
+<isplacement placeholderid="JSWebControls">
+$("<isprint value="#'#'.treeid#">").dynatree({
+		checkbox: true,
+		<isif condition="#isDefined(selectmode) AND (selectmode EQ 'single')#">
+		classNames: $.extend({}, $.ui.dynatree.prototype.options.classNames, {checkbox: "dynatree-radio"}),
+		</isif>		
+		selectMode: <isif condition="#isDefined(selectmode) AND (selectmode EQ 'single')#">1<iselseif condition="#isDefined(selectmode) AND (selectmode EQ 'multiplehier')#">3<iselse>2</isif>,
+		minExpandLevel: <isif condition="#isDefined(minexpandlevel)#"><isprint value="#minexpandlevel#"><iselse>1</isif>,		
+		generateIds: true,
+		idPrefix: '',
+		onPostInit: function(isReloading, isError) {
+		   logMsg("onPostInit(%o, %o)", isReloading, isError);
+		   
+		   // activate all pre-selected categories; TODO: prefix list elements IDs, categories UUIDs might start with a dot
+		   <isif condition="#hasElements(selectedcategories) OR hasElements(disabledcategories)#">
+				if (this.isInitializing())
+				{
+	 				<isif condition="#hasElements(selectedcategories)#">
+						<isloop iterator="selectedcategories" alias="selectedcategory">
+							var key = "<isprint value="#selectedcategory#"/>";
+							var selectedNode = null;
+							this.visit(function(node){
+								if(node.data.key == key) {
+								selectedNode = node;
+								return false;
+								}
+							}, true);
+											   		
+					   		if ($(selectedNode).length)
+					   		{
+					   			selectedNode.activateSilently();				   			
+					   		}
+					   </isloop>
+				   </isif>
+				   // activate the root node
+				   this.getRoot().activateSilently();
+			   }
+		   </isif>
+		   
+	   	   // Re-fire onActivate, so the text is update
+		   this.reactivate();
+		},
+		onCustomRender: function(dataNode){			
+			var tooltip = dataNode.data.tooltip ? " title='" + dataNode.data.tooltip + "'" : "";
+			
+			if (dataNode.data.href == undefined) {
+				nodeTitle = "<span style='display: inline-block;' class='" + this.options.classNames.title + "'" + tooltip + ">" + dataNode.data.title + "</span>";
+			}
+			else {
+				nodeTitle = "<a href='" + dataNode.data.href + "' class='" + this.options.classNames.title + "'" + tooltip + ">" + dataNode.data.title + "</a>";
+			}
+			return nodeTitle;
+		},
+		onRender: function(dataNode, nodeSpan){		
+			$(nodeSpan).addClass('dynatree-ico-cf');
+			$(nodeSpan).filter('.dynatree-expanded').addClass('dynatree-ico-ef');
+		   <isif condition="#hasElements(disabledcategories)#">  
+					<isloop iterator="disabledcategories" alias="disabledcategory">						
+						if (dataNode.data.key == "<isprint value="#disabledcategory#"/>")
+						{
+							dataNode.data.unselectable = true;							
+							//Set unchangeable property to keep disabled state by selection/deselection
+							dataNode.data.unchangeable = true;					
+							$(nodeSpan).addClass("dynatree-unselectable dynatree-unselectable-unchangeable");		
+						}
+				   </isloop>		   					   
+			</isif>
+			<isif condition="#isDefined(autodisabledisabledsubcategories) AND (autodisabledisabledsubcategories EQ 'true')#">
+			if (dataNode.parent.data.unselectable == true)
+			{				 
+				dataNode.data.unselectable = true;
+				
+				$(nodeSpan).addClass("dynatree-unselectable");					
+			}
+			if (dataNode.data.unchangeable == true)
+			{
+				//Set unchangeable property to keep disabled state by selection/deselection
+				dataNode.data.unchangeable = true;
+				$(nodeSpan).addClass("dynatree-unselectable-unchangeable");	
+			}
+			</isif>
+			<isif condition="#isDefined(autoselectdisablesubcategories) AND (autoselectdisablesubcategories EQ 'true')#">
+				if (dataNode.parent.isSelected() == true)
+				{				
+					dataNode.data.unselectable = true;					
+					$(nodeSpan).addClass("dynatree-unselectable");					
+				}
+				
+				if (dataNode.isSelected() == true && dataNode.hasChildren() && dataNode.data.unchangeable)
+    			{
+					dataNode.visit(function(node){
+						node.data.unselectable = true;
+						node.data.unchangeable = true;
+						node.data.addClass = "dynatree-unselectable dynatree-unselectable-unchangeable";
+					});    			
+    			}
+    			else if (dataNode.isSelected() == true && dataNode.hasChildren())
+    			{
+					dataNode.visit(function(node){
+						node.data.unselectable = true;
+						node.data.addClass = "dynatree-unselectable";
+					});    			
+    			}    			
+			</isif>
+			
+		},
+		onActivate: function(node) {
+			$("#echoActive").text(node.data.title);
+			if (node.data.href){
+				window.location = node.data.href;
+			}
+		},
+		onDeactivate: function(node) {
+			$("#echoActive").text("-");
+		},
+		onDblClick: function(node, event) {
+			logMsg("onDblClick(%o, %o)", node, event);
+			//node.toggleExpand();
+		},
+		onLazyRead: function(node){
+        	node.appendAjax({url: "<isprint value="#URL(Action('ViewCategoryTree-GetSubCategories'))#" encoding="javascript">",
+                           data: {"CategoryUUID": node.data.key, 
+                           		  "detailspagepipeline" : "<isprint value="#detailspagepipeline#">",
+                           		  "detailspageparameter" : "<isprint value="#detailspageparameter#">",
+                           		  "parametername" : "<isprint value="#parametername#">",
+                           		  "parametername1" : "<isprint value="#parametername1#">",
+                           		  "parametername2" : "<isprint value="#parametername2#">",
+                           		  "parametername3" : "<isprint value="#parametername3#">",
+                           		  "parametername4" : "<isprint value="#parametername4#">",
+                           		  "parametername5" : "<isprint value="#parametername5#">",
+                           		  "parametervalue" : "<isprint value="#parametervalue#">",
+                           		  "parametervalue1" : "<isprint value="#parametervalue1#">",
+                           		  "parametervalue2" : "<isprint value="#parametervalue2#">",
+                           		  "parametervalue3" : "<isprint value="#parametervalue3#">",
+                           		  "parametervalue4" : "<isprint value="#parametervalue4#">",
+                           		  "parametervalue5" : "<isprint value="#parametervalue5#">",
+                                  }
+                          });
+    	}
+		,
+    	onQuerySelect: function(sel, node){
+    		// Overridding the original function in order
+    		// to add to the desection of the node 
+    		// check if it is unselectable
+    		node._fixSelectionState = function(){
+				var p, i, l;
+				var opts = this.tree.options;
+				if( this.bSelected ) {
+					// Select all children
+					this.visit(function(node){
+						node.parent._setSubSel(true);
+						if(!node.data.unselectable){
+							node._select(true, false, false);
+						}
+					});
+					// Select parents, if all children are selected
+					p = this.parent;
+					if (opts.selectMode == 3) {
+						while( p ) {
+							p._setSubSel(true);
+							var allChildsSelected = true;
+							for(i=0, l=p.childList.length; i<l;  i++) {
+								var n = p.childList[i];
+								if( !n.bSelected && !n.data.isStatusNode && !n.data.unselectable) {
+									allChildsSelected = false;
+									break;
+								}
+							}
+							if( allChildsSelected ){
+								p._select(true, false, false);
+							}
+							p = p.parent;
+						}
+					}	
+				} else {
+					// Deselect all children
+					this._setSubSel(false);
+					this.visit(function(node){
+						node._setSubSel(false);
+						
+						//Code extionsion
+						if(!node.data.unchangeable){
+							node._select(false, false, false);
+						}
+					});
+					// Deselect parents, and recalc hasSubSel
+					p = this.parent;
+					if (opts.selectMode == 3) {
+						while( p ) {
+							p._select(false, false, false);
+							var isPartSel = false;
+							for(i=0, l=p.childList.length; i<l;  i++) {
+								if( p.childList[i].bSelected || p.childList[i].hasSubSel ) {
+									isPartSel = true;
+									break;
+								}
+							}
+							p._setSubSel(isPartSel);
+							p = p.parent;
+						}
+					}	
+				}
+    		};
+			return true;
+    	}    	
+    	<isif condition="#isDefined(autoselectdisablesubcategories) AND (autoselectdisablesubcategories EQ 'true')#">
+    	,    	
+    	onSelect: function(flag, dataNode){
+    		if (flag == true) {
+    			if (dataNode.hasChildren())
+    			{
+					dataNode.visit(function(node){
+						node.data.unselectable = true;
+						$(node.span).addClass("dynatree-unselectable");
+					});    			
+    			}
+    		}
+    		else {
+    			if (dataNode.hasChildren())
+    			{
+					dataNode.visit(function(node){
+						//Do not deselect if node is initialized as disabled
+						if (!node.data.unchangeable)
+						{
+							node.data.unselectable = false;
+							// removeClass doesn't clear addClass data property 
+							// If it stays set to 'dynatree-unselectable' 
+							// onRender event will display nodes as unselectable
+							// So clear it here.
+							node.data.addClass = null;
+							$(node.span).removeClass("dynatree-unselectable");
+						}					
+					});    			
+    			}    		
+    		}
+    	}
+		</isif>
+
+	});
+	
+		$("form").submit(function(a) {
+		  
+			// Serialize standard form fields:
+
+			// then append Dynatree selected 'checkboxes':
+			var tree = $("<isprint value="#'#'.treeid#">").dynatree("getTree");
+			var treeData = tree.serializeArray(<isif condition="#isDefined(autoselectdisablesubcategories) AND (autoselectdisablesubcategories EQ 'true')#">true</isif>);
+
+			for (var i=0,l=treeData.length;i<l;i++) {
+				
+				var nodeData = tree.getNodeByKey(treeData[i].value).data;
+			
+				// Don't submit a selected node if it is 'root' node (should one exist at all) or if it is disabled.
+				if (treeData[i].value !== "root" && !nodeData.unselectable)
+				{
+					$("form").append('<input type="hidden" name="'+treeData[i].name+'" value="'+treeData[i].value+'"/>');
+				}	 
+			}
+			    
+			// and/or add the active node as 'radio button':
+			return true;
+		});
+</isplacement>
+<!--- /isnoloc --->
+<isif condition="#category:isRootCategory#">
+	<script type="text/javascript" src="#WebRoot()#/js/PageletConstraint.js"></script>
+</isif>
+
+<div id="<isprint value="#treeid#">">
+<ul>
+<isif condition="#isDefined(root) AND (root NE '')#">
+	<li>
+		<isprint value="#root#">
+			<ul>		
+</isif>
+<%
+	List<String> selectedCategoriesList = new ArrayList<String>();
+	Iterator selectedCategories = getPipelineDictionary().get("selectedcategories");
+	
+	if (selectedCategories != null)
+	{
+		while(selectedCategories.hasNext())
+		{
+		    selectedCategoriesList.add((String)selectedCategories.next());
+		}	    
+	}
+	
+	getPipelineDictionary().put("SelectedCategoriesList",selectedCategoriesList);
+	
+	List<String> lazyCategoriesList = new LinkedList<String>();
+	Iterator lazyCategories = getPipelineDictionary().get("lazycategories");
+	
+	
+	if (lazyCategories != null)
+	{
+		while(lazyCategories.hasNext())
+		{
+		    lazyCategoriesList.add((String)lazyCategories.next());
+		}	    
+	}
+	
+	getPipelineDictionary().put("LazyCategoriesList",lazyCategoriesList);
+	
+	Iterator disabledCategories = getPipelineDictionary().get("disabledcategories");
+	List<String> disabledCategoriesList = new ArrayList<String>();
+	
+	if (disabledCategories != null)
+	{
+	    while (disabledCategories.hasNext())
+	    {
+	        disabledCategoriesList.add((String) disabledCategories.next());
+	    }
+	}
+	
+	getPipelineDictionary().put("DisabledCategoriesList",disabledCategoriesList);
+%>
+<ISGetSortedCategories CategoriesCollection="#categories#" SortAttribute="DisplayName" SortedCategories="SortedSubCategories">
+			
+			<isloop iterator="SortedSubCategories" alias="subcategory">
+
+				<li id="#subcategory:UUID#" class="<isif condition="#hasElements(SelectedCategoriesList) AND SelectedCategoriesList:Contains(subcategory:UUID)#">selected</isif> <isif condition="#hasElements(LazyCategoriesList) AND LazyCategoriesList:Contains(subcategory:UUID)#">lazy</isif>" title="#encodeValue(subcategory:Name)#">
+					<isif condition="#isDefined(detailspagepipeline)#">
+							<a href="#URL(Action(detailspagepipeline),Parameter(detailspageparameter,  subcategory:UUID)
+									,Parameter(parametername, parametervalue)
+									,Parameter(parametername1, parametervalue1)
+									,Parameter(parametername2, parametervalue2)
+									,Parameter(parametername3, parametervalue3)
+									,Parameter(parametername4, parametervalue4)
+									,Parameter(parametername5, parametervalue5) 
+									)#"><isprint value="#subcategory:DisplayName#"></a>
+					<iselse>
+						<isprint value="#subcategory:DisplayName#">
+					</isif>
+					<isif condition="#NOT LazyCategoriesList:Contains(subcategory:UUID)#">
+						<isif condition="#hasElements(subcategory:SubCategories)#">
+							<isif condition="#isDefined(autoselectsubcategories) AND (autoselectsubcategories EQ 'true') AND SelectedCategoriesList:Contains(subcategory:UUID)#">
+								<!--- If current category is selected and its subcategories should be selected too --->
+								<isset name="CurrentSubCategory" value="#subcategory#" scope="request" />
+								<%
+									List<String> selectedSubCategoriesList = new ArrayList<String>();
+									CatalogCategory subCategory = getPipelineDictionary().get("CurrentSubCategory");
+									
+									List<String> disabledCategoriesCollection = getPipelineDictionary().get("DisabledCategoriesList");
+									
+									Iterator subCategories = subCategory.createSubCategoriesIterator();
+									    
+									while(subCategories.hasNext())
+									{									
+									    CatalogCategory subCatalogCategory = (CatalogCategory) subCategories.next();
+									    
+									    if (!disabledCategoriesCollection.contains(subCatalogCategory.getUUID()))
+									    {
+									    	selectedSubCategoriesList.add(subCatalogCategory.getUUID());
+									    }
+									}	    
+									getPipelineDictionary().put("SelectedSubCategoriesList",selectedSubCategoriesList);
+								%>
+							<iselse/>
+								<isset name="SelectedSubCategoriesList" value="#SelectedCategoriesList#" scope="request"/>
+							</isif>
+							
+							<ul>
+								<ISCategoryTreeNode
+								  	categories="#subcategory:SubCategories#"
+								  	selectmode="#selectmode#"
+								  	minexpandlevel="#minexpandlevel#"
+								  	autoselectsubcategories="#autoselectsubcategories#"						  	
+								  	selectedcategories="#SelectedSubCategoriesList#"
+								  	lazycategories="#LazyCategoriesList#"
+								  	disabledcategories="#DisabledCategoriesList#"
+								  	detailspagepipeline="#detailspagepipeline#"
+								  	detailspageparameter="#detailspageparameter#"
+								  	parametername="#parametername#"
+								  	parametervalue="#parametervalue#"
+								  	parametername1="#parametername1#"
+								  	parametervalue1="#parametervalue1#"
+								  	parametername2="#parametername2#"
+								  	parametervalue2="#parametervalue2#"
+								  	parametername3="#parametername3#"
+								  	parametervalue3="#parametervalue3#"
+								  	parametername4="#parametername4#"
+								  	parametervalue4="#parametervalue4#"
+								  	parametername5="#parametername5#"
+								  	parametervalue5="#parametervalue5#"							  	
+								  >
+							</ul>
+						</isif>
+					</isif>
+				</li>	
+			</isloop>		
+<isif condition="#isDefined(root) AND (root NE '')#">
+		</ul>		
+	</li>
+</isif>
+</ul>
+</div>

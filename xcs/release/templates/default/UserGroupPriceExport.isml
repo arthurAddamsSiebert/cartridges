@@ -1,0 +1,85 @@
+<ISCONTENT type="text/xml" templatemarker="false" charset="utf-8" SESSION="FALSE">
+<?xml version="1.0" encoding="UTF-8"?>
+<enfinity
+    xsi:schemaLocation="http://www.intershop.com/xml/ns/enfinity/7.1/xcs/impex catalog.xsd
+    	http://www.intershop.com/xml/ns/enfinity/6.5/core/impex-dt dt.xsd"
+    xmlns="http://www.intershop.com/xml/ns/enfinity/7.1/xcs/impex"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:dt="http://www.intershop.com/xml/ns/enfinity/6.5/core/impex-dt"
+    major="6" minor="1" family="enfinity" branch="enterprise" build="<ISPRINT value="#BuildNumber#">">
+<%@page import="com.intershop.beehive.xcs.capi.product.*,
+	com.intershop.beehive.xcs.capi.price.*,
+	java.util.Iterator" %>
+<ISIF condition="#isDefined(exportObjects)#">
+<%
+    java.util.Iterator objects = (java.util.Iterator) getObject("exportObjects");
+
+    while (objects instanceof com.intershop.beehive.foundation.util.ResettableIterator)
+    {
+      objects = ((com.intershop.beehive.foundation.util.ResettableIterator) objects).toSequence();
+    }
+
+    while (objects.hasNext())
+    {
+        getPipelineDictionary().put("product", objects.next());
+
+        if (getObject("ExportRefIDs") == null)
+        {
+            getPipelineDictionary().put("ExportRefIDs", Boolean.TRUE);
+        }
+        else if (!(getObject("ExportRefIDs") instanceof Boolean))
+        {
+            getPipelineDictionary().put("ExportRefIDs", new Boolean((String) getObject("ExportRefIDs")));
+        }
+
+        if (getObject("ExportDomainRefs") == null)
+        {
+            getPipelineDictionary().put("ExportDomainRefs", Boolean.TRUE);
+        }
+        else if (!(getObject("ExportDomainRefs") instanceof Boolean))
+        {
+            getPipelineDictionary().put("ExportDomainRefs", new Boolean((String) getObject("ExportDomainRefs")));
+        }
+
+
+        ProductPriceMgr priceManager     = (ProductPriceMgr) getObject("PriceManager");
+        Product         product          = (Product)         getObject("product");
+        Iterator        ugs              = priceManager.createUserGroupPricesIterator(product.getProductRef());
+        boolean         exportDomainRefs = ((Boolean) getObject("ExportDomainRefs")).booleanValue();
+
+        while(ugs.hasNext())
+        {
+            UserGroupPrice ugp = (UserGroupPrice) ugs.next();
+
+            String domainAttribute = (exportDomainRefs) ? " user-group-domain = \"" + stringToXml(ugp.getUserGroupDomainName()) + '"' : "";
+
+            out.println("<user-group-price sku=\""+
+                         ugp.getProductRefSKU()+
+                         "\" user-group-id = \"" +
+                         ugp.getUserGroupID() + '"' +
+                         domainAttribute +
+                         " currency=\""+
+                         ugp.getCurrency()+
+                         "\">");
+
+            String value = ugp.getValue().toString();
+
+            if (value != null)
+            {
+                    if (ugp.isNetPrice())
+                    {
+                            out.println(" <price net-price=\"1\">"+value+"</price>");
+                    }
+                    else
+                    {
+                            out.println(" <price net-price=\"0\">"+value+"</price>");
+                    }
+                    out.println();
+            }
+
+            out.println("</user-group-price>");
+       }
+    }
+%>
+</ISIF>
+</enfinity>

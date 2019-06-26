@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group GDPR-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessPersonalDataRequestCleanup" overrideMode="Inherit"
+    type="process">
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_gow9YEe9EeidqNhJdikGog" strict="true"
+      name="RemoveObsoletePersonalDataRequests" callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO_Pemk8EhhEeiowv6AKis8Og"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO_Pemk8EhhEeiowv6AKis8Og">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper_PehscEhhEeiowv6AKis8Og"/>
+    <returnValueBindings name="ApplicationBO" objectPath="CurrentApplicationBO"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_PehscEhhEeiowv6AKis8Og">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery_PenMAEhhEeiowv6AKis8Og"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentApplicationBO:Repository(&quot;ApplicationBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ApplicationBORepository"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery_PenMAEhhEeiowv6AKis8Og">
+    <configurationValues name="QueryName" value="gdpr/application/GetBackofficeApplications"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="LoopNode_VeFbIEhhEeiowv6AKis8Og"/>
+    <returnValueBindings name="SearchResult" objectPath="Applications"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode_VeFbIEhhEeiowv6AKis8Og" loop="Applications">
+    <nodeSuccessors name="next" next="EndNode_qh6z0Ee9EeidqNhJdikGog"/>
+    <entry key="Application">
+      <nodeSuccessors name="loop_entry_next" next="GetApplicationBOByID_VeDl8EhhEeiowv6AKis8Og"/>
+    </entry>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBOByID_VeDl8EhhEeiowv6AKis8Og">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBOByID.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper_I_R90EhxEeiowv6AKis8Og"/>
+    <parameterBindings name="ApplicationID" objectPath="Application:UUID"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_I_R90EhxEeiowv6AKis8Og">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery_hXlhQEh4Eeiowv6AKis8Og"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;PersonalDataRequestBORepository&quot;)"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:Configuration:Integer(&quot;gdpr.PersonalDataRequestsExpirationPeriod&quot;, &quot;(Integer)30&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="PersonalDataRequestBORepository"/>
+    <returnValueBindings name="OutValue_2" objectPath="PersonalDataRequestsExpirationPeriod"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery_hXlhQEh4Eeiowv6AKis8Og">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="ParameterName_01" value="PersonalDataRequestBORepository"/>
+    <configurationValues name="ParameterName_02" value="PersonalDataRequestsExpirationPeriod"/>
+    <configurationValues name="QueryName" value="gdpr/GetObsoletePersonalDataRequestIDs"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="LoopNode_G47bsEh5Eeiowv6AKis8Og"/>
+    <parameterBindings name="ParameterValue_01" objectPath="PersonalDataRequestBORepository"/>
+    <parameterBindings name="ParameterValue_02" objectPath="PersonalDataRequestsExpirationPeriod"/>
+    <returnValueBindings name="SearchResult" objectPath="PersonalDataRequestIDs"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode_G47bsEh5Eeiowv6AKis8Og" loop="PersonalDataRequestIDs">
+<!--@BendPoints 2,17 2,9-->
+    <nodeSuccessors name="next" next="LoopNode_VeFbIEhhEeiowv6AKis8Og_Entry"/>
+    <entry key="PersonalDataRequestID">
+      <nodeSuccessors name="loop_entry_next" next="DeletePersonalDataRequestBOByID_b7t5AEh5Eeiowv6AKis8Og_deletePersonalDataRequestBO"/>
+    </entry>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="DeletePersonalDataRequestBOByID_b7t5AEh5Eeiowv6AKis8Og">
+    <pipelet href="enfinity:/bc_gdpr/pipelets/com.intershop.component.gdpr.pipelet.DeletePersonalDataRequestBOByID.pipelinenode"/>
+    <inConnectors name="deletePersonalDataRequestBO"/>
+    <outConnectors name="next">
+<!--@BendPoints 3,20 4,20 4,17-->
+      <nodeSuccessors next="LoopNode_G47bsEh5Eeiowv6AKis8Og_Entry"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_qh6z0Ee9EeidqNhJdikGog" strict="true"/>
+</pipeline:Pipeline>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="Channel" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false"/>
+    <parameter name="ContentSourceDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="WithoutSharedContent" type="java.lang.Boolean" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Application" type="orm" class="com.intershop.beehive.core.internal.domain.ApplicationPO">
+		<return-attribute name="ApplicationUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+    SELECT
+        sa.uuid AS ApplicationUUID,
+        COUNT(*) over() AS "rowcount"
+    FROM
+        Application sa, Application boa, Application_av boav, ApplicationDomainRelation r, Repository ac
+    WHERE r.name='ContentManagementApplication'
+      AND r.applicationuuid=boa.uuid
+      AND boav.name = 'StorefrontApplicationUUID'
+      AND boav.ownerid = boa.uuid
+      AND sa.uuid = boav.stringvalue
+      AND ac.domainid=<template-variable value="Channel:RepositoryDomain:UUID"/>
+      AND ac.repositorydomainid=r.domainid
+      AND <template-if condition="isDefined(WithoutSharedContent) AND WithoutSharedContent">NOT</template-if>
+       EXISTS
+           (SELECT 1
+              FROM repository proxy
+             WHERE proxy.proxyflag=1
+               AND proxy.typecode=27
+               AND proxy.repositorydomainid = <template-variable value="ContentSourceDomain:UUID"/>
+               AND proxy.domainid = r.domainid)
+</template>
+</query>

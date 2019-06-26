@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Punchout-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessOCISettings" overrideMode="Inherit" type="process">
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="Enable"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateUserBO0" action="begin"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+    <parameters name="Login" type="java.lang.String"/>
+    <parameters name="Password" type="java.lang.String"/>
+<!--first name-->
+    <parameters name="FirstName" type="java.lang.String"/>
+<!--last name-->
+    <parameters name="LastName" type="java.lang.String"/>
+<!--The Email of the user.-->
+    <parameters name="Email" type="java.lang.String"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateUserBO0">
+    <pipelet href="enfinity:/bc_user/pipelets/CreateUserBO.xml"/>
+    <nodeSuccessors name="next" next="UpdateUserBOCredentials0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="UserBORepository" objectPath="CustomerBO:Extension(&quot;GroupCustomer&quot;)"/>
+    <returnValueBindings name="UserBO" objectPath="CreatedUserBO"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateUserBOCredentials0">
+    <pipelet href="enfinity:/bc_user/pipelets/UpdateUserBOCredentials.xml"/>
+    <nodeSuccessors name="next" next="SetCustomerOCIUser0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="Answer" nullBinding="true"/>
+    <parameterBindings name="IPRange" nullBinding="true"/>
+    <parameterBindings name="IsActive" constant="(Boolean)true"/>
+    <parameterBindings name="LastLoggedInDate" nullBinding="true"/>
+    <parameterBindings name="NewPasswordExpiry" nullBinding="true"/>
+    <parameterBindings name="ReminderEmail" objectPath="NULL"/>
+    <parameterBindings name="SecureCode" objectPath="NULL"/>
+    <parameterBindings name="SecurityQuestion" nullBinding="true"/>
+    <parameterBindings name="UserBO" objectPath="CreatedUserBO"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetCustomerOCIUser0">
+    <pipelet href="enfinity:/bc_punchout/pipelets/SetCustomerOCIUser.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <parameterBindings name="UserBO" objectPath="CreatedUserBO"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="EndNode0" action="commit"/>
+    <nodeSuccessors name="ERROR" next="JoinNode2"/>
+    <parameterBindings name="Active" nullBinding="true"/>
+    <parameterBindings name="BirthdayDate" nullBinding="true"/>
+    <parameterBindings name="Department" nullBinding="true"/>
+    <parameterBindings name="Email" objectPath="Email"/>
+    <parameterBindings name="Fax" nullBinding="true"/>
+    <parameterBindings name="Gender" nullBinding="true"/>
+    <parameterBindings name="LocaleID" objectPath="CurrentRequest:Locale:LocaleID"/>
+    <parameterBindings name="PhoneBusiness" nullBinding="true"/>
+    <parameterBindings name="PhoneHome" nullBinding="true"/>
+    <parameterBindings name="Title" nullBinding="true"/>
+    <parameterBindings name="UserBO" objectPath="CreatedUserBO"/>
+    <startNode referencedName="ProcessUserProfileSettings-UpdateProfile"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+    <returnValues name="CreatedUserBO" type="com.intershop.component.user.capi.UserBO"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="EndNode1" action="rollback"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="Error" strict="true">
+    <returnValues name="ERROR_User" type="java.lang.String" optional="true"/>
+    <returnValues name="ViolatedRuleDescription" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetOCIUsers"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetUsersOfCustomerByRoles0"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUsersOfCustomerByRoles0">
+    <pipelet href="enfinity:/bc_costcenter/pipelets/GetUsersOfCustomerByRoles.xml"/>
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <parameterBindings name="Roles" constant="APP_B2B_OCI_USER"/>
+    <returnValueBindings name="UserBOs" objectPath="OCIUserBOs"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="OCIUserBOs" type="java.util.Collection&lt;UserBO>"/>
+  </nodes>
+</pipeline:Pipeline>

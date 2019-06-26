@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ParentCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="LeadLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="SortAttributeType" type="java.lang.String" optional="true"/>
+	<parameter name="SortAttributeLocalizedFlag" type="java.lang.Integer" optional="true"/>
+    <parameter name="AssignedProductsCountFilter" type="java.lang.String" optional="true"/>
+    <parameter name="RepositoryDomainUUID" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="CatalogCategoryBO" type="bo-orm" class="com.intershop.beehive.xcs.internal.catalog.CatalogCategoryPO" mapperclass="CatalogCategoryPOToCatalogCategoryBOMapper">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+	SELECT c.uuid AS UUID, count(*) over() as "ROWCOUNT"
+	FROM catalogcategory c
+	<template-if condition="NOT (isDefined(SortAttribute) AND (SortAttribute EQ 'name'))">
+	   LEFT OUTER JOIN catalogcategory_av av 
+	   ON c.uuid = av.ownerid
+        <template-if condition="isDefined(SortAttributeLocalizedFlag) AND (SortAttributeLocalizedFlag == 0)">
+            AND av.localeid = <template-variable value="LeadLocale:LocaleID"/>
+        <if-else/>
+            AND av.localeid = <template-variable value="LocaleInformation:LocaleID"/>
+        </template-if>
+        <template-if condition="isDefined(SortAttribute)">
+            AND av.name = <template-variable value="SortAttribute"/>
+        <if-else/>
+            AND av.name = 'displayName'
+        </template-if>
+	</template-if>
+    <template-if condition="isDefined(AssignedProductsCountFilter) AND (AssignedProductsCountFilter EQ 'on')">
+        INNER JOIN classificationcount cc 
+        ON c.uuid = cc.categoryid
+        AND cc.domainid = <template-variable value="RepositoryDomainUUID"/>
+    </template-if>
+	WHERE c.parentcategoryid = <template-variable value="ParentCategory:UUID"/>
+	ORDER BY c.position asc,
+	<sql-dialect name="Oracle">
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'name')">
+			c.name
+		<if-else/>
+			<template-if condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')">
+				av.intvalue 
+			<if-else/>
+				<template-if condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')">
+					av.doublevalue 
+				<if-else/>
+					av.stringvalue 
+				</template-if>
+			</template-if>
+		</template-if>
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			DESC
+		<if-else/>
+			ASC
+		</template-if>
+		NULLS LAST
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'name')">
+			CASE WHEN c.name IS NULL THEN 1 ELSE 0 END ASC, c.Name 
+		<if-else/>
+			<template-if condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')">
+				CASE WHEN av.intvalue IS NULL THEN 1 ELSE 0 END ASC, av.intvalue  
+			<if-else/>
+				<template-if condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')">
+					CASE WHEN av.doublevalue IS NULL THEN 1 ELSE 0 END ASC, av.doublevalue  
+				<if-else/>
+					CASE WHEN av.stringvalue IS NULL THEN 1 ELSE 0 END ASC, av.stringvalue  
+				</template-if>
+			</template-if>
+		</template-if>
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			DESC
+		<if-else/>
+			ASC
+		</template-if>
+	</sql-dialect>	
+</template>
+</query>

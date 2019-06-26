@@ -1,0 +1,101 @@
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/Application.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/job/JobConfigurationPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/PersistentObjectPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/localization/LocalizationApplicationAssignmentPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/domain/ApplicationDomainRelationPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObjectPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/domain/DomainPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+namespace com.intershop.beehive.core.internal.domain
+{
+    /*
+     * Represents the assignment of an urlIdentifier to an appID in a specific site
+     * An assignment enables the {@link com.intershop.beehive.app.capi.App} for the urlIdentifier
+     */
+    orm class ApplicationPO extends ExtensibleObjectPO implements Application table "APPLICATION"
+    {
+        /**
+         * Make sure, the URL identifier is unique within a site
+         */
+        alternate key (siteID, urlIdentifier);
+        
+        index(appID);
+        
+        /*
+         * The localized display name
+         */
+        attribute displayName : string localized;
+
+        /*
+         * The localized description
+         */
+        attribute description : string localized;
+
+        /*
+         * The uuid of the site
+         */
+        attribute siteID : uuid required;
+
+        /*
+         * The appID of the enabled app for the assigned urlIdentifier
+         */
+        attribute appID : string required searchable;
+
+        /*
+         * The assigned urlIdentifier
+         */
+        attribute urlIdentifier : string = "-" required;
+
+        /*
+         * The enabled state of application.
+         */
+        attribute enabled : boolean required;
+
+        /*
+         * The default value for currency (ISO 4217 mnemonic code of the currency).
+         */
+        attribute defaultCurrency : string<3>;
+        
+        /*
+         * A comma separated list of currencies, e.g.: "EUR,USD". The list consists at least of the defaultCurrency.
+         */
+        attribute currencies : Set type "VARCHAR(1000)" handler "com.intershop.beehive.orm.internal.jdbc.StringSetAttributeHandler";
+        
+        /*
+         * The default value for locale information (contains a combination of the language and the country key, concatenated by "_", e.g. "en_US").
+         */
+        attribute defaultLocale : string<10>;
+        
+        /*
+         * A comma separated list of locales, e.g.: "en_US,en_GB" The list consists at least of the defaultLocale.
+         */
+         attribute locales : Set type "VARCHAR(1000)" handler "com.intershop.beehive.orm.internal.jdbc.StringSetAttributeHandler";
+
+        /*
+         * The default timezone of the application ( refers to a Java {@link TimeZone} ).
+         */
+        attribute defaultTimeZone : TimeZone;
+         
+         /*
+         * The relation to the site defining the data context.
+         */
+        relation sitePO : DomainPO[1..1] inverse applicationsPO readonly 
+        {
+            foreign key(siteID) -> (UUID);
+        }
+        
+        /*
+         * The relation to the domains containing the data of application.
+         */
+        relation applicationDomainRelationsPO : ApplicationDomainRelationPO[0..n] inverse applicationPO readonly; 
+        
+        relation localizationAssignment : LocalizationApplicationAssignmentPO[0..1] inverse application readonly;
+        
+        /*
+         * Reverse relation to JobConfigurationPO. If an ApplicationPO is deleted, the JobConfigurationPO should be deleted as well.
+         */
+        relation jobConfigurationPO : JobConfigurationPO[0..n] inverse applicationPO delete propagate;
+        
+    }
+}

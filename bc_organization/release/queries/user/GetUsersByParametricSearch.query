@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets user list by parametric search">
+<parameters>
+	<parameter name="DomainID" type="java.lang.String" optional="false" description="user domainID"/>
+	<parameter name="BusinessPartnerNoExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="FirstNameExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="LastNameExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="LoginExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="DisabledFlag" type="java.lang.String" optional="true"/>
+	<parameter name="ReminderEmailExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="AccessRoleID" type="java.lang.String" optional="true"/>
+	<parameter name="PermissionID" type="java.lang.String" optional="true"/>
+	<parameter name="OrganizationUUID" type="java.lang.String" optional="true"/>
+	<parameter name="DepartmentNameExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description=""/>
+	<parameter name="CostCenterNameExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="UserRoles" type="java.util.Iterator" optional="true"/>
+	<parameter name="UserGroups" type="java.util.Iterator" optional="true"/>
+	<parameter name="SimpleSearchTermExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="CreationDateFrom" type="java.util.Date" optional="true"/>
+	<parameter name="CreationDateTo" type="java.util.Date" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="User" type="orm" class="com.intershop.beehive.core.internal.profile.BasicProfilePO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="cBusinessPartnerNoExp" input="BusinessPartnerNoExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cFirstNameExp" input="FirstNameExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cLastNameExp" input="LastNameExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cLoginExp" input="LoginExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cReminderEmailExp" input="ReminderEmailExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cDepartmentNameExp" input="DepartmentNameExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cCostCenterNameExp" input="CostCenterNameExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cSimpleSearchTermExp" input="SimpleSearchTermExp" processing="SearchExpression2Contains"/>
+</processor>
+<template type="countedobjects">
+	<template-comment>
+		Notes for the "inline" hint:
+			The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+			of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+			not a good practice.
+		Solved problems:
+			Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+			if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+			data were not subsequently deleted.
+	</template-comment>
+	
+	<template-if condition="isDefined(PermissionID) AND isDefined(OrganizationUUID) ">
+		<sql-dialect name="Microsoft">
+			WITH ras AS (
+			select /*+ inline - to avoid massive not released temporary tablespace data */ ra.* 
+			from ORGANIZATION_RA ra 
+			WHERE ra.ao_uuid = <template-variable value="OrganizationUUID"/>
+			AND (ra.roleid) in (
+			SELECT ro.roleid 
+			FROM rolepermissionassignment ro 
+			WHERE ro.permissionid = <template-variable value="PermissionID"/>
+			)
+			),
+			directgroups as ( 
+			select /*+ inline */ ra.usergroupid as id
+				 , ra.usergroupdomainid as domainid 
+			FROM ras ra
+			),
+			childs1 as 
+			( 
+			SELECT /*+ inline */ uga.childusergroupid as id
+				 , uga.childusergroupdomainid as domainid 
+						FROM usergroupassignment  uga
+			   , directgroups p 
+						where uga.parentusergroupid = p.id 
+			  AND uga.parentusergroupdomainid = p.domainid
+			), 
+			childs2 as 
+			(
+						SELECT /*+ inline */ uga.childusergroupid as id
+				 , uga.childusergroupdomainid  as domainid 
+						FROM usergroupassignment  uga, childs1 p 
+						where uga.parentusergroupid = p.id 
+			  AND uga.parentusergroupdomainid = p.domainid
+			),
+			usergroupassignmentcte as
+			(
+				SELECT uga.childusergroupid, uga.childusergroupdomainid 
+				FROM usergroupassignment uga  inner join childs2 ch on uga.parentusergroupid=ch.id and uga.parentusergroupdomainid=ch.domainid
+				
+				union all 
+				
+				SELECT uga.childusergroupid, uga.childusergroupdomainid 
+					FROM usergroupassignmentcte cte inner join usergroupassignment uga on  cte.childusergroupid = uga.parentusergroupid 
+					 AND  cte.childusergroupdomainid = uga.parentusergroupdomainid 
+			)
+		</sql-dialect>
+		<sql-dialect name="Oracle">
+			WITH ras AS (
+			select /*+ inline - to avoid massive not released temporary tablespace data */ ra.* 
+			from ORGANIZATION_RA ra 
+			WHERE ra.ao_uuid = <template-variable value="OrganizationUUID"/>
+			AND (ra.roleid) in (
+			SELECT ro.roleid 
+			FROM rolepermissionassignment ro 
+			WHERE ro.permissionid = <template-variable value="PermissionID"/>
+			)
+			),
+			directgroups as ( 
+			select /*+ inline */ ra.usergroupid as id
+				 , ra.usergroupdomainid as domainid 
+			FROM ras ra
+			),
+			childs1 as 
+			( 
+			SELECT /*+ inline */ uga.childusergroupid as id
+				 , uga.childusergroupdomainid as domainid 
+						FROM usergroupassignment  uga
+			   , directgroups p 
+						where uga.parentusergroupid = p.id 
+			  AND uga.parentusergroupdomainid = p.domainid
+			), 
+			childs2 as 
+			(
+						SELECT /*+ inline */ uga.childusergroupid as id
+				 , uga.childusergroupdomainid  as domainid 
+						FROM usergroupassignment  uga, childs1 p 
+						where uga.parentusergroupid = p.id 
+			  AND uga.parentusergroupdomainid = p.domainid
+			 )
+		</sql-dialect>
+	</template-if>
+	    SELECT uuid, sorting, COUNT(uuid) over() AS "rowcount"
+	    FROM (
+	    SELECT  
+	        DISTINCT bp.uuid, 
+	        bp.firstname AS sorting 
+	    FROM
+	        basicprofile bp
+	        
+	    <template-if condition="(isDefined(LoginExp) AND LoginExp:NotEmpty) OR isDefined(DisabledFlag) OR (isDefined(ReminderEmailExp) AND ReminderEmailExp:NotEmpty)">
+		        JOIN
+		            basiccredentials bc ON bp.uuid = bc.basicprofileid
+		    </template-if>    
+	
+	    <template-if condition="(isDefined(AccessRoleID) AND (AccessRoleID NE &apos;All&apos;))
+	                           		OR (isDefined(CostCenterNameExp) AND CostCenterNameExp:NotEmpty)
+	                           		OR (isDefined(UserRoles) AND hasElements(UserRoles))
+	                           		OR (isDefined(UserGroups) AND hasElements(UserGroups))
+	                           		OR isDefined(PermissionID)">
+		        JOIN
+		            usergroupuserassignment uga ON bp.uuid = uga.userid
+		        JOIN
+		            usergroup ug ON (uga.usergroupid = ug.id AND uga.usergroupdomainid = ug.domainid)        
+		</template-if>
+		<template-if condition="isDefined(PermissionID) AND isDefined(OrganizationUUID) ">
+			<sql-dialect name="Microsoft">
+			    inner join usergroup ugx on uga.usergroupid=ugx.id and uga.usergroupdomainid=ugx.domainid 
+				inner join (select * from directgroups 
+				union select * from childs1 
+				union select * from childs2 
+				union  select * from usergroupassignmentcte) cte  on ugx.id=cte.id and  ugx.domainid=cte.domainid
+		    </sql-dialect>
+		</template-if>
+	    WHERE 
+	        bp.DOMAINID=<template-variable value="DomainID"/> 
+	        AND (bp.typeCode = 0 OR bp.typeCode IS NULL)
+	        
+	        <template-if condition="isDefined(SimpleSearchTermExp) and SimpleSearchTermExp:NotEmpty">
+		            AND 
+		            (
+		                <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="SimpleSearchTermExp"/><call-parameter name="ColumnNames" value="&quot;bp.lastName&quot;"/><call-parameter name="CaseInsensitive" value="true()"/></template-call> 
+		                <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="SimpleSearchTermExp"/><call-parameter name="ColumnNames" value="&quot;bp.firstName&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; OR &quot;"/></template-call> 
+		                <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="SimpleSearchTermExp"/><call-parameter name="ColumnNames" value="&quot;bp.businesspartnerno&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; OR &quot;"/></template-call> 
+		            )        
+		    </template-if>    
+	        
+	        <template-if condition="isDefined(BusinessPartnerNoExp) and BusinessPartnerNoExp:NotEmpty">
+		            <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="BusinessPartnerNoExp"/><call-parameter name="ColumnNames" value="&quot;bp.businesspartnerno&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/></template-call> 
+		    </template-if>
+	            
+	        <template-if condition="isDefined(FirstNameExp) and FirstNameExp:NotEmpty">
+		            <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="FirstNameExp"/><call-parameter name="ColumnNames" value="&quot;bp.firstname&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/></template-call> 
+	        </template-if>
+
+	        <template-if condition="isDefined(LastNameExp) and LastNameExp:NotEmpty">
+		            <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="LastNameExp"/><call-parameter name="ColumnNames" value="&quot;bp.lastname&quot;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/></template-call> 
+	        </template-if>
+	        
+	        <template-if condition="isDefined(LoginExp) and LoginExp:NotEmpty">
+		            <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="LoginExp"/><call-parameter name="ColumnNames" value="&quot;bc.login&quot;"/><call-parameter name="CaseInsensitive" value="false()"/><call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/></template-call> 
+	        </template-if>
+	            
+	        <template-if condition="isDefined(ReminderEmailExp) and ReminderEmailExp:NotEmpty">
+		            <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="ReminderEmailExp"/><call-parameter name="ColumnNames" value="&quot;bc.reminderemail&quot;"/><call-parameter name="CaseInsensitive" value="false()"/><call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/></template-call> 
+	        </template-if>
+	            
+	        <template-if condition="isDefined(DisabledFlag) AND (DisabledFlag NE &apos;All&apos;)">
+				<sql-dialect name="Microsoft">
+					<template-if condition="DisabledFlag EQ &apos;2&apos;">
+								AND bc.disableduntil &gt;GETUTCDATE()
+							<if-else/>
+								AND bc.disabledflag = <template-variable value="DisabledFlag"/>
+								AND (bc.disableduntil IS NULL OR bc.disableduntil &lt; GETUTCDATE())
+					 </template-if>
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+					<template-if condition="DisabledFlag EQ &apos;2&apos;">
+									AND bc.disableduntil &gt; UTCTIMESTAMP()
+								<if-else/>
+									AND bc.disabledflag = <template-variable value="DisabledFlag"/>
+									AND (bc.disableduntil IS NULL OR bc.disableduntil &lt; UTCTIMESTAMP())
+					</template-if>
+				</sql-dialect>
+		
+		        
+			</template-if>
+        
+	        <template-if condition="isDefined(AccessRoleID) AND (AccessRoleID NE &apos;All&apos;)">
+		            AND ug.id = <template-variable value="AccessRoleID"/>
+		    </template-if>
+	            
+	        <!-- if user belong to DepartmentName -->
+			<template-if condition="isDefined(DepartmentNameExp) and DepartmentNameExp:NotEmpty">
+				AND bp.uuid in
+				(
+					select uga.userid
+					from usergroupuserassignment uga
+					JOIN usergroup ug ON (uga.usergroupid = ug.id AND uga.usergroupdomainid = ug.domainid)        
+					JOIN organizationgroupassignment oga ON (ug.id = oga.usergroupid AND ug.domainid = oga.usergroupdomainid)
+					JOIN department dep ON oga.objectuuid = dep.uuid
+					AND dep.uuid IN 
+					(
+						SELECT ownerid 
+						FROM department_av 
+						WHERE 
+						name='displayName' 
+						AND (localeid = <template-variable value="LocaleInformation:LocaleID"/> OR localizedflag=0) 
+						<sql-dialect name="Oracle">
+							AND CONTAINS(stringvalue,<template-variable value="cDepartmentNameExp"/>)&gt;0
+						</sql-dialect>
+						<sql-dialect name="Microsoft">
+							AND CONTAINS(stringvalue,<template-variable value="cDepartmentNameExp"/>)
+						</sql-dialect>
+					)
+				)
+			</template-if>
+	        <template-if condition="isDefined(CostCenterNameExp) and CostCenterNameExp:NotEmpty">
+		        AND bp.uuid in
+		        (
+		            select uga.userid
+		            from usergroupuserassignment uga
+		            JOIN usergroup ug ON (uga.usergroupid = ug.id AND uga.usergroupdomainid = ug.domainid)        
+		            JOIN organizationgroupassignment oga ON (ug.id = oga.usergroupid AND ug.domainid = oga.usergroupdomainid)
+		            JOIN costcenter cc ON oga.objectuuid = cc.uuid
+		            AND cc.uuid IN 
+		            (
+		                SELECT ownerid 
+		                FROM costcenter_av 
+		                WHERE 
+		                    name=&apos;displayName&apos; 
+		                    AND (localeid = <template-variable value="LocaleInformation:LocaleID"/> OR localizedflag=0) 
+		                    <sql-dialect name="Oracle">
+		                    	AND CONTAINS(stringvalue,<template-variable value="cCostCenterNameExp"/>)&gt;0
+		                    </sql-dialect>
+		                    <sql-dialect name="Microsoft">
+		                    	AND CONTAINS(stringvalue,<template-variable value="cCostCenterNameExp"/>)
+		                    </sql-dialect>
+		            )
+		        )
+		    </template-if>
+	        <template-if condition="isDefined(CreationDateFrom)">
+		                AND bp.creationdate &gt;= <template-variable value="CreationDateFrom"/>
+		    </template-if>
+	               
+	        <template-if condition="isDefined(CreationDateTo)">
+		                AND <template-variable value="CreationDateTo"/> &gt;= bp.creationdate
+			</template-if>
+	        
+	        <template-if condition="isDefined(UserRoles) AND hasElements(UserRoles)">
+		            AND ug.id IN 
+		            (
+		                <template-loop iterator="UserRoles" alias="R">
+							<loop-statement>
+								<template-variable value="R:ID"/>
+				            </loop-statement>
+							<loop-separator>,</loop-separator>
+						</template-loop>
+		            ) 
+		    </template-if>
+	        
+	        <template-if condition="isDefined(PermissionID) AND isDefined(OrganizationUUID) ">
+				<sql-dialect name="Microsoft">
+						
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+						 AND (uga.usergroupid, uga.usergroupdomainid) in
+									(
+						SELECT ugx.id, ugx.domainid 
+						FROM USERGROUP ugx 
+						WHERE (ugx.id, ugx.domainid) IN 
+						(
+						select * from directgroups 
+						union select * from childs1 
+						union select * from childs2 
+						union (
+						SELECT uga.childusergroupid, uga.childusergroupdomainid 
+						FROM usergroupassignment uga 
+						CONNECT BY PRIOR uga.childusergroupid = uga.parentusergroupid 
+							   AND PRIOR uga.childusergroupdomainid = uga.parentusergroupdomainid 
+						START WITH (uga.parentusergroupid, uga.parentusergroupdomainid) in (select * from childs2)
+						)
+						)          		
+						)  		
+				</sql-dialect>
+			</template-if>
+	        
+	        <template-if condition="isDefined(UserGroups) AND hasElements(UserGroups)">
+		            AND (
+							<template-loop iterator="UserGroups" alias="G"><loop-statement>(ug.DOMAINID=<template-variable value="G:DomainID"/> AND ug.ID=<template-variable value="G:ID"/>)</loop-statement>
+								<loop-separator> OR </loop-separator>
+							</template-loop>
+		            )
+		    </template-if>
+	    ) basicprofiles   
+	    ORDER BY sorting ASC
+</template>
+</query>

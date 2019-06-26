@@ -1,0 +1,495 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Wrapper to get the products of the categories
+@Group REST-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCatalogREST" type="process">
+<!--Deprecated \- use
+ProductBORepository
+to retreive ProductBO
+@Location 21,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@Location 23,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="EligibleShippingMethods"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+    <parameters name="ProductBO" type="com.intershop.component.product.capi.ProductBO"/>
+<!--The current request-->
+    <parameters name="CurrentRequest" type="com.intershop.beehive.core.capi.request.Request"/>
+  </nodes>
+<!--@Location 23,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 23,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="OK" next="GetProductByUUID0"/>
+    <parameterBindings name="Domain" objectPath="CurrentDomain"/>
+    <parameterBindings name="Request" objectPath="CurrentRequest"/>
+    <startNode referencedName="ProcessOrganization-GetOrganization"/>
+  </nodes>
+<!--@Location 23,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="GetEligibleShippingMethods0"/>
+<!--@BendPoints 48,9 48,13-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="ProductDomain" objectPath="Organization:OwningDomain"/>
+    <parameterBindings name="ProductUUID" objectPath="ProductBO:ID"/>
+  </nodes>
+<!--@Location 23,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetEligibleShippingMethods0">
+    <pipelet href="enfinity:/bc_shipping/pipelets/GetEligibleShippingMethods.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <returnValueBindings name="List" objectPath="AdvancedShippingMethods"/>
+  </nodes>
+<!--@Location 23,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode11"/>
+  </nodes>
+<!--@Location 23,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" strict="true">
+    <returnValues name="AdvancedShippingMethods" type="java.util.List"/>
+  </nodes>
+<!--@Location 25,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="GetCategoryBOAndCatalogBO"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <parameters name="CategoryName" type="java.lang.String" optional="true"/>
+    <parameters name="CategoryDomainName" type="java.lang.String" optional="true"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 25,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Extension(&quot;Catalog&quot;):CatalogBORepository"/>
+    <returnValueBindings name="OutValue_1" objectPath="CatalogCategoryBORepository"/>
+  </nodes>
+<!--@Location 25,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+<!--@BendPoints 53,7-->
+    <nodeSuccessors name="ERROR" next="JoinNode6"/>
+    <parameterBindings name="CatalogBORepository" objectPath="CatalogCategoryBORepository"/>
+    <startNode referencedName="ProcessChannelCatalog-GetCategory"/>
+  </nodes>
+<!--@Location 25,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="CategoryBO:Accessible"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 25,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="Error" next="JoinNode4"/>
+    <nodeSuccessors name="Ok" next="EndNode13"/>
+    <parameterBindings name="CatalogBORepository" objectPath="CatalogCategoryBORepository"/>
+    <parameterBindings name="CategoryBO" objectPath="CategoryBO"/>
+    <startNode referencedName="ProcessCatalog-GetCatalogBOByCatalogCategoryBO"/>
+  </nodes>
+<!--@Location 26,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 26,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name="Error" strict="true"/>
+<!--@Location 25,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" strict="true">
+    <returnValues name="CatalogBO" type="com.intershop.component.catalog.capi.CatalogBO"/>
+    <returnValues name="CategoryBO" type="com.intershop.component.catalog.capi.CatalogCategoryBO"/>
+  </nodes>
+<!--@Location 26,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--Get a tree representing the subcategories of a given category (or starting with all catalogs).
+
+@Location 11,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="GetCategoryHierarchy"
+      callMode="Private">
+<!--@BendPoints 23,4 22,4 22,5-->
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="Category" type="com.intershop.component.catalog.capi.CatalogCategoryBO"
+        optional="true"/>
+    <parameters name="Depth" type="java.lang.Integer" optional="true"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="Depth"
+      operator="eq" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="EndNode5"/>
+<!--@BendPoints 23,6-->
+    <nodeSuccessors name="decision_no" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 12,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="end" strict="true"/>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Category">
+<!--@BendPoints 23,8-->
+    <nodeSuccessors name="decision_yes" next="CallNode3"/>
+<!--@BendPoints 25,7 25,8-->
+    <nodeSuccessors name="decision_no" next="CallNode4"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="CurrentOrganization" objectPath="Organization"/>
+    <parameterBindings name="ParentCategory" objectPath="Category"/>
+    <startNode referencedName="ProcessCatalogREST-GetSubCategories"/>
+    <returnValueBindings name="RelevantSubCategoriesIterator" objectPath="SubCategoryBOs"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="CalculateInteger1"/>
+  </nodes>
+<!--@displayNearNode@Reduce remaining recursion depth by 1.
+@Location 11,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateInteger1">
+    <configurationValues name="Operand2" value="1"/>
+    <configurationValues name="Operation" value="-"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CalculateInteger.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <parameterBindings name="Operand1" objectPath="Depth"/>
+    <returnValueBindings name="Result" objectPath="Depth"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="SubCategoryBOs">
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <entry key="SubCategory">
+      <nodeSuccessors name="loop_entry_next" next="RemoveDictionaryValue1"/>
+    </entry>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue1">
+    <configurationValues name="Key" value="SubSubCategoryMap"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+<!--@BendPoints 23,18-->
+    <nodeSuccessors name="next" next="CallNode5"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+<!--@BendPoints 23,20-->
+    <nodeSuccessors name="next" next="AddEntryToLinkedMap0"/>
+    <parameterBindings name="Category" objectPath="SubCategory"/>
+    <startNode referencedName="ProcessCatalogREST-GetCategoryHierarchy"/>
+    <returnValueBindings name="SubCategoryMap" objectPath="SubSubCategoryMap"/>
+  </nodes>
+<!--@Location 11,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToLinkedMap0">
+    <pipelet href="enfinity:/app_sf_rest/pipelets/AddEntryToLinkedMap.xml"/>
+<!--@BendPoints 23,23 22,23 22,15-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <parameterBindings name="InMap" objectPath="SubCategoryMap"/>
+    <parameterBindings name="Key" objectPath="SubCategory"/>
+    <parameterBindings name="Value" objectPath="SubSubCategoryMap"/>
+    <returnValueBindings name="OutMap" objectPath="SubCategoryMap"/>
+  </nodes>
+<!--@Location 13,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="end" strict="true">
+    <returnValues name="SubCategoryMap" type="java.util.Map" optional="true"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 25,11-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <startNode referencedName="ProcessCatalogREST-GetRootCategories"/>
+    <returnValueBindings name="RootCategoriesIterator" objectPath="SubCategoryBOs"/>
+  </nodes>
+<!--@Location 27,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_DqaCALJfEeeZ8JJKoa0P1w" strict="true"
+      name="GetCustomAttributes" callMode="Private">
+    <nodeSuccessors name="next" next="GetCustomAttributes_5lr0wLJeEeeZ8JJKoa0P1w"/>
+    <parameters name="CatalogCategoryBO" type="com.intershop.component.catalog.capi.CatalogCategoryBO"/>
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"
+        optional="true"/>
+  </nodes>
+<!--@Location 27,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCustomAttributes_5lr0wLJeEeeZ8JJKoa0P1w">
+    <configurationValues name="FilteredAttributes" value="META_*;displayName;description;PRODUCT_SORTING_*;SUBCATEGORY_SORTING_*;ShowInMenu;ClassificationType;RobotsNoIndex;RobotsNoFollow;richContent"/>
+    <pipelet href="enfinity:/core/pipelets/GetCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper_MZtfALJgEeeZ8JJKoa0P1w"/>
+    <parameterBindings name="ExtensibleObject" objectPath="CatalogCategoryBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+  </nodes>
+<!--@Location 27,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_MZtfALJgEeeZ8JJKoa0P1w">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode_99SuMLJeEeeZ8JJKoa0P1w"/>
+    <parameterBindings name="InValue_1" objectPath="AttributeValuesMap:Values"/>
+    <returnValueBindings name="OutValue_1" objectPath="AttributeValuesCollection"/>
+  </nodes>
+<!--@Location 27,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_99SuMLJeEeeZ8JJKoa0P1w" strict="true">
+    <returnValues name="AttributeValuesCollection" type="java.util.Collection&lt;com.intershop.beehive.core.capi.domain.AttributeValue>"/>
+  </nodes>
+<!--@deprecated \- use ProductBORepository to retreive ProductBO
+@Location 20,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="GetProductBOByProductUUIDOrSKU"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <parameters name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="ProductUUID" type="java.lang.String" optional="true"/>
+    <parameters name="SKU" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 20,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <startNode referencedName="ProcessB2CProduct-GetProductBOByProductUUIDOrSKU"/>
+  </nodes>
+<!--@Location 20,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ProductBO">
+    <nodeSuccessors name="decision_yes" next="EndNode0"/>
+    <nodeSuccessors name="decision_no" next="SetRestError0"/>
+  </nodes>
+<!--@Location 20,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+    <returnValues name="ProductBO" type="com.intershop.component.product.capi.ProductBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 21,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetRestError0">
+    <configurationValues name="Message" value="Unable to find product"/>
+    <pipelet href="enfinity:/app_sf_rest/pipelets/SetRestError.xml"/>
+    <nodeSuccessors name="next" next="EndNode12"/>
+  </nodes>
+<!--@Location 21,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" name="404" strict="true">
+    <returnValues name="ErrorMessage" type="java.lang.String" optional="true"/>
+    <returnValues name="LocalizationErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetRootCategories"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper7"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper7">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Extension(&quot;Catalog&quot;):CatalogBORepository"/>
+    <returnValueBindings name="OutValue_1" objectPath="CatalogBORepository"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="CallNode9"/>
+    <startNode referencedName="ProcessCatalog-GetStandardCatalogBOs"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+<!--@BendPoints 17,12-->
+    <nodeSuccessors name="next" next="CallNode10"/>
+    <parameterBindings name="CatalogFilterDomain" objectPath="Organization:OwningDomain"/>
+    <parameterBindings name="EveryoneDomain" objectPath="Organization:OrganizationDomain"/>
+    <parameterBindings name="UseFallbackToEveryoneDomain" constant="true"/>
+    <startNode referencedName="GetCatalogFilters-GetFiltersByUser"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="CatalogBOs" objectPath="StandardCatalogBOs"/>
+    <startNode referencedName="GetCatalogBOFilters-GetFilteredCatalogs"/>
+    <returnValueBindings name="AccessibleCatalogBOs" objectPath="StandardCatalogBOs"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="StandardCatalogBOs">
+<!--@BendPoints 19,15 19,18-->
+    <nodeSuccessors name="next" next="CreatePageableFromIterator1"/>
+    <entry key="Catalog">
+      <nodeSuccessors name="loop_entry_next" next="AddObjectToVector1"/>
+    </entry>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 17,18 16,18 16,15-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <parameterBindings name="InVector" objectPath="RootCategories"/>
+    <parameterBindings name="Object" objectPath="Catalog:RootCatalogCategoryBO"/>
+    <returnValueBindings name="OutVector" objectPath="RootCategories"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePageableFromIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableFromIterator.xml"/>
+<!--@BendPoints 19,20-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <parameterBindings name="Iterator" objectPath="RootCategories:Iterator"/>
+    <returnValueBindings name="Pageable" objectPath="RootCategoriesIterator"/>
+  </nodes>
+<!--@Location 9,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="end" strict="true">
+    <returnValues name="RootCategoriesIterator" type="com.intershop.beehive.core.capi.paging.PageableIterator"/>
+  </nodes>
+<!--@Location 18,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="GetSubCategories"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper5"/>
+    <parameters name="ParentCategory" type="com.intershop.component.catalog.capi.CatalogCategoryBO"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 18,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode9"/>
+    <parameterBindings name="InValue_1" objectPath="ParentCategory:AccessibleSubCatalogCategoryBOs:Iterator"/>
+    <returnValueBindings name="OutValue_1" objectPath="RelevantSubCategoriesIterator"/>
+  </nodes>
+<!--@Location 18,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="end" strict="true">
+    <returnValues name="RelevantSubCategoriesIterator" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="IsCategoryRelevant"
+      callMode="Private">
+<!--@BendPoints 29,4-->
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+    <parameters name="Category" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="Category:SubCategoriesCount"
+      operator="gt" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+<!--@BendPoints 31,5 31,6-->
+    <nodeSuccessors name="decision_no" next="DecisionNode7"/>
+  </nodes>
+<!--@Location 14,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 29,10-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 14,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="yes" strict="true"/>
+<!--@displayNearNode@Do not include empty categories (without products and without subcategories)
+@Location 15,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="Category:ProductsCount"
+      operator="gt" conditionValue="0">
+<!--@BendPoints 31,9-->
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+<!--@BendPoints 33,7-->
+    <nodeSuccessors name="decision_no" next="EndNode8"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="no" strict="true"/>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start10" strict="true" name="SearchAssignedProducts"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ConcatenateStrings0"/>
+    <parameters name="PageSize" type="java.lang.String" optional="true"/>
+    <parameters name="PageNumber" type="java.lang.String" optional="true"/>
+<!--The current processed CatalogCategory.-->
+    <parameters name="Category" type="com.intershop.component.catalog.capi.CatalogCategoryBO"
+        optional="true"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+<!--The site context for the query lookup.-->
+    <parameters name="CurrentOrganization" type="java.lang.Object"/>
+    <parameters name="SortingAttribute" type="java.lang.String" optional="true"/>
+    <parameters name="SearchQueryDefinitionID" type="java.lang.String"/>
+    <parameters name="SearchParameter" type="java.lang.String" optional="true"/>
+    <parameters name="Catalog" type="com.intershop.component.mvc.capi.catalog.Catalog"
+        optional="true"/>
+    <parameters name="HandlerPipeline" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="Call1"/>
+    <parameterBindings name="String0" constant="&amp;@QueryTerm="/>
+    <parameterBindings name="String1" objectPath="SearchParameter"/>
+    <returnValueBindings name="Concatenated" objectPath="SearchParameter"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+<!--@BendPoints 7,9 7,10-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--@BendPoints 3,9 3,10-->
+    <nodeSuccessors name="ONEPRODUCT" next="KeyMapper1"/>
+<!--@BendPoints 13,9-->
+    <nodeSuccessors name="ERROR" next="JoinNode1"/>
+    <parameterBindings name="CategoryBO" objectPath="Category"/>
+    <startNode referencedName="ProcessStandardCatalog-SearchAssignedProducts"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ProductBOs"
+      operator="has_elements">
+<!--@BendPoints 7,14-->
+    <nodeSuccessors name="decision_yes" next="KeyMapper3"/>
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 7,16-->
+    <nodeSuccessors name="next" next="KeyMapper4"/>
+    <parameterBindings name="InValue_1" constant="MOREPRODUCTS"/>
+    <returnValueBindings name="OutValue_1" objectPath="ResultCode"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToCollection_d52CUBx2Eei95ox5deuMLA"/>
+    <parameterBindings name="InValue_1" objectPath="ListNavigationVO:ElementCount"/>
+    <returnValueBindings name="OutValue_1" objectPath="ElementCount"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection_d52CUBx2Eei95ox5deuMLA">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper6"/>
+    <parameterBindings name="InCollection" nullBinding="true"/>
+    <parameterBindings name="InObject" nullBinding="true"/>
+    <returnValueBindings name="OutCollection" objectPath="Sortings"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <parameterBindings name="InValue_1" objectPath="ListNavigationVO:SortableAttributes(Sortings)"/>
+    <returnValueBindings name="OutValue_1" objectPath="SortableAttributes"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="ProductBOs" type="java.util.Iterator"/>
+    <returnValues name="ResultCode" type="java.lang.String"/>
+    <returnValues name="ElementCount" type="java.lang.Integer"/>
+    <returnValues name="SortableAttributes" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 13,12-->
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 13,16-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <parameterBindings name="InValue_1" constant="NOPRODUCTS"/>
+    <returnValueBindings name="OutValue_1" objectPath="ResultCode"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="ResultCode" type="java.lang.String"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode6"/>
+    <parameterBindings name="InValue_1" constant="ONEPRODUCT"/>
+    <returnValueBindings name="OutValue_1" objectPath="ResultCode"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true">
+    <returnValues name="ProductBO" type="com.intershop.component.product.capi.ProductBO"/>
+    <returnValues name="ResultCode" type="java.lang.String"/>
+  </nodes>
+</pipeline:Pipeline>

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ParentCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+    <parameter name="Filters" type="java.util.Iterator" optional="true"/>
+	<parameter name="OnlineFlag" type="java.lang.String" optional="true"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true"/>	
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="SortAttributeType" type="java.lang.String" optional="true"/>
+	<parameter name="SortAttributeLocalizedFlag" type="java.lang.String" optional="true" />	
+</parameters>
+<return-mappings>
+	<return-mapping name="CatalogCategory" type="orm" class="com.intershop.beehive.xcs.internal.catalog.CatalogCategoryPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="CatalogConfiguration" input="" processing="CatalogConfigurationQueryProcessor"/>
+</processor>
+<template type="countedobjects">
+	SELECT
+		c.position,
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'name')">
+			c.name as SORTING,
+		<if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')" />
+			c_av.intvalue as SORTING,
+		<if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')" />
+			c_av.doublevalue as SORTING,
+		<if-else/>
+			c_av.stringvalue as SORTING,
+		</template-if>
+		c.uuid AS UUID, count(*) over() as "ROWCOUNT"
+	FROM 
+	     catalogcategory c 
+
+   	<template-if condition="NOT (isDefined(SortAttribute) AND (SortAttribute EQ 'name'))">
+		LEFT OUTER JOIN catalogcategory_av c_av ON 
+			(c.uuid=c_av.ownerid) AND c_av.localeid = <template-variable value="LocaleInformation:LocaleID"/>
+            <template-if condition="isDefined(SortAttributeLocalizedFlag) AND (SortAttributeLocalizedFlag EQ '1')">
+                AND c_av.localizedflag= <template-variable value="SortAttributeLocalizedFlag"/>
+            </template-if>
+	        <template-if condition="isDefined(SortAttribute)">
+				AND c_av.name  = <template-variable value="SortAttribute"/>
+	        <if-else/>
+				AND c_av.name = 'displayName'
+	        </template-if>
+    </template-if>  
+
+	WHERE 
+		c.parentcategoryid = <template-variable value="ParentCategory:UUID"/>
+		<template-if condition="isDefined(OnlineFlag) AND NOT (CatalogConfiguration:CatalogIgnoreOnline)">
+        	AND  c.onlineflag = <template-variable value="OnlineFlag"/>
+      	</template-if>
+		<template-if condition="isDefined(Filters) AND hasElements(Filters)">
+			AND EXISTS (SELECT * FROM catalogcategory_ra cc_ra 
+					   WHERE  c.uuid = cc_ra.ao_uuid 	
+					   AND
+					   <template-loop iterator="Filters" alias="Filter">
+							<loop-statement>
+			         			(cc_ra.UserGroupID = <template-variable value="Filter:FilterGroup:ID"/> AND cc_ra.UsergroupDomainID = <template-variable value="Filter:FilterGroup:DomainID"/>)
+							</loop-statement>
+			            	<loop-separator> OR </loop-separator>
+			        	</template-loop>				       
+        		)
+    	</template-if>      
+      
+	ORDER BY c.position ASC, 
+	<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'name')">
+		CASE WHEN c.name IS NULL THEN 1 ELSE 0 END ASC, c.name 
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			DESC
+		<if-else/>
+			ASC
+		</template-if>
+	<if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')" />
+		CASE WHEN c_av.intvalue IS NULL THEN 1 ELSE 0 END ASC, c_av.intvalue 
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			DESC
+		<if-else/>
+			ASC
+		</template-if>
+	<if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')" />
+		CASE WHEN c_av.doublevalue IS NULL THEN 1 ELSE 0 END ASC, c_av.doublevalue 
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			DESC
+		<if-else/>
+			ASC
+		</template-if>
+	<if-else/>
+		CASE WHEN c_av.stringvalue IS NULL THEN 1 ELSE 0 END ASC, c_av.stringvalue 
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			DESC
+		<if-else/>
+			ASC
+		</template-if>
+	</template-if>
+</template>
+</query>

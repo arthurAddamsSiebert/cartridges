@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="A filter query to be included in page variant/component search where to filter the set of pagelet by ContextObjectRelation (PageletEntryPoint) assignments to product/category pages.">
+  <parameters>
+    <parameter name="PageletEntryPointTableAlias" type="java.lang.String" optional="false" description="The PageletEntryPoint table alias from the main search where this filter is included."/>
+    <parameter name="TypeSelection" type="java.lang.String" optional="true" description="Selected by user kind of PageletEntryPoint Definition filtering in Advanced Search mode: 'all'/'system'/'content'/'product'/'category'."/>
+    <parameter name="PageletEntryPointTypes" type="java.lang.Iterable" optional="true" description="."/>
+  </parameters>
+  <processor name="OracleSQL"/>
+  <template>
+      <template-if condition = "isDefined(TypeSelection) and TypeSelection ne &apos;all&apos;">
+        <template-if condition="TypeSelection eq &apos;system&apos;">
+            and <template-variable value="PageletEntryPointTableAlias" processing="text"/>.dynamicflag = 0
+        <if-elseif condition="TypeSelection eq &apos;content&apos;"/>
+            and <template-variable value="PageletEntryPointTableAlias" processing="text"/>.dynamicflag = 1
+            and not exists
+                (select 1
+                   from product_pepa product_pepa
+                  where product_pepa.pageletentrypointid = <template-variable value="PageletEntryPointTableAlias" processing="text"/>.uuid
+                 )
+            and not exists
+                (select 1
+                   from catalogcategory_pepa category_pepa
+                  where category_pepa.pageletentrypointid = <template-variable value="PageletEntryPointTableAlias" processing="text"/>.uuid
+                 )
+        <if-elseif condition="TypeSelection eq &apos;product&apos;"/>
+            and exists
+                (select 1
+                   from product_pepa product_pepa
+                  where product_pepa.pageletentrypointid = <template-variable value="PageletEntryPointTableAlias" processing="text"/>.uuid
+                 )
+        <if-elseif condition="TypeSelection eq &apos;category&apos;"/>
+            and exists
+                (select 1
+                   from catalogcategory_pepa category_pepa
+                  where category_pepa.pageletentrypointid = <template-variable value="PageletEntryPointTableAlias" processing="text"/>.uuid
+                 )
+        </template-if>
+      </template-if>
+    <template-if condition="isDefined(PageletEntryPointTypes)">
+      <template-if condition="hasElements(PageletEntryPointTypes)">
+        and <template-variable value="PageletEntryPointTableAlias" processing="text"/>.definitionqualifiedname in (
+        <template-loop iterator="PageletEntryPointTypes" alias="PageletEntryPointType">
+          <loop-statement><template-variable value="PageletEntryPointType:QualifiedName"/></loop-statement>
+          <loop-separator>,</loop-separator>
+        </template-loop>)
+      <if-else/>
+        and 1 = 2 
+      </template-if>
+    </template-if>
+  </template>
+</query>

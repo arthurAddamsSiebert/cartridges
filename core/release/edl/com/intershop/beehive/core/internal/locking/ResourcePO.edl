@@ -1,0 +1,73 @@
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObjectPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/locking/Resource.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/locking/AcquisitionLogEntryPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/locking/AcquisitionLogEntryResourceAssignmentPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/locking/JobResourceAssignmentPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/locking/ProcessPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+namespace com.intershop.beehive.core.internal.locking
+{
+    orm class ResourcePO extends ExtensibleObjectPO implements Resource
+    {
+        index(resourceOwnerID);
+
+        index(parentResourceID);
+
+        index(name);
+
+        attribute name : string<256> readonly required searchable;
+        
+        attribute displayName : string localized;
+
+        attribute description : string<256>;
+
+        attribute ^type : int readonly required;
+
+        attribute resourceOwnerID : uuid searchable;
+
+        attribute instanceID : uuid readonly required;
+
+        attribute instanceClass : string<256>;
+
+        attribute parentResourceID : uuid;
+
+        /*
+         * The lock type (persistent or transient). Per default, named resources are locked transient, instance resources are locked persistent.
+         */
+        attribute lockType : int;
+
+        /*
+         * The lock creation date.
+         */
+        attribute lockCreationDate : datetime;
+
+        /*
+         * The lock expiration date. For persistent locks a null value means the lock never expires.
+         */
+        attribute lockExpirationDate : datetime;
+
+        /*
+         * The thread that locked the resource.
+         */
+        attribute lockingThreadID : string<256>;
+
+        relation jobResourceAssignmentPOs : JobResourceAssignmentPO[0..n] inverse resourcePO;
+
+        relation contentionLogEntryPOs : AcquisitionLogEntryPO[0..n] inverse contentionResourcePO;
+
+        relation parentResourcePO : ResourcePO[0..1] inverse subResourcePOs
+        {
+            foreign key(parentResourceID) -> (UUID);
+        }
+
+        relation subResourcePOs : ResourcePO[0..n] inverse parentResourcePO;
+
+        relation acquisitionLogEntryResourceAssignmentPOs : AcquisitionLogEntryResourceAssignmentPO[0..n] inverse resourcePO;
+
+        relation owningProcessPO : ProcessPO[0..1] inverse ownedResourcePOs
+        {
+            foreign key(resourceOwnerID) -> (UUID);
+        }
+    }
+}

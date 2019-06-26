@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--process user
+@Group User-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessUser" overrideMode="Inherit" type="process">
+<!--@deprecated since 7.4.3.0
+
+@Location 10,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@deprecated Use BO layer or pipelet CheckUserLoggedIn
+@Location 7,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="CheckLoggedIn"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CheckUserLoggedIn2"/>
+<!--The current request-->
+    <parameters name="CurrentRequest" type="com.intershop.beehive.core.capi.request.Request"
+        optional="true"/>
+<!--The current session-->
+    <parameters name="CurrentSession" type="com.intershop.beehive.core.capi.request.Session"
+        optional="true"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckUserLoggedIn2">
+    <pipelet href="enfinity:/core/pipelets/CheckUserLoggedIn.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+<!--@BendPoints 17,5-->
+    <nodeSuccessors name="pipelet_error" next="EndNode4"/>
+    <parameterBindings name="Request" objectPath="CurrentRequest"/>
+    <parameterBindings name="Session" objectPath="CurrentSession"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="NOTLOGGEDIN" strict="true"/>
+<!--@Location 13,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="GetCurrentUserBOAndCustomerBO"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+  </nodes>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetUserBO0"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserBO0">
+    <pipelet href="enfinity:/bc_user/pipelets/GetUserBO.xml"/>
+    <nodeSuccessors name="next" next="GetCustomerBO0"/>
+    <parameterBindings name="UserBORepository" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <parameterBindings name="UserID" objectPath="CurrentUser:ID"/>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCustomerBO0">
+    <pipelet href="enfinity:/bc_customer/pipelets/GetCustomerBO.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <parameterBindings name="CustomerBORepository" objectPath="ApplicationBO:Repository(&quot;CustomerBORepository&quot;)"/>
+  </nodes>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+    <returnValues name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+    <returnValues name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"
+        optional="true"/>
+  </nodes>
+<!--@deprecated @displayNearNode@get domain preference <b>UserRegistrationLoginType</b><br>
+from preference group UserCredentialPreferences<br>
+if no preference is found use end node LOGINISEMAIL<br>
+@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetLoginType"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainPreference1"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference1">
+    <configurationValues name="DefaultPreferenceKey" value="UserRegistrationLoginType"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+<!--@BendPoints 11,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+    <parameterBindings name="PreferenceDomain" objectPath="CurrentDomain"/>
+    <parameterBindings name="PreferenceKey" nullBinding="true"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="LoginType"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="LoginType"
+      operator="str_eq" conditionValue="username">
+<!--@BendPoints 9,8-->
+    <nodeSuccessors name="decision_yes" next="EndNode1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode9"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="LOGINANDEMAIL" strict="true"/>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+<!--@BendPoints 11,8-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="LOGINISEMAIL" strict="true"/>
+<!--@deprecated Returns the profile of the user. Use UserBO instead.
+@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" strict="true" name="GetProfile"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="EndNode15"/>
+<!--@BendPoints 1,6-->
+    <nodeSuccessors name="ERROR" next="EndNode16"/>
+    <startNode referencedName="Super:GetProfile"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true">
+<!--The user's profile.-->
+    <returnValues name="Profile" type="com.intershop.beehive.core.capi.profile.Profile"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" name="ERROR" strict="true">
+<!--Set to "UserNotLoggedIn" if the user is not logged in-->
+    <returnValues name="ERROR_User" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--Checks if the provided user is able to see the product.
+@deprecated since 7.4.3.0
+@Location 10,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="IsProductVisibleToCurrentUser"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode54"/>
+<!--The product which visibility is checked.-->
+    <parameters name="ProductBO" type="com.intershop.component.product.capi.ProductBO"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode54">
+    <nodeSuccessors name="next" next="GetProductBySKU2"/>
+    <startNode referencedName="DetermineRepositories-Channel"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductBySKU2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductBySKU.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--@BendPoints 23,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="Domain" objectPath="Repository:RepositoryDomain"/>
+    <parameterBindings name="SKU" objectPath="ProductBO:SKU"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Product:Online"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode56"/>
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode56">
+<!--@BendPoints 21,12-->
+    <nodeSuccessors name="next" next="CallNode53"/>
+    <startNode referencedName="DetermineOrganizations-Current"/>
+  </nodes>
+<!--@Location 10,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode53">
+<!--@BendPoints 21,14-->
+    <nodeSuccessors name="next" next="CallNode52"/>
+    <parameterBindings name="CatalogFilterDomain" objectPath="CurrentOrganization:OwningDomain"/>
+    <parameterBindings name="EveryoneDomain" objectPath="CurrentOrganization:OrganizationDomain"/>
+    <parameterBindings name="UseFallbackToEveryoneDomain" constant="true"/>
+    <startNode referencedName="GetCatalogFilters-GetFiltersByUser"/>
+  </nodes>
+<!--@Location 10,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode52">
+<!--@BendPoints 21,18-->
+    <nodeSuccessors name="next" next="EndNode9"/>
+<!--@BendPoints 22,16-->
+    <nodeSuccessors name="NOT_VISIBLE" next="JoinNode7"/>
+    <startNode referencedName="GetCatalogFilters-IsProductVisible"/>
+  </nodes>
+<!--@Location 10,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="VISIBLE" strict="true"/>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 23,18-->
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name="NOT_VISIBLE" strict="true"/>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+</pipeline:Pipeline>

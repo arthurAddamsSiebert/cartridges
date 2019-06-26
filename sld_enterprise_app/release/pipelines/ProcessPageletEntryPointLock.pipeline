@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--process locking of pagelet entry points. locks a single pagelet entry point or locks all pagelet entry point.-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessPageletEntryPointLock" type="process">
+<!--Check if the Pagelet locked by the current user and extends the acquisition if the Pagelet is already acquired by the user.
+@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Check"
+      callMode="Private">
+<!--@BendPoints 21,2-->
+    <nodeSuccessors name="next" next="CallNode2"/>
+<!--The Pagelet to be check.-->
+    <parameters name="PageletEntryPoint" type="com.intershop.component.pmc.capi.pagelet.ConfigurationParameterCtnr"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+<!--The domain where the preference should be read.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The domain to acquire the instance resource for the given Pagelet and user.-->
+    <parameters name="LockingDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 21,6-->
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <startNode referencedName="ProcessPageletEntryPointLock-Lookup"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+<!--@BendPoints 21,8-->
+    <nodeSuccessors name="next" next="DecisionNode12"/>
+<!--@BendPoints 19,8 19,9 19,16-->
+    <nodeSuccessors name="LOCKING_DISABLED" next="EndNode14"/>
+    <startNode referencedName="ProcessPageletEntryPointLock-GetLockPreference"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="PageletEntryPointLockedForMe">
+<!--@BendPoints 21,10-->
+    <nodeSuccessors name="decision_yes" next="Pipelet4"/>
+<!--@BendPoints 23,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="ProcessDescription" value="Pagelet Entry Point locked for editing."/>
+    <configurationValues name="ProcessName" value="PageletEntryPoint Editing"/>
+    <pipelet href="enfinity:/core/pipelets/AcquireInstanceResource.xml"/>
+<!--@BendPoints 21,16-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="CurrentDomain" objectPath="LockingDomain"/>
+    <parameterBindings name="Lifetime" objectPath="PageletEntryPointLockLifetime"/>
+    <parameterBindings name="PersistentObject" objectPath="PageletEntryPoint"/>
+  </nodes>
+<!--The Pagelet is locked by the current user.
+@Location 10,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="" strict="true">
+    <returnValues name="PageletEntryPointLockCreationDate" type="java.util.Date" optional="true"/>
+    <returnValues name="PageletEntryPointLockExpirationDate" type="java.util.Date"
+        optional="true"/>
+    <returnValues name="PageletEntryPointLockLifetime" type="java.lang.Integer" optional="true"/>
+    <returnValues name="PageletEntryPointLockOwner" type="com.intershop.beehive.core.capi.user.User"
+        optional="true"/>
+    <returnValues name="Resource" type="com.intershop.beehive.core.capi.locking.Resource"
+        optional="true"/>
+    <returnValues name="PageletEntryPointLockedForMe" type="java.lang.String" optional="true"/>
+<!--The process using the instance resource.-->
+    <returnValues name="Process" type="com.intershop.beehive.core.capi.locking.Process"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="DecisionNode19"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode19" conditionKey="PageletEntryPointLockedForOther">
+    <nodeSuccessors name="decision_yes" next="JoinNode15"/>
+<!--@BendPoints 25,13 25,14-->
+    <nodeSuccessors name="decision_no" next="CallNode5"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="Pipelet1"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="Name" value="PageletEntryPointLockLost"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--The Pagelet is locked by the current user.
+@Location 11,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="NO_LOCK" strict="true">
+    <returnValues name="PageletEntryPointLockCreationDate" type="java.util.Date" optional="true"/>
+    <returnValues name="PageletEntryPointLockExpirationDate" type="java.util.Date"
+        optional="true"/>
+    <returnValues name="PageletEntryPointLockLifetime" type="java.lang.Integer" optional="true"/>
+    <returnValues name="PageletEntryPointLockOwner" type="com.intershop.beehive.core.capi.user.User"
+        optional="true"/>
+    <returnValues name="Resource" type="com.intershop.beehive.core.capi.locking.Resource"
+        optional="true"/>
+    <returnValues name="Process" type="com.intershop.beehive.core.capi.locking.Process"
+        optional="true"/>
+<!--Key ist set if the lock expired or no lock exist.-->
+    <returnValues name="PageletEntryPointLockLost" type="java.lang.String" optional="true"/>
+    <returnValues name="PageletEntryPointLockedForOther" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+<!--@BendPoints 25,16-->
+    <nodeSuccessors name="next" next="EndNode18"/>
+    <nodeSuccessors name="ERROR" next="JoinNode15"/>
+    <startNode referencedName="ProcessPageletEntryPointLock-Lock"/>
+  </nodes>
+<!--@Location 12,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode18" strict="true"/>
+<!--@Location 9,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" strict="true"/>
+<!--Check if the given Pagelet locked by other user.
+@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="CheckUnlocked"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode14"/>
+<!--The Pagelet to be check.-->
+    <parameters name="PageletEntryPoint" type="com.intershop.beehive.core.capi.domain.PersistentObject"/>
+<!--The ID of the user to check the Pagelet lock for.-->
+    <parameters name="CheckedUserID" type="java.lang.String" optional="true"/>
+<!--The domain the pagelet is locked for (if omitted, the domain of the pagelet will be used).-->
+    <parameters name="LockingDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="PageletEntryPoint">
+    <nodeSuccessors name="decision_yes" next="Pipelet12"/>
+<!--@BendPoints 33,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode13"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet12">
+    <pipelet href="enfinity:/core/pipelets/LookupInstanceResource.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <parameterBindings name="PersistentObject" objectPath="PageletEntryPoint"/>
+    <returnValueBindings name="Lifetime" objectPath="PageletEntryPointLockLifetime"/>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="PageletEntryPointLockLifetime">
+    <nodeSuccessors name="decision_yes" next="DecisionNode7"/>
+    <nodeSuccessors name="decision_no" next="JoinNode13"/>
+  </nodes>
+<!--@Location 14,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="PageletEntryPointLockLifetime"
+      operator="gt" conditionValue="0">
+<!--@BendPoints 29,10-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode8"/>
+  </nodes>
+<!--@Location 14,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="CheckedUserID"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="JoinNode7"/>
+<!--@BendPoints 31,11 31,12-->
+    <nodeSuccessors name="decision_no" next="DecisionNode9"/>
+  </nodes>
+<!--@Location 14,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 14,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="LOCKED" strict="true"/>
+<!--@Location 15,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="CheckedUserID"
+      operator="str_neq" conditionItem="Owner:ID">
+<!--@BendPoints 31,15-->
+    <nodeSuccessors name="decision_yes" next="JoinNode7"/>
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 16,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" strict="true"/>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 22,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="GetLockPreference"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode10"/>
+<!--The domain where the preference should be set.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 22,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+<!--@BendPoints 45,5-->
+    <nodeSuccessors name="next" next="EndNode11"/>
+<!--@BendPoints 47,5-->
+    <nodeSuccessors name="LOCKING_DISABLED" next="EndNode4"/>
+    <startNode referencedName="ProcessPageletLock-GetLockPreference"/>
+    <returnValueBindings name="PageletLockLifetime" objectPath="PageletEntryPointLockLifetime"/>
+    <returnValueBindings name="PageletLocking" objectPath="PageletEntryPointLocking"/>
+  </nodes>
+<!--@Location 22,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" strict="true">
+    <returnValues name="PageletEntryPointLockLifetime" type="java.lang.Integer"/>
+<!--is pagelet locking enabled (=true) or disabled (=false)-->
+    <returnValues name="PageletEntryPointLocking" type="java.lang.String"/>
+    <returnValues name="CorrelatedLockingEnabled" type="java.lang.String"/>
+    <returnValues name="ImportAcquisitionTimeout" type="java.lang.String"/>
+    <returnValues name="ReplicationAcquisitionTimeout" type="java.lang.String"/>
+  </nodes>
+<!--@Location 23,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="LOCKING_DISABLED" strict="true">
+    <returnValues name="PageletEntryPointLocking" type="java.lang.String"/>
+    <returnValues name="CorrelatedLockingEnabled" type="java.lang.String"/>
+    <returnValues name="ReplicationAcquisitionTimeout" type="java.lang.String"/>
+    <returnValues name="ImportAcquisitionTimeout" type="java.lang.String"/>
+  </nodes>
+<!--Locks the given Pagelet. If the Pagelet is of page type all pagelets of the page will get locked if possible.
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="Lock"
+      callMode="Private">
+<!--@BendPoints 3,2-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+<!--The PageletEntryPoint to lock.-->
+    <parameters name="PageletEntryPoint" type="com.intershop.component.pmc.capi.pagelet.ConfigurationParameterCtnr"
+        optional="true"/>
+<!--The domain where the preference should be read.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+<!--The name of the process that update a Pagelet.-->
+    <parameters name="ProcessName" type="java.lang.String" optional="true"/>
+<!--The domain to acquire the instance resource for the given Pagelet and user.-->
+    <parameters name="LockingDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 3,5-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="LOCKING_DISABLED" next="JoinNode11"/>
+    <startNode referencedName="ProcessPageletEntryPointLock-GetLockPreference"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="PageletEntryPoint">
+    <nodeSuccessors name="decision_yes" next="CallNode0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode11"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+<!--@BendPoints 7,9-->
+    <nodeSuccessors name="ERROR" next="EndNode12"/>
+    <nodeSuccessors name="LOCKED" next="EndNode6"/>
+    <parameterBindings name="LockLifetime" objectPath="PageletEntryPointLockLifetime"/>
+    <parameterBindings name="PersistentObject" objectPath="PageletEntryPoint"/>
+    <parameterBindings name="ProcessDescription" constant="PageletEntryPoint is locked for edititng"/>
+    <parameterBindings name="ProcessName" constant="PageletEntryPoint Editing"/>
+    <startNode referencedName="ProcessLock-LockInstance"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" name="ERROR" strict="true"/>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true">
+<!--The process using the instance resource.-->
+    <returnValues name="Process" type="com.intershop.beehive.core.capi.locking.Process"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="EndNode17"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" name="LOCKING_DISABLED" strict="true"/>
+<!--Determines lock information for the given pagelet and user.
+@Location 18,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="Lookup"
+      callMode="Private">
+<!--@BendPoints 37,2-->
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <parameters name="PageletEntryPoint" type="com.intershop.component.pmc.capi.pagelet.ConfigurationParameterCtnr"
+        optional="true"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+<!--The domain where the preference should be set.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The domain the pagelet is locked for (if omitted, the domain of the pagelet will be used).-->
+    <parameters name="LockingDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+  </nodes>
+<!--@Location 18,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 37,5-->
+    <nodeSuccessors name="next" next="DecisionNode15"/>
+<!--@BendPoints 39,5-->
+    <nodeSuccessors name="LOCKING_DISABLED" next="JoinNode2"/>
+    <startNode referencedName="ProcessPageletEntryPointLock-GetLockPreference"/>
+    <returnValueBindings name="PageletEntryPointLockLifetime" nullBinding="true"/>
+  </nodes>
+<!--@Location 18,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode15" conditionKey="PageletEntryPoint">
+    <nodeSuccessors name="decision_yes" next="CallNode8"/>
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 18,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+<!--@BendPoints 39,11-->
+    <nodeSuccessors name="next" next="EndNode8"/>
+<!--@BendPoints 35,11-->
+    <nodeSuccessors name="LOCKED_FOR_ME" next="EndNode13"/>
+    <nodeSuccessors name="LOCKED_FOR_OTHER" next="EndNode5"/>
+    <parameterBindings name="PersistentObject" objectPath="PageletEntryPoint"/>
+    <parameterBindings name="UserID" objectPath="User:ID"/>
+    <startNode referencedName="ProcessLock-LookupInstanceResource"/>
+    <returnValueBindings name="AllInstancesLocked" objectPath="AllPageletEntryPointsLocked"/>
+    <returnValueBindings name="LockCreationDate" objectPath="PageletEntryPointLockCreationDate"/>
+    <returnValueBindings name="LockExpirationDate" objectPath="PageletEntryPointLockCreationDate"/>
+    <returnValueBindings name="LockLifetime" objectPath="PageletEntryPointLockLifetime"/>
+    <returnValueBindings name="LockOwner" objectPath="PageletEntryPointLockOwner"/>
+    <returnValueBindings name="LockedForMe" objectPath="PageletEntryPointLockedForMe"/>
+    <returnValueBindings name="LockedForOther" objectPath="PageletEntryPointLockedForOther"/>
+  </nodes>
+<!--@Location 19,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="" strict="true">
+    <returnValues name="PageletEntryPointLocking" type="java.lang.String"/>
+  </nodes>
+<!--The Pagelet is locked by the current user.
+@Location 17,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" name="LOCKED_FOR_ME" strict="true">
+<!--The acquisition start date.-->
+    <returnValues name="PageletEntryPointLockCreationDate" type="java.util.Date" optional="true"/>
+<!--The acquisition end date.-->
+    <returnValues name="PageletEntryPointLockExpirationDate" type="java.util.Date"
+        optional="true"/>
+<!--Remaining acquisition lifetime in seconds.-->
+    <returnValues name="PageletEntryPointLockLifetime" type="java.lang.Integer" optional="true"/>
+<!--The process owner that holds the lock.-->
+    <returnValues name="PageletEntryPointLockOwner" type="com.intershop.beehive.core.capi.user.User"
+        optional="true"/>
+<!--The resource found for the instance.-->
+    <returnValues name="Resource" type="com.intershop.beehive.core.capi.locking.Resource"
+        optional="true"/>
+<!--Key is set if the Pagelet locked by the current user.-->
+    <returnValues name="PageletEntryPointLockedForMe" type="java.lang.String" optional="true"/>
+    <returnValues name="PageletEntryPointLocking" type="java.lang.String"/>
+    <returnValues name="AllPageletEntryPointsLocked" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--The Pagelet is locked by other user.
+@Location 18,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="LOCKED_FOR_OTHER" strict="true">
+    <returnValues name="PageletEntryPointLockCreationDate" type="java.util.Date" optional="true"/>
+    <returnValues name="PageletEntryPointLockExpirationDate" type="java.util.Date"
+        optional="true"/>
+    <returnValues name="PageletEntryPointLockLifetime" type="java.lang.Integer" optional="true"/>
+    <returnValues name="PageletEntryPointLockOwner" type="com.intershop.beehive.core.capi.user.User"
+        optional="true"/>
+    <returnValues name="Resource" type="com.intershop.beehive.core.capi.locking.Resource"
+        optional="true"/>
+    <returnValues name="PageletEntryPointLockedForOther" type="java.lang.String" optional="true"/>
+    <returnValues name="PageletEntryPointLocking" type="java.lang.String"/>
+    <returnValues name="AllPageletEntryPointsLocked" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 19,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="EndNode15"/>
+  </nodes>
+<!--@Location 19,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true"/>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="LookupParentNamedResource"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode9"/>
+    <parameters name="ContentDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+<!--@BendPoints 3,17-->
+    <nodeSuccessors name="next" next="CallNode6"/>
+<!--@BendPoints 5,17-->
+    <nodeSuccessors name="LOCKING_DISABLED" next="JoinNode0"/>
+    <startNode referencedName="ProcessPageletEntryPointLock-GetLockPreference"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+<!--@BendPoints 3,21-->
+    <nodeSuccessors name="LOCKED" next="EndNode16"/>
+    <parameterBindings name="LockingDomain" objectPath="ContentDomain"/>
+    <parameterBindings name="PersistentObjectClassName" constant="com.intershop.component.pmc.capi.pagelet.PageletEntryPoint"/>
+    <startNode referencedName="ProcessLock-LookupParentNamedResource"/>
+    <returnValueBindings name="Locked" objectPath="AllPageletEntryPointsLocked"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" name="LOCKED" strict="true">
+    <returnValues name="Resource" type="com.intershop.beehive.core.capi.locking.Resource"/>
+    <returnValues name="AllPageletEntryPointsLocked" type="java.lang.String"/>
+  </nodes>
+<!--Unlock the given Pagelet, update and close the Pagelet history entry if the history enabled for the PreferenceDomain.
+@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="Unlock"
+      callMode="Private">
+<!--@BendPoints 11,2-->
+    <nodeSuccessors name="next" next="DecisionNode13"/>
+<!--The Pagelet to unlock.-->
+    <parameters name="PageletEntryPoint" type="com.intershop.component.pmc.capi.pagelet.ConfigurationParameterCtnr"
+        optional="true"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+<!--The domain to release the instance resource for the given Pagelet and user.-->
+    <parameters name="LockingDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="PageletEntryPoint">
+    <nodeSuccessors name="decision_yes" next="CallNode7"/>
+<!--@BendPoints 12,3 12,7-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+<!--@BendPoints 13,5-->
+    <nodeSuccessors name="ERROR" next="EndNode1"/>
+    <nodeSuccessors name="UNLOCKED" next="JoinNode1"/>
+    <parameterBindings name="PersistentObject" objectPath="PageletEntryPoint"/>
+    <startNode referencedName="ProcessLock-UnlockInstance"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR" strict="true"/>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 11,8-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true"/>
+</pipeline:Pipeline>

@@ -1,0 +1,511 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline is used to trigger an immediate staging process.
+@Group Staging-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="TriggerStagingProcess" type="process">
+  <registry xsi:type="pipeline:PipelineRegistry" href="enfinity:/core/pipelines"/>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Error" callMode="Private">
+<!--@BendPoints 11,2-->
+    <nodeSuccessors name="next" next="LogException1"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogException1">
+    <configurationValues name="LogScope" value="staging"/>
+    <pipelet href="enfinity:/core/pipelets/LogException.xml"/>
+<!--@BendPoints 11,4-->
+    <nodeSuccessors name="next" next="Pipelet13"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet13">
+    <configurationValues name="StagingState" value="ErrorInternal"/>
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 11,8-->
+    <nodeSuccessors name="next" next="NotifyErrorHandler1"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="NotifyErrorHandler1">
+    <pipelet href="enfinity:/core/pipelets/NotifyErrorHandler.xml"/>
+    <nodeSuccessors name="next" next="CallNode4"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 11,12-->
+    <nodeSuccessors name="next" next="Call1"/>
+    <startNode referencedName="StagingResources-Release"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+<!--@BendPoints 11,14-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <startNode referencedName="StagingCleanUp-Start"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="error"/>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="HandleError" callMode="Private">
+<!--@BendPoints 13,7-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="Start" callMode="Private">
+<!--@BendPoints 15,2-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 15,6-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--@BendPoints 21,5-->
+    <nodeSuccessors name="error" next="JoinNode5"/>
+    <startNode referencedName="InitializeStagingContext-Start"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Synchronously"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 15,8-->
+    <nodeSuccessors name="decision_yes" next="CallNode2"/>
+<!--@BendPoints 17,7 17,8-->
+    <nodeSuccessors name="decision_no" next="ExecutePipeline1"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <startNode referencedName="TriggerStagingProcess-TriggerLive"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 15,12-->
+    <nodeSuccessors name="next" next="End4"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4" name="next"/>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline1">
+    <configurationValues name="Asynchronous" value="true"/>
+    <configurationValues name="PipelineDomainName" value="CurrentDomain"/>
+    <configurationValues name="PipelineName" value="TriggerStagingProcess"/>
+    <configurationValues name="PipelineStartNode" value="TriggerLive"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+<!--@BendPoints 17,11-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 18,9-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet9"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet9">
+    <configurationValues name="StagingState" value="ErrorExecutingEditingStagingPipeline"/>
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 21,12-->
+    <nodeSuccessors name="next" next="JumpNode2"/>
+  </nodes>
+<!--@Location 10,6-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode2">
+    <startNode referencedName="TriggerStagingProcess-HandleError"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="SynchronizeCacheRefresh"
+      callMode="Private">
+<!--@BendPoints 23,20-->
+    <nodeSuccessors name="next" next="WaitForStagingProcessState3"/>
+  </nodes>
+<!--@Location 11,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="WaitForStagingProcessState3">
+    <configurationValues name="PollInterval" value="10"/>
+    <configurationValues name="Timeout" value="3600"/>
+    <configurationValues name="TimeoutPropertyKey" value="staging.timeout.waitingForState"/>
+    <configurationValues name="WaitForStagingState" value="PublicationSuccessfullyFinished"/>
+    <pipelet href="enfinity:/core/pipelets/WaitForStagingProcessState.xml"/>
+<!--@BendPoints 23,22-->
+    <nodeSuccessors name="next" next="Pipelet17"/>
+<!--@BendPoints 25,21 25,24-->
+    <nodeSuccessors name="pipelet_error" next="EndNode5"/>
+  </nodes>
+<!--@Location 11,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet17">
+    <configurationValues name="StagingState" value="StartRefreshCache"/>
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+<!--@BendPoints 23,24-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 11,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 12,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="error"/>
+<!--@Location 13,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" name="SynchronizeCompletion"
+      callMode="Private">
+<!--@BendPoints 27,20-->
+    <nodeSuccessors name="next" next="WaitForStagingProcessState5"/>
+  </nodes>
+<!--@Location 13,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="WaitForStagingProcessState5">
+    <configurationValues name="PollInterval" value="10"/>
+    <configurationValues name="Timeout" value="3600"/>
+    <configurationValues name="TimeoutPropertyKey" value="staging.timeout.waitingForState"/>
+    <configurationValues name="WaitForStagingState" value="RefreshCacheSuccessfullyFinished"/>
+    <pipelet href="enfinity:/core/pipelets/WaitForStagingProcessState.xml"/>
+<!--@BendPoints 27,22-->
+    <nodeSuccessors name="next" next="Pipelet5"/>
+<!--@BendPoints 29,21-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode13"/>
+  </nodes>
+<!--@Location 13,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <configurationValues name="StagingState" value="StartCompletionLive"/>
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+    <nodeSuccessors name="next" next="WaitForStagingProcessState6"/>
+  </nodes>
+<!--@Location 13,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="WaitForStagingProcessState6">
+    <configurationValues name="PollInterval" value="10"/>
+    <configurationValues name="Timeout" value="3600"/>
+    <configurationValues name="TimeoutPropertyKey" value="staging.timeout.waitingForState"/>
+    <configurationValues name="WaitForStagingState" value="CompletionLiveSuccessfullyFinished"/>
+    <pipelet href="enfinity:/core/pipelets/WaitForStagingProcessState.xml"/>
+    <nodeSuccessors name="next" next="ProcessCompletion1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode13"/>
+  </nodes>
+<!--@Location 13,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessCompletion1">
+    <pipelet href="enfinity:/core/pipelets/ProcessCompletion.xml"/>
+    <nodeSuccessors name="next" next="EndNode8"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode14"/>
+  </nodes>
+<!--@Location 13,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8"/>
+<!--@Location 14,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+<!--@BendPoints 29,28-->
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 14,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="error"/>
+<!--@Location 14,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="SynchronizeLiveSystems"
+      callMode="Private">
+<!--@BendPoints 11,20-->
+    <nodeSuccessors name="next" next="Decision1"/>
+  </nodes>
+<!--@Location 5,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="StagingProcessMode"
+      operator="str_eq" conditionValue="ReplicationPublication">
+<!--@BendPoints 11,22-->
+    <nodeSuccessors name="decision_yes" next="CallNode3"/>
+<!--@BendPoints 15,21 15,30-->
+    <nodeSuccessors name="decision_no" next="WaitForStagingProcessState2"/>
+  </nodes>
+<!--@Location 5,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="CallNode10"/>
+<!--@BendPoints 12,24 16,24 17,25-->
+    <nodeSuccessors name="error" next="JoinNode18"/>
+    <startNode referencedName="TriggerStagingProcess-SynchronizePublication"/>
+  </nodes>
+<!--@Location 5,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="CallNode5"/>
+<!--@BendPoints 12,26 16,26-->
+    <nodeSuccessors name="error" next="JoinNode18"/>
+    <startNode referencedName="TriggerStagingProcess-SynchronizeCacheRefresh"/>
+  </nodes>
+<!--@Location 5,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="WaitForStagingProcessState4"/>
+<!--@BendPoints 12,28 16,28-->
+    <nodeSuccessors name="error" next="JoinNode15"/>
+    <startNode referencedName="This:SynchronizeCompletion"/>
+  </nodes>
+<!--@Location 5,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="WaitForStagingProcessState4">
+    <configurationValues name="PollInterval" value="10"/>
+    <configurationValues name="Timeout" value="3600"/>
+    <configurationValues name="TimeoutPropertyKey" value="staging.timeout.waitingForState"/>
+    <configurationValues name="WaitForStagingState" value="StagingProcessCompleted"/>
+    <pipelet href="enfinity:/core/pipelets/WaitForStagingProcessState.xml"/>
+<!--@BendPoints 11,32-->
+    <nodeSuccessors name="next" next="Pipelet3"/>
+<!--@BendPoints 12,32 16,32-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+  </nodes>
+<!--@Location 5,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+<!--@BendPoints 11,35-->
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 7,17-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+<!--@BendPoints 15,36-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 7,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6"/>
+<!--@Location 8,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+<!--@BendPoints 17,34-->
+    <nodeSuccessors name="next" next="Pipelet4"/>
+  </nodes>
+<!--@Location 8,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+<!--@BendPoints 17,36-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 8,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="error"/>
+<!--@Location 8,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 8,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 8,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+    <nodeSuccessors name="next" next="JoinNode15"/>
+  </nodes>
+<!--@Location 7,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="WaitForStagingProcessState2">
+    <configurationValues name="PollInterval" value="10"/>
+    <configurationValues name="Timeout" value="3600"/>
+    <configurationValues name="TimeoutPropertyKey" value="staging.timeout.waitingForState"/>
+    <configurationValues name="WaitForStagingState" value="ReplicationProcessCompleted"/>
+    <pipelet href="enfinity:/core/pipelets/WaitForStagingProcessState.xml"/>
+<!--@BendPoints 15,32-->
+    <nodeSuccessors name="next" next="Pipelet1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+  </nodes>
+<!--@Location 7,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="SynchronizePublication"
+      callMode="Private">
+<!--@BendPoints 19,20-->
+    <nodeSuccessors name="next" next="WaitForStagingProcessState1"/>
+  </nodes>
+<!--@Location 9,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="WaitForStagingProcessState1">
+    <configurationValues name="PollInterval" value="10"/>
+    <configurationValues name="Timeout" value="3600"/>
+    <configurationValues name="TimeoutPropertyKey" value="staging.timeout.waitingForState"/>
+    <configurationValues name="WaitForStagingState" value="ReplicationSuccessfullyFinished"/>
+    <pipelet href="enfinity:/core/pipelets/WaitForStagingProcessState.xml"/>
+<!--@BendPoints 19,22-->
+    <nodeSuccessors name="next" next="Pipelet7"/>
+<!--@BendPoints 21,21 21,24-->
+    <nodeSuccessors name="pipelet_error" next="EndNode4"/>
+  </nodes>
+<!--@Location 9,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet7">
+    <configurationValues name="StagingState" value="StartPublication"/>
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+<!--@BendPoints 19,24-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 9,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 10,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="error"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="TriggerLive" callMode="Private">
+<!--@BendPoints 3,2-->
+    <nodeSuccessors name="next" next="LoopNode2"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="StagingServices">
+<!--@BendPoints 4,3 4,11 3,11-->
+    <nodeSuccessors name="next" next="CallNode6"/>
+    <entry key="StagingService">
+<!--@BendPoints 3,4-->
+      <nodeSuccessors name="loop_entry_next" next="Pipelet2"/>
+    </entry>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/core/pipelets/CheckNonStagedParentSites.xml"/>
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="Pipelet25"/>
+<!--@BendPoints 9,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet25">
+    <pipelet href="enfinity:/core/pipelets/CopyStagingProcessToTargetSystem.xml"/>
+<!--@BendPoints 3,8-->
+    <nodeSuccessors name="next" next="Pipelet23"/>
+<!--@BendPoints 6,7-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet15"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet23">
+    <pipelet href="enfinity:/core/pipelets/AcquireLiveResourcesForProcess.xml"/>
+<!--@BendPoints 3,10 2,10 2,3-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+<!--@BendPoints 6,9-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet26"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet26">
+    <configurationValues name="StagingState" value="ErrorAcquiringLiveLocks"/>
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="JoinNode20"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+    <nodeSuccessors name="next" next="JoinNode19"/>
+  </nodes>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+    <nodeSuccessors name="next" next="JumpNode5"/>
+  </nodes>
+<!--@Location 4,17-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode5">
+    <startNode referencedName="TriggerStagingProcess-HandleError"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet15">
+    <configurationValues name="StagingState" value="ErrorCreatingLiveStagingProcess"/>
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 3,16-->
+    <nodeSuccessors name="next" next="InitializeStagingProcessors1"/>
+<!--@BendPoints 6,15-->
+    <nodeSuccessors name="error" next="Pipelet8"/>
+    <startNode referencedName="StagingResources-Acquire"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="InitializeStagingProcessors1">
+    <pipelet href="enfinity:/core/pipelets/InitializeStagingProcessors.xml"/>
+<!--@BendPoints 3,18-->
+    <nodeSuccessors name="next" next="Pipelet10"/>
+<!--@BendPoints 6,17-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet12"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet10">
+    <pipelet href="enfinity:/core/pipelets/CheckProcessModeIsSupported.xml"/>
+<!--@BendPoints 3,20-->
+    <nodeSuccessors name="next" next="PrepareStagingTables1"/>
+<!--@BendPoints 6,19-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet11"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PrepareStagingTables1">
+    <pipelet href="enfinity:/core/pipelets/PrepareStagingTables.xml"/>
+<!--@BendPoints 3,22-->
+    <nodeSuccessors name="next" next="GrantStagingDatabasePrivsToTargetCluster1"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GrantStagingDatabasePrivsToTargetCluster1">
+    <pipelet href="enfinity:/core/pipelets/GrantStagingDatabasePrivsToTargetCluster.xml"/>
+<!--@BendPoints 3,24-->
+    <nodeSuccessors name="next" next="ProcessPreparation1"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessPreparation1">
+    <pipelet href="enfinity:/core/pipelets/ProcessPreparation.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="StagingServices">
+<!--@BendPoints 5,27-->
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <entry key="StagingService">
+<!--@BendPoints 3,28-->
+      <nodeSuccessors name="loop_entry_next" next="TriggerStagingProcess1"/>
+    </entry>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="TriggerStagingProcess1">
+    <pipelet href="enfinity:/core/pipelets/TriggerStagingProcess.xml"/>
+<!--@BendPoints 3,30 2,30 2,27-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+<!--@BendPoints 6,29-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet14"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet14">
+    <configurationValues name="StagingState" value="ErrorCallingLivePipeline"/>
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+    <nodeSuccessors name="next" next="JoinNode20"/>
+  </nodes>
+<!--@Location 2,15-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+<!--@BendPoints 5,32-->
+    <nodeSuccessors name="next" next="Call6"/>
+<!--@BendPoints 6,32-->
+    <nodeSuccessors name="error" next="JoinNode19"/>
+    <startNode referencedName="TriggerStagingProcess-SynchronizeLiveSystems"/>
+  </nodes>
+<!--@Location 2,16-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call6">
+    <nodeSuccessors name="next" next="End2"/>
+    <startNode referencedName="StagingCleanUp-Start"/>
+  </nodes>
+<!--@Location 2,17-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2" name="next"/>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet11">
+    <configurationValues name="StagingState" value="ErrorStagingProcessModeNotSupported"/>
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet12">
+    <configurationValues name="StagingState" value="ErrorInitializingStagingProcessors"/>
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet8">
+    <configurationValues name="StagingState" value="ErrorAcquiringEditingLocks"/>
+    <pipelet href="enfinity:/core/pipelets/SetStagingState.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+</pipeline:Pipeline>

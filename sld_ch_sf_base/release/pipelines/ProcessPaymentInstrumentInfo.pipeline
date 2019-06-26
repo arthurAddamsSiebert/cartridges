@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline contains processing methods relevant for displaying and editing of payment instruments.-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessPaymentInstrumentInfo" overrideMode="Inherit" type="process">
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use new Payment API with Pipeline bc_payment/staticfiles/cartridge/pipelines/ProcessPayment instead.
+
+Checks of the PII belongs to the current user. Returns through the YES exit if the PII belongs to the current user.
+@Location 4,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="CheckPIIBelongsToCurrentUser"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+<!--The payment insturment info tha should be checked.-->
+    <parameters name="PaymentInstrumentInfo" type="com.intershop.beehive.bts.capi.payment.PaymentInstrumentInfo"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="CurrentUser:ID"
+      operator="str_eq" conditionItem="PaymentInstrumentInfo:User:ID">
+    <nodeSuccessors name="decision_yes" next="EndNode6"/>
+    <nodeSuccessors name="decision_no" next="EndNode7"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="YES" strict="true"/>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="NO" strict="true"/>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use new Payment API with Pipeline bc_payment/staticfiles/cartridge/pipelines/ProcessPayment instead.
+
+Deletes a PII. If the PII cannot be deleted (e.g. does not belong to the current user) then the NOT_ALLOWED exit is used. If the PII has not been found, then the NOT_FOUND exit is used.
+@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="DeletePII"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode4"/>
+<!--The ID of the payment instrument info that has to be deleted.-->
+    <parameters name="PaymentInstrumentInfoUUID" type="java.lang.String"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <nodeSuccessors name="ERROR" next="EndNode3"/>
+    <startNode referencedName="ProcessPayment-GetPaymentInstrumentInfoByID"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="NO" next="EndNode4"/>
+    <nodeSuccessors name="YES" next="CallNode3"/>
+    <startNode referencedName="ProcessPaymentInstrumentInfo-CheckPIIBelongsToCurrentUser"/>
+  </nodes>
+<!--If this PII does not belong to the current user.
+@Location 5,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="NOT_ALLOWED" strict="true"/>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <startNode referencedName="ProcessPayment-RemovePaymentInstrumentInfo"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--If the PII cannot be found
+@Location 5,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="NOT_FOUND" strict="true"/>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use new Payment API with Pipeline bc_payment/staticfiles/cartridge/pipelines/ProcessPayment instead.
+@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="GetPIIDataForCurrentUser"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetOrganizationByUser0"/>
+<!--@deprecated the application.-->
+    <parameters name="CurrentApplication" type="com.intershop.beehive.core.capi.domain.Application"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser0">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <returnValueBindings name="Organization" objectPath="CurrentOrganization"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameterBindings name="Organization" objectPath="CurrentOrganization"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="ProcessPayment-GetActivePaymentMethods"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+<!--@BendPoints 5,10-->
+    <nodeSuccessors name="ERROR" next="JoinNode3"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="ProcessPayment-GetDefaultPaymentInstrumentInfoByUser"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetPaymentInstrumentInfosByUser0"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPaymentInstrumentInfosByUser0">
+    <pipelet href="enfinity:/bts/pipelets/GetPaymentInstrumentInfosByUser.xml"/>
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameterBindings name="PaymentService" nullBinding="true"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <returnValueBindings name="PaymentInstrumentInfos" objectPath="WalletPIIPOs"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <parameterBindings name="BasketBORepository" objectPath="ApplicationBO:Extension(&quot;Basket&quot;):getBasketBORepository(CurrentOrganization)"/>
+    <parameterBindings name="Organization" objectPath="CurrentOrganization"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="ProcessCart-GetCurrentCart"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="WalletPIIPOs">
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <entry key="PII">
+      <nodeSuccessors name="loop_entry_next" next="CreatePaymentInstrumentInfoBO0"/>
+    </entry>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePaymentInstrumentInfoBO0">
+    <pipelet href="enfinity:/bc_orderprocess/pipelets/CreatePaymentInstrumentInfoBO.xml"/>
+    <nodeSuccessors name="next" next="AddEntryToMap0"/>
+    <parameterBindings name="CartBO" objectPath="CurrentCartBO"/>
+    <parameterBindings name="PaymentInstrumentInfo" objectPath="PII"/>
+    <returnValueBindings name="PaymentInstrumentInfoBO" objectPath="PIIBO"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameterBindings name="InMap" objectPath="WalletPIIMap"/>
+    <parameterBindings name="Key" objectPath="PII:PaymentService"/>
+    <parameterBindings name="Value" objectPath="PIIBO"/>
+    <returnValueBindings name="OutMap" objectPath="WalletPIIMap"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="PII:PaymentService:Capabilities:EditPIITemplate">
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="AddEntryToMap1"/>
+    <parameterBindings name="InVector" objectPath="ActivePIIs"/>
+    <parameterBindings name="Object" objectPath="PIIBO"/>
+    <returnValueBindings name="OutVector" objectPath="ActivePIIs"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InMap" objectPath="ActivePIIMap"/>
+    <parameterBindings name="Key" objectPath="PII:PaymentService"/>
+    <parameterBindings name="Value" objectPath="ActivePIIs"/>
+    <returnValueBindings name="OutMap" objectPath="ActivePIIMap"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 1,31-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 0,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 0,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+<!--A list with active payment services.-->
+    <returnValues name="ActivePaymentServices" type="java.util.List&lt;com.intershop.beehive.bts.capi.payment.PaymentService>"/>
+<!--The user's default payment instrument info.-->
+    <returnValues name="DefaultPaymentInstrumentInfo" type="com.intershop.beehive.bts.capi.payment.PaymentInstrumentInfo"
+        optional="true"/>
+<!--@deprecated an iterator with the payment instrument info POs. Use WalletPIIMap if possible.-->
+    <returnValues name="WalletPIIPOs" type="java.util.Iterator" optional="true"/>
+<!--A map with key the payment service and a value the BO representation of the payment instrument info. Payment services w/o an edit template may have only one PII.-->
+    <returnValues name="WalletPIIMap" type="java.util.Map&lt;com.intershop.beehive.bts.capi.payment.PaymentService,com.intershop.sellside.appbase.b2c.capi.order.PaymentInstrumentInfoBO>"
+        optional="true"/>
+<!--A map with a key payment service and a list with active PII,-->
+    <returnValues name="ActivePIIMap" type="java.util.Map&lt;com.intershop.beehive.bts.capi.payment.PaymentService, java.util.List&lt;com.intershop.sellside.appbase.b2c.capi.order.PaymentInstrumentInfoBO>>"
+        optional="true"/>
+  </nodes>
+<!--If an error occurs during the processing and the payment data cannot be retrieved.
+@Location 2,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="Error" strict="true"/>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use new Payment API with Pipeline bc_payment/staticfiles/cartridge/pipelines/ProcessPayment instead.
+
+Sets the default PII for the current user. If the PII cannot be set as a default for the current user (e.g. does not belong to the current user) then the NOT_ALLOWED exit is used.
+@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="SetDefaultPII"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode6"/>
+<!--The default PII.-->
+    <parameters name="PaymentInstrumentInfo" type="com.intershop.beehive.bts.capi.payment.PaymentInstrumentInfo"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="NO" next="EndNode8"/>
+    <nodeSuccessors name="YES" next="SetDefaultPaymentInstrument0"/>
+    <startNode referencedName="ProcessPaymentInstrumentInfo-CheckPIIBelongsToCurrentUser"/>
+  </nodes>
+<!--If this PII does not belong to the current user.
+@Location 7,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="NOT_ALLOWED" strict="true"/>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDefaultPaymentInstrument0">
+    <pipelet href="enfinity:/bts/pipelets/SetDefaultPaymentInstrument.xml"/>
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <parameterBindings name="Domain" nullBinding="true"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+</pipeline:Pipeline>

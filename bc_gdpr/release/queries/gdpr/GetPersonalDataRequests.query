@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Performs search for GDPR Personal Data Requests">
+<parameters>
+	<parameter name="PersonalDataRequestBORepository" type="com.intershop.component.gdpr.capi.PersonalDataRequestBORepository" optional="false"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="SelectedRequestType" type="com.intershop.component.gdpr.capi.RequestType" optional="true"/>
+	<parameter name="RequestStatuses" type="java.util.Collection" optional="true"/>
+	<parameter name="NameOrRequestIDExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="PersonalDataRequestBO" type="bo-orm" class="com.intershop.component.gdpr.internal.orm.PersonalDataRequestPO" mapperclass="PersonalDataRequestPOToPersonalDataRequestBOMapper">
+		<return-attribute name="uuid"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+    select pdr.uuid,
+           count(pdr.uuid) over() as "rowcount",
+       <template-if condition="isDefined(SortBy)">
+         <template-if condition="SortBy eq &apos;Type&apos;">
+           pdr.requesttype
+         <if-elseif condition="SortBy eq &apos;RequestDate&apos;"/>
+           pdr.creationdate
+         <if-elseif condition="SortBy eq &apos;LastUpdate&apos;"/>
+           case
+             when pdr.updatedate is null then pdr.lastmodified
+             else pdr.updatedate 
+           end
+         <if-elseif condition="SortBy eq &apos;Status&apos;"/>
+           pdr.requeststatus
+         <if-else/>
+           pdr.requestid
+         </template-if>
+       <if-else/>
+           pdr.requestid
+       </template-if> as sorting
+      from personaldatarequest pdr
+      <template-if condition="isDefined(NameOrRequestIDExpression)">
+          left join basicprofile bp on pdr.profileid = bp.uuid
+      </template-if>
+     where pdr.domainid = <template-variable value="PersonalDataRequestBORepository:RepositoryID"/>
+         <template-if condition="isDefined(SelectedRequestType)">
+           AND pdr.requestType = <template-variable value="SelectedRequestType:Value"/>
+         </template-if>
+         <template-if condition="isDefined(RequestStatuses)">
+           AND pdr.requestStatus IN (<template-loop alias="aRequestStatus" iterator="RequestStatuses">
+                                  <loop-statement><template-variable value="aRequestStatus:Value" /></loop-statement><loop-separator>,</loop-separator>
+                                 </template-loop>)
+         </template-if>
+         <template-if condition="isDefined(NameOrRequestIDExpression)">
+             <template-call name="inc/SearchExpression2LikeWithSeparator">
+                 <call-parameter name="SearchExpression" value="NameOrRequestIDExpression"/>
+                 <call-parameter name="ColumnNames" value="&quot;pdr.requestid;pdr.name;pdr.email;bp.email;concat(bp.firstname, concat(&apos; &apos;,bp.lastname))&quot;"/>
+                 <call-parameter name="CaseInsensitive" value="true()"/>
+                 <call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+                 <call-parameter name="Separator" value="&quot;;&quot;"/>
+             </template-call>    
+         </template-if>
+     order by sorting 
+     	<template-if condition="isDefined(SortDirection) and SortDirection eq &apos;ascending&apos;">
+     		asc
+     	<if-else/>
+     		desc
+     	</template-if> 
+     <template-if condition="isDefined(SortBy) AND (SortBy EQ &apos;Type&apos; OR SortBy EQ &apos;RequestDate&apos; OR SortBy EQ &apos;LastUpdate&apos;)">
+     	,pdr.requestid desc
+     </template-if>
+  </template>
+</query>

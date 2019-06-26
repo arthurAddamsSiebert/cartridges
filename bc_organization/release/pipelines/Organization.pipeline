@@ -1,0 +1,844 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Manages complete organization functionality, e.g. create, edit, list remove organizations
+@Group Organization-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="Organization" type="process">
+<!--check if application present,
+get current if not available
+@Location 0,27-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--Mark organization domain to be
+deleted after its sub domains \-
+MasterRepository domain,
+Catalog domains, etc.
+@Location 5,9-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--Mark organization site to be
+deleted finally \- after
+Organization domain.
+@Location 5,11-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode2"/>
+<!--if no anonymous organization:
+get new application and
+execute pipelines in use
+of it in the next step
+@Location 0,26-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode3" width="1"/>
+<!--execute pipeline in
+context of (created
+or resolved) application
+
+@Location 0,29-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode4"/>
+<!--do not create applications
+for organisationType=50
+\- which are anonymous
+organizations
+@Location 10,4-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode5" width="1"/>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="Create" callMode="Private">
+    <nodeSuccessors name="next" next="CreateOrganization2" action="begin"/>
+    <parameters name="OrganizationID" type="java.lang.String" optional="true"/>
+    <parameters name="OrganizationType&lt;java.lang.Integer>" type="java.lang.Integer"
+        optional="true"/>
+<!--optional-->
+    <parameters name="OrganizationPreferredLocale" type="java.lang.String" optional="true"/>
+<!--optional-->
+    <parameters name="OrganizationPreferredCurrency" type="java.lang.String" optional="true"/>
+    <parameters name="DisplayName" type="java.lang.String" optional="true"/>
+    <parameters name="ShortDescription" type="java.lang.String" optional="true"/>
+    <parameters name="AdminPassword" type="java.lang.String" optional="true"/>
+    <parameters name="AdminPasswordConfirm" type="java.lang.String" optional="true"/>
+    <parameters name="AdminLogin" type="java.lang.String" optional="true"/>
+<!--optional-->
+    <parameters name="SkipAdminUserCreation" type="java.lang.String" optional="true"/>
+    <parameters name="OrganizationState&lt;java.lang.Integer>" type="java.lang.Integer"
+        optional="true"/>
+    <parameters name="UrlIdentifier" type="java.lang.String" optional="true"/>
+<!--Optional paramter to assign a different enterprise application to the new organization (in cases the normal intershop.Enterprise application cannot be used). 
+Parameter is only used in case of sales and partner organizations.-->
+    <parameters name="EnterpriseAppID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateOrganization2">
+    <pipelet href="enfinity:/bc_organization/pipelets/CreateOrganization.xml"/>
+    <nodeSuccessors name="next" next="GetLocale2"/>
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue1"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale2">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="OrganizationPreferredLocale">
+    <nodeSuccessors name="decision_yes" next="JoinNode1"/>
+<!--@BendPoints 3,9-->
+    <nodeSuccessors name="decision_no" next="Pipelet1"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="OrganizationPreferredCurrency">
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+<!--@BendPoints 3,15-->
+    <nodeSuccessors name="decision_no" next="Pipelet2"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="UpdateOrganization1"/>
+  </nodes>
+<!--@Location 0,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateOrganization1">
+    <pipelet href="enfinity:/bc_organization/pipelets/UpdateOrganization.xml"/>
+<!--@BendPoints 1,24-->
+    <nodeSuccessors name="next" next="SetDomainPreference6"/>
+  </nodes>
+<!--@Location 0,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDomainPreference6">
+    <configurationValues name="DefaultPreferenceKey" value="BorgPurchaseCurrencyMnemonic"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="CreateDomainFileStructure1"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Organization:Domain"/>
+    <parameterBindings name="PreferenceDoubleValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceIntValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceKey" nullBinding="true"/>
+    <parameterBindings name="PreferenceStringValue" objectPath="OrganizationPreferredCurrency"/>
+    <parameterBindings name="PreferenceValue" nullBinding="true"/>
+  </nodes>
+<!--@Location 0,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateDomainFileStructure1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateDomainFileStructure.xml"/>
+<!--@BendPoints 1,28-->
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+    <parameterBindings name="Domain" objectPath="Organization:Domain"/>
+  </nodes>
+<!--@Location 0,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="SkipAdminUserCreation"
+      operator="undef">
+<!--@BendPoints 1,30-->
+    <nodeSuccessors name="decision_yes" next="CreateOrganizationUser1"/>
+<!--@BendPoints 4,29 4,49-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 0,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateOrganizationUser1">
+    <pipelet href="enfinity:/bc_organization/pipelets/CreateOrganizationUser.xml"/>
+<!--@BendPoints 1,32-->
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+<!--@BendPoints 2,31-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue2"/>
+    <parameterBindings name="Login" objectPath="AdminLogin"/>
+    <returnValueBindings name="User" objectPath="AdminUser"/>
+  </nodes>
+<!--@Location 0,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 1,34-->
+    <nodeSuccessors name="next" next="CallNode9"/>
+    <parameterBindings name="InValue_3" objectPath="AdminUser:Profile"/>
+    <returnValueBindings name="OutValue_3" objectPath="AddressProfile"/>
+  </nodes>
+<!--@Location 0,17-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+<!--@BendPoints 1,36-->
+    <nodeSuccessors name="next" next="UpdateUserProfile1"/>
+    <startNode referencedName="ProcessInitializeDefaultAddress-MakeContactAddress"/>
+  </nodes>
+<!--@Location 0,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateUserProfile1">
+    <pipelet href="enfinity:/core/pipelets/UpdateUserProfile.xml"/>
+<!--@BendPoints 1,38-->
+    <nodeSuccessors name="next" next="UpdateBusinessPartnerNo3" action="savepoint"/>
+    <parameterBindings name="CurrentUser" objectPath="AdminUser"/>
+    <parameterBindings name="Email" constant="admin"/>
+    <parameterBindings name="FirstName" constant="admin"/>
+    <parameterBindings name="LastName" constant="admin"/>
+  </nodes>
+<!--@Location 0,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateBusinessPartnerNo3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateBusinessPartnerNo.xml"/>
+<!--@BendPoints 1,40-->
+    <nodeSuccessors name="next" next="AssignUserToUserGroup1"/>
+    <parameterBindings name="BusinessPartnerNo" objectPath="AdminLogin"/>
+    <parameterBindings name="User" objectPath="AdminUser"/>
+  </nodes>
+<!--@Location 0,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignUserToUserGroup1">
+    <configurationValues name="SuppressExistenceCheck" value="true"/>
+    <configurationValues name="UserGroupID" value="Administrators"/>
+    <pipelet href="enfinity:/core/pipelets/AssignUserToUserGroup.xml"/>
+<!--@BendPoints 1,42-->
+    <nodeSuccessors name="next" next="RemoveDictionaryValue1"/>
+    <nodeSuccessors name="pipelet_error" next="Join3"/>
+    <parameterBindings name="CurrentDomain" objectPath="Organization:Domain"/>
+    <parameterBindings name="CurrentUser" objectPath="AdminUser"/>
+    <parameterBindings name="UserGroupID" nullBinding="true"/>
+  </nodes>
+<!--@Location 0,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue1">
+    <configurationValues name="Key" value="ErrorCode"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+<!--@BendPoints 1,44-->
+    <nodeSuccessors name="next" next="UpdateUserCredentials2"/>
+  </nodes>
+<!--@Location 0,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateUserCredentials2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateUserCredentials.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <parameterBindings name="IsActive" constant="true"/>
+    <parameterBindings name="Login" objectPath="AdminLogin"/>
+    <parameterBindings name="Password" objectPath="AdminPassword"/>
+    <parameterBindings name="PasswordConfirmation" objectPath="AdminPasswordConfirm"/>
+    <parameterBindings name="User" objectPath="AdminUser"/>
+    <returnValueBindings name="ERROR_User" objectPath="ErrorCode"/>
+  </nodes>
+<!--@Location 0,23-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="ErrorCode"
+      operator="undef">
+<!--@BendPoints 1,49-->
+    <nodeSuccessors name="decision_yes" next="JoinNode3"/>
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 1,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="CallNode_jLAHUMByEeaEI5lmxssTZA"/>
+  </nodes>
+<!--@Location 1,25-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_jLAHUMByEeaEI5lmxssTZA">
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <startNode referencedName="Organization-GetApp"/>
+  </nodes>
+<!--@Location 1,26-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <startNode referencedName="Organization-CreateOrganizationApplication"/>
+  </nodes>
+<!--@Location 1,27-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Application">
+    <nodeSuccessors name="decision_yes" next="JoinNode13"/>
+    <nodeSuccessors name="decision_no" next="GetApplicationBO0"/>
+  </nodes>
+<!--@Location 1,28-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="ExecutePipeline1"/>
+  </nodes>
+<!--@Location 1,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline1">
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <nodeSuccessors name="pipelet_error" next="Join12"/>
+    <parameterBindings name="PipelineDomain" objectPath="Organization:OrganizationDomain:Site"/>
+    <parameterBindings name="PipelineName" constant="Organization"/>
+    <parameterBindings name="PipelineStartNode" constant="OrganizationPostCreationHook"/>
+  </nodes>
+<!--@Location 1,30-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="PipelineResult:EndName"
+      operator="str_neq" conditionValue="ERROR">
+    <nodeSuccessors name="decision_yes" next="End9" action="commit"/>
+    <nodeSuccessors name="decision_no" next="JoinNode9"/>
+  </nodes>
+<!--@Location 1,31-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End9" name=""/>
+<!--@Location 2,30-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+<!--@BendPoints 5,62-->
+    <nodeSuccessors name="next" next="End1" action="rollback"/>
+  </nodes>
+<!--@Location 2,31-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1" name="ERROR"/>
+<!--@Location 2,29-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join12">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 2,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetApplication0"/>
+  </nodes>
+<!--@Location 2,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplication0">
+    <pipelet href="enfinity:/core/pipelets/GetApplication.xml"/>
+    <nodeSuccessors name="next" next="JoinNode13"/>
+    <parameterBindings name="Site" objectPath="ApplicationBO:Site"/>
+    <parameterBindings name="UrlIdentifier" objectPath="ApplicationBO:UrlIdentifier"/>
+  </nodes>
+<!--@Location 2,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 8,49 8,57-->
+    <nodeSuccessors name="next" next="Join12"/>
+  </nodes>
+<!--@Location 2,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+<!--@BendPoints 5,44-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="AdminUserLoginNotValid"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 2,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="Join3"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="Pipelet3"/>
+    <parameterBindings name="LocaleId" objectPath="OrganizationPreferredLocale"/>
+    <returnValueBindings name="Locale" objectPath="CurrencyLocale"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 3,21-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="InValue_1" objectPath="CurrencyLocale:CurrencyCode"/>
+    <returnValueBindings name="OutValue_1" objectPath="OrganizationPreferredCurrency"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 3,13-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InValue_1" objectPath="Locale:LocaleID"/>
+    <returnValueBindings name="OutValue_1" objectPath="OrganizationPreferredLocale"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="OrganizationIDNotUnique"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="CreateOrganizationApplication"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="Site" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--if this url identifier is set, it is used instead of the app url identifier-->
+    <parameters name="UrlIdentifier" type="java.lang.String" optional="true"/>
+    <parameters name="App" type="com.intershop.beehive.app.capi.App" optional="true"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationBOByID1"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationBOByID1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationBOByID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode11"/>
+<!--@BendPoints 24,7-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue3"/>
+    <parameterBindings name="ID" objectPath="Organization:UUID"/>
+    <parameterBindings name="OrganizationBORepository" objectPath="ApplicationBO:Repository(&quot;OrganizationBORepository&quot;, Organization:DomainID)"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="OrganizationBO:ApplicationTypeRef"
+      operator="str_neq" conditionValue="OrganizationApp_50">
+    <nodeSuccessors name="decision_yes" next="KeyMapper3"/>
+<!--@BendPoints 29,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode12"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 23,12-->
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:App:NamedObject(OrganizationBO:ApplicationTypeRef)"/>
+    <returnValueBindings name="OutValue_1" objectPath="App"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="App">
+    <nodeSuccessors name="decision_yes" next="LogMessage_K0FxYMBzEeaEI5lmxssTZA"/>
+    <nodeSuccessors name="decision_no" next="JoinNode12"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage_K0FxYMBzEeaEI5lmxssTZA">
+    <configurationValues name="Level" value="Debug"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_XFn0cMBzEeaEI5lmxssTZA"/>
+    <parameterBindings name="MessageParam0" objectPath="Organization:ID"/>
+    <parameterBindings name="MessageParam1" objectPath="App"/>
+    <parameterBindings name="MessageText" objectPath=">>> {}: App = {}"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_XFn0cMBzEeaEI5lmxssTZA"
+      conditionKey="App">
+    <nodeSuccessors name="decision_yes" next="JoinNode_hqPpwMBzEeaEI5lmxssTZA"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper_b0_GkMBzEeaEI5lmxssTZA"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_hqPpwMBzEeaEI5lmxssTZA">
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+  </nodes>
+<!--@Location 11,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="UrlIdentifier">
+    <nodeSuccessors name="decision_yes" next="JoinNode11"/>
+<!--@BendPoints 24,21-->
+    <nodeSuccessors name="decision_no" next="KeyMapper_jHu7cMBzEeaEI5lmxssTZA"/>
+  </nodes>
+<!--@Location 11,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="CreateApplication1"/>
+  </nodes>
+<!--@Location 11,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateApplication1">
+    <pipelet href="enfinity:/core/pipelets/CreateApplication.xml"/>
+    <nodeSuccessors name="next" next="LogMessage_thzGkMBzEeaEI5lmxssTZA"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode_pWjOIMBzEeaEI5lmxssTZA"/>
+    <parameterBindings name="OwningDomain" objectPath="Organization:OrganizationDomain"/>
+    <parameterBindings name="UrlIdentifier" objectPath="UrlIdentifier"/>
+  </nodes>
+<!--@Location 11,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage_thzGkMBzEeaEI5lmxssTZA">
+    <configurationValues name="Level" value="Debug"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="CreateApplicationDomainRelation3"/>
+    <parameterBindings name="MessageParam0" objectPath="Organization:ID"/>
+    <parameterBindings name="MessageParam1" objectPath="Application:UrlIdentifier"/>
+    <parameterBindings name="MessageParam2" objectPath="Application:ApplicationType"/>
+    <parameterBindings name="MessageText" objectPath=">>> {}: Created Application = {} - {}"/>
+  </nodes>
+<!--@displayNearNode@"OrganizationBORepository" \-> Organization:Domain
+@Location 11,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateApplicationDomainRelation3">
+    <pipelet href="enfinity:/core/pipelets/CreateApplicationDomainRelation.xml"/>
+<!--@BendPoints 23,30-->
+    <nodeSuccessors name="next" next="CreateApplicationDomainRelation2"/>
+    <parameterBindings name="Domain" objectPath="Organization:Domain"/>
+    <parameterBindings name="RelationName" constant="OrganizationBORepository"/>
+  </nodes>
+<!--@displayNearNode@"ApplicationBORepository" \-> Organization:Domain
+@Location 11,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateApplicationDomainRelation2">
+    <pipelet href="enfinity:/core/pipelets/CreateApplicationDomainRelation.xml"/>
+    <nodeSuccessors name="next" next="CreateApplicationDomainRelation0"/>
+    <parameterBindings name="Domain" objectPath="Organization:Domain"/>
+    <parameterBindings name="RelationName" constant="ApplicationBORepository"/>
+  </nodes>
+<!--@displayNearNode@"ChannelBORepository" \-> Organization:Domain
+@Location 11,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateApplicationDomainRelation0">
+    <pipelet href="enfinity:/core/pipelets/CreateApplicationDomainRelation.xml"/>
+    <nodeSuccessors name="next" next="ExtensionPointNode2"/>
+    <parameterBindings name="Domain" objectPath="Organization:Domain"/>
+    <parameterBindings name="RelationName" constant="ChannelBORepository"/>
+  </nodes>
+<!--@Location 11,17-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode2" name="OrganizationApplicationCreated"
+      strict="true">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+<!--The application which was just created for the organization.-->
+    <parameters name="Application" type="com.intershop.beehive.core.capi.domain.Application"/>
+<!--The new organization.-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+<!--The organization business object.-->
+    <parameters name="OrganizationBO" type="com.intershop.component.organization.capi.OrganizationBO"/>
+  </nodes>
+<!--@Location 11,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 23,38-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 11,19-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="" strict="true">
+<!--The created application-->
+    <returnValues name="Application" type="com.intershop.beehive.core.capi.domain.Application"
+        optional="true"/>
+    <returnValues name="App" type="com.intershop.beehive.app.capi.App" optional="true"/>
+  </nodes>
+<!--@Location 13,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_pWjOIMBzEeaEI5lmxssTZA">
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 13,19-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="ERROR"/>
+<!--Use UrlIdentifier of App
+@Location 12,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_jHu7cMBzEeaEI5lmxssTZA">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 26,21 26,23-->
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="InValue_1" objectPath="App:UrlIdentifier"/>
+    <returnValueBindings name="OutValue_1" objectPath="UrlIdentifier"/>
+  </nodes>
+<!--@Location 12,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_b0_GkMBzEeaEI5lmxssTZA">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_fumccMBzEeaEI5lmxssTZA"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:App:NamedObject(OrganizationBO:ApplicationTypeRef)"/>
+    <returnValueBindings name="OutValue_1" objectPath="App"/>
+  </nodes>
+<!--@Location 12,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_fumccMBzEeaEI5lmxssTZA"
+      conditionKey="App">
+    <nodeSuccessors name="decision_yes" next="JoinNode_hqPpwMBzEeaEI5lmxssTZA"/>
+    <nodeSuccessors name="decision_no" next="JoinNode_g4QzMMBzEeaEI5lmxssTZA"/>
+  </nodes>
+<!--@Location 14,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_g4QzMMBzEeaEI5lmxssTZA">
+    <nodeSuccessors name="next" next="LogMessage1"/>
+  </nodes>
+<!--@Location 14,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage1">
+    <configurationValues name="Level" value="Debug"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 29,28 29,37-->
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <parameterBindings name="MessageParam0" objectPath="OrganizationBO:Name"/>
+    <parameterBindings name="MessageParam1" objectPath="OrganizationBO:ApplicationTypeRef"/>
+    <parameterBindings name="MessageText" constant="No application for organization {} with type {} created."/>
+  </nodes>
+<!--@Location 14,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="JoinNode_g4QzMMBzEeaEI5lmxssTZA"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue3">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="OrganizationBO not found!"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 27,7-->
+    <nodeSuccessors name="next" next="JoinNode_pWjOIMBzEeaEI5lmxssTZA"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="CreateSite" callMode="Private">
+    <nodeSuccessors name="next" next="GetDomain1"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomain1">
+    <pipelet href="enfinity:/core/pipelets/GetDomain.xml"/>
+    <nodeSuccessors name="next" next="GetLocale1"/>
+    <parameterBindings name="StagingDomainName" objectPath="ParentDomainName"/>
+    <returnValueBindings name="StagingDomain" objectPath="ParentDomain"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationTypeByID1" action="begin"/>
+    <returnValueBindings name="Locale" objectPath="LocaleInformation"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationTypeByID1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetApplicationTypeByID.xml"/>
+    <nodeSuccessors name="next" next="CreateSite1"/>
+<!--@BendPoints 17,9-->
+    <nodeSuccessors name="pipelet_error" next="Join11"/>
+    <parameterBindings name="ApplicationTypeID" objectPath="ApplicationTypeID"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateSite1">
+    <configurationValues name="CreateAdminUser" value="false"/>
+    <configurationValues name="CreateImpexFileStructure" value="false"/>
+    <configurationValues name="CreateReportingFileStructure" value="false"/>
+    <pipelet href="enfinity:/core/pipelets/CreateSite.xml"/>
+    <nodeSuccessors name="next" next="UpdateDomain1"/>
+    <nodeSuccessors name="pipelet_error" next="Join11"/>
+    <returnValueBindings name="Domain" objectPath="SiteDomain"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDomain1">
+    <pipelet href="enfinity:/core/pipelets/UpdateDomain.xml"/>
+    <nodeSuccessors name="next" next="SetDomainPreference7"/>
+    <parameterBindings name="Domain" objectPath="SiteDomain"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDomainPreference7">
+    <configurationValues name="DefaultPreferenceKey" value="URLRewriteSiteName"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="ExecuteCartridgePipelines3" action="commit"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="PreferenceDomain" objectPath="SiteDomain"/>
+    <parameterBindings name="PreferenceDoubleValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceIntValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceKey" nullBinding="true"/>
+    <parameterBindings name="PreferenceStringValue" constant=""/>
+    <parameterBindings name="PreferenceValue" nullBinding="true"/>
+  </nodes>
+<!--@Location 7,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCartridgePipelines3">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelinePropertyName" value="SitePostCreationHook"/>
+    <configurationValues name="ProcessReversely" value="false"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCartridgePipelines.xml"/>
+    <nodeSuccessors name="next" next="End8"/>
+    <nodeSuccessors name="pipelet_error" next="Join10"/>
+  </nodes>
+<!--@Location 7,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End8" name=""/>
+<!--@Location 8,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join10">
+    <nodeSuccessors name="next" next="End7"/>
+  </nodes>
+<!--@Location 8,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End7" name="ERROR"/>
+<!--@Location 8,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="Join10" action="rollback"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join11">
+    <nodeSuccessors name="next" next="Join15"/>
+  </nodes>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join15">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 5,25-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_tCSyAMBxEeaEI5lmxssTZA" strict="true"
+      name="GetApp" callMode="Private">
+    <nodeSuccessors name="next" next="LogMessage_yaT_kMBxEeaEI5lmxssTZA"/>
+<!--Optional paramter to assign a different enterprise application to the new organization (in cases the normal intershop.Enterprise application cannot be used). 
+Parameter is only used in case of sales and partner organizations.-->
+    <parameters name="EnterpriseAppID" type="java.lang.String" optional="true"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 5,26-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage_yaT_kMBxEeaEI5lmxssTZA">
+    <configurationValues name="Level" value="Debug"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_zYT44MBxEeaEI5lmxssTZA"/>
+    <parameterBindings name="MessageParam0" objectPath="Organization:ID"/>
+    <parameterBindings name="MessageParam1" objectPath="ApplicationTypeID"/>
+    <parameterBindings name="MessageText" objectPath=">>> {}: Given ApplicationTypeID = {}"/>
+  </nodes>
+<!--@Location 5,27-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_zYT44MBxEeaEI5lmxssTZA"
+      conditionKey="EnterpriseAppID">
+    <nodeSuccessors name="decision_yes" next="GetApp_1K20kMBxEeaEI5lmxssTZA"/>
+<!--@BendPoints 12,55 12,59-->
+    <nodeSuccessors name="decision_no" next="JoinNode_2SX2QMBxEeaEI5lmxssTZA"/>
+  </nodes>
+<!--@Location 5,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApp_1K20kMBxEeaEI5lmxssTZA">
+    <pipelet href="enfinity:/core/pipelets/GetApp.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_2SX2QMBxEeaEI5lmxssTZA"/>
+    <parameterBindings name="AppID" objectPath="EnterpriseAppID"/>
+  </nodes>
+<!--@Location 5,29-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_2SX2QMBxEeaEI5lmxssTZA">
+    <nodeSuccessors name="next" next="LogMessage_38xikMBxEeaEI5lmxssTZA"/>
+  </nodes>
+<!--@Location 5,30-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage_38xikMBxEeaEI5lmxssTZA">
+    <configurationValues name="Level" value="Debug"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="EndNode_45j68MBxEeaEI5lmxssTZA"/>
+    <parameterBindings name="MessageParam0" objectPath="Organization:ID"/>
+    <parameterBindings name="MessageParam1" objectPath="App"/>
+  </nodes>
+<!--@Location 5,31-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_45j68MBxEeaEI5lmxssTZA" strict="true">
+    <returnValues name="App" type="com.intershop.beehive.app.capi.App" optional="true"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="GetDefaultAdminUserInfo"
+      callMode="Private">
+<!--@BendPoints 19,4-->
+    <nodeSuccessors name="next" next="GetPropertyValue1"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPropertyValue1">
+    <configurationValues name="DefaultPropertyValue" value="admin"/>
+    <configurationValues name="PropertyName" value="intershop.cartridges.bc_organization.organization.default.adminUserLogin"/>
+    <configurationValues name="PropertyType" value="Global"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPropertyValue.xml"/>
+<!--@BendPoints 19,6-->
+    <nodeSuccessors name="next" next="GetPropertyValue2"/>
+    <returnValueBindings name="PropertyValue" objectPath="DefaultAdminUserLogin"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPropertyValue2">
+    <configurationValues name="DefaultPropertyValue" value="!InterShop00!"/>
+    <configurationValues name="PropertyName" value="intershop.cartridges.bc_organization.organization.default.adminUserPassword"/>
+    <configurationValues name="PropertyType" value="Global"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPropertyValue.xml"/>
+<!--@BendPoints 19,8-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <returnValueBindings name="PropertyValue" objectPath="DefaultAdminUserPassword"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name=""/>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="OrganizationPostCreationHook"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ExtensionPointNode0"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode0" name="OrganizationCreating">
+    <nodeSuccessors name="next" next="ExecuteCartridgePipelines4"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCartridgePipelines4">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelinePropertyName" value="OrganizationPostCreationHook"/>
+    <configurationValues name="ProcessReversely" value="false"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCartridgePipelines.xml"/>
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode5"/>
+  </nodes>
+<!--@displayNearNode@Call of organization created hook pipelines
+@deprecated use extension point OrganizationCreating instead
+@Location 15,4-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="CallNode4" name="EPOrganizationCreated">
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 15,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name=""/>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="ERROR"/>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" strict="true" name="Remove"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ExecuteCartridgePipelines2"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+<!--Determines whether the site of the organization domain should also be removed ("true") or not ("false"). Default: "false".-->
+    <parameters name="RemoveOrganizationDomainSite" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCartridgePipelines2">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelinePropertyName" value="OrganizationDeletionHook"/>
+    <configurationValues name="ProcessReversely" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCartridgePipelines.xml"/>
+    <nodeSuccessors name="next" next="ExtensionPointNode1"/>
+<!--@BendPoints 9,5-->
+    <nodeSuccessors name="pipelet_error" next="End3"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode1" name="OrganizationDeleting">
+    <nodeSuccessors name="next" next="CallNode5"/>
+  </nodes>
+<!--@deprecated use extension point OrganizationRemoving instead 
+@Location 3,4-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="CallNode5" name="EPOrganizationRemoving">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+    <parameterBindings name="InValue_1" objectPath="Organization:Domain"/>
+    <parameterBindings name="InValue_2" objectPath="Organization:Domain:Site"/>
+    <returnValueBindings name="OutValue_1" objectPath="OrganizationDomain"/>
+    <returnValueBindings name="OutValue_2" objectPath="OrganizationDomainSite"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="RemoveOrganizationDomainSite"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="SetDomainStatus2"/>
+<!--@BendPoints 8,13 8,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDomainStatus2">
+    <configurationValues name="DefaultStatus" value="ToBeDeleted"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDomainStatus.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="Domain" objectPath="OrganizationDomainSite"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 7,18-->
+    <nodeSuccessors name="next" next="RemoveOrganization1"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveOrganization1">
+    <pipelet href="enfinity:/bc_organization/pipelets/RemoveOrganization.xml"/>
+<!--@BendPoints 7,20-->
+    <nodeSuccessors name="next" next="CallNode2"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+    <parameterBindings name="Domain" objectPath="OrganizationDomain"/>
+    <startNode referencedName="Organization-SetDomainDeletionStatusTime"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="RemoveOrganizationDomainSite"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode1"/>
+<!--@BendPoints 8,23 8,27-->
+    <nodeSuccessors name="decision_no" next="JoinNode7"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="Domain" objectPath="OrganizationDomainSite"/>
+    <startNode referencedName="Organization-SetDomainDeletionStatusTime"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 7,28-->
+    <nodeSuccessors name="next" next="End4"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4" name="" strict="true"/>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3" name="ERROR" strict="true"/>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="SetDomainDeletionStatusTime"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="Domain">
+    <nodeSuccessors name="decision_yes" next="GetCurrentDate1"/>
+<!--@BendPoints 9,33 9,41-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 3,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="GetLongFromDate1"/>
+  </nodes>
+<!--@Location 3,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLongFromDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLongFromDate.xml"/>
+    <nodeSuccessors name="next" next="UpdateCustomAttribute1"/>
+    <parameterBindings name="DateObject" objectPath="CurrentDate"/>
+    <returnValueBindings name="StringObject" objectPath="DeletionStatusTimeValue"/>
+  </nodes>
+<!--@Location 3,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttribute1">
+    <configurationValues name="DefaultAttributeName" value="DeletionStatusTimeMillis"/>
+    <configurationValues name="DefaultAttributeType" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+<!--@BendPoints 8,39 8,41-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="AttributeValue" objectPath="DeletionStatusTimeValue"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Domain"/>
+  </nodes>
+<!--@Location 3,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 3,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="" strict="true"/>
+</pipeline:Pipeline>

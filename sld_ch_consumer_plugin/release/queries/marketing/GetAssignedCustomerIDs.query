@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets a user group ID (target group of a promotion) and a set of customer IDs to be checked, and returns those of them which are already assigned to the group (directly or indirectly).">
+  <parameters>
+    <parameter name="TargetGroupID" type="java.lang.String" optional="false"/>
+    <parameter name="CustomerIDs" type="java.util.Collection" optional="false"/>
+  </parameters>
+  <return-mappings>
+    <return-mapping name="AssignedCustomerIDs" type="rename">
+      <return-attribute name="customer_id"/>
+    </return-mapping>
+  </return-mappings>
+  <processor name="OracleSQL"/>
+  <template type="objects">
+    select c.uuid as customer_id
+      from customer c
+     where 
+     <template-if condition="isDefined(CustomerIDs) and hasLoopElements(CustomerIDs)">
+           c.uuid in (
+           <template-loop iterator="CustomerIDs" alias="CustomerID">
+             <loop-statement>
+               <template-variable value="CustomerID"/>
+             </loop-statement>
+             <loop-separator>,</loop-separator>
+           </template-loop>
+           )
+       and
+     </template-if>
+           exists ( select 1
+                      from customerprofileassignment cpa, 
+                           basicprofile u, 
+                           usergroupuserassignment ug2u
+                    where c.uuid = cpa.customerid
+                       and         cpa.profileid = u.uuid
+                       and                         u.typecode = 3
+                       and                         u.uuid = ug2u.userid
+                       and ug2u.usergroupid = <template-variable value="TargetGroupID"/>
+                  )
+  </template>
+</query>

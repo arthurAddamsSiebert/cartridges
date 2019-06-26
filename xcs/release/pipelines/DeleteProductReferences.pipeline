@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Starts cleanup of deleted products.
+@Group Product-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="DeleteProductReferences" type="process">
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="DetermineDeletedProducts1"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineDeletedProducts1">
+    <pipelet href="enfinity:/xcs/pipelets/DetermineDeletedProducts.xml"/>
+    <nodeSuccessors name="next" next="Decision1"/>
+<!--@BendPoints 7,3-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="DeletedProductSKUs">
+    <nodeSuccessors name="decision_yes" next="ExecuteCartridgePipelines1"/>
+<!--@BendPoints 4,5 4,11-->
+    <nodeSuccessors name="decision_no" next="Join2"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCartridgePipelines1">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelinePropertyName" value="ProductDeletionPipeline"/>
+    <configurationValues name="ProcessReversely" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCartridgePipelines.xml"/>
+    <nodeSuccessors name="next" next="RefreshCache1"/>
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshCache1">
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+<!--@BendPoints 3,12-->
+    <nodeSuccessors name="next" next="CleanUpDeletionPOs1"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CleanUpDeletionPOs1">
+    <configurationValues name="CartridgeName" value="xcs"/>
+    <configurationValues name="ColumnName" value="productid"/>
+    <configurationValues name="DeletionTrackingTableName" value="deletedproduct"/>
+    <configurationValues name="PDKeyOfIdentifiers" value="DeletedProductProductIDs"/>
+    <pipelet href="enfinity:/core/pipelets/CleanUpDeletionPOs.xml"/>
+<!--@BendPoints 3,14-->
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="End2"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2" name="error"/>
+</pipeline:Pipeline>

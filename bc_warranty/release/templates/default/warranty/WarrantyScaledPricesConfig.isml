@@ -1,0 +1,243 @@
+<%@page import="com.intershop.beehive.core.capi.pipeline.PipelineDictionary"%>
+<%@page import="com.intershop.beehive.core.capi.webform.Form"%>
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<ispipeline 
+	pipeline="ProcessWarrantyPrices-PrepareScaledPriceConfig" 
+	params="#ParamMap(ParamEntry('ProductID', Product:UUID), ParamEntry('ProductDomainID', Product:DomainID))#" 
+	alias="warrantyPricesResultDict" />
+<isset scope="request" name="ScaledPriceForm" value="#warrantyPricesResultDict:ScaledPriceForm#"/>
+<isset scope="request" name="ScaledPriceMoreThanForm" value="#warrantyPricesResultDict:ScaledPriceMoreThanForm#"/>
+<isif condition="#NOT isDefined(AddScaledPriceForm)#">
+	<isset scope="request" name="AddScaledPriceForm" value="#warrantyPricesResultDict:AddScaledPriceForm#"/>
+</isif>
+<isset scope="request" name="BaseProductWarrantyBO" value="#warrantyPricesResultDict:BaseProductWarrantyBO#"/>
+<isset scope="request" name="DispatchPipeline" value="#DispatchPipeline.'-DispatchScaledPrice'#"/>
+<isform action="#url(action(DispatchPipeline))#" method="POST" name="ScaledPriceForm" data-testing-id="bo-product-classification-warranty-scaled-price-config">
+
+	<input type="hidden" name="" value="<isprint value="#WarrantyBO:PriceProviderName#">"/>
+	<input type="hidden" name="ChannelID" value="<isprint value="#ChannelID#">"/>
+	<input type="hidden" name="ProductID" value="<isprint value="#Product:UUID#">"/>
+	<input type="hidden" name="ProductDomainID" value="<isprint value="#Product:DomainID#">"/>
+
+	<table border="0" cellpadding="4" cellspacing="0" width="100%" class="infobox w e">
+		<tr><td width="100%" class="infobox_title"><istext key="WarrantyScaledPricesConfig.ScaledPrice.infobox_title"/></td></tr>
+	</table>
+
+	<isif condition="#isDefined(PermissionMap:SLD_MANAGE_PRICES)#">
+		<table border="0" cellpadding="4" cellspacing="0" width="100%" class="infobox w e ">
+			<tr>
+				<td class="infobox_item" nowrap="nowrap"><istext key="WarrantyScaledPricesConfig.Currency.infobox_item"/></td>
+				<td> 
+					<!---  <isprint value="#AddScaledPriceForm:Threshold:PriceCurrency:QualifiedName#"> --->
+						<isselect name="#AddScaledPriceForm:Threshold:ThresholdCurrency:QualifiedName#"
+		          				  iterator="Currencies"
+		                          value="#Currencies:Mnemonic#"
+		                          condition="#Currencies:Mnemonic eq CurrentSession:CurrencyCode#"
+		                          description="#Currencies:CurrencyName#"
+		                          class="dropdown inputfield_en">
+				</td>
+				<td class="infobox_item" nowrap="nowrap"><istext key="WarrantyScaledPricesConfig.ProductSalePriceUpTo.infobox_item"/></td>
+				<td>
+					<input type="text" name="<isprint value="#AddScaledPriceForm:Threshold:ThresholdValue:QualifiedName#">" 
+									   value=""
+									   maxlength="30" size="30" 
+									   class="inputfield_en"
+					/>
+				</td>
+				<td class="infobox_item" nowrap="nowrap"><istext key="WarrantyScaledPricesConfig.WarrantyPrice.infobox_item"/></td>
+				<td>
+					<input type="text" name="<isprint value="#AddScaledPriceForm:Price:PriceValue:QualifiedName#">" 
+									   value=""
+									   maxlength="30" size="30" 
+									   class="inputfield_en"
+					/>
+				</td>
+				<td width="100%">
+					<table border="0" cellspacing="2" cellpadding="0">
+						<tr>
+							<td class="button">
+								<input type="submit" name="add" value="#localizeText('WarrantyScaledPricesConfig.Add.button')#" class="button" <isif condition="#NOT isDefined(ProductLockedForMe)#">disabled="disabled"</isif> />
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>	
+		</table>
+	</isif>
+
+	<table width="100%" border="0" cellspacing="0" cellpadding="0" class="n e w">
+		
+		<isif condition="#hasElements(ScaledPriceForm:Instances)#">
+			<tr>
+				<isif condition="#isDefined(PermissionMap:SLD_MANAGE_PRICES)#">
+					<td class="left e s" nowrap="nowrap" width="80">
+						<div id="A">
+							<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+								<tr>
+									<td nowrap="nowrap">
+										<a href="javascript:selectAll('ScaledPriceForm','SelectedObjectUUID','A','B');" class="tableheader"><istext key="WarrantyScaledPricesConfig.SelectAll.link"/></a>
+									</td>
+								</tr>
+							</table>
+						</div>
+						<div id="B" style="display:none">
+							<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+								<tr>
+									<td nowrap="nowrap">
+										<a href="javascript:selectAll('ScaledPriceForm','SelectedObjectUUID','A','B');" class="tableheader"><istext key="WarrantyScaledPricesConfig.ClearAll.link"/></a>
+									</td>
+								</tr>
+							</table>
+						</div>
+					</td>
+				</isif>
+				<td class="table_header e s"><istext key="WarrantyScaledPricesConfig.Currency.table_header"/></td>	
+				<td class="table_header e s"><istext key="WarrantyScaledPricesConfig.ProductSalePriceUpTo.table_header"/></td>
+				<td width="100%" class="table_header s"><istext key="WarrantyScaledPricesConfig.WarrantyPrice.table_header"/></td>
+			</tr>
+			
+			<!--- Loop scaled prices --->
+			<isset scope="request" name="LastThreshold" value="#0#"/>
+			<isloop iterator="ScaledPriceForm:Instances" alias="SubForm">
+				
+				<!--- Skip default entries --->
+				<isif condition="#NOT(SubForm:Threshold:Value:Value == 0.00)#">
+					<isif condition="#isDefined(LastCurrencyCode) and NOT (LastCurrencyCode eq SubForm:Price:Value:CurrencyMnemonic)#">
+						<!--- Define price above range --->
+						<isinclude template="warranty/inc/MoreThanScaledPriceConfig"/>
+						<tr><td colspan="4" class="table_header s">&nbsp;</td></tr>
+					</isif>
+					
+					<!--- Use field value for currency if defined (form was already submitted) --->
+					<isif condition="#SubForm:Price:Invalid#">
+						<isset scope="request" name="LastCurrencyCode" value="#SubForm:Price:PriceCurrency:Value#">
+					<iselse>
+						<isset scope="request" name="LastCurrencyCode" value="#SubForm:Price:Value:CurrencyMnemonic#"/>
+					</isif>
+					<isset scope="request" name="LastThreshold" value="#SubForm:Threshold:Value#"/>
+					
+					<isif condition="#Product:DerivedProduct#">
+						<ispipeline 
+							pipeline="ProcessWarrantyPrices-IsDerivedProductWarrantyScaledPrice"
+							params="#ParamMap(ParamEntry('Product', Product), ParamEntry('WarrantyBO', WarrantyBO), ParamEntry('BaseProductWarrantyBO', BaseProductWarrantyBO), ParamEntry('CurrencyCode', LastCurrencyCode), ParamEntry('ThresholdValue', SubForm:Threshold:Value), ParamEntry('PriceValue', SubForm:Price:Value))#" 
+							alias="WarrantyScaledPriceResult" />
+							<isif condition="#WarrantyScaledPriceResult:IsDerivedProductWarrantyScaledPrice EQ 'true'#">
+								<isset scope="request" name="BaseProductScaledPrice" value="true" />
+							<iselse>
+								<isset scope="request" name="BaseProductScaledPrice" value="false" />
+							</isif>
+					</isif>
+					
+					<tr>
+						<isif condition="#isDefined(PermissionMap:SLD_MANAGE_PRICES)#">
+							<td class="table_bg e s center">
+								<input type="hidden" name="ObjectUUID" value="<isprint value="#SubForm:ID#">"/>
+								<input type="checkbox" name="SelectedObjectUUID" value="<isprint value="#SubForm:ID#">" 
+									<isif condition="#Clipboard:contains(SubForm:ID)#"> checked="checked"</isif> 
+									<isif condition="#isDefined(BaseProductScaledPrice) AND (BaseProductScaledPrice EQ 'true')#"> disabled="disabled"</isif>
+								/>
+							</td>
+						</isif>
+						<td class="table_detail2 e s"> 
+							<!--- Provides currencies for money input fields --->
+							<input type="hidden" name="<isprint value="#SubForm:Threshold:ThresholdCurrency:QualifiedName#">" 
+									value="<isprint value="#LastCurrencyCode#">"/>
+							<input type="hidden" name="<isprint value="#SubForm:Price:PriceCurrency:QualifiedName#">" 
+									value="<isprint value="#LastCurrencyCode#">"/>
+							<isprint value="#LastCurrencyCode#">
+						</td>
+						<td class="table_detail2 e s">
+							<isif condition="#isDefined(PermissionMap:SLD_MANAGE_PRICES)#">
+								<input type="text" name="<isprint value="#SubForm:Threshold:ThresholdValue:QualifiedName#">" 
+												   value="<isprint value="#SubForm:Threshold:Value#" style="MONEY_SHORT">"
+												   maxlength="30" size="30" 
+												   class="inputfield_en"
+												   <isif condition="#isDefined(BaseProductScaledPrice) AND (BaseProductScaledPrice EQ 'true')#"> readonly="readonly" </isif>
+								/>
+							<iselse/>
+								<isprint value="#SubForm:Threshold:Value#" style="MONEY_SHORT">
+							</isif>
+							<%
+								Form form = (Form) getObject("SubForm");
+								PipelineDictionary dict = getPipelineDictionary();
+								Object oldThreshold = getObject("Old_" + form.getParameter("Threshold").getField("ThresholdValue").getQualifiedName());
+								dict.put("OldThreshold", oldThreshold);
+							%>
+							<input type="hidden" name="Old_<isprint value="#SubForm:Threshold:ThresholdValue:QualifiedName#"/>"
+										<isif condition="#SubForm:Submitted AND SubForm:Invalid#">
+												value="<isprint value="#OldThreshold#" style="MONEY_SHORT">"
+										<iselse>
+												value="<isprint value="#SubForm:Threshold:Value#" style="MONEY_SHORT">"	
+										</isif>
+							/>
+						</td>
+						<td class="table_detail2 s">
+							<table border="0" cellspacing="0" cellpadding="0">
+								<tr>
+									<td>
+										<isif condition="#isDefined(PermissionMap:SLD_MANAGE_PRICES)#">
+											<input type="text" name="<isprint value="#SubForm:Price:PriceValue:QualifiedName#">" 
+															   value="<isprint value="#SubForm:Price:Value#" style="MONEY_SHORT">"
+															   maxlength="30" size="30" 
+															   class="inputfield_en"/>
+										<iselse/>
+											<isprint value="#SubForm:Price:Value#" style="MONEY_SHORT">
+										</isif>
+										<%
+											Object oldPrice = getObject("Old_" + form.getParameter("Price").getField("PriceValue").getQualifiedName());
+											dict.put("OldPrice", oldPrice);
+										%>
+										<input type="hidden" name="Old_<isprint value="#SubForm:Price:PriceValue:QualifiedName#"/>"
+											<isif condition="#SubForm:Submitted AND SubForm:Invalid#">
+													value="<isprint value="#OldPrice#" style="MONEY_SHORT">"
+											<iselse>
+													value="<isprint value="#SubForm:Price:Value#" style="MONEY_SHORT">"	
+											</isif>
+										/>
+									</td>
+									<isif condition="#Product:DerivedProduct#">
+										<td>&nbsp;
+											<isif condition="#isDefined(BaseProductScaledPrice) AND (BaseProductScaledPrice EQ 'true')#">
+												(<istext key="WarrantyScaledPricesConfig.SharedPrice"/>)
+											<iselseif condition="#isDefined(WarrantyScaledPriceResult:BaseProductPriceValue)#"/>
+												(<istext key="WarrantyScaledPricesConfig.ChannelPriceSharedPrice"/> <isprint value="#WarrantyScaledPriceResult:BaseProductPriceValue#">)
+											<iselse/>
+												(<istext key="WarrantyScaledPricesConfig.ChannelPrice"/>)
+											</isif>	
+										</td>
+									</isif>
+								</tr>
+							</table>
+						</td>
+					</tr>					
+				</isif>
+
+			</isloop>
+			
+			<!--- Define price above range --->
+			
+			<isinclude template="warranty/inc/MoreThanScaledPriceConfig"/>
+			
+			<isif condition="#isDefined(PermissionMap:SLD_MANAGE_PRICES)#">
+				<!--- Buttons --->
+				<tr>
+					<td width="100%" colspan="4" class="s">
+						<table border="0" cellspacing="4" cellpadding="0" align="right">
+							<tr>
+								<td class="button"><input type="submit" name="apply" value="#localizeText('WarrantyScaledPricesConfig.Apply.button')#" class="button" <isif condition="#NOT isDefined(ProductLockedForMe)#">disabled="disabled"</isif>/></td>
+								<td class="button"><input type="submit" name="reset" value="#localizeText('WarrantyScaledPricesConfig.Reset.button')#" class="button" <isif condition="#NOT isDefined(ProductLockedForMe)#">disabled="disabled"</isif>/></td>
+								<td class="button"><input type="submit" name="confirmDelete" value="#localizeText('WarrantyScaledPricesConfig.Delete.button')#" class="button" <isif condition="#NOT isDefined(ProductLockedForMe)#">disabled="disabled"</isif>/></td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+			</isif>
+		<iselse>
+			<tr>
+				<td colspan="4" class="table_detail s"><istext key="WarrantyScaledPricesConfig.ThereAreCurrentlyNoPricesToShowHere.table_detail"/></td>
+			</tr>
+		</isif>
+	</table>
+
+</isform>

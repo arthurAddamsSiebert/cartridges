@@ -1,0 +1,466 @@
+<%@page import="com.intershop.component.catalog.capi.CatalogCategoryBO"%>
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<%@page import="com.intershop.beehive.xcs.capi.product.Product"%>
+<%@page import="com.intershop.component.product.capi.ProductBO"%>
+<%@page import="com.intershop.beehive.core.capi.paging.PageableIterator"%>
+<%@page import="com.intershop.component.catalog.capi.link.LinkType"%>
+<%@page import="com.intershop.component.catalog.capi.link.LinkTypeGroup"%>
+<%@page import="com.intershop.component.catalog.capi.link.LinkBO"%>
+<%@page import="com.intershop.component.catalog.internal.link.LinkTypeCodeDefinitionMapperEnum"%>
+
+<isinclude template="inc/ConfirmationScript">
+<isinclude template="inc/LinkPageScript">
+
+<isif condition="#isDefined(ChannelID) AND (ChannelID NE '')#">
+	<isset scope="request" name="PermissionMap" value="#CurrentChannelPermissionMap#">
+<iselse>
+	<isset scope="request" name="PermissionMap" value="#CurrentUserPermissionMap#">
+</isif>
+
+<!-- Working Area -->
+<!-- Main Content -->
+
+<isif condition="#isDefined(CurrentChannel)#">
+	<isBreadcrumbTrail listview="true" link="#URL(Action('ViewProductLinks-Start'), Parameter('ProductID', Product:UUID), Parameter('ChannelID', ChannelID), Parameter('SelectedMenuItem', 'ChannelProducts'))#" id="ChannelProductDetails" text="#Product:Name#" text1=" - Links">
+<iselse>
+	<isBreadcrumbTrail listview="true" link="#URL(Action('ViewProductLinks-Start'), Parameter('ProductID', Product:UUID), Parameter('SelectedMenuItem', 'Products'))#" id="ProductDetails" text="#Product:Name#" text1=" - Links">
+</isif>
+
+<isset scope="request" name="SelectedTab" value="Links">
+
+<isif condition="#isDefined(CurrentChannel)#">
+	<isinclude template="#'inc/ProductTabs_'.CurrentChannel:TypeCode#">
+<iselse>
+	<isinclude template="inc/ProductTabs">
+</isif>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%" data-testing-id="bo-product-links">
+	<tr>
+		<td width="100%" class="w e s table_title">
+			<isprint value="#Product:Name#">
+		</td>
+	</tr>
+
+	<!--- product locked by running auctions --->
+	<isif condition="#isDefined(RunningAuctionCounter) AND isDefined(PermissionMap:SLD_MANAGE_PRODUCTS)#">
+		<isif condition="#(isDefined(Product:RunningAuctions)) AND (Product:RunningAuctions > 0)#">
+			<tr>
+				<td>
+					<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box w e s">
+						<tr valign="top">
+							<td class="error_icon top e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+							<td class="error top" width="100%">
+								<isif condition="#Product:RunningAuctions == 1#">
+									<b><istext key="generalErrorLine.WarningThisProductIsCurrentlyPartOfAnAuction.error"/></b><br/>
+								<iselse>
+									<b><istext key="generalErrorLine.WarningThisProductIsCurrentlyPartOfXAuctions.error" parameter0="#Product:RunningAuctions#"/> </b><br/>
+								</isif>
+								<istext key="generalErrorLine.PleaseContactYourAuctionManagerBeforeEditing.error"/>
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</isif>
+	</isif>
+	<!--- end product lock --->
+	
+	<isif condition="#isDefined(PermissionMap:SLD_MANAGE_PRODUCTS)#">
+		<!-- product locking information -->
+		<isif condition="#isDefined(CurrentChannel)#">
+		<tr>
+			<td>
+			<isform action="#URL(Action('ViewProduct_52-Dispatch'), Parameter(SelectedTab,'Target'))#" method="post" name="setStatus">
+			<input type="hidden" name="ProductID" value="#Product:UUID#"/>
+				<isinclude template="#'inc/ProductLockInformation_'.CurrentChannel:TypeCode#">
+			</isform>
+			</td>
+		</tr>
+		<iselse>
+			<isinclude template="inc/ProductLockInformation">
+		</isif>
+		<!-- end product locking information -->
+	</isif>
+
+	<!-- product sharing information -->
+	<isinclude template="inc/ProductSharingInformation">
+	<!-- end product sharing information -->
+
+	<tr>
+		<td valign="top" class="table_title_description w e">
+			<istext key="sld_enterprise_app.TheListBelowShowsAllLinkTypesAndTheirAssignedProdu.table_title_description"/>
+		</td>
+	</tr>
+	<tr>
+		<td class="table_title2 aldi">
+			<istext key="sld_enterprise_app.LinkTypes.table_title2"/>
+		</td>
+	</tr>
+</table>
+
+<isif condition="#isDefined(CurrentChannel)#">
+	<isset name="FormAction" value="#URL(Action('ViewProductLinks_'.CurrentChannel:TypeCode.'-Start'), Parameter('ProductID', Product:UUID))#" scope="request"/>
+<iselse>
+	<isset name="FormAction" value="#URL(Action('ViewProductLinks-Start'), Parameter('ProductID', Product:UUID))#" scope="request"/>
+</isif>
+<isform name="#Form:ID#" method="post" action="#FormAction#" class=" w e s">
+	<!--- dynamic link type begin --->
+	<table width="100%" border="0" cellspacing="0" cellpadding="0">
+		<tr>
+			<td colspan="2"><img src="#WebRoot()#/images/space.gif" alt="" border="0" width="1" height="6" /></td>
+		</tr>
+		<tr>
+			<td valign="top">
+				<table width="100%" name="product_links_select" id="product_links_select">
+					<tr>
+						<td class="table_detail3">
+							<istext key="sld_enterprise_app.LinksFor0.table_detail3" parameter0="#Product:DisplayName#"/>
+						</td>
+					</tr>
+					<%
+						PipelineDictionary dict = getPipelineDictionary();
+
+						dict.put("ProductProductLinkTypeGroup", LinkTypeGroup.PRODUCT_PRODUCT);
+						dict.put("ProductCategoryLinkTypeGroup", LinkTypeGroup.PRODUCT_CATEGORY);
+						dict.put("ProductProductLinkTypeCodeDefinitionGroupName", LinkTypeCodeDefinitionMapperEnum.PRODUCT_PRODUCT.getTypeCodeGroupName());
+						dict.put("ProductCategoryLinkTypeCodeDefinitionGroupName", LinkTypeCodeDefinitionMapperEnum.PRODUCT_CATEGORY.getTypeCodeGroupName());
+
+						String selectedLinkType = dict.get("SelectedLinkType");
+						String linkDirection = dict.get("LinkDirection");
+						String selectedOutgoingLinkType;
+						String selectedIncomingLinkType;
+
+						if (selectedLinkType == null)
+						{
+							dict.put("itemIsVisible", true);
+						}
+
+						if (linkDirection != null && "Incoming".equals(linkDirection))
+						{
+							selectedOutgoingLinkType = null;
+							selectedIncomingLinkType = selectedLinkType;
+						}
+						else
+						{
+							selectedOutgoingLinkType = selectedLinkType;
+							selectedIncomingLinkType = null;
+						}
+					%>
+					<tr>
+						<script type="text/javascript">
+							$(document).ready(function() {
+								$('<tr class="nowrap"><td class="table_detail_actions"><a class="tableheader mass-action" data-action="select" href="#'#'#"><istext key="sld_enterprise_app.ShowAll"/></a>&nbsp;&nbsp;|&nbsp;&nbsp;<a class="tableheader mass-action" data-action="deselect" href="#'#'#"><istext key="sld_enterprise_app.HideAll"/></a></td></tr>').insertAfter($('table#'#'#product_links_select > tbody > tr:first-child'));
+								$('<tr class="nowrap"><td class="table_detail_actions"><a class="tableheader mass-action" data-action="select" href="#'#'#"><istext key="sld_enterprise_app.ShowAll"/></a>&nbsp;&nbsp;|&nbsp;&nbsp;<a class="tableheader mass-action" data-action="deselect" href="#'#'#"><istext key="sld_enterprise_app.HideAll"/></a></td></tr>').insertAfter($('table#'#'#product_incoming_links_select > tbody > tr:first-child'));
+								$(document).delegate('.mass-action', 'click', function(ev) {
+									ev.preventDefault();
+									$(this).parents('table:eq(0)').find(':checkbox').prop('checked', $(this).data('action') == 'select' || false).trigger('change');
+								});
+							});
+						</script>
+						<td>
+							<table width="100%" cellpadding="0" cellspacing="0">
+								<tr>
+									<isloop iterator="ProductLinkTypes" alias="LinkType">
+										<isset name="LinkType" value="#LinkType#" scope="request"/>
+										<isset scope="request" name="SummaryName" value="#LinkType:ID#" />
+										<%
+											LinkType linkType = dict.get("LinkType");
+											String linksPageableKeyName = linkType.getID() + "_OutgoingProductLinks";
+											PageableIterator<LinkBO<ProductBO, ProductBO>> linksPageable = dict.get(linksPageableKeyName);
+											if (linksPageable != null) {
+												dict.put("OutgoingProductLinkCount", linksPageable.getElementCount());
+											} else {
+												dict.put("OutgoingProductLinkCount", 0);
+											}
+										%>
+										<isif condition="#LinkType:Applicable(ProductCategoryLinkTypeGroup)#">
+											<%
+												String categoryLinksPageableKeyName = linkType.getID() + "_OutgoingCategoryLinks";
+												PageableIterator<LinkBO<ProductBO, CatalogCategoryBO>> categoryLinksPageable = dict.get(categoryLinksPageableKeyName);
+												if (categoryLinksPageable != null) {
+													dict.put("OutgoingCategoryLinkCount", categoryLinksPageable.getElementCount());
+												} else {
+													dict.put("OutgoingCategoryLinkCount", 0);
+												}
+											%>
+										<iselse>
+											<%
+												dict.put("OutgoingCategoryLinkCount", 0);
+											%>
+										</isif>
+										<%
+											String summaryName = dict.get("SummaryName");
+											String isSelected = dict.get("select_" + summaryName);
+
+											if (selectedLinkType == null)
+											{
+												// Setup for initial loading of the page - display only link type sections which have at least 1 link to show, skip the rest
+												Integer productLinkCount = dict.get("OutgoingProductLinkCount");
+												Integer categoryLinkCount = dict.get("OutgoingCategoryLinkCount");
+												boolean checkBoxSelected = productLinkCount > 0 || categoryLinkCount > 0;
+												dict.put("checkboxIsSelected", checkBoxSelected);
+											}
+											else
+											{
+												dict.put("checkboxIsSelected", ( selectedOutgoingLinkType != null && selectedOutgoingLinkType.equalsIgnoreCase(summaryName) )
+																			|| ( isSelected != null && ( isSelected.equalsIgnoreCase("on") || isSelected.equalsIgnoreCase("select_" + summaryName) ) ) );
+											}
+										%>
+										<td class="input_checkbox">
+											<input class="product_check" type="checkbox" 
+													name="select_<isprint value="#SummaryName#">"
+													id="select_<isprint value="#SummaryName#">_outgoing_product_links"
+													<isif condition="#checkboxIsSelected#">
+														checked="checked"
+													</isif>
+											/>
+										</td>
+										<td class="label_checkbox_text">
+											<label class="label label_checkbox_text group-of-types" for="select_<isprint value="#SummaryName#">_outgoing_product_links">
+												<istext key="#'typeCodeDefinition.' . ProductProductLinkTypeCodeDefinitionGroupName . '.' . SummaryName . '.displayName'#" />
+											</label>
+										</td>
+										<isif condition="#LinkType:Applicable(ProductProductLinkTypeGroup)#">
+											<isif condition="#LinkType:Applicable(ProductCategoryLinkTypeGroup)#">
+												<td class="label_checkbox_text">
+													<label class="label label_checkbox_text label_light last-in-type" for="select_<isprint value="#SummaryName#">_outgoing_product_links">
+											<iselse>
+												<td class="label_checkbox_text" colspan="2">
+													<label class="label label_checkbox_text label_light" for="select_<isprint value="#SummaryName#">_outgoing_product_links">
+											</isif>
+													<isif condition="#OutgoingProductLinkCount > 0#">
+														<strong>
+															<isprint value="#OutgoingProductLinkCount#"/>&nbsp;
+														</strong>
+													<iselse>
+														0
+													</isif>
+													<isif condition="#OutgoingProductLinkCount != 1#">
+														<istext key="sld_enterprise_app.Products"/>
+													<iselse>
+														<istext key="sld_enterprise_app.Product"/>
+													</isif>
+													</label>
+												</td>
+										</isif>
+										<isif condition="#LinkType:Applicable(ProductCategoryLinkTypeGroup)#">
+											<td class="label_checkbox_text">
+												<label class="label label_checkbox_text label_light" for="select_<isprint value="#SummaryName#">_outgoing_product_links">
+												<isif condition="#OutgoingCategoryLinkCount > 0#">
+													<strong>
+														<isprint value="#OutgoingCategoryLinkCount#"/>&nbsp;
+													</strong>
+												<iselse>
+													0
+												</isif>
+												<isif condition="#OutgoingCategoryLinkCount != 1#">
+													<istext key="CategoryLinkList.Categories">
+												<iselse>
+													<istext key="CategoryLinkList.Category">
+												</isif>
+												</label>
+											</td>
+										</isif>
+										<isif condition="#hasNext(LinkType)#">
+											<td width="100%">&nbsp;</td>
+											</tr><tr>
+										</isif>
+									</isloop>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</table>
+			</td>
+			<td valign="top">
+				<table width="100%" name="product_incoming_links_select" id="product_incoming_links_select">
+					<tr>
+						<td class="table_detail3">
+							<isprint value="#Product:DisplayName#"/>
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<table width="100%" cellpadding="0" cellspacing="0">
+								<tr>
+									<isloop iterator="ProductLinkTypes" alias="LinkType">
+										<isset name="LinkType" value="#LinkType#" scope="request"/>
+										<isset scope="request" name="IncomingSummaryName" value="#LinkType:ID#" />
+
+										<isif condition="#ExcludedIncomingLinkTypeCodes:Contains(IncomingSummaryName)#">
+											<td class="input_checkbox" colspan="4">&nbsp;</td>
+										<iselse>
+											<%
+												LinkType linkType = dict.get("LinkType");
+												String incomingLinksPageableKeyName = linkType.getID() + "_IncomingProductLinks";
+												PageableIterator<LinkBO<ProductBO, ProductBO>> incomingLinksPageable = dict.get(incomingLinksPageableKeyName);
+												if (incomingLinksPageable != null) {
+													dict.put("IncomingProductLinkCount", incomingLinksPageable.getElementCount());
+												} else {
+													dict.put("IncomingProductLinkCount", 0);
+												}
+											%>
+											<isif condition="#LinkType:Applicable(ProductCategoryLinkTypeGroup)#">
+												<%
+													String incomingCategoryLinksPageableKeyName = linkType.getID() + "_IncomingCategoryLinks";
+													PageableIterator<LinkBO<CatalogCategoryBO, ProductBO>> incomingCategoryLinksPageable = dict.get(incomingCategoryLinksPageableKeyName);
+													if (incomingCategoryLinksPageable != null) {
+														dict.put("IncomingCategoryLinkCount", incomingCategoryLinksPageable.getElementCount());
+													} else {
+														dict.put("IncomingCategoryLinkCount", 0);
+													}
+												%>
+											<iselse>
+												<%
+													dict.put("IncomingCategoryLinkCount", 0);
+												%>
+											</isif>
+
+											<%
+												String incomingSummaryName = dict.get("IncomingSummaryName");
+												String isIncomingSelected = dict.get("select_" + incomingSummaryName + "_incoming_product_links");
+
+												if (selectedLinkType == null)
+												{
+													// Setup for initial loading of the page - display only link type sections which have at least 1 link to show, skip the rest
+													Integer productLinkCount = dict.get("IncomingProductLinkCount");
+													Integer categoryLinkCount = dict.get("IncomingCategoryLinkCount");
+													boolean checkBoxSelected = productLinkCount > 0 || categoryLinkCount > 0;
+													dict.put("checkboxIsSelected", checkBoxSelected);
+												}
+												else
+												{
+													dict.put( "checkboxIsSelected", ( selectedIncomingLinkType != null && selectedIncomingLinkType.equalsIgnoreCase(incomingSummaryName) )
+																				|| ( isIncomingSelected != null && ( isIncomingSelected.equalsIgnoreCase("on") || isIncomingSelected.equalsIgnoreCase("select_" + incomingSummaryName + "_incoming_product_links") ) ) );
+												}
+											%>
+											<td class="input_checkbox">
+												<input class="product_check" type="checkbox" 
+														name="select_<isprint value="#IncomingSummaryName#">_incoming_product_links" 
+														id="select_<isprint value="#IncomingSummaryName#">_incoming_product_links"
+														<isif condition="#checkboxIsSelected#">
+															checked="checked"
+														</isif>
+												 />
+											</td>
+											<td class="label_checkbox_text">
+												<label class="label label_checkbox_text group-of-types" for="select_<isprint value="#IncomingSummaryName#">_incoming_product_links">
+													<istext key="sld_enterprise_app.IsOf.label" parameter0="#localizeText('typeCodeDefinition.' . ProductProductLinkTypeCodeDefinitionGroupName . '.' . IncomingSummaryName . '.displayName')#" encoding="off"/>
+												</label>
+											</td>
+											<isif condition="#LinkType:Applicable(ProductProductLinkTypeGroup)#">
+												<isif condition="#LinkType:Applicable(ProductCategoryLinkTypeGroup)#">
+													<td class="label_checkbox_text">
+														<label class="label label_checkbox_text label_light last-in-type" for="select_<isprint value="#IncomingSummaryName#">_incoming_product_links">
+												<iselse>
+													<td class="label_checkbox_text" colspan="2">
+														<label class="label label_checkbox_text label_light" for="select_<isprint value="#IncomingSummaryName#">_incoming_product_links">
+												</isif>
+														<isif condition="#IncomingProductLinkCount > 0#">
+															<strong>
+																<isprint value="#IncomingProductLinkCount#"/>&nbsp;
+															</strong>
+														<iselse>
+															0
+														</isif>
+														<isif condition="#IncomingProductLinkCount != 1#">
+															<istext key="sld_enterprise_app.Products"/>
+														<iselse>
+															<istext key="sld_enterprise_app.Product"/>
+														</isif>
+														</label>
+													</td>
+											</isif>
+											<isif condition="#LinkType:Applicable(ProductCategoryLinkTypeGroup)#">
+												<td class="label_checkbox_text"<isif condition="#NOT ProductIncomingLinkTypeSummary:ProductLinkAllowed#"> colspan="2"</isif>>
+													<label class="label label_checkbox_text label_light" for="select_<isprint value="#SummaryName#">_outgoing_product_links">
+														<isif condition="#IncomingCategoryLinkCount > 0#">
+															<strong>
+																<isprint value="#IncomingCategoryLinkCount#"/>&nbsp;
+															</strong>
+														<iselse>
+															0
+														</isif>
+														<isif condition="#IncomingCategoryLinkCount != 1#">
+															<istext key="CategoryLinkList.Categories">
+														<iselse>
+															<istext key="CategoryLinkList.Category">
+														</isif>
+													</label>
+												</td>
+											</isif>
+										</isif>
+										<isif condition="#hasNext(LinkType)#">
+											<td width="100%">&nbsp;</td>
+											</tr><tr>
+										</isif>
+									</isloop>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+		<tr>
+			<td colspan="2"><img src="#WebRoot()#/images/space.gif" alt="" border="0" width="1" height="6" /></td>
+		</tr>
+	</table>
+</isform>
+
+	<isloop iterator="ProductLinkTypes" alias="LinkType">
+		<isset name="LinkType" value="#LinkType#" scope="request" />
+		<isset name="LinkTypeName" value="#LinkType:ID#" scope="request"/>
+		<isset name="ProductLinkTable_ID" value="#'select_' . LinkTypeName#" scope="request"/>
+		<isset name="ProductLinkTable_Name" value="#'typeCodeDefinition.' . ProductProductLinkTypeCodeDefinitionGroupName . '.' . LinkTypeName . '.displayName'#" scope="request"/>
+		<isset name="ProductLinkTable_TypeCode" value="#LinkTypeName#" scope="request"/>
+		<isset name="summaryName" value="#LinkTypeName#" scope="request"/>
+
+		<%
+			LinkType linkType = dict.get("LinkType");
+			String linksPageableKeyName = linkType.getID() + "_OutgoingProductLinks";
+			PageableIterator<LinkBO<ProductBO, ProductBO>> linksPageable = dict.get(linksPageableKeyName);
+			dict.put("LinksPageableName", linksPageableKeyName);
+			if (linksPageable != null) {
+				dict.put("ProductLinksList", linksPageable);
+			}
+
+			String incomingLinksPageableKeyName = linkType.getID() + "_IncomingProductLinks";
+			PageableIterator<LinkBO<ProductBO, ProductBO>> incomingLinksPageable = dict.get(incomingLinksPageableKeyName);
+			dict.put("IncomingLinksPageableName", incomingLinksPageableKeyName);
+			if (incomingLinksPageable != null) {
+				dict.put("IncomingProductLinksList", incomingLinksPageable);
+			}
+		%>
+
+		<isif condition="#LinkType:Applicable(ProductCategoryLinkTypeGroup)#">
+			<%
+				String categoryLinksPageableKeyName = linkType.getID() + "_OutgoingCategoryLinks";
+				PageableIterator<LinkBO<ProductBO, CatalogCategoryBO>> categoryLinksPageable = dict.get(categoryLinksPageableKeyName);
+				dict.put("CategoryLinksPageableName", categoryLinksPageableKeyName);
+				if (categoryLinksPageable != null) {
+					dict.put("CategoryLinksList", categoryLinksPageable);
+				}
+
+				String incomingCategoryLinksPageableKeyName = linkType.getID() + "_IncomingCategoryLinks";
+				PageableIterator<LinkBO<CatalogCategoryBO, ProductBO>> incomingCategoryLinksPageable = dict.get(incomingCategoryLinksPageableKeyName);
+				dict.put("IncomingCategoryLinksPageableName", incomingCategoryLinksPageableKeyName);
+				if (incomingCategoryLinksPageable != null) {
+					dict.put("IncomingCategoryLinksList", incomingCategoryLinksPageable);
+				}
+			%>
+			<isinclude template="product/link/ProductLinkProductCategoryLinkTable" />
+		<iselse>
+			<isinclude template="product/link/ProductLinkProductLinkTable">
+		</isif>
+	</isloop>
+
+<isif condition="#isDefined(ChannelID)#">
+	<ISObjectDetailsPagingBar pagelocatorname="ProductList" currentobject="#Product#" nameforobjectuuid="ProductID" pipeline="ViewProductLinks-Start" pagenumber="#DetailsPageNumber#" parametername1="ChannelID"  parametervalue1="#ChannelID#">
+<iselse>
+	<ISObjectDetailsPagingBar pagelocatorname="ProductList" currentobject="#Product#" nameforobjectuuid="ProductID" pipeline="ViewProductLinks-Start" pagenumber="#DetailsPageNumber#">
+</isif>
+
+<!-- EO Main Content -->
+<!-- EO Working Area -->

@@ -1,0 +1,121 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %>
+<% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("text1",context.getFormattedValue(" - ",null) + context.getFormattedValue(localizeText(context.getFormattedValue("PromotionDiscountRules.DiscountRules.text1",null)),null)),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionDiscountRules-Dispatch",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("PromotionUUID",null),context.getFormattedValue(getObject("Promotion:UUID"),null))).addURLParameter(context.getFormattedValue("LocaleID",null),context.getFormattedValue(getObject("SelectedLocale:LocaleID"),null)))),
+new TagParameter("id",getObject("Promotion:UUID")),
+new TagParameter("text",getObject("Promotion:DisplayName"))}, 5); %><!-- Promotion Details Heading --><% URLPipelineAction action277 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionDiscountRules-DispatchGeneral",null)))),null));String site277 = null;String serverGroup277 = null;String actionValue277 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionDiscountRules-DispatchGeneral",null)))),null);if (site277 == null){  site277 = action277.getDomain();  if (site277 == null)  {      site277 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup277 == null){  serverGroup277 = action277.getServerGroup();  if (serverGroup277 == null)  {      serverGroup277 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionDiscountRules-DispatchGeneral",null)))),null));out.print("\"");out.print(" name=\"");out.print("PromotionDiscountRulesFormGeneral");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue277, site277, serverGroup277,true)); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"marketing/inc/PromotionDetailsHeadingInc", null, "9");} %><% out.print("</form>"); %><!-- Tabs --><% {Object temp_obj = ("Discount Rules"); getPipelineDictionary().put("SelectedTab", temp_obj);} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/PromotionTabsInc", null, "14");} %><!-- EO Tabs -->
+<!-- incompleteness check--><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"marketing/inc/PromotionIncompletenessMessage", null, "18");} %><!-- end incompleteness check-->
+<!-- Main Content -->
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td class="table_title_description e w s"><% {out.write(localizeISText("PromotionDiscountRules.CreateConditionsInOrderToDefine.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table>
+<!-- Select language to localize text. --><% URLPipelineAction action278 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionDiscountRules-Dispatch",null)))),null));String site278 = null;String serverGroup278 = null;String actionValue278 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionDiscountRules-Dispatch",null)))),null);if (site278 == null){  site278 = action278.getDomain();  if (site278 == null)  {      site278 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup278 == null){  serverGroup278 = action278.getServerGroup();  if (serverGroup278 == null)  {      serverGroup278 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionDiscountRules-Dispatch",null)))),null));out.print("\"");out.print(" name=\"");out.print("setLocale");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue278, site278, serverGroup278,true)); %><input type="hidden" name="ChannelID" value="<%=context.getFormattedValue(getObject("CurrentChannel:UUID"),null)%>"/>
+<input type="hidden" name="PromotionUUID" value="<%=context.getFormattedValue(getObject("Promotion:UUID"),null)%>"/>
+<table border="0" cellpadding="4" cellspacing="0" width="100%" class="infobox_locale w e">
+<tr>
+<td class="infobox_item" nowrap="nowrap"><% {out.write(localizeISText("PromotionDiscountRules.SelectLanguage.infobox_item",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</td>
+<td class="infobox_item">
+<select name="LocaleID" class="select inputfield_en"><% while (loop("AllLocales","Locale",null)) { %><option value="<% {String value = null;try{value=context.getFormattedValue(getObject("Locale:LocaleID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {41}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+<% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("Locale:LocaleID"),null).equals(context.getFormattedValue(getObject("SelectedLocale:LocaleID"),null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",42,e);}if (_boolean_result) { %>selected="selected"<% } %>><% {String value = null;try{value=context.getFormattedValue(getObject("Locale:getDisplayName(CurrentSession:Locale)"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {43}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>&nbsp;</option><% } %></select>
+</td>
+<td width="100%">
+<table border="0" cellspacing="0" cellpadding="0">
+<tr>
+<td class="button">
+<input type="submit" name="setLocale" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PromotionDiscountRules.Apply.button",null)),null)%>" class="button"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table><% out.print("</form>"); %> 
+<% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("Promotion")))).booleanValue() && ((Boolean) (hasLoopElements("Promotion:Rebates") ? Boolean.TRUE : Boolean.FALSE)).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",60,e);}if (_boolean_result) { %><% {Object temp_obj = (getObject("RebateID")); getPipelineDictionary().put("TargetContextObjectID", temp_obj);} %><% while (loop("Promotion:Rebates","Rebate","rebateCounter")) { %><% _boolean_result=false;try {_boolean_result=((Boolean)(((!(context.getFormattedValue(getObject("rebateCounter"),null).equals(context.getFormattedValue("1",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",64,e);}if (_boolean_result) { %><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="10" height="20" alt="" border="0"/><br/><% } %><% URLPipelineAction action279 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionRebate-Dispatch",null)))),null));String site279 = null;String serverGroup279 = null;String actionValue279 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionRebate-Dispatch",null)))),null);if (site279 == null){  site279 = action279.getDomain();  if (site279 == null)  {      site279 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup279 == null){  serverGroup279 = action279.getServerGroup();  if (serverGroup279 == null)  {      serverGroup279 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionRebate-Dispatch",null)))),null));out.print("\"");out.print(" name=\"");out.print(context.getFormattedValue(context.getFormattedValue("deleteForm",null) + context.getFormattedValue(getObject("rebateCounter"),null),null));out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue279, site279, serverGroup279,true)); %><table width="100%" cellspacing="0" cellpadding="0" border="0">
+<tr><td class="table_title2 aldi" colspan="2"><% {out.write(localizeISText("PromotionDiscountRules.Rule.table_title2",null,null,null,null,null,null,null,null,null,null,null,null));} %> <% {String value = null;try{value=context.getFormattedValue(getObject("rebateCounter"),"#0.#",null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {69}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td></tr><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("confirmDeleteRebate")))).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("Rebate:UUID"),null).equals(context.getFormattedValue(getObject("RebateID"),null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",70,e);}if (_boolean_result) { %><input type="hidden" name="PromotionUUID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("Promotion:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {71}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="hidden" name="RebateID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("RebateID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {72}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="hidden" name="LocaleID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("SelectedLocale:LocaleID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {73}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/><% processOpenTag(response, pageContext, "messagebox", new TagParameter[] {
+new TagParameter("subject",localizeText(context.getFormattedValue("PromotionDiscountRules.Rebate.subject",null))),
+new TagParameter("cancelbtnname",""),
+new TagParameter("okbtnname","deleteRebate"),
+new TagParameter("type","mdc"),
+new TagParameter("message",localizeText(context.getFormattedValue("PromotionDiscountRules.AreYouSureYouWantToDeleteThisRule.message",null)))}, 74); %><% } %></table><% out.print("</form>"); %><table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr><td class="w e"><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="1" height="2" alt="" border="0"/></td></tr>
+</table>
+<table width="100%" cellspacing="0" cellpadding="0" border="0" class="w">
+<tr>
+<td class="ruleBar n">&nbsp;</td>
+<td width="100%"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_MANAGE_MARKETING"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",90,e);}if (_boolean_result) { %><% processOpenTag(response, pageContext, "conditioneditor", new TagParameter[] {
+new TagParameter("conditionclipboard",getObject("ConditionClipboard")),
+new TagParameter("conditioneditortitle",localizeText(context.getFormattedValue("sld_ch_base.PromotionConditionEditorTitle.conditioneditortitle",null))),
+new TagParameter("editcondition",getObject("EditCondition")),
+new TagParameter("parametername1","LocaleID"),
+new TagParameter("parametervalue2",getObject("Promotion:UUID")),
+new TagParameter("conditiondescriptorreqistry",getObject("ConditionDescriptorRegistry")),
+new TagParameter("parametervalue1",getObject("SelectedLocale:LocaleID")),
+new TagParameter("parametername2","PromotionUUID"),
+new TagParameter("targetconditionid",getObject("TargetConditionID")),
+new TagParameter("conditionform",getObject("ConditionForm")),
+new TagParameter("editconditiontypegroup",getObject("EditConditionTypeGroup")),
+new TagParameter("contextobject",getObject("Rebate")),
+new TagParameter("newconditionform",getObject("NewConditionForm")),
+new TagParameter("contextobjectidname","RebateID"),
+new TagParameter("confirmdelete",getObject("confirmDelete")),
+new TagParameter("overrideapplicationexclusionsforms",getObject("ConditionOverrideApplicationExclusionsForms")),
+new TagParameter("contextobjectid",getObject("Rebate:UUID")),
+new TagParameter("targetcontextobjectid",getObject("TargetContextObjectID")),
+new TagParameter("dispatchpipeline","ViewPromotionDiscountRules-Dispatch")}, 92); %><% } else { %><% processOpenTag(response, pageContext, "conditioneditor", new TagParameter[] {
+new TagParameter("conditionclipboard",getObject("ConditionClipboard")),
+new TagParameter("ReadOnly","true"),
+new TagParameter("conditioneditortitle",localizeText(context.getFormattedValue("sld_ch_base.PromotionConditionEditorTitle.conditioneditortitle",null))),
+new TagParameter("editcondition","false"),
+new TagParameter("conditiondescriptorreqistry",getObject("ConditionDescriptorRegistry")),
+new TagParameter("targetconditionid",getObject("TargetConditionID")),
+new TagParameter("conditionform",getObject("ConditionForm")),
+new TagParameter("editconditiontypegroup",getObject("EditConditionTypeGroup")),
+new TagParameter("overridechannelexclusionsforms",getObject("ConditionOverrideChannelExclusionsForms")),
+new TagParameter("contextobject",getObject("Rebate")),
+new TagParameter("newconditionform",getObject("NewConditionForm")),
+new TagParameter("contextobjectidname","RebateID"),
+new TagParameter("confirmdelete",getObject("confirmDelete")),
+new TagParameter("contextobjectid",getObject("Rebate:UUID")),
+new TagParameter("targetcontextobjectid",getObject("TargetContextObjectID")),
+new TagParameter("dispatchpipeline","ViewPromotionDiscountRules-Dispatch")}, 114); %><% } %><!-- For debugging purpose --><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"marketing/inc/SmallConditionTree", null, "135");} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"marketing/inc/ActionEditor", null, "138");} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"marketing/inc/DynamicMessaging", null, "141");} %></td>
+</tr>
+</table><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_MANAGE_MARKETING"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",147,e);}if (_boolean_result) { %><% URLPipelineAction action280 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionRebate-Dispatch",null)))),null));String site280 = null;String serverGroup280 = null;String actionValue280 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionRebate-Dispatch",null)))),null);if (site280 == null){  site280 = action280.getDomain();  if (site280 == null)  {      site280 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup280 == null){  serverGroup280 = action280.getServerGroup();  if (serverGroup280 == null)  {      serverGroup280 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionRebate-Dispatch",null)))),null));out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue280, site280, serverGroup280,true)); %><input type="hidden" name="PromotionUUID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("Promotion:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {149}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="hidden" name="RebateID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("Rebate:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {150}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="hidden" name="LocaleID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("SelectedLocale:LocaleID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {151}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<table width="100%" cellspacing="0" cellpadding="0" border="0" class="w e s">
+<tr>
+<td width="100%" align="right" class="ruleBar">
+<table cellspacing="4" cellpadding="0" border="0">
+<tr>
+<td class="button"><input type="submit" class="button" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PromotionDiscountRules.MoveUp.button",null)),null)%>" name="moveUpRebate" /></td>
+<td class="button"><input type="submit" class="button" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PromotionDiscountRules.MoveDown.button",null)),null)%>" name="moveDownRebate" /></td>
+<td><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="20" height="6" alt="" border="0"/></td>
+<td class="button"><input type="submit" class="button" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PromotionDiscountRules.New.button",null)),null)%>" name="createRebate" /></td>
+<td class="button"><input type="submit" class="button" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PromotionDiscountRules.Copy.button",null)),null)%>" name="copyRebate" /></td>
+<td class="button"><input type="submit" class="button" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PromotionDiscountRules.Delete.button",null)),null)%>" name="confirmDeleteRebate" /></td>
+</tr>
+</table>
+</td>
+</tr>
+</table><% out.print("</form>"); %><% } %><% } %><% } else { %><% URLPipelineAction action281 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionRebate-Dispatch",null)))),null));String site281 = null;String serverGroup281 = null;String actionValue281 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionRebate-Dispatch",null)))),null);if (site281 == null){  site281 = action281.getDomain();  if (site281 == null)  {      site281 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup281 == null){  serverGroup281 = action281.getServerGroup();  if (serverGroup281 == null)  {      serverGroup281 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewPromotionRebate-Dispatch",null)))),null));out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue281, site281, serverGroup281,true)); %><input type="hidden" name="PromotionUUID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("Promotion:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {175}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/> 
+<input type="hidden" name="LocaleID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("SelectedLocale:LocaleID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {176}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<table width="100%" cellspacing="0" cellpadding="0" border="0" class="w e s">
+<tr>
+<td class="table_detail n s"><% {out.write(localizeISText("PromotionDiscountRules.CurrentlyThereIsNoDiscountRuleDefinedForThisPromotion.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_MANAGE_MARKETING"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",183,e);}if (_boolean_result) { %><tr>
+<td width="100%" align="right" class="ruleBar">
+<table cellspacing="4" cellpadding="0" border="0">
+<tr>
+<td class="button"><input type="submit" class="button" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PromotionDiscountRules.New.button",null)),null)%>" name="createRebate" /></td>
+</tr>
+</table>
+</td>
+</tr><% } %></table><% out.print("</form>"); %><% } %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/BackToList", null, "197");} %><% printFooter(out); %>

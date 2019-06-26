@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--A pipline for managing reviews.
+@Group Review-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessReview" overrideMode="Inherit" type="process">
+<!--Creates a new review. The review is approved automatically if RequireReviewApproval is "false".
+@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CreateReview"
+      callMode="Private">
+    <nodeSuccessors name="next" next="StartSafeChangesBlock0"/>
+<!--The review BO repository.-->
+    <parameters name="BusinessObjectReviewBORepository" type="com.intershop.component.rating.capi.BusinessObjectReviewBORepository"/>
+<!--The author of the review.-->
+    <parameters name="Author" type="com.intershop.component.user.capi.UserBO"/>
+<!--A name that can be used if the author doesn't have a profile yet.-->
+    <parameters name="AuthorName" type="java.lang.String" optional="true"/>
+<!--The review title (summary).-->
+    <parameters name="ReviewTitle" type="java.lang.String"/>
+<!--The review text.-->
+    <parameters name="ReviewContent" type="java.lang.String"/>
+<!--The rating.-->
+    <parameters name="RatingValue" type="java.lang.Integer" optional="true"/>
+<!--True if the author wants their name to be displayed with the review.-->
+    <parameters name="ShowAuthorNameEnabled" type="java.lang.Boolean" optional="true"/>
+<!--The review of the locale. The default is the lead locale.-->
+    <parameters name="MainLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"
+        optional="true"/>
+<!--Should be "false" if reviews should be automatically approved. By default reviews have to be approved manually.-->
+    <parameters name="RequireReviewApproval" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="StartSafeChangesBlock0">
+    <configurationValues name="SafeChangeOverrideProperty" value="intershop.CSRFGuard.overrideSafeBlock.CreateReview"/>
+    <pipelet href="enfinity:/core/pipelets/StartSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="CreateReview0"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateReview0">
+    <pipelet href="enfinity:/bc_rating/pipelets/CreateReview.xml"/>
+    <nodeSuccessors name="next" next="UpdateRating0"/>
+<!--@BendPoints 9,5-->
+    <nodeSuccessors name="pipelet_error" next="EndSafeChangesBlock1"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRating0">
+    <pipelet href="enfinity:/bc_rating/pipelets/UpdateRating.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameterBindings name="Rating" objectPath="ReviewBO:RatingBO"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="RequireReviewApproval"
+      operator="str_eq" conditionValue="false">
+    <nodeSuccessors name="decision_yes" next="ApproveReview0"/>
+<!--@BendPoints 8,9 8,13-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ApproveReview0">
+    <pipelet href="enfinity:/bc_rating/pipelets/ApproveReview.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="Approver" nullBinding="true"/>
+    <parameterBindings name="ReviewApprovalBORepository" objectPath="ReviewBO:Extension(&quot;Approval&quot;)"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndSafeChangesBlock0"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EndSafeChangesBlock0">
+    <configurationValues name="SafeChangeOverrideProperty" value="intershop.CSRFGuard.overrideSafeBlock.CreateReview"/>
+    <pipelet href="enfinity:/core/pipelets/EndSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="ReviewBO" type="com.intershop.component.rating.capi.ReviewBO"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EndSafeChangesBlock1">
+    <configurationValues name="SafeChangeOverrideProperty" value="intershop.CSRFGuard.overrideSafeBlock.CreateReview"/>
+    <pipelet href="enfinity:/core/pipelets/EndSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="ERROR" strict="true"/>
+<!--Returns the reviews of a specific user.
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="GetReviewsByAuthor"
+      callMode="Private">
+    <nodeSuccessors name="next" next="SplitString0"/>
+<!--The ReviewBO repository.-->
+    <parameters name="BusinessObjectApprovedReviewBORepository" type="com.intershop.component.rating.capi.BusinessObjectApprovedReviewBORepository"/>
+<!--The author of the reviews that should be returned.-->
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SplitString0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SplitString.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector0"/>
+    <parameterBindings name="Delimeter" constant=","/>
+    <parameterBindings name="Limit" nullBinding="true"/>
+    <parameterBindings name="ValuesString" constant="NEW,APPROVED,REJECTED"/>
+    <returnValueBindings name="ValuesIterator" objectPath="StatusNamesIterator"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="GetBusinessObjectReviewsByAuthor0"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" objectPath="StatusNamesIterator"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="StatusNames"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetBusinessObjectReviewsByAuthor0">
+    <pipelet href="enfinity:/bc_rating/pipelets/GetBusinessObjectReviewsByAuthor.xml"/>
+<!--@BendPoints 3,8-->
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <parameterBindings name="Author" objectPath="UserBO"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <returnValueBindings name="Reviews" objectPath="ReviewBOs"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="" strict="true">
+    <returnValues name="ReviewBOs" type="java.util.Collection&lt;com.intershop.component.rating.capi.ReviewBO>"/>
+  </nodes>
+</pipeline:Pipeline>

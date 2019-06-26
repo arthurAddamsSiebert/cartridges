@@ -1,0 +1,19 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%response.setHeader(TemplateConstants.PERSONALIZED_HEADER, "1");setEncodingType("text/html"); %><% {try{String currentCacheTime = (String)((com.intershop.beehive.core.capi.request.ServletResponse)response).getHeaderValue(TemplateConstants.PAGECACHE_HEADER);if (currentCacheTime!=null && "00".equals(currentCacheTime)) {Logger.debug(this, "ISCACHE declaration is ignored since a prior 'forbidden'.");}else {long time = System.currentTimeMillis()/1000;long minute=0;if (minute <0) minute=0;long hour=24;if (hour <0)  hour=0;time += 60*minute+3600*hour;String extCacheTime = (String)((com.intershop.beehive.core.capi.request.ServletResponse)response).getHeaderValue(TemplateConstants.EXT_PAGECACHE_HEADER);Long oldTime=(currentCacheTime!=null)?Long.valueOf(currentCacheTime):(extCacheTime!=null)?Long.valueOf(extCacheTime):null;if (oldTime!=null && oldTime<time) {Logger.debug(this, "ISCACHE declaration is ignored since a prior declaration with a smaller caching period.");response.setHeader(TemplateConstants.PAGECACHE_HEADER, String.valueOf(oldTime));}else if (oldTime!=null && oldTime>time) {Logger.debug(this, "ISCACHE declaration reduces a caching period set by a prior declaration.");}if (oldTime==null || oldTime>time){if (time > Integer.MAX_VALUE){  time = Integer.MAX_VALUE;} response.setHeader(TemplateConstants.PAGECACHE_HEADER, String.valueOf(time));}}}catch(Exception e){Logger.error(this,"ISCACHE failed. Line: {2}",e);}} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"modules/Modules", null, "3");} %><div class="breadcrumbs row"><% processOpenTag(response, pageContext, "breadcrumb", new TagParameter[] {
+new TagParameter("trailtext0",localizeText(context.getFormattedValue("sitemap.breadcrumb",null))),
+new TagParameter("showhomelink","true")}, 7); %></div>
+<div class="marketing-area"><% processOpenTag(response, pageContext, "marketingslot", new TagParameter[] {
+new TagParameter("id","baseMarketing")}, 13); %></div>
+<div class="col-xs-12 col-sm-9" data-testing-id="sitemap">
+<h1><% {out.write(localizeISText("sitemap.heading","",null,null,null,null,null,null,null,null,null,null,null));} %></h1>
+<h2><% {out.write(localizeISText("sitemap.subheading","",null,null,null,null,null,null,null,null,null,null,null));} %></h2><% processOpenTag(response, pageContext, "sitemap", new TagParameter[] {
+new TagParameter("SelectedCategoryBO",getObject("SelectedCategoryBO")),
+new TagParameter("User",getObject("CurrentUser")),
+new TagParameter("Request",getObject("CurrentRequest")),
+new TagParameter("RenderType","CategoryList")}, 22); %></div>
+<div class="col-xs-12 col-sm-3"><% processOpenTag(response, pageContext, "marketingslot", new TagParameter[] {
+new TagParameter("id","sidePanelMarketing")}, 32); %></div><% printFooter(out); %>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets all products from the given domainid where the offeredproductid is equal to the product uuid and contains attribute named 'MasterProductUUID'.">
+<parameters>
+	<parameter name="SourceRepositoryDomainID" type="java.lang.String" optional="true"/>
+	<parameter name="DomainID" type="java.lang.String" optional="false"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Products" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	  select p1.uuid, count(*) over() as "rowcount"
+	  <template-if condition="isDefined(LocaleInformation)">
+				,p1.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/> AS SORTING
+		</template-if>
+	   from product p1
+	   where p1.offeredproductid = p1.uuid
+       and p1.domainid = <template-variable value="DomainID"/>
+	<sql-dialect name="Oracle">
+	   and contains(p1.attributes, 'HASPATH(/attrs/attr[@name="MasterProductUUID"])') &gt; 0
+	   <template-if condition="isdefined(SourceRepositoryDomainID) and (SourceRepositoryDomainID NE '')">
+	       and extractValue(XMLType(nvl(p1.attributes, '&lt;attrs/&gt;')), '/attrs/attr[@name="MasterProductUUID"]/string[1]') not in (select p2.uuid from product p2 
+	       										  																					    where p2.domainid = <template-variable value="SourceRepositoryDomainID"/>)
+	   </template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		and p1.attributes.exist('/attrs/attr[@name="MasterProductUUID"]') = 1
+	   <template-if condition="isdefined(SourceRepositoryDomainID) and (SourceRepositoryDomainID NE '')">
+	      and ISNULL(p1.attributes, '&lt;attrs/&gt;').value('(/attrs/attr[@name="MasterProductUUID"]/string)[1]', 'nvarchar(300)') NOT IN (SELECT p2.uuid FROM product p2
+		     where p2.domainid = <template-variable value="SourceRepositoryDomainID"/>)
+	   </template-if>
+	</sql-dialect>
+	   <template-if condition="isDefined(LocaleInformation)">
+			ORDER BY CASE WHEN p1.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/> IS NULL THEN 1 ELSE 0 END ASC, p1.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/> ASC
+		</template-if>    										  																					    
+</template>
+</query>

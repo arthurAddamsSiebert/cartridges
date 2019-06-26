@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline handles order required attributes. This is done independently from order required attributes defined by the platform. The attributes handled here are defined as channel domain preferences.
+@Group Requisition-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessOrderRequiredAttributes" type="process">
+<!--Copies all order required attributes from all products in a reqisition to the according line items
+@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="CopyReqProductsAttributes"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetOrderRequiredAttributes1"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderRequiredAttributes1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/GetOrderRequiredAttributes.xml"/>
+    <nodeSuccessors name="next" next="Loop3" action="begin"/>
+    <parameterBindings name="Domain" objectPath="Organization:OwningDomain"/>
+    <returnValueBindings name="AttributeNames" objectPath="OrderRequiredAttributeNames"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop3" loop="NewProductLineItems">
+    <nodeSuccessors name="next" next="End1" action="commit"/>
+    <entry key="NewProductLineItem">
+<!--@BendPoints 7,6-->
+      <nodeSuccessors name="loop_entry_next" next="GetProductByProductRef1"/>
+    </entry>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByProductRef1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByProductRef.xml"/>
+    <nodeSuccessors name="next" next="GetProductServiceType1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="ProductRef" objectPath="NewProductLineItem:OfferProductRef"/>
+    <parameterBindings name="ProductRefID" nullBinding="true"/>
+    <parameterBindings name="ProductRefIDs" nullBinding="true"/>
+    <parameterBindings name="ProductRefs" nullBinding="true"/>
+    <returnValueBindings name="Product" objectPath="NewProduct"/>
+    <returnValueBindings name="Products" nullBinding="true"/>
+    <returnValueBindings name="ProductsHash" nullBinding="true"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductServiceType1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductServiceType.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="Product" objectPath="NewProduct"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ServiceTypeCategory:ExcludeFromShipping">
+    <nodeSuccessors name="decision_yes" next="CopyCategoryAttributeToLineItem1"/>
+<!--@BendPoints 8,15 8,19-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyCategoryAttributeToLineItem1">
+    <configurationValues name="DefaultAttributeName" value="ExcludeFromShipping"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyCategoryAttributeToLineItem.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="CatalogCategory" objectPath="ServiceTypeCategory"/>
+    <parameterBindings name="LineItem" objectPath="NewProductLineItem"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="Loop2"/>
+  </nodes>
+<!--Loops for the order required attributes
+@Location 3,10-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="OrderRequiredAttributeNames">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <entry key="OrderRequiredAttributeName">
+<!--@BendPoints 7,22-->
+      <nodeSuccessors name="loop_entry_next" next="CopyProductAttributeToLineItem1"/>
+    </entry>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyProductAttributeToLineItem1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyProductAttributeToLineItem.xml"/>
+<!--@BendPoints 7,24 6,24 6,21-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+    <parameterBindings name="AttributeName" objectPath="OrderRequiredAttributeName"/>
+    <parameterBindings name="LineItem" objectPath="NewProductLineItem"/>
+    <parameterBindings name="Product" objectPath="NewProduct"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 9,25 5,25 5,17 5,5-->
+    <nodeSuccessors name="next" next="Loop3_Entry"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--Copies all order required attributes from all products in a reqisition to the according line items
+@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="CopyReqProductsAttributesByAttributeGroup"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetAttributeGroupByID1"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAttributeGroupByID1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetAttributeGroupByID.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+<!--@BendPoints 16,3 16,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="ID" constant="ORDER_REQUIRED_ATTRIBUTES"/>
+    <returnValueBindings name="AttributeGroup" objectPath="OrderRequiredAttributeGroup"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="Loop1" action="begin"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="NewProductLineItems">
+    <nodeSuccessors name="next" next="End2" action="commit"/>
+    <entry key="NewProductLineItem">
+<!--@BendPoints 15,8-->
+      <nodeSuccessors name="loop_entry_next" next="GetProductByProductRef2"/>
+    </entry>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByProductRef2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByProductRef.xml"/>
+<!--@BendPoints 15,10-->
+    <nodeSuccessors name="next" next="GetProductServiceType2"/>
+<!--@BendPoints 19,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="ProductRef" objectPath="NewProductLineItem:OfferProductRef"/>
+    <parameterBindings name="ProductRefID" nullBinding="true"/>
+    <parameterBindings name="ProductRefIDs" nullBinding="true"/>
+    <parameterBindings name="ProductRefs" nullBinding="true"/>
+    <returnValueBindings name="Product" objectPath="NewProduct"/>
+    <returnValueBindings name="Products" nullBinding="true"/>
+    <returnValueBindings name="ProductsHash" nullBinding="true"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductServiceType2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductServiceType.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameterBindings name="Product" objectPath="NewProduct"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ServiceTypeCategory:ExcludeFromShipping">
+    <nodeSuccessors name="decision_yes" next="CopyCategoryAttributeToLineItem2"/>
+<!--@BendPoints 16,13 16,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode7"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyCategoryAttributeToLineItem2">
+    <configurationValues name="DefaultAttributeName" value="ExcludeFromShipping"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyCategoryAttributeToLineItem.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="CatalogCategory" objectPath="ServiceTypeCategory"/>
+    <parameterBindings name="LineItem" objectPath="NewProductLineItem"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="LoopNode2"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="NewProductLineItem:RecursiveBundledProductLineItems">
+<!--@BendPoints 17,23 17,36 15,36-->
+    <nodeSuccessors name="next" next="Loop4"/>
+    <entry key="NewBundledProductLineItem">
+<!--@BendPoints 15,24-->
+      <nodeSuccessors name="loop_entry_next" next="GetProductByProductRef3"/>
+    </entry>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByProductRef3">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByProductRef.xml"/>
+    <nodeSuccessors name="next" next="Loop5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="ProductRef" objectPath="NewBundledProductLineItem:OfferProductRef"/>
+    <parameterBindings name="ProductRefID" nullBinding="true"/>
+    <parameterBindings name="ProductRefIDs" nullBinding="true"/>
+    <parameterBindings name="ProductRefs" nullBinding="true"/>
+    <returnValueBindings name="Product" objectPath="NewBundledProduct"/>
+    <returnValueBindings name="Products" nullBinding="true"/>
+    <returnValueBindings name="ProductsHash" nullBinding="true"/>
+  </nodes>
+<!--Loops for the order required attributes
+@Location 7,15-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop5" loop="OrderRequiredAttributeGroup:AttributeDescriptors">
+<!--@BendPoints 16,31 16,30 14,30 14,23-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <entry key="OrderRequiredAttributeDescriptor">
+<!--@BendPoints 15,32-->
+      <nodeSuccessors name="loop_entry_next" next="CopyProductAttributeToBundledProductLineItem1"/>
+    </entry>
+  </nodes>
+<!--@Location 7,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyProductAttributeToBundledProductLineItem1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyProductAttributeToBundledProductLineItem.xml"/>
+<!--@BendPoints 15,34 14,34 14,31-->
+    <nodeSuccessors name="next" next="Loop5_Entry"/>
+    <parameterBindings name="AttributeName" objectPath="OrderRequiredAttributeDescriptor:ID"/>
+    <parameterBindings name="LineItem" objectPath="NewBundledProductLineItem"/>
+    <parameterBindings name="Product" objectPath="NewBundledProduct"/>
+  </nodes>
+<!--@Location 9,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 19,47-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 8,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 18,46 18,35 13,35 13,7-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--Loops for the order required attributes
+@Location 7,18-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop4" loop="OrderRequiredAttributeGroup:AttributeDescriptors">
+<!--@BendPoints 17,37-->
+    <nodeSuccessors name="next" next="CopyProductNativeAttributesToLineItem1"/>
+    <entry key="OrderRequiredAttributeDescriptor">
+<!--@BendPoints 15,38-->
+      <nodeSuccessors name="loop_entry_next" next="CopyProductAttributeToLineItem2"/>
+    </entry>
+  </nodes>
+<!--@Location 7,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyProductAttributeToLineItem2">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyProductAttributeToLineItem.xml"/>
+<!--@BendPoints 15,40 14,40 14,39 14,37-->
+    <nodeSuccessors name="next" next="Loop4_Entry"/>
+    <parameterBindings name="AttributeName" objectPath="OrderRequiredAttributeDescriptor:ID"/>
+    <parameterBindings name="LineItem" objectPath="NewProductLineItem"/>
+    <parameterBindings name="Product" objectPath="NewProduct"/>
+  </nodes>
+<!--@Location 8,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyProductNativeAttributesToLineItem1">
+    <configurationValues name="NativeAttributeNames" value="TypeCode,Image,Thumbnail,Unit,Template,SKU,Online,ManufacturerName,ManufacturerSKU,MinOrderQuantityValue,PriceQuantityValue,StepQuantityValue"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyProductNativeAttributesToLineItem.xml"/>
+<!--@BendPoints 17,44 15,44-->
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameterBindings name="AttributeGroup" objectPath="OrderRequiredAttributeGroup"/>
+    <parameterBindings name="LineItem" objectPath="NewProductLineItem"/>
+    <parameterBindings name="Product" objectPath="NewProduct"/>
+  </nodes>
+<!--@Location 7,22-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="NewProduct:ProductMaster">
+    <nodeSuccessors name="decision_yes" next="LoopNode1"/>
+<!--@BendPoints 17,45-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 7,23-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="NewProduct:ProductMaster:VariableVariationAttributes">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <entry key="VVA">
+      <nodeSuccessors name="loop_entry_next" next="Pipelet1"/>
+    </entry>
+  </nodes>
+<!--@Location 7,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CopyProductAttributeToLineItem.xml"/>
+<!--@BendPoints 15,50 14,50 14,47-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <parameterBindings name="AttributeName" objectPath="VVA:Name"/>
+    <parameterBindings name="LineItem" objectPath="NewProductLineItem"/>
+    <parameterBindings name="Product" objectPath="NewProduct"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+</pipeline:Pipeline>

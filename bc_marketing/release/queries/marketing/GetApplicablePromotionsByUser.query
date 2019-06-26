@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="@deprecated since IS 7.4.5: 
+This query is replaced by the methods of the UserGroupPromotionCache. Use Pipelet GetPossiblePromotions instead!
+
+Description: 
+The query fetches all applicable promotions: A promotion is applicable, if
+                    - it is enabled
+                    - has already started (start date before session&apos;s start date), and not yet finished
+                    - is applicable for the user
+                    - is applicable for the domain and app
+                    - is applicable for either all currencies, or a dedicated one
+                    - is combinable with the provided inclusion action types and is not of excluded action types.
+                    - Due to the requirement, that a promotion once applied to the shopping cart, should be granted,
+                      even if its budget is exceeded meanwhile.">
+    <parameters>
+        <parameter name="DomainID" type="java.lang.String" optional="false" />
+        <parameter name="CurrencyCode" type="java.lang.String" optional="false" />
+        <parameter name="CurrentDate" type="java.util.Date" optional="false"
+            description="In real mode: the session&apos;s creation date; in preview mode: any configured date." />
+        <parameter name="TargetGroups" type="java.util.Iterator" optional="false" />
+        <parameter name="IncludedActionTypes" type="java.util.Iterator" optional="true" />
+        <parameter name="ExcludedActionTypes" type="java.util.Iterator" optional="true" />
+        <parameter name="PromotionUUIDs" type="java.util.Iterator" optional="true" />
+        <parameter name="AppID" type="java.lang.String" optional="false" />
+        <parameter name="ShowAvailablePromotionsOnly" type="java.lang.Boolean" optional="true" />
+    </parameters>
+    <return-mappings>
+        <return-mapping name="Promotion" type="orm"
+            class="com.intershop.component.marketing.internal.rebate.PromotionPO" description="The promotion.">
+            <return-attribute name="PromotionUUID"/>
+        </return-mapping>
+    </return-mappings>
+    <processor name="OracleSQL" />
+    <template type="objects">
+        <!-- - fetch all promotion with at least one rebate, if condition is true 
+             - and which belongs to the given application 
+             - which may have a budget (or not) - and have usergroups assigned -->
+        SELECT 
+            p.uuid as PromotionUUID
+        FROM 
+            rebate r
+            <template-if condition="isDefined(IncludedActionTypes) OR isDefined(ExcludedActionTypes)">
+                left join rebateaction action on action.RebateID = r.UUID
+            </template-if>
+        JOIN      Promotion_AA aa ON r.promotionuuid = aa.promotionid AND r.domainid            = aa.domainid
+        JOIN      promotion p     ON r.promotionuuid = p.uuid         AND r.domainid            = p.domainid
+        LEFT JOIN budgetperiod bp ON p.budgetid      = bp.budgetid
+        JOIN      usergroup ug    ON p.targetgroupid = ug.id          AND p.targetgroupdomainid = ug.domainid
+        WHERE
+        (
+            (
+                r.CLASSIFICATIONTYPECODE IS NULL 
+                AND aa.appid = <template-variable value="AppID"/>
+                AND p.DOMAINID=<template-variable value="DomainID"/>
+                AND (p.CURRENCYCODE IS NULL OR p.CURRENCYCODE = <template-variable value="CurrencyCode"/> ) 
+                    AND 
+                    (
+                        <template-variable value="CurrentDate"/> &gt;= p.STARTDATE 
+                        AND 
+                        <template-variable value="CurrentDate"/> &lt; p.ENDDATE --excluding to resolve overlapping issues
+                    )
+                    AND 
+                    (
+                        p.budgetid IS NULL
+                        OR
+                        (
+                            <template-variable value="CurrentDate"/> &gt;= bp.FROMDATE 
+                            AND 
+                            <template-variable value="CurrentDate"/> &lt; bp.TODATE-- excluding to resolve overlapping issues
+                        )
+                    )
+                    AND p.couponcoderequiredflag = 0 
+                    <template-if condition="hasElements(TargetGroups)">
+                        AND 
+                        (
+                            <template-loop iterator="TargetGroups" alias="G">
+                                <loop-statement>
+                                (
+                                    ug.DOMAINID=<template-variable value="G:DomainID"/> 
+                                    AND 
+                                    ug.ID=<template-variable value="G:ID"/>
+                                )
+                                </loop-statement>
+                                <loop-separator> OR </loop-separator>
+                            </template-loop>
+                        )
+                    </template-if>
+                    <!-- Add all active promotions and those with exceeded budget (enabledflag=0), 
+                    but their exceeding date is after the session's start date-->
+                    AND
+                    (
+                        (   <!-- First: Only get enabled promotions without budgets -->
+                            p.enabledflag = 1
+                            AND
+                            p.unlimitedflag = 1
+                        )
+                        OR
+                        (   <!-- Second: If there is a budget, we have to check for its exceededdate.
+                            If there is an exceededdate on the budget, get promo if it lies after the filterdate.
+                            Reason: In multi data center scenario it can happen that a promotion is still active but the 
+                            budget is exceeded due to budget synchronization. -->
+                            p.enabledflag = 1
+                            AND
+                            p.unlimitedflag = 0
+                            AND
+                            (
+                                p.disablebybudgetflag = 0 --get it if can't be disabled by budget
+                                OR
+                                (
+                                    bp.exceededdate is NULL --if budget can disable promo, is it not exceeded?
+                                    OR
+                                    <template-variable value="CurrentDate"/> &lt;= bp.exceededdate --only just exceeded
+                                )
+                            )
+                        )
+                        OR
+                        (   <!-- Third: If there is an exceededdate on the disabled budget, get promo if it lies 
+                            after the filterdate.-->
+                            p.enabledflag = 0
+                            AND
+                            <template-variable value="CurrentDate"/> &lt;= bp.exceededdate --only just exceeded
+                            AND 
+                            p.unlimitedflag = 0
+                            AND
+                            p.disablebybudgetflag = 1 --only if it gets disabled by budget, not by something else
+                        )
+                    )
+                    <!-- 
+                        The flag ShowAvailablePromotionsOnly should only be set in storefront editing/preview mode: 
+                        In preview mode, we ignore that promotion defined for dedicated products should go offline, 
+                        when out of stock. Therefore the promotion's AVAILABLEFLAG will only be considered in real 
+                        life mode. 
+                     -->
+                    <template-if condition="( NOT isDefined(ShowAvailablePromotionsOnly)
+                                         OR ( isDefined(ShowAvailablePromotionsOnly) AND ShowAvailablePromotionsOnly))">
+                        AND p.AVAILABLEFLAG = 1
+                    </template-if>
+                )
+                
+                <!-- Add those promotions which will be triggered by the inserted promotion codes. 
+                (Promotion codes are stored at the basket.) -->
+                <template-if condition="isDefined(PromotionUUIDs) AND hasLoopElements(PromotionUUIDs)">
+                    OR 
+                    <template-loop iterator="PromotionUUIDs" alias="type">
+                        <loop-statement>
+                        (
+                            p.UUID = <template-variable value="type"/> 
+                            AND p.uuid      = r.promotionuuid
+                            AND ug.id       = p.targetgroupid
+                            AND ug.domainid = p.targetgroupdomainid
+                            <!-- Add all active promotions and those with exceeded budget (enabledflag=0), 
+                            but their exceeding date is after the session's start date-->
+                            AND
+                            (
+                                (   <!-- First: Only get enabled promotions without budgets -->
+                                    p.enabledflag = 1
+                                    AND
+                                    p.unlimitedflag = 1
+                                )
+                                OR
+                                (   <!-- Second: If there is a budget, we have to check for its exceededdate.
+                                    If there is an exceededdate on the budget, get promo if it lies after the filterdate.
+                                    Reason: In multi data center scenario it can happen that a promotion is still active but the 
+                                    budget is exceeded due to budget synchronization. -->
+                                    p.enabledflag = 1
+                                    AND
+                                    p.unlimitedflag = 0
+                                    AND
+                                    (
+                                        p.disablebybudgetflag = 0 --get it if can't be disabled by budget
+                                        OR
+                                        (
+                                            bp.exceededdate is NULL --if budget can disable promo, is it not exceeded?
+                                            OR
+                                            <template-variable value="CurrentDate"/> &lt;= bp.exceededdate --only just exceeded
+                                        )
+                                    )
+                                )
+                                OR
+                                (   <!-- Third: If there is an exceededdate on the disabled budget, get promo if it lies 
+                                    after the filterdate.-->
+                                    p.enabledflag = 0
+                                    AND
+                                    <template-variable value="CurrentDate"/> &lt;= bp.exceededdate --only just exceeded
+                                    AND 
+                                    p.unlimitedflag = 0
+                                    AND
+                                    p.disablebybudgetflag = 1 --only if it was disabled by budget, not by something else
+                                )
+                            )
+                        </loop-statement>
+                        <loop-separator> OR </loop-separator>
+                    </template-loop>
+                </template-if>
+            )
+            
+            <!-- Add those promotion which have the allowed action type, if included action types are given. -->
+            <template-if condition="isDefined(IncludedActionTypes) AND hasLoopElements(IncludedActionTypes)">
+                AND 
+                (
+                    <template-loop iterator="IncludedActionTypes" alias="type">
+                        <loop-statement>
+                            action.ACTIONDESCRIPTORID = <template-variable value="type"/>
+                        </loop-statement>
+                        <loop-separator> OR </loop-separator>
+                    </template-loop>
+                )
+            </template-if>
+            
+            <!-- Add those promotion which are not of the forbidden action type, if excluded action types are given. -->
+            <template-if condition="isDefined(ExcludedActionTypes) AND hasLoopElements(ExcludedActionTypes)">
+                AND
+                (
+                    action.ACTIONDESCRIPTORID is NULL 
+                    OR 
+                    (
+                        <template-loop iterator="ExcludedActionTypes" alias="type">
+                            <loop-statement>
+                                action.ACTIONDESCRIPTORID != <template-variable value="type"/>
+                            </loop-statement>
+                            <loop-separator> AND </loop-separator>
+                        </template-loop>
+                    )
+                )
+         )
+            </template-if>
+            group by 
+                p.uuid, p.id, p.rank, p.startdate 
+            order by 
+                p.rank desc, p.startdate desc, p.id asc, p.uuid asc
+    </template>
+</query>

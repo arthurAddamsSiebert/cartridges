@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Returns all categories the given product is assigned to.
+It is only partially aware of product sharing! While it respects product sharing it does not respect catalog sharing! For a derived product it returns ALL assigned categories of its base product, regardless if the catalog is shared or not. In case of double assignments where the same category is assigned to the derived product as well as to the base product only the derived product&apos;s assignment is used. Thus, a category will never occur twice in the result.
+Only explicitly assigned categories are returned. Neither Implicit Product Binding nor Dynamic Product Assignment is taken into consideration.
+Categories of all types of catalogs are returned. Thus, also classification categories will be returned.">
+<parameters>
+	<parameter name="Product" type="com.intershop.beehive.xcs.capi.product.Product" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="CatalogCategory" type="orm" class="com.intershop.beehive.xcs.internal.catalog.CatalogCategoryPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="Sharing" input="Product:Domain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+<template-comment>
+Notes for the "inline" hint:
+    The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+    of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+    not a good practice.
+Solved problems:
+    Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+    if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+    data were not subsequently deleted.
+</template-comment>
+	<template-if condition="Sharing:Enabled">
+		WITH c_pcas AS (
+		    SELECT /*+ inline - to avoid massive not released temporary tablespace data */ *
+		    FROM
+		        productcategoryassignment
+		    WHERE
+		        productid = <template-variable value="Product:UUID"/>
+		    AND
+		        domainid = <template-variable value="Product:DomainID"/>
+		)
+		SELECT catalogcategoryid AS UUID, position FROM c_pcas
+		UNION ALL
+		SELECT catalogcategoryid AS UUID, position
+		FROM
+		    productcategoryassignment mr_pca
+		WHERE
+		    productid = <template-variable value="Product:UUID"/>
+		AND
+		(
+    domainid IN (<template-loop alias="Domain" iterator="Sharing:Domains"><loop-statement><template-variable value="Domain:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+		    <template-if condition="hasElements(Sharing:ProductSets)">
+			        OR domainid IN (
+			            SELECT ps.domainid
+			            FROM
+			                productsetassignment psa
+			            JOIN
+			                productset ps ON (ps.uuid = psa.productsetuuid)
+			            WHERE
+			                psa.productUUID = <template-variable value="Product:UUID"/>
+			        )
+			    </template-if>
+		)
+		AND
+		    NOT EXISTS (
+		        SELECT 1
+		        FROM c_pcas
+		        WHERE c_pcas.productid = <template-variable value="Product:UUID"/>
+		        AND c_pcas.domainid = <template-variable value="Product:DomainID"/>
+		        AND c_pcas.catalogcategoryid=mr_pca.catalogcategoryid
+		    )
+	<if-else/>
+		SELECT catalogcategoryid AS UUID, position
+		FROM
+		    productcategoryassignment
+		WHERE
+		    productid = <template-variable value="Product:UUID"/>
+		AND
+		    domainid = <template-variable value="Product:DomainID"/>
+	</template-if>
+</template>
+</query>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="JobDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="DataFeedName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="DataFeedTypes" type="java.util.ArrayList" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="JobName" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="JobConfiguration" type="orm" class="com.intershop.beehive.core.internal.job.JobConfigurationPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	SELECT J.UUID AS UUID, COUNT(*) OVER() AS "ROWCOUNT",
+	<template-if condition="isDefined(SortBy)">
+		<template-if condition="SortBy EQ &apos;Status&apos;">
+			J.STATUS
+		</template-if>
+		<template-if condition="SortBy EQ &apos;LastModified&apos;">
+			J.LASTMODIFIED
+		</template-if> 
+		<template-if condition="(SortBy EQ &apos;Name&apos;) OR (SortBy EQ &apos;ExportType&apos;)">
+			J_AVFORSORTING.STRINGVALUE
+		</template-if>
+		<if-else/>
+		J_AVFORSORTING.STRINGVALUE
+	</template-if> AS SORTING
+	
+	FROM JOBCONFIGURATION J
+	<template-if condition="(NOT isDefined(SortBy)) OR (SortBy EQ &apos;Name&apos;) OR (SortBy EQ &apos;ExportType&apos;)">
+		INNER JOIN JOBCONFIGURATION_AV J_AVFORSORTING ON (J_AVFORSORTING.OWNERID=J.UUID)
+	</template-if>
+	<template-if condition="isDefined(DataFeedName)">
+		INNER JOIN JOBCONFIGURATION_AV J_AVFORSEARCH ON (J_AVFORSEARCH.OWNERID=J.UUID AND J_AVFORSEARCH.NAME=&apos;DataFeedName&apos;)
+	</template-if>
+	
+	<template-if condition="isDefined(DataFeedTypes)">
+		INNER JOIN JOBCONFIGURATION_AV J_AVFORTYPE ON (J_AVFORTYPE.OWNERID=J.UUID AND J_AVFORTYPE.NAME=&apos;ExportType&apos; AND J_AVFORTYPE.STRINGVALUE IN (
+			<template-if condition="hasElements(DataFeedTypes)">
+				<template-loop alias="DataFeedType" iterator="DataFeedTypes">
+					<loop-statement><template-variable value="DataFeedType:ID"/></loop-statement>
+					<loop-separator>,</loop-separator>
+				</template-loop>
+			<if-else/>
+				null
+			</template-if>
+		))
+	</template-if>
+	WHERE J.DOMAINID = <template-variable value="JobDomain:UUID"/>
+	<template-if condition="NOT isDefined(SortBy) OR (SortBy EQ &apos;Name&apos;)">
+		AND J_AVFORSORTING.NAME=&apos;DataFeedName&apos;
+	</template-if>
+	<template-if condition="isDefined(JobName)">
+		AND J.NAME=<template-variable value="JobName"/>
+	</template-if>
+	<template-if condition="(SortBy EQ &apos;ExportType&apos;)">
+		AND J_AVFORSORTING.NAME=&apos;ExportType&apos;
+	</template-if>
+	<template-if condition="isDefined(DataFeedName)">
+		AND <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="DataFeedName"/><call-parameter name="ColumnNames" value="&quot;J_AVFORSEARCH.STRINGVALUE&quot;"/><call-parameter name="CaseInsensitive" value="true()"/></template-call>
+	</template-if>
+	ORDER BY SORTING 
+	<template-if condition="SortDirection EQ &apos;descending&apos;">
+		 	DESC
+		 <if-else/>
+		 	ASC
+	</template-if>
+</template>
+</query>

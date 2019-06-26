@@ -1,0 +1,224 @@
+<%@page import="com.intershop.component.customer.capi.CustomerBOCustomerApprovalExtension"%>
+<iscontent type="text/xml" templatemarker="false" charset="UTF-8" session="false">
+
+<%@page import="java.util.Iterator,
+				com.intershop.component.customer.capi.CustomerBO,
+			    com.intershop.component.customer.capi.CustomerBOCompanyCustomerExtension,
+			    com.intershop.component.customer.capi.CustomerBOGroupCustomerExtension,
+			    com.intershop.component.customer.capi.CustomerBOPrivateCustomerExtension,
+			    com.intershop.component.user.capi.UserBO,
+			    com.intershop.beehive.core.capi.impex.AttributeValueIterator,
+			    com.intershop.beehive.core.capi.profile.Profile,
+			    com.intershop.beehive.core.capi.profile.ProfileMgr,
+			    com.intershop.beehive.core.capi.domain.PersistentObjectBOExtension,
+			    com.intershop.component.customer.orm.internal.orm.CustomerPO,
+			    com.intershop.component.customer.orm.internal.orm.CustomerBasicProfileAssignmentPO,
+			    com.intershop.component.customer.orm.internal.ProfileFilter,
+			    com.intershop.beehive.orm.capi.common.ORMHelper,
+			    com.intershop.beehive.foundation.util.FilterIterator,
+			    com.intershop.beehive.core.capi.paging.PageableIterator,
+			    com.intershop.beehive.core.capi.query.Row"%>
+
+<isif condition="#(NOT isDefined(MultiThreadingEnabled)) OR (NOT MultiThreadingEnabled)#">
+	<isinclude template="CustomerExportHeader">
+</isif>
+
+	<ismodule template="inc/FNDUser" name="user" attribute="user"/>
+	<ismodule template="inc/CustomerAddresses" name="addresses" attribute="customerprofile"/>
+	<ismodule template="inc/CustomAttributes" name="customattributes" attribute="attributes"/>
+	<isif condition="#isDefined(Objects)#">
+		<%
+			ProfileMgr profileMgr = (ProfileMgr) NamingMgr.getInstance().lookupManager(ProfileMgr.REGISTRY_NAME);
+			Iterator objects = (Iterator)getObject("Objects");
+			
+			if (objects instanceof PageableIterator)
+			{
+			    objects = ((PageableIterator) objects).toSequence();
+			}
+
+			while(objects.hasNext())
+			{
+			    Object object = objects.next();
+			    CustomerBO customerBO;
+			    if (object instanceof Row)
+			    {
+			        Row row = (Row)object;
+			        customerBO = (CustomerBO)row.get("CustomerBO");
+			    }
+			    else
+			    {
+			        customerBO = (CustomerBO)object;
+			    }
+
+			    if (null != customerBO)
+				{
+			        CustomerBOCompanyCustomerExtension companyCustomerExtension = customerBO.getExtension("CompanyCustomer");
+				    if (null != companyCustomerExtension)
+				    {
+				    	getPipelineDictionary().put("CompanyCustomerExtension", companyCustomerExtension);
+				    }
+				    
+				    CustomerBOCustomerApprovalExtension customerApprovalExtension = customerBO.getExtension("CustomerApproval");
+				    if (null != customerApprovalExtension)
+				    {
+				        getPipelineDictionary().put("CustomerApprovalExtension", customerApprovalExtension);
+				    }
+				    
+			        getPipelineDictionary().put("CustomerBO", customerBO);
+			        PersistentObjectBOExtension ex = customerBO.getExtension(PersistentObjectBOExtension.class);
+					CustomerPO customerPO = (CustomerPO)ex.getPersistentObject();
+					if (null != customerPO)
+					{
+						getPipelineDictionary().put("CustomerCustomAttributes", new AttributeValueIterator(customerPO.createAttributeValuesIterator(), customerPO));%>
+
+					    <customer id="<isprint value="#CustomerBO:CustomerNo#">">
+					    	<customer-type><isprint value="#CustomerBO:CustomerType:CustomerTypeID#"></customer-type>
+					    	<isif condition="#isDefined(CompanyCustomerExtension)#">
+								<isif condition="#CompanyCustomerExtension:CompanyName NE ''#"><company-name><isprint value="#CompanyCustomerExtension:CompanyName#"></company-name></isif>
+								<isif condition="#CompanyCustomerExtension:CompanyName2 NE ''#"><company-name2><isprint value="#CompanyCustomerExtension:CompanyName2#"></company-name2></isif>
+								<isif condition="#CompanyCustomerExtension:Description NE ''#"><description><isprint value="#CompanyCustomerExtension:Description#"></description></isif>
+								<isif condition="#CompanyCustomerExtension:TaxationID NE ''#"><taxation-id><isprint value="#CompanyCustomerExtension:TaxationID#"></taxation-id></isif>
+								<isif condition="#CompanyCustomerExtension:Industry NE ''#"><industry><isprint value="#CompanyCustomerExtension:Industry#"></industry></isif>
+								<enabled><isif condition="#CompanyCustomerExtension:Active#">1<iselse>0</isif></enabled>
+					    	</isif>
+					    	<isif condition="#isDefined(CustomerApprovalExtension)#">
+								<isif condition="#CustomerApprovalExtension:Rejected#">
+									<approval-status>2</approval-status>
+								<iselseif condition="#CustomerApprovalExtension:Approved#">
+									<approval-status>1</approval-status>
+								<iselse>
+									<approval-status>0</approval-status>
+								</isif>
+					    	</isif>
+					    	<iscustomattributes attributes="#CustomerCustomAttributes#">
+					    	<users><%
+					    		CustomerBOGroupCustomerExtension groupCustomerExtension = customerBO.getExtension("GroupCustomer");
+					    		if (null == groupCustomerExtension)
+							    {
+						    	    CustomerBOPrivateCustomerExtension privateCustomerExtension = customerBO.getExtension("PrivateCustomer");
+						    	    if (null != privateCustomerExtension)
+						    	    {
+						    	        UserBO customerUser = privateCustomerExtension.getUserBO();
+						    	        Profile customerUserProfile = profileMgr.resolveProfileFromID(customerUser.getID());
+						    	    	getPipelineDictionary().put("CustomerUserProfile", customerUserProfile);
+						    	    	%><isuser user="#CustomerUserProfile#"><%
+						    	    }
+							    }
+						    	else
+						    	{
+									Iterator<CustomerBasicProfileAssignmentPO> assignments = new FilterIterator<CustomerBasicProfileAssignmentPO>(
+							                        customerPO.createCustomerBasicProfileAssignmentsIterator(),
+							                        ProfileFilter.CUSTOMER.getCondition());
+									Profile customerProfile = assignments.next().getProfile();
+							        ORMHelper.closeIterator(assignments);
+							        getPipelineDictionary().put("CustomerProfile", customerProfile);
+									%><isaddresses customerprofile="#CustomerProfile#"><%
+									Collection<UserBO> users = groupCustomerExtension.getAllUserBOs();
+								    for(UserBO customerUser : users)
+								    {
+								        Profile customerUserProfile = profileMgr.resolveProfileFromID(customerUser.getID());
+								        getPipelineDictionary().put("CustomerUserProfile", customerUserProfile);
+								        %><isif condition="#isDefined(CompanyCustomerExtension)#">
+								        	<isuser user="#CustomerUserProfile#">
+								        <iselse>
+								        	<isuser user="#CustomerUserProfile#" exportaddresses="false">
+								        </isif><%
+								    }
+								}%>
+							</users>
+							
+							<!--- Preferred Addresses --->
+							<isif condition="#CustomerBO:PreferredInvoiceToAddressBO NE null#">
+								<isset name="addressBO" value="#CustomerBO:PreferredInvoiceToAddressBO#" scope="request">				
+								<isset name="address" value="#addressBO:Extension("PersistentObjectBOExtension"):PersistentObject#" scope="request">								
+								<preferred-invoice-to-address name="<isprint value="#address:AddressName#"/>">
+									<isinclude template="export/AddressDataExport">
+								</preferred-invoice-to-address>
+							</isif>
+							
+							<isif condition="#CustomerBO:PreferredShipToAddressBO NE null#">
+								<isset name="addressBO" value="#CustomerBO:PreferredShipToAddressBO#" scope="request">				
+								<isset name="address" value="#addressBO:Extension("PersistentObjectBOExtension"):PersistentObject#" scope="request">								
+								<preferred-ship-to-address name="<isprint value="#address:AddressName#"/>">
+									<isinclude template="export/AddressDataExport">
+								</preferred-ship-to-address>
+							</isif>
+							
+							
+							<!--- Addresses --->
+							<isif condition="#hasElements(CustomerBO:AddressBOs)#">
+								<addresses>	 
+								 	<isloop iterator="CustomerBO:AddressBOs" alias="addressBO">
+									 	<isset name="address" value="#addressBO:Extension("PersistentObjectBOExtension"):PersistentObject#" scope="request">
+								         <address name="<isprint value="#address:AddressName#"/>">
+									     	<isinclude template="export/AddressDataExport">
+									     </address>
+									</isloop>
+								</addresses>	 
+							</isif>
+							
+							<!--- Account Managers --->
+							<isset name="AccountManagerBOs" value="#CustomerBO:Extension("AccountManagers"):AccountManagerBOs#" scope="request"/>
+							<isif condition="#hasElements(AccountManagerBOs)#">
+								<account-managers>
+									<isloop iterator="AccountManagerBOs" alias="AccountManager">
+										<account-manager id="<isprint value="#AccountManager:Name#">"/>
+									</isloop>
+								</account-managers>
+							</isif>
+
+							<!--- Cost Object Types --->
+							<isset name="CostObjectTypeBOs" value="#CustomerBO:Extension("CostObjectType"):CostObjectTypeBOs#" scope="request"/>
+							<isif condition="#hasElements(CostObjectTypeBOs)#">
+								<isset name="Locales" value="#CurrentAppContext:Variable("CurrentApplicationBO"):Locales#" scope="request"/>
+								<cost-object-types>
+									<isloop iterator="CostObjectTypeBOs" alias="CostObjectTypeBO">
+										<cost-object-type name="<isprint value="#CostObjectTypeBO:Name#"/>">
+										<isloop iterator="Locales" alias="Locale">
+											<isif condition="#CostObjectTypeBO:DisplayName(Locale) NE ''#"><display-name xml:lang="<isprint value="#Locale:XMLLocaleID#">"><isprint value="#CostObjectTypeBO:DisplayName(Locale)#"/></display-name></isif>
+											<isif condition="#CostObjectTypeBO:Description(Locale) NE ''#"><description xml:lang="<isprint value="#Locale:XMLLocaleID#">"><isprint value="#CostObjectTypeBO:Description(Locale)#"/></description></isif>
+										</isloop>
+										</cost-object-type>
+									</isloop>
+								</cost-object-types>
+							</isif>
+
+							<!--- Cost Centers --->
+							<isset name="CostCenterBOs" value="#CustomerBO:Extension("CostCenter"):CostCenterBOs#" scope="request"/>
+							<isif condition="#hasElements(CostCenterBOs)#">
+								<cost-centers>
+									<isloop iterator="CostCenterBOs" alias="CostCenterBO">
+										<cost-center id="<isprint value="#CostCenterBO:Name#"/>" name="<isprint value="#CostCenterBO:DisplayName#"/>" active="<isif condition="#CostCenterBO:Active#">1<iselse>0</isif>">
+											<budget period="<isprint value="#CostCenterBO:BudgetPeriod#"/>" value="<ISMoney money="#CostCenterBO:Budget#">"/>
+											<owner login="<isprint value="#CostCenterBO:Owner:Login#"/>"/>
+											<isif condition="#hasElements(CostCenterBO:Buyers)#">
+												<buyers>
+												<isloop iterator="CostCenterBO:Buyers" alias="Buyer">
+													<isset name="BuyerCostCenterBudgetExtension" value="#Buyer:Extension("UserBOCostCenterBudgetExtension")#" scope="request"/>
+													<buyer login="<isprint value="#Buyer:Login#"/>">
+														<isif condition="#isDefined(BuyerCostCenterBudgetExtension)#">
+															<budget period="<isprint value="#BuyerCostCenterBudgetExtension:BudgetPeriod(CostCenterBO:ID)#"/>" value="<ISMoney money="#BuyerCostCenterBudgetExtension:Budget(CostCenterBO:ID)#">"/>
+														</isif>
+													</buyer>
+												</isloop>
+												</buyers>
+											</isif>
+										</cost-center>
+									</isloop>
+								</cost-centers>
+							</isif>
+						</customer><%
+
+						getPipelineDictionary().remove("BuyerCostCenterBudgetExtension");
+						getPipelineDictionary().remove("CompanyCustomerExtension");
+						getPipelineDictionary().remove("CustomerCustomAttributes");
+						getPipelineDictionary().remove("CustomerProfile");
+						getPipelineDictionary().remove("CustomerUserProfile");
+					}
+				}
+			}
+		%>
+	</isif>
+<isif condition="#(NOT isDefined(MultiThreadingEnabled)) OR (NOT MultiThreadingEnabled)#">
+	<isinclude template="DefaultExportFooter">
+</isif>

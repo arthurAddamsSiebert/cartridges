@@ -1,0 +1,1010 @@
+import "enfinity:/bc_shipping_data/edl/com/intershop/component/shipping_data/capi/shippingmethod/ShippingMethod.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/LineItem.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/LineItemGroup.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/ProductLineItem.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/ServiceLineItem.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/StaticAddress.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/payment/PaymentInstrumentInfo.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/Domain.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObject.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/localization/LocaleInformation.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+external Address type "com.intershop.beehive.core.capi.profile.Address";
+external User type "com.intershop.beehive.core.capi.user.User";
+external ProductRef type "com.intershop.beehive.xcs.common.ProductRef";
+external SpreadSheet type "com.intershop.component.spreadsheet.capi.SpreadSheet";
+
+namespace com.intershop.beehive.bts.capi.orderprocess
+{
+    cartridge interface LineItemCtnr extends ExtensibleObject
+    {
+        /*
+         * Date and time when this LineItemCtnr was created
+         */
+        attribute creationDate : datetime required;
+
+        /*
+         * Optionally set date, expressing a requested delivery date. This date is copied from Basket to PlacedOrder to Order in the orderprocess.
+         */
+        attribute requestedDeliveryDate : datetime required;
+
+        /*
+         * The int status of a LineItemCtnr. Possible status values are dependent on the subclass (see class documentation for classes Basket, PlacedOrder, Order for more info). Constant values are available from the relevant interfaces.
+         * 
+         * @see com.intershop.beehive.bts.orderprocess.basket.BasketConstants
+         * @see com.intershop.beehive.bts.orderprocess.placedorder.PlacedOrderConstants
+         * @see com.intershop.beehive.bts.orderprocess.fulfillment.OrderConstants
+         */
+        attribute status : int required;
+
+        /*
+         * Document number is assigned to every order in the context of the order creation and can be thought of as kind of order document number
+         * that uniquely identifies an order in the context of an organization or a deployment.
+         * Document number is not used in the basket.
+         */
+        attribute documentNo : string required;
+        
+        /*
+         * Requisition document number that is assigned to a requisition, that is in fact represented by a basket that has to be approved.
+         * In the course of the order creation this number is copied to the order during order creation. This number allows the approver
+         * to establish a relation between a requisition and the resulting order. 
+         */
+        attribute requisitionDocumentNo : string;
+
+        /*
+         * The recurring order document number that is assigned to a recurring order (template), that is in fact represented by a Basket
+         * with a specific type identifier.
+         * When recurring order scheduler triggers creation of a new order, a new Basket is created first by cloning the recurring order 
+         * (template). The recurring order document number is taken to the cloned basket to and suffixed by a sequence number that specifies
+         * the nth order of the recurring order (template).    
+         */
+        attribute recurringOrderDocumentNo : string;
+
+        attribute user : User required;
+
+        /*
+         * The 3-character currency mnemonic (eg 'USD', 'DEM') representing the LineItemCtnr's lead currency - this is the globally set lead currency.
+         */
+        attribute leadCurrencyCode : string required;
+
+        /*
+         * The 3-character currency mnemonic (eg 'USD', 'DEM') representing the LineItemCtnr's purchase currency - this is the currency in which the calculation is made, and in which the buyer sees all prices in the store front.
+         */
+        attribute purchaseCurrencyCode : string required;
+
+        /*
+         * This is the exchangerate which allows conversion from the LineItemCtnr's PTC (payment transaction currency) to its LC (lead currency)
+         * 
+         */
+        attribute exchangeRatePTCtoLC : ExchangeRate required;
+
+        /*
+         * This is the exchangerate which allows conversion from the LineItemCtnr's PC (purchase currency) to its LC (lead currency)
+         * 
+         */
+        attribute exchangeRatePCtoLC : ExchangeRate required;
+
+        /*
+         * This is the exchangerate which allows conversion from the LineItemCtnr's PC (purchase currency) to its PTC (payment transaction currency)
+         * 
+         */
+        attribute exchangeRatePCtoPTC : ExchangeRate required;
+
+        /*
+         * AddressID of invoice-to (bill-to) address assigned to this LineItemCtnr, see also class documentation: address handling
+         * @deprecated Deprecated since 7.8. Use "invoiceToAddressURN" instead.
+         */
+        attribute invoiceToAddressID : string;
+
+		/*
+		 * URN of line item container's invoice-to address.
+		 */
+		attribute invoiceToAddressURN : string;
+
+		/*
+		 * AddressID of ship to address assigned to this LineItemCtnr, see also class documentation: address handling
+		 * @deprecated Deprecated since 7.8. Use "shipToAddressURN" instead.
+		 */
+        attribute shipToAddressID : string;
+
+        /*
+         * URN of line item container's ship-to address.
+         */
+        attribute shipToAddressURN : string;
+
+		/*
+		 * @deprecated Deprecated since 7.8. Use "shipFromAddressURN" instead.
+		 */
+        attribute shipFromAddressID : string;
+
+		/*
+		 * URN of line item container's ship-from address. 
+		 */
+        attribute shipFromAddressURN : string;
+
+        /*
+         * UUID of "service to" address.
+         * @deprecated Deprecated since 7.8. Use "serviceToAddressURN" instead.
+         */
+        attribute serviceToAddressID : string;
+
+		/*
+		 * URN of line item container's service-to address.
+		 */
+		attribute serviceToAddressURN : string;
+
+        /*
+         * UUID of "install to" address.
+         * @deprecated Deprecated since 7.8. Use "installToAddressURN" instead.
+         */
+        attribute installToAddressID : string;
+
+		/*
+		 * URN of line item container's install-to address.
+		 */
+		attribute installToAddressURN : string;
+
+		/*
+		 * Defines the ID of the shipping method to be set.
+		 */
+        attribute shippingMethodID : string required;
+
+        /*
+         * Grand total price net of tax in lead currency, converted from the equivalent price in the purchase currency.
+         */
+        attribute grandTotalNetPriceLC : Money required;
+
+        /*
+         * Grand total price for LineItemCtnr net of tax, in purchase currency.
+         * 
+         * <P>Note: price attributes with the prefix 'GrandTotal' (price after applying total discount) can be paired with equivalent 'Total' prices (price before applying total discount), e.g. GrandTotalGrossPricePC is paired with TotalGrossPricePC.
+         */
+        attribute grandTotalNetPricePC : Money required;
+
+        /*
+         * Grand total tax in lead currency, converted from the equivalent price in the purchase currency.
+         */
+        attribute grandTotalTaxLC : Money required;
+
+        /*
+         * Grand total tax for LineItemCtnr, in purchase currency.
+         * 
+         * <P>Note: price attributes with the prefix 'GrandTotal' (price after applying total discount) can be paired with equivalent 'Total' prices (price before applying total discount), e.g. GrandTotalGrossPricePC is paired with TotalGrossPricePC.
+         */
+        attribute grandTotalTaxPC : Money required;
+
+        /*
+         * Grand total price gross of tax in lead currency, converted from the equivalent price in the purchase currency.
+         */
+        attribute grandTotalGrossPriceLC : Money required;
+
+        /*
+         * Grand total price gross of tax for LineItemCtnr, in purchase currency.
+         * 
+         * <P>Note: price attributes with the prefix 'GrandTotal' (price after applying total discount) can be paired with equivalent 'Total' prices (price before applying total discount), e.g. Total.GrandTotalGrossPricePC is paired with Total.GrossPricePC.
+         */
+        attribute grandTotalGrossPricePC : Money required;
+
+        /*
+         * Grand total price gross of tax for LineItemCtnr, in payment transaction currency, i.e. the price to be paid for the LineItemCtnr, converted from the equivalent price in purchase currency to the currency specified by the selected PaymentMethod.
+         */
+        attribute grandTotalGrossPricePTC : Money required;
+
+        attribute buyerNo : string required;
+
+        attribute anonymous : boolean required;
+
+        attribute sessionID : string required;
+
+        /*
+         * Date and time when the Basket/Requisition which contains this  LineItemCtnr was submited
+         */
+        attribute submitDate : datetime;
+
+		/*
+		 * Indicating that customer is tax exempt. 
+		 */
+        attribute taxExempt : boolean;
+
+		/*
+		 * Spreadsheet which contains basket calculation results.
+		 */
+		attribute spreadSheet : SpreadSheet;
+        
+        relation staticAddresses : StaticAddress[0..n] readonly;
+
+        relation lineItemGroups : LineItemGroup[0..n] readonly;
+
+        relation productLineItems : ProductLineItem[0..n] readonly;
+
+        relation serviceLineItems : ServiceLineItem[0..n] readonly;
+
+        relation lineItems : LineItem[0..n] readonly;
+
+        relation paymentInstrumentInfo : PaymentInstrumentInfo[0..n];
+
+        relation purchaseLocale : LocaleInformation[0..1] readonly;
+
+	
+        /*
+         * Returns whether none of the ProductLineItems are selected
+         * 
+         * @return whether none of the ProductLineItems are selected
+         * @isattribute ProductLineItemsDeselected
+         */
+        operation allProductLineItemsDeselected() : boolean;
+
+        /*
+         * Returns whether all ProductLineItems are selected
+         * 
+         * @return whether all ProductLineItems are selected
+         * @isattribute ProductLineItemsSelected
+         */
+        operation allProductLineItemsSelected() : boolean;
+
+        /*
+         * Returns whether all ServiceLineItems are selected
+         * 
+         * @return whether all ServiceLineItems are selected
+         * @isattribute ServiceLineItemsDeselected
+         */
+        operation allServiceLineItemsSelected() : boolean;
+
+        /*
+         * Searches through the ProductLineItems held by this instance and
+         * returns true if one or more are found with the given Reference.
+         * 
+         * @return true if one or more ProductLineItems are found with the given
+         * reference
+         */
+        operation containsProductLineItemForProductRef(aProductRef : ProductRef) : boolean;
+
+        /*
+         * Dynamically converts the given PC price to LC using the
+         * ExchangeRatePCtoLC.
+         * 
+         * @return aValue converted to LC, or null if either no ExchangeRatePCtoLC
+         * is defined or aValue is null or aValue is N/A
+         */
+        operation convertPCtoLC(aValue : Money) : Money;
+
+        /*
+         * Dynamically converts the given PC price to PTC using the
+         * ExchangeRatePCtoLC.
+         * 
+         * @return aValue converted to PTC, or null if either no ExchangeRatePCtoPTC
+         * is defined or aValue is null or aValue is N/A
+         */
+        operation convertPCtoPTC(aValue : Money) : Money;
+
+        /*
+         * Searches through the ProductLineItems held by this instance and
+         * returns an iterator over those which are dependent on another instance. <P>
+         * Dependent ProductLineItems are used, for example, by discounts
+         * responsible for adding free items to a LineItemCtnr, such as
+         * "Buy 2, get 1 free".
+         * 
+         * @return An iterator of ProductLineItems which are dependent on another instance.
+         * @isiterator DependentProductLineItemsIterator com.intershop.beehive.bts.capi.orderprocess.ProductLineItem
+         */
+        operation createDependentProductLineItemsIterator() : Iterator;
+
+        /*
+         * Searches through the ProductLineItems held by this instance and
+         * returns an iterator over those which are <I>not</I> dependent on another
+         * instance. <P>
+         * <I>Dependent</I> ProductLineItems are used, for example, by discounts
+         * responsible for adding free items to a LineItemCtnr, such as
+         * "Buy 2, get 1 free". All other ProductLineItems are said to be
+         * <I>Independent</I>.
+         * 
+         * @return An iterator of ProductLineItems which are not dependent on another instance.
+         * @isiterator IndependentProductLineItemsIterator com.intershop.beehive.bts.capi.orderprocess.ProductLineItem
+         */
+        operation createIndependentProductLineItemsIterator() : Iterator;
+        
+        /*
+         * Searches through the ProductLineItems held by this instance and
+         * returns an iterator over those which are <I>not</I> dependent on another
+         * instance ordered by position. <P>
+         * <I>Dependent</I> ProductLineItems are used, for example, by discounts
+         * responsible for adding free items to a LineItemCtnr, such as
+         * "Buy 2, get 1 free". All other ProductLineItems are said to be
+         * <I>Independent</I>.
+         * 
+         * @return An iterator of ProductLineItems which are not dependent on another instance ordered by position.
+         * @isiterator IndependentProductLineItemsIterator com.intershop.beehive.bts.capi.orderprocess.ProductLineItem
+         */
+        operation  createIndependentProductLineItemsOrderedByPositionIterator() : Iterator;
+
+        /*
+         * Returns an iterator of Domains acting as Supplying Domains in this
+         * LineItemCtnr, ie each of the Domains returned is represented as
+         * the SupplyingDomain of one or more of the Product- and / or Service-
+         * LineItems found in this LineItemCtnr.
+         * 
+         * @return iterator of Domains acting as Supplying Domains in this LineItemCtnr
+         */
+        operation createProductDefiningDomainsIterator() : Iterator;
+
+        /*
+         * Returns an iterator of ProductLineItems with products defined by the given domain, ie this is the DomainName returned by the roductDefinitionProductRef. If null is given as an argument, the ProductLineItems without a specified supplying domain are returned.
+         * 
+         * @param Domain aDomain the domain
+         * @return iterator of ProductLineItems with products defined by the given
+         * domain
+         */
+        operation createProductLineItemsByProductDefinitionDomainIterator(aDomain : Domain) : Iterator;
+
+        /*
+         * Returns an iterator of ProductLineItems belonging to the given selling
+         * domain. If null is given as an argument, the ProductLineItems without a
+         * specified selling domain are returned.
+         * 
+         * @return iterator of ProductLineItems belonging to the given selling
+         * domain
+         */
+        operation createProductLineItemsBySellingDomainIterator(aDomain : Domain) : Iterator;
+
+        /*
+         * Returns an iterator of ProductLineItems belonging to the given supplying
+         * domain. If null is given as an argument, the ProductLineItems without a
+         * specified supplying domain are returned.
+         * 
+         * @return iterator of ProductLineItems belonging to the given supplying
+         * domain
+         */
+        operation createProductLineItemsBySupplyingDomainIterator(aDomain : Domain) : Iterator;
+
+        /*
+         * Returns an iterator of ProductLineItems ordered by position.
+         * 
+         * @return iterator of ProductLineItems ordered by position
+         */
+        operation createProductLineItemsOrderedByPositionIterator() : Iterator;
+
+        /*
+         * Returns an iterator of ProductLineItems ordered by product name.
+         * 
+         * @return iterator of ProductLineItems ordered by product name
+         */
+        operation createProductLineItemsOrderedByProductNameIterator() : Iterator;
+
+        /*
+         * Returns an iterator of BundledProductLineItems held by this LineItemCtnr, ie the
+         * resulting iterator includes all items bundled in each of LineItemCtnrs ProductLineItems.
+         * 
+         * @return iterator of BundledProductLineItems held by this LineItemCtnr
+         */
+        operation createRecursiveBundledProductLineItemsIterator() : Iterator;
+
+        /*
+         * Returns an iterator of Domains acting as Selling Domains in this
+         * LineItemCtnr, ie each of the Domains returned is represented as
+         * the SellingDomain of one or more of the Product- and / or Service-
+         * LineItems found in this LineItemCtnr.
+         * 
+         * @return iterator of Domains acting as Selling Domains in this LineItemCtnr
+         */
+        operation createSellingDomainsIterator() : Iterator;
+
+        /*
+         * Returns an iterator of ServiceLineItems belonging to the given selling
+         * domain. If null is given as an argument, the ServiceLineItems without a
+         * specified selling domain are returned.
+         * 
+         * @return iterator of ServiceLineItems belonging to the given selling
+         * domain
+         */
+        operation createServiceLineItemsBySellingDomainIterator(aDomain : Domain) : Iterator;
+
+        /*
+         * Returns an iterator of ServiceLineItems belonging to the given supplying
+         * domain. If null is given as an argument, the ServiceLineItems without a
+         * specified supplying domain are returned.
+         * 
+         * @return iterator of ServiceLineItems belonging to the given supplying
+         * domain
+         */
+        operation createServiceLineItemsBySupplyingDomainIterator(aDomain : Domain) : Iterator;
+
+        /*
+         * Returns an iterator of Domains acting as Supplying Domains in this
+         * LineItemCtnr, ie each of the Domains returned is represented as
+         * the SupplyingDomain of one or more of the Product- and / or Service-
+         * LineItems found in this LineItemCtnr.
+         * 
+         * @return iterator of Domains acting as Supplying Domains in this LineItemCtnr
+         */
+        operation createSupplyingDomainsIterator() : Iterator;
+
+        /*
+         * Deselects all selectable LineItems, meaning the SelectedQuantity of each
+         * ProductLineItem (including dependent ProductLineItems) is set to zero,
+         * and each ServiceLineItem is marked as deselected.
+         * 
+         */
+        operation deselectAll() : void;
+
+        operation findInLineItemGroupsByDomain(domain : Domain) : LineItemGroup;
+
+        operation findInServiceLineItemsByName(name : string) : ServiceLineItem;
+
+        operation findInServiceLineItemsByName(name : string, domain : Domain) : ServiceLineItem;
+
+        /*
+         * Return number of ProductLineItems held by this instance which
+         * <I>are</I> dependent on another instance. <P>
+         * 
+         * @return Number of dependent ProductLineItems.
+         */
+        operation getDependentProductLineItemsCount() : int;
+
+        /*
+         * Return number of ProductLineItems held by this instance which are
+         * <I>not</I> dependent on another instance. <P>
+         * 
+         * @return Number of independent ProductLineItems.
+         */
+        operation getIndependentProductLineItemsCount() : int;
+
+        /*
+         * Returns the buyer address with the addressID identical to the
+         * InvoiceToAddressID set for this LineItemCtnr.
+         * 
+         * @return the address object or null, if no invoice-to address was set
+         * (should never happen!)
+         * @see com.intershop.beehive.bts.capi.orderprocess.LineItemCtnr#getBuyerAddress
+         * @isattribute InvoiceToAddress
+         * @deprecated Deprecated since 7.8. Use {@link com.intershop.component.address.capi.resolver.AddressBOResolver} instead.
+         */
+        operation getInvoiceToAddress() : Address;
+
+        /*
+         * Returns one of the type constants defined in LineItemCtnrConstants, used
+         * to identify the class of LineItemCtnr.
+         * 
+         * @return one of the type constants defined in LineItemCtnrConstants
+         * @hide
+         */
+        operation getLineItemCtnrType() : int;
+
+        operation getProductLineItemForProductRef(productRef : ProductRef) : ProductLineItem;
+
+        /*
+         * Returns an iterator of independent product line items with the given product ref.
+         */
+        operation getProductLineItemsForProductRef(productRef : ProductRef) : Iterator;
+
+        operation getProductLineItemForUUID(uuid : string) : ProductLineItem;
+
+        /*
+         * Returns the seller address with the addressID identical to the
+         * ShipFromAddressID set for this LineItemCtnr.
+         * 
+         * @return the address object or null, if no ship-from address was set
+         * (should never happen!)
+         * @see com.intershop.beehive.bts.capi.orderprocess.LineItemCtnr#getSellerAddress
+         * @isattribute ShipFromAddress
+         * @deprecated Deprecated since 7.8. Use {@link com.intershop.component.address.capi.resolver.AddressBOResolver} instead.
+         */
+        operation getShipFromAddress() : Address;
+
+        /*
+         * Returns the ship to address with the addressID identical to the
+         * ShipToAddressID set for this LineItemCtnr.
+         * 
+         * @return the address object or null, if no ship-to address was set
+         * (should never happen!)
+         * @isattribute ShipToAddress
+         * @deprecated Deprecated since 7.8. Use {@link com.intershop.component.address.capi.resolver.AddressBOResolver} instead.
+         */
+        operation getShipToAddress() : Address;
+
+        /*
+         * Returns the shipping method with the ID identical to the
+         * ShippingMethodID set for this LineItemCtnr.
+         * 
+         * @return the shipping method object or null, if no shipping method was set
+         * (should never happen!)
+         * @isattribute ShippingMethod
+         */
+        operation getShippingMethod() : ShippingMethod;
+
+        /*
+         * Generic access to an integer state value. Note reserved value -1 is returned if no stateId is defined for the given stateGroup.
+         * 
+         * @param stateGroup The stateGroup
+         * @return The integer stateId, or -1 if none is set
+         */
+        operation getState(stateGroup : string) : int;
+
+        /*
+         * Generic access to a localized display name in current locale for a state value. Null is returned if no state value defined.
+         * 
+         * @param stateGroup The stateGroup
+         * @return The localized display name in current locale, null if no value is set
+         */
+        operation getStateDisplayName(stateGroup : string) : string;
+
+        /*
+         * Generic access to a localized display name in given locale for a state value. Null is returned if no state value defined.
+         * 
+         * @param stateGroup The stateGroup
+         * @param locale The locale
+         * @return The localized display name in current locale, null if no value is set
+         */
+        operation getStateDisplayName(stateGroup : string, locale : LocaleInformation) : string;
+
+        /*
+         * Generic access to a non-localized name for a state value. Null is returned if no state value defined.
+         * 
+         * @param stateGroup The stateGroup
+         * @return The state name, or null if no value is set
+         */
+        operation getStateName(stateGroup : string) : string;
+
+        /*
+         * Returns <i>localized</i> string representation of the instance's
+         * status in the current session locale.
+         * 
+         * @return localized status value
+         * @see com.intershop.beehive.bts.capi.orderprocess.LineItemCtnr#getStatus
+         * @see com.intershop.beehive.bts.capi.orderprocess.LineItemCtnr#getStatusStateName
+         * @see com.intershop.beehive.bts.capi.state.StateDefinitionMgr
+         * @isattribute StatusDisplayName
+         */
+        operation getStatusDisplayName() : string;
+
+        /*
+         * Returns <i>non-localized</i> string representation of the instance's
+         * status.
+         * 
+         * @return non-localized status name
+         * @see com.intershop.beehive.bts.capi.orderprocess.LineItemCtnr#getStatus
+         * @see com.intershop.beehive.bts.capi.orderprocess.LineItemCtnr#getStatusDisplayName
+         * @see com.intershop.beehive.bts.capi.state.StateDefinitionMgr
+         * @isattribute StatusStateName
+         */
+        operation getStatusStateName() : string;
+
+        /*
+         * Subtotal gross price (ie including tax) in lead currency, converted
+         * from equivalent purchase currency price.
+         * Subtotal prices represent the sum of product prices before services
+         * such as shipping have been added.
+         * <bt>Note this price is calculated dynamically, and is not persistent.
+         * 
+         * @return the value of the attribute 'grossPriceLC'
+         */
+        operation getSubtotalGrossPriceLC() : Money;
+
+        /*
+         * Subtotal gross price (ie including tax) in purchase currency.
+         * Subtotal prices represent the sum of product prices before services
+         * such as shipping have been added.
+         * <bt>Note this price is calculated dynamically, and is not persistent.
+         * 
+         * @return the value of the attribute 'grossPricePC'
+         */
+        operation getSubtotalGrossPricePC() : Money;
+
+        /*
+         * Subtotal net price (i.e. excluding tax) in lead currency, converted
+         * from equiavalent purchase currency price.
+         * Subtotal prices represent the sum of product prices before services
+         * such as shipping have been added.
+         * <bt>Note this price is calculated dynamically, and is not persistent.
+         * 
+         * @return the value of the attribute 'SubtotalNetPriceLC'
+         */
+        operation getSubtotalNetPriceLC() : Money;
+
+        /*
+         * Subtotal net price (i.e. excluding tax) in purchase currency.
+         * Subtotal prices represent the sum of product prices before services
+         * such as shipping have been added.
+         * 
+         * <bt>Note this price is calculated dynamically, and is not persistent.
+         * 
+         * @return the value of the attribute 'SubtotalNetPricePC'
+         */
+        operation getSubtotalNetPricePC() : Money;
+
+        /*
+         * Subtotal tax in lead currency, converted
+         * from equivalent purchase currency price.
+         * Subtotal prices represent the sum of product prices before services
+         * such as shipping have been added.
+         * <bt>Note this price is calculated dynamically, and is not persistent.
+         * 
+         * @return the value of the attribute 'SubtotalTaxLC'
+         */
+        operation getSubtotalTaxLC() : Money;
+
+        /*
+         * Subtotal tax in purchase currency.
+         * Subtotal prices represent the sum of product prices before services
+         * such as shipping have been added.
+         * <bt>Note this price is calculated dynamically, and is not persistent.
+         * 
+         * @return the value of the attribute 'SubtotalTaxPC'
+         */
+        operation getSubtotalTaxPC() : Money;
+
+        /*
+         * Returns whether all ProductLineItems and all ServiceLineItems are
+         * selected
+         * 
+         * @return whether all ProductLineItems and all ServiceLineItems are
+         * selected
+         * @isattribute AllSelected
+         */
+        operation isAllSelected() : boolean;
+
+        /*
+         * Whether a custom integer state value is defined for the given stateGroup.
+         * 
+         * @param stateGroup The stateGroup
+         * @return Whether a custom integer state value is defined for the given stateGroup.
+         */
+        operation isStateDefined(stateGroup : string) : boolean;
+
+        /*
+         * Remove a custom integer state value using extensible object mechanism
+         * 
+         * @param stateGroup The stateGroup
+         */
+        operation removeState(stateGroup : string) : void;
+
+        /*
+         * Selects all selectable LineItems, meaning the Quantity of each
+         * ProductLineItem (including dependent ProductLineItems) is copied to
+         * its transient SelectedQuantity, and each ServiceLineItem is marked as
+         * selected.
+         * 
+         */
+        operation selectAll() : void;
+
+        /*
+         * Selects or deselects all ProductLineItems, meaning if <P>
+         * Selected: The Quantity of each ProductLineItem (including dependent
+         * ProductLineItems) is copied into its SelectedQuantity. <BR>
+         * Deselected: The SelectedQuantity of each ProductLineItem (including
+         * dependent ProductLineItems) is set to zero. <P>
+         * 
+         */
+        operation setProductLineItemsSelected(select : boolean) : void;
+
+        /*
+         * Selects or deselects all ServiceLineItems, meaning if <P>
+         * Selected: Each ServiceLineItem is marked as selected. <BR>
+         * Deselected: Each ServiceLineItem is marked as deselected. <P>
+         * 
+         * @see com.intershop.beehive.bts.capi.orderprocess.ServiceLineItem#setSelected
+         */
+        operation setServiceLineItemsSelected(select : boolean) : void;
+
+        /*
+         * Sets the AddressID used to identify not only the LineItemCtnr
+         * ShipFromAddress but also cascades this setting down to the
+         * ProductLineItems which had the previous LineItemCtnr AddressID set. Any
+         * ProductLineItems which specify an AddressID which differs to that of the
+         * LineItemCtnr are ignored. Example shows a LineItemCtnr before and after
+         * using this method:
+         * <TABLE BORDER=1>
+         * <TR><TD><I>Level</I></TD><TD><I>ShipFromAddressID</I></TD><TD><I>Note</I></TD></TR>
+         * <TR><TD>LineItemCtnr</TD><TD>ABC</TD><TD>-</TD></TR>
+         * <TR><TD>ProductLineItem A</TD><TD>ABC</TD><TD>(Same AddressID as LineItemCtnr)</TD></TR>
+         * <TR><TD>ProductLineItem B</TD><TD>DEF</TD><TD>(AddressID differs to LineItemCtnr)</TD></TR>
+         * </TABLE>
+         * <P>---->> LineItemCtnr.setShipFromAddressIDCascade("XYZ")
+         * <P>
+         * <TABLE BORDER=1>
+         * <TR><TD><I>Level</I></TD><TD><I>ShipFromAddressID</I></TD><TD><I>Note</I></TD></TR>
+         * <TR><TD>LineItemCtnr</TD><TD>XYZ</TD><TD>(Changed)</TD></TR>
+         * <TR><TD>ProductLineItem A</TD><TD>XYZ</TD><TD>(Change cascades down to this ProductLineItem))</TD></TR>
+         * <TR><TD>ProductLineItem B</TD><TD>DEF</TD><TD>(No change)</TD></TR>
+         * </TABLE>
+         * @deprecated Deprecated since 7.8. Will be completely removed in a future release.
+         */
+        operation setShipFromAddressIDCascade(anAddressID : string) : void;
+
+        /*
+         * Set an integer state value. Note value -1 is reserved.
+         * 
+         * @param stateGroup The stateGroup
+         * @param value The value to set
+         */
+        operation setState(stateGroup : string, value : int) : void;
+
+        /*
+         * For each ProductLineItem (including dependent ProductLineItems) copy
+         * set Quantity as the current SelectedQuantity. <P>
+         * For example, in an ProductLineItem having a quantity of 12KG chocolate,
+         * in which the SelectedQuantity is set to 5.5KG, the result of this method
+         * would be to set the Quantity to 5.5KG.
+         * 
+         * @see com.intershop.beehive.bts.capi.orderprocess.ProductLineItem#setQuantity
+         * @see com.intershop.beehive.bts.capi.orderprocess.ProductLineItem#getSelectedQuantity
+         */
+        operation takeSelectedAsQuantity() : void;
+
+        /*
+         * Checks whether the value of the attribute 'GrandTotalTaxPC' is null.<p>
+         */
+        operation getGrandTotalTaxPCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'GrandTotalTaxPC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setGrandTotalTaxPCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'GrandTotalTaxLC' is null.<p>
+         */
+        operation getGrandTotalTaxLCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'GrandTotalTaxLC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setGrandTotalTaxLCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'GrandTotalNetPricePC' is null.<p>
+         */
+        operation getGrandTotalNetPricePCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'GrandTotalNetPricePC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setGrandTotalNetPricePCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'GrandTotalNetPriceLC' is null.<p>
+         */
+        operation getGrandTotalNetPriceLCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'GrandTotalNetPriceLC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setGrandTotalNetPriceLCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'GrandTotalGrossPricePC' is null.<p>
+         */
+        operation getGrandTotalGrossPricePCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'GrandTotalGrossPricePC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setGrandTotalGrossPricePCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'GrandTotalGrossPriceLC' is null.<p>
+         */
+        operation getGrandTotalGrossPriceLCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'GrandTotalGrossPriceLC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setGrandTotalGrossPriceLCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'GrandTotalGrossPricePTC' is null.<p>
+         */
+        operation getGrandTotalGrossPricePTCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'GrandTotalGrossPricePTC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setGrandTotalGrossPricePTCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'RequestedDeliveryDate' is null.<p>
+         */
+        operation getRequestedDeliveryDateNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'RequestedDeliveryDate' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setRequestedDeliveryDateNull(aFlag : boolean) : void;
+
+
+        /*
+         * Checks whether the value of the attribute 'User' is null.<p>
+         */
+        operation getUserNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'User' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setUserNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'BuyerNo' is null.<p>
+         */
+        operation getBuyerNoNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'BuyerNo' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setBuyerNoNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'CreationDate' is null.<p>
+         */
+        operation getCreationDateNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'CreationDate' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setCreationDateNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'DocumentNo' is null.<p>
+         */
+        operation getDocumentNoNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'DocumentNo' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setDocumentNoNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'ExchangeRatePCtoLC' is null.<p>
+         */
+        operation getExchangeRatePCtoLCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'ExchangeRatePCtoLC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setExchangeRatePCtoLCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'ExchangeRatePCtoPTC' is null.<p>
+         */
+        operation getExchangeRatePCtoPTCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'ExchangeRatePCtoPTC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setExchangeRatePCtoPTCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'ExchangeRatePTCtoLC' is null.<p>
+         */
+        operation getExchangeRatePTCtoLCNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'ExchangeRatePTCtoLC' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setExchangeRatePTCtoLCNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'LeadCurrencyCode' is null.<p>
+         */
+        operation getLeadCurrencyCodeNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'LeadCurrencyCode' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setLeadCurrencyCodeNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'PurchaseCurrencyCode' is null.<p>
+         */
+        operation getPurchaseCurrencyCodeNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'PurchaseCurrencyCode' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setPurchaseCurrencyCodeNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'SessionID' is null.<p>
+         */
+        operation getSessionIDNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'SessionID' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setSessionIDNull(aFlag : boolean) : void;
+
+        /*
+         * Checks whether the value of the attribute 'Status' is null.<p>
+         */
+        operation getStatusNull() : boolean;
+
+        /*
+         * Sets the value of the attribute 'Status' to null.<p>
+         * 
+         * @param       aFlag       true or false
+         */
+        operation setStatusNull(aFlag : boolean) : void;
+
+        /*
+         * Returns an iterator of independent and dependent product line items with the given product ref.
+         */
+        operation getAllProductLineItemsForProductRef(productRef : ProductRef) : Iterator;
+
+        /*
+         * Returns an iterator of independent product line items with the given product ref.
+         */
+        operation getIndependentProductLineItemsForProductRef(productRef : ProductRef) : Iterator;
+
+        /*
+         * Returns an iterator of dependent product line items with the given product ref.
+         */
+        operation getDependentProductLineItemsForProductRef(productRef : ProductRef) : Iterator;
+
+        /*
+         * Returns the first service line item held by this instance, registered under the key ServiceLineItemConstants.PAYMENT_METHOD_COST.
+         * 
+         * Note: this method should only be used if it is known that the LineItemCtnr only contains one payment method cost ServiceLineItem.
+         */
+        operation getPaymentMethodCostLineItem() : ServiceLineItem;
+
+        /*
+         * Returns the "service to" address if set.
+         * @deprecated Deprecated since 7.8. Use {@link com.intershop.component.address.capi.resolver.AddressBOResolver} instead.
+         */
+        operation getServiceToAddress() : Address;
+
+        /*
+         * UUID of "install to" address.
+         * @deprecated Deprecated since 7.8. Use {@link com.intershop.component.address.capi.resolver.AddressBOResolver} instead.
+         */
+        operation getInstallToAddress() : Address;
+
+        /*
+         * Create an Iterator of all address of the relationship matching this type code (bitmask!).
+         */
+        operation createStaticAddressesIteratorByType(typeCode : int) : Iterator;
+
+        /*
+         * Return an address of dedicated type assigned to lineitem container (if present).
+         * Note: Returns first typecode matching address (bitmask!).
+         */
+        operation getCustomAddress(typeCode : int) : Address;
+
+        operation getDiscountedSubtotal(productLineItems : Iterator) : Money;
+    }
+}

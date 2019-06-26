@@ -1,0 +1,95 @@
+<iscontent type="text/xml" templatemarker="false" charset="utf-8" session="FALSE" compact="FALSE">
+<?xml version="1.0" encoding="UTF-8"?>
+<BMECAT xmlns="http://www.bmecat.org/XMLSchema/1.2/bmecat_new_catalog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.bmecat.org/XMLSchema/1.2/bmecat_new_catalog bmecat_new_catalog_1_2.xsd"
+        version="1.2">
+<%@page import="java.util.*,
+			com.intershop.beehive.xcs.capi.product.*,
+			com.intershop.beehive.xcs.capi.price.*,
+			com.intershop.beehive.core.capi.naming.*,
+			com.intershop.component.pricing.capi.definition.*" %>
+<%@page import="com.intershop.adapter.bmecat.util.BMEEnumChecker" %>
+<%@page import="com.intershop.beehive.core.capi.log.Logger, com.intershop.adapter.bmecat.util.BMEcatExportUtil" %>
+<% 
+BMEEnumChecker bmeEnumChecker = BMEEnumChecker.getInstance();
+bmeEnumChecker.setSchemaPath("bmecat", "bmecat_new_catalog_1_2.xsd");
+getPipelineDictionary().put("BMEEnumChecker", bmeEnumChecker); 
+%>
+	<ismodule template="inc/CatalogStructure" name="CatalogStructure" attribute="category">
+	<ismodule template="inc/Article" name="Article" attribute="product">
+	<ismodule template="inc/Article2CatalogGroupMap" name="Article2CatalogGroupMap" attribute="product" attribute="catalog">
+	<ismodule template="inc/MimeInfo" name="MimeInfo" attribute="object" attribute="locale">
+	<ismodule template="inc/BMEcatAddress" name="BMEcatAddress" attribute="organization" attribute="type">
+	<ismodule template="inc/WriteElement" name="WriteElement" attribute="objectpath" attribute="localized" attribute="element" attribute="size" attribute="optional" attribute="separator" attribute="formatter" attribute="style" attribute="id">
+	<%
+		getPipelineDictionary().put("CurrentDate", new java.util.Date());
+	%>
+	<HEADER>
+		<CATALOG>
+			<LANGUAGE><isprint value="#Locale:ISO3Language#"></LANGUAGE>
+			<iswriteelement objectpath="Catalog:Id" element="CATALOG_ID" size="20">
+			<CATALOG_VERSION><isif condition="#Catalog:BME_CATALOG_VERSION ne ''#"><isprint value="#Catalog:BME_CATALOG_VERSION#"><iselse>1.0</isif></CATALOG_VERSION>
+			<iswriteelement objectpath="Catalog:DisplayName" localized="true" element="CATALOG_NAME" size="100">
+			<DATETIME type="generation_date">
+				<DATE><isprint value="#CurrentDate#" formatter="yyyy-MM-dd"></DATE>
+				<TIME><isprint value="#CurrentDate#" formatter="HH:mm:ss"></TIME>
+			</DATETIME>
+			<TERRITORY><isprint value="#Locale:Country#"></TERRITORY>
+			<CURRENCY><isprint value="#Locale:CurrencyCode#"></CURRENCY>
+		</CATALOG>
+		<isif condition="#isDefined(BuyingOrganization)#">
+			<BUYER>
+				<iswriteelement objectpath="BuyingOrganization:ID" element="BUYER_ID" size="50">
+				<isif condition="#isDefined(BuyingOrganization:DisplayName)#"><iswriteelement objectpath="BuyingOrganization:DisplayName" element="BUYER_NAME" size="50"><iselse><iswriteelement objectpath="BuyingOrganization:ID" element="BUYER_NAME" size="50"></isif>
+				<isbmecataddress organization="#BuyingOrganization#" type="buyer">
+			</BUYER>
+		</isif>
+		<SUPPLIER>
+			<iswriteelement objectpath="SupplyingOrganization:ID" element="SUPPLIER_ID" size="50"> 
+			<isif condition="#isDefined(SupplyingOrganization:DisplayName)#"><iswriteelement objectpath="SupplyingOrganization:DisplayName" element="SUPPLIER_NAME" size="50"><iselse><iswriteelement objectpath="SupplyingOrganization:ID" element="SUPPLIER_NAME" size="50"></isif>
+			<isbmecataddress organization="#SupplyingOrganization#" type="supplier">
+		</SUPPLIER>
+	</HEADER>
+	<T_NEW_CATALOG>
+		<CATALOG_GROUP_SYSTEM>
+        	<isloop iterator="Categories" alias="Category">
+				<iscatalogstructure category="#Category#">
+			</isloop>
+		</CATALOG_GROUP_SYSTEM>
+		<isloop iterator="Products" alias="Product">
+			<%
+				PriceDefinitionMgr priceDefMgr = 
+					(PriceDefinitionMgr)NamingMgr.getInstance().
+						lookupManager(PriceDefinitionMgr.REGISTRY_NAME);
+				Product product = (Product)getObject("Product");
+				getPipelineDictionary().put("ScaledProductListPrices",
+					priceDefMgr.getPriceDefinitions(product, PriceDefinitionConstants.SCALED_PRODUCT_LIST_PRICES));
+				getPipelineDictionary().put("ScaledProductGroupPrices",
+					priceDefMgr.getPriceDefinitions(product, PriceDefinitionConstants.SCALED_PRODUCT_GROUP_PRICES));
+			%>
+			<isif condition="#(Product:ListPricesCount > 0)  OR hasNext(ScaledProductListPrices) OR hasNext(ScaledProductGroupPrices)#">
+				<isarticle product="#Product#">
+			<iselse>
+			<%	
+				Logger.warn(BMEcatExportUtil.class.getName(), "{} doesn't have a price, it is not eligible for export",(String)getObject("Product:SKU"));			
+			%>
+			</isif>	
+		</isloop>
+		<isloop iterator="Products" alias="Product">
+			<%
+				PriceDefinitionMgr priceDefMgr = 
+					(PriceDefinitionMgr)NamingMgr.getInstance().
+						lookupManager(PriceDefinitionMgr.REGISTRY_NAME);
+				Product product = (Product)getObject("Product");
+				getPipelineDictionary().put("ScaledProductListPrices",
+					priceDefMgr.getPriceDefinitions(product, PriceDefinitionConstants.SCALED_PRODUCT_LIST_PRICES));
+				getPipelineDictionary().put("ScaledProductGroupPrices",
+					priceDefMgr.getPriceDefinitions(product, PriceDefinitionConstants.SCALED_PRODUCT_GROUP_PRICES));
+			%>
+			<isif condition="#(Product:ListPricesCount > 0)  OR hasNext(ScaledProductListPrices) OR hasNext(ScaledProductGroupPrices)#">
+				<isarticle2cataloggroupmap product="#Product#" catalog="#Catalog#">
+			</isif>	
+		</isloop>
+	</T_NEW_CATALOG>
+</BMECAT>

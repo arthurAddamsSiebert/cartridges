@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query is introduced here because the real one is in another component set and is not yet visible.">
+  <parameters>
+    <parameter name="Approver" type="com.intershop.component.user.capi.UserBO" optional="true"/>
+    <parameter name="Buyer" type="com.intershop.component.user.capi.UserBO" optional="true"/>
+    <parameter name="Status" type="java.lang.Integer" optional="true"/>
+    <parameter name="BasketTypes" type="java.util.Collection" optional="true"/>
+  </parameters>
+
+  <return-mappings>
+    <return-mapping name="Basket" type="orm" class="com.intershop.beehive.bts.internal.orderprocess.basket.BasketPO">
+      <return-attribute name="approvalItemID"/>
+    </return-mapping>
+  </return-mappings>
+
+  <processor name="OracleSQL"/>
+
+  <template type="countedobjects">
+    SELECT 
+	<sql-dialect name="Microsoft">
+		TOP 100 PERCENT 
+	</sql-dialect>
+	  approvalItem.approvalItemID as approvalItemID, COUNT(*) over() AS "rowcount"
+      FROM Basket basket,
+           (<template-call name="approval/inc/BaseGetApprovalItemData">
+              <call-parameter name="Approver" value="Approver"/>
+              <call-parameter name="Status" value="Status"/>
+            </template-call>
+           ) approvalItem
+     WHERE approvalItem.approvalItemID = basket.uuid
+     <template-if condition="isDefined(Buyer)">
+       AND userid = <template-variable value="Buyer:ID"/>
+     </template-if>
+     <template-if condition="hasElements(BasketTypes)">
+       AND basket.type in 
+                  (<template-loop alias="BasketType" iterator="BasketTypes">
+                     <loop-statement>
+                       <template-variable value="BasketType"/>
+                     </loop-statement>
+                     <loop-separator>,</loop-separator>
+                   </template-loop>)
+     </template-if>
+    ORDER BY approvalDate desc
+</template>
+</query>

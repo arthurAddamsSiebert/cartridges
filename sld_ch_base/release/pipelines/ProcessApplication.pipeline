@@ -1,0 +1,613 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--A pipeline to process any application related stuff.	
+@Group Apps-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessApplication" type="process">
+<!--Attempt to set the URLIdentifier
+to "\-". 
+
+This is forbidden.
+@Location 5,3-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--See if the URL identifier is gonna
+to be changed.
+@Location 2,2-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode3"/>
+<!--If the identifier will be changed,
+but there is already one
+with the same identifier,
+stop processing and return error.
+@Location 2,5-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode4"/>
+<!--@Location 20,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="Create"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApp1"/>
+    <parameters name="ChannelRepository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="AppID" type="java.lang.String"/>
+    <parameters name="UrlIdentifier" type="java.lang.String"/>
+    <parameters name="DisplayName" type="java.lang.String"/>
+    <parameters name="Description" type="java.lang.String" optional="true"/>
+    <parameters name="Enabled" type="java.lang.Boolean" optional="true"/>
+    <parameters name="Default" type="java.lang.Boolean" optional="true"/>
+<!--The default currency mnemonic to be set.-->
+    <parameters name="DefaultCurrencyMnemonic" type="java.lang.String" optional="true"/>
+<!--A collections of currency mnemonics to be set.-->
+    <parameters name="CurrencyMnemonics" type="java.util.Collection&lt;java.lang.String>"
+        optional="true"/>
+<!--The default locale ID to be set at the created application.-->
+    <parameters name="DefaultLocaleID" type="java.lang.String" optional="true"/>
+<!--A collection of locale IDs to be set at the created application.-->
+    <parameters name="LocaleIDs" type="java.util.Collection&lt;java.lang.String>"
+        optional="true"/>
+<!--The ID of the default TimeZone-->
+    <parameters name="DefaultTimeZoneID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 20,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApp1">
+    <pipelet href="enfinity:/core/pipelets/GetApp.xml"/>
+    <nodeSuccessors name="next" next="CreateApplication1" action="begin"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode0"/>
+    <parameterBindings name="AppID" objectPath="AppID"/>
+  </nodes>
+<!--@Location 20,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateApplication1">
+    <pipelet href="enfinity:/core/pipelets/CreateApplication.xml"/>
+    <nodeSuccessors name="next" next="CreateApplicationDomainRelation1"/>
+    <nodeSuccessors name="pipelet_error" next="KeyMapper3"/>
+    <parameterBindings name="App" objectPath="App"/>
+    <parameterBindings name="OwningDomain" objectPath="ChannelRepository:Domain"/>
+    <parameterBindings name="Site" objectPath="ChannelRepository:Domain:Site"/>
+    <parameterBindings name="UrlIdentifier" objectPath="UrlIdentifier"/>
+  </nodes>
+<!--@Location 20,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateApplicationDomainRelation1">
+    <pipelet href="enfinity:/core/pipelets/CreateApplicationDomainRelation.xml"/>
+    <nodeSuccessors name="next" next="GetLocale1"/>
+    <parameterBindings name="Domain" objectPath="Application:Domain"/>
+    <parameterBindings name="RelationName" constant="DefaultRepository"/>
+  </nodes>
+<!--@Location 20,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameterBindings name="LocaleId" nullBinding="true"/>
+  </nodes>
+<!--@Location 20,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="ExtensionPointNode2" action="store"/>
+    <nodeSuccessors name="ERROR" next="JoinNode2"/>
+    <parameterBindings name="Application" objectPath="Application"/>
+    <parameterBindings name="Description" objectPath="Description"/>
+    <parameterBindings name="DisplayName" objectPath="DisplayName"/>
+    <parameterBindings name="Enabled" objectPath="Enabled"/>
+    <parameterBindings name="TimeZoneID" objectPath="DefaultTimeZoneID"/>
+    <parameterBindings name="UrlIdentifier" objectPath="UrlIdentifier"/>
+    <startNode referencedName="ProcessApplication-UpdateApplication"/>
+  </nodes>
+<!--@Location 20,8-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode2" name="ApplicationCreated"
+      strict="true">
+    <nodeSuccessors name="next" next="ExtensionPointNode0"/>
+    <parameters name="Application" type="com.intershop.beehive.core.capi.domain.Application"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameterBindings name="Repository" objectPath="ChannelRepository"/>
+  </nodes>
+<!--@deprecated use extension point ApplicationCreated instead
+@Location 20,9-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode0" name="CreatedApplication"
+      strict="true">
+    <nodeSuccessors name="next" next="EndNode7" action="commit"/>
+    <parameters name="Application" type="com.intershop.beehive.core.capi.domain.Application"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameterBindings name="Repository" objectPath="ChannelRepository"/>
+  </nodes>
+<!--@Location 20,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true">
+<!--The created application-->
+    <returnValues name="Application" type="com.intershop.beehive.core.capi.domain.Application"/>
+  </nodes>
+<!--@Location 22,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="EndNode8" action="rollback"/>
+  </nodes>
+<!--@Location 22,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="ERROR" strict="true">
+    <returnValues name="ERROR_UrlIdentifier" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 21,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 45,7-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="InValue_1" constant="This URL identifier already exists."/>
+    <returnValueBindings name="OutValue_1" objectPath="ERROR_UrlIdentifier"/>
+  </nodes>
+<!--@Location 21,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="ERROR" strict="true">
+    <returnValues name="ERROR_UrlIdentifier" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 31,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="DeleteApplication"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetRepositoryByRepositoryDomain0"/>
+    <parameters name="Application" type="com.intershop.beehive.core.capi.domain.Application"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+  </nodes>
+<!--@Location 31,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="ExtensionPointNode1" action="begin"/>
+    <parameterBindings name="RepositoryDomain" objectPath="Application:Domain"/>
+  </nodes>
+<!--@Location 31,3-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode1" name="ApplicationDeleting"
+      strict="true">
+    <nodeSuccessors name="next" next="CleanupPreferredPreviewApplicationSettings1"/>
+<!--The application that will be deleted.-->
+    <parameters name="Application" type="com.intershop.beehive.core.capi.domain.Application"/>
+<!--The application owning channel repository.-->
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 31,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CleanupPreferredPreviewApplicationSettings1">
+    <pipelet href="enfinity:/sld_preview/pipelets/CleanupPreferredPreviewApplicationSettings.xml"/>
+    <nodeSuccessors name="next" next="CleanupApplicationPromotionAssignments2"/>
+    <parameterBindings name="Organization" objectPath="CurrentOrganization"/>
+  </nodes>
+<!--@Location 31,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CleanupApplicationPromotionAssignments2">
+    <pipelet href="enfinity:/bc_marketing/pipelets/CleanupApplicationPromotionAssignments.xml"/>
+    <nodeSuccessors name="next" next="CleanupApplicationServiceAssignments1"/>
+  </nodes>
+<!--@Location 31,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CleanupApplicationServiceAssignments1">
+    <pipelet href="enfinity:/bc_service/pipelets/CleanupApplicationServiceAssignments.xml"/>
+    <nodeSuccessors name="next" next="CleanupApplicationBrandingInstallations0"/>
+  </nodes>
+<!--@Location 31,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CleanupApplicationBrandingInstallations0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CleanupApplicationBrandingInstallations.xml"/>
+    <nodeSuccessors name="next" next="RemoveApplication2"/>
+  </nodes>
+<!--@Location 31,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveApplication2">
+    <pipelet href="enfinity:/core/pipelets/RemoveApplication.xml"/>
+    <nodeSuccessors name="next" next="EndNode2" action="commit"/>
+<!--@BendPoints 65,13-->
+    <nodeSuccessors name="pipelet_error" next="EndNode1" action="rollback"/>
+    <parameterBindings name="Application" objectPath="Application"/>
+  </nodes>
+<!--@Location 31,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 32,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR" strict="true">
+    <returnValues name="ERROR_Delete" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 27,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="GetAppIDs"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApps1"/>
+<!--The name of app registry with apps-->
+    <parameters name="AppRegistryName" type="java.lang.String"/>
+  </nodes>
+<!--@Location 27,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApps1">
+    <pipelet href="enfinity:/core/pipelets/GetApps.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 27,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="Apps"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="LoopNode2"/>
+    <nodeSuccessors name="decision_no" next="EndNode11"/>
+  </nodes>
+<!--@Location 27,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Apps">
+    <nodeSuccessors name="next" next="EndNode12"/>
+    <entry key="App">
+<!--@BendPoints 55,10-->
+      <nodeSuccessors name="loop_entry_next" next="AddObjectToVector3"/>
+    </entry>
+  </nodes>
+<!--@Location 27,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector3">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 53,11 53,9-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <parameterBindings name="InVector" objectPath="AppIDs"/>
+    <parameterBindings name="Object" objectPath="App:ID"/>
+    <returnValueBindings name="OutVector" objectPath="AppIDs"/>
+  </nodes>
+<!--@Location 29,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" strict="true">
+    <returnValues name="AppIDs" type="java.util.Vector"/>
+  </nodes>
+<!--@Location 29,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" name="ERROR" strict="true"/>
+<!--@Location 33,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="GetApplication"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationByUUID0"/>
+    <parameters name="ApplicationUUID" type="java.lang.String"/>
+    <parameters name="ChannelDomainID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 33,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationByUUID0">
+    <pipelet href="enfinity:/core/pipelets/GetApplicationByUUID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode10"/>
+  </nodes>
+<!--@Location 33,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="Application:DomainID"
+      operator="str_eq" conditionItem="ChannelDomainID">
+    <nodeSuccessors name="decision_yes" next="EndNode13"/>
+    <nodeSuccessors name="decision_no" next="com.intershop.beehive.core.internal.pipeline.node.ExceptionPipelineNode0_Input"/>
+  </nodes>
+<!--@Location 33,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" strict="true">
+    <returnValues name="Application" type="com.intershop.beehive.core.capi.domain.Application"/>
+  </nodes>
+<!--@Location 34,3-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="com.intershop.beehive.core.internal.pipeline.node.ExceptionPipelineNode0">
+    <configurationValues name="exceptionMessage" value="Application doesn't belong to the current channel"/>
+    <pipelet href="enfinity:/core/pipelets/com.intershop.beehive.core.internal.pipeline.node.ExceptionPipelineNode.pipelinenode"/>
+    <inConnectors name="Input"/>
+  </nodes>
+<!--@Location 34,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name="Error" strict="true"/>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="GetApplications"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameters name="ChannelRepository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+<!--The name or id to filter out applications.-->
+    <parameters name="Pattern" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Pattern">
+    <nodeSuccessors name="decision_yes" next="VerifySearchTerm1"/>
+    <nodeSuccessors name="decision_no" next="GetApplications1"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifySearchTerm1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifySearchTerm.xml"/>
+    <nodeSuccessors name="next" next="GetLocale0"/>
+<!--@BendPoints 17,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="UserSearchTerm" objectPath="Pattern"/>
+    <returnValueBindings name="ErrorCode" objectPath="SearchTermError"/>
+    <returnValueBindings name="SearchExpression" objectPath="SimpleSearchExpression"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale0">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="UpdateDictionary1"/>
+    <parameterBindings name="LocaleId" nullBinding="true"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary1">
+    <configurationValues name="Name_01" value="ChannelRepositoryDomain"/>
+    <configurationValues name="Name_02" value="SimpleSearchExpression"/>
+    <configurationValues name="Name_03" value="LocaleID"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+    <parameterBindings name="InDictionary" objectPath="QueryParameters"/>
+    <parameterBindings name="Value_01" objectPath="ChannelRepository:Domain"/>
+    <parameterBindings name="Value_02" objectPath="SimpleSearchExpression"/>
+    <parameterBindings name="Value_03" objectPath="Locale:LocaleID"/>
+    <returnValueBindings name="OutDictionary" objectPath="QueryParameters"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="QueryName" value="apps/SimpleAppSearch"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 15,15-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="Connection" nullBinding="true"/>
+    <parameterBindings name="Parameters" objectPath="QueryParameters"/>
+    <parameterBindings name="Query" nullBinding="true"/>
+    <returnValueBindings name="ErrorCode" objectPath="SearchExecutionError"/>
+    <returnValueBindings name="SearchResult" objectPath="Applications"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true">
+<!--The iterator of applications.-->
+    <returnValues name="Applications" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 17,12 19,12-->
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="ERROR"/>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplications1">
+    <pipelet href="enfinity:/core/pipelets/GetApplications.xml"/>
+<!--@BendPoints 21,3-->
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+    <parameterBindings name="Domain" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="Applications" objectPath="ApplicationsCollection"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 21,15-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationsCollection:Iterator"/>
+    <returnValueBindings name="OutValue_1" objectPath="Applications"/>
+  </nodes>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="Sort"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode13"/>
+<!--the application iterator-->
+    <parameters name="Applications" type="java.util.Iterator"/>
+<!--the name of the field to sort the applications by-->
+    <parameters name="SortBy" type="java.lang.String" optional="true"/>
+<!--the direction to sort the apps with (asending, descending)-->
+    <parameters name="SortDirection" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 12,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="SortBy"
+      operator="str_eq" conditionValue="id">
+    <nodeSuccessors name="decision_yes" next="JoinNode3"/>
+<!--@BendPoints 27,5-->
+    <nodeSuccessors name="decision_no" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="SortDirection"
+      operator="str_eq" conditionValue="ascending">
+    <nodeSuccessors name="decision_yes" next="SortIteratorByComparator1"/>
+<!--@BendPoints 27,9-->
+    <nodeSuccessors name="decision_no" next="DecisionNode6"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SortIteratorByComparator1">
+    <configurationValues name="DefaultSortingAttribute" value="AppID"/>
+    <configurationValues name="DefaultSortingOrder" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SortIteratorByComparator.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="Iterator" objectPath="Applications"/>
+    <returnValueBindings name="SortedIterator" objectPath="Applications"/>
+  </nodes>
+<!--@Location 12,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 12,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true">
+<!--the sorted application iterator-->
+    <returnValues name="Applications" type="java.util.Iterator" optional="true"/>
+<!--the name of the field to sort the applications by-->
+    <returnValues name="SortBy" type="java.lang.String" optional="true"/>
+<!--the direction to sort the apps with (asending, descending)-->
+    <returnValues name="SortDirection" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="SortDirection"
+      operator="str_eq" conditionValue="descending">
+    <nodeSuccessors name="decision_yes" next="SortIteratorByComparator2"/>
+<!--@BendPoints 28,11 28,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode20"/>
+  </nodes>
+<!--@Location 13,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SortIteratorByComparator2">
+    <configurationValues name="DefaultSortingAttribute" value="AppID"/>
+    <configurationValues name="DefaultSortingOrder" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SortIteratorByComparator.xml"/>
+    <nodeSuccessors name="next" next="JoinNode20"/>
+    <parameterBindings name="Iterator" objectPath="Applications"/>
+    <returnValueBindings name="SortedIterator" objectPath="Applications"/>
+  </nodes>
+<!--@Location 13,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+<!--@BendPoints 27,18 25,18-->
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="SortBy"
+      operator="str_eq" conditionValue="typecode">
+    <nodeSuccessors name="decision_yes" next="JoinNode3"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode3"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="SortBy"
+      operator="str_eq" conditionValue="name">
+    <nodeSuccessors name="decision_yes" next="DecisionNode7"/>
+<!--@BendPoints 37,7-->
+    <nodeSuccessors name="decision_no" next="JoinNode15"/>
+  </nodes>
+<!--@Location 15,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="SortDirection"
+      operator="str_eq" conditionValue="ascending">
+    <nodeSuccessors name="decision_yes" next="SortIteratorByComparator3"/>
+<!--@BendPoints 33,9-->
+    <nodeSuccessors name="decision_no" next="DecisionNode16"/>
+  </nodes>
+<!--@Location 15,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SortIteratorByComparator3">
+    <configurationValues name="DefaultSortingAttribute" value="DisplayName"/>
+    <configurationValues name="DefaultSortingOrder" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SortIteratorByComparator.xml"/>
+    <nodeSuccessors name="next" next="JoinNode13"/>
+    <parameterBindings name="Iterator" objectPath="Applications"/>
+    <returnValueBindings name="SortedIterator" objectPath="Applications"/>
+  </nodes>
+<!--@Location 15,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+<!--@BendPoints 31,16 27,16-->
+    <nodeSuccessors name="next" next="JoinNode20"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode16" conditionKey="SortDirection"
+      operator="str_eq" conditionValue="descending">
+    <nodeSuccessors name="decision_yes" next="SortIteratorByComparator4"/>
+<!--@BendPoints 34,11 34,15-->
+    <nodeSuccessors name="decision_no" next="JoinNode17"/>
+  </nodes>
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SortIteratorByComparator4">
+    <configurationValues name="DefaultSortingAttribute" value="DisplayName"/>
+    <configurationValues name="DefaultSortingOrder" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SortIteratorByComparator.xml"/>
+    <nodeSuccessors name="next" next="JoinNode17"/>
+    <parameterBindings name="Iterator" objectPath="Applications"/>
+    <returnValueBindings name="SortedIterator" objectPath="Applications"/>
+  </nodes>
+<!--@Location 16,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+<!--@BendPoints 33,16 31,16-->
+    <nodeSuccessors name="next" next="JoinNode13"/>
+  </nodes>
+<!--@Location 18,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+<!--@BendPoints 37,16 33,16-->
+    <nodeSuccessors name="next" next="JoinNode17"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="UpdateApplication"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+<!--The application to be updated.-->
+    <parameters name="Application" type="com.intershop.beehive.core.capi.domain.Application"/>
+    <parameters name="Enabled" type="java.lang.Boolean" optional="true"/>
+<!--The URL identifier of the application.-->
+    <parameters name="UrlIdentifier" type="java.lang.String" optional="true"/>
+<!--The display name of the application.-->
+    <parameters name="DisplayName" type="java.lang.String" optional="true"/>
+<!--The description of the application.-->
+    <parameters name="Description" type="java.lang.String" optional="true"/>
+<!--The locale to be used for updateing description and display name.-->
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"
+        optional="true"/>
+<!--True this is the default application.-->
+    <parameters name="Default" type="java.lang.Boolean" optional="true"/>
+<!--The mnemonic for the default currency to set.-->
+    <parameters name="DefaultCurrencyMnemonic" type="java.lang.String" optional="true"/>
+<!--A collection of currency mnemonics to set.-->
+    <parameters name="CurrencyMnemonics" type="java.util.Collection&lt;java.lang.String>"
+        optional="true"/>
+<!--The default locale ID to be set at the application.-->
+    <parameters name="DefaultLocaleID" type="java.lang.String" optional="true"/>
+<!--A collection of locale IDs to be set at the application.-->
+    <parameters name="LocaleIDs" type="java.util.Collection&lt;java.lang.String>"
+        optional="true"/>
+<!--The time zone to be set at the application.-->
+    <parameters name="TimeZoneID" type="java.lang.String" optional="true"/>
+    <parameters name="LeadLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"
+        optional="true"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="UrlIdentifier">
+    <nodeSuccessors name="decision_yes" next="DecisionNode0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="UrlIdentifier"
+      operator="str_eq" conditionValue="-">
+    <nodeSuccessors name="decision_yes" next="RemoveDictionaryValue_UJrMQATFEeeTouwGZ810nQ"/>
+<!--@BendPoints 10,5 10,9-->
+    <nodeSuccessors name="decision_no" next="DecisionNode10"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue_UJrMQATFEeeTouwGZ810nQ">
+    <configurationValues name="Key" value="UrlIdentifier"/>
+    <pipelet href="enfinity:/core/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="DecisionNode_JGbWsATEEeeTouwGZ810nQ"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_JGbWsATEEeeTouwGZ810nQ"
+      conditionKey="DefaultLocaleID">
+    <nodeSuccessors name="decision_yes" next="JoinNode_sf0GIATEEeeTouwGZ810nQ"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper_uybpAATEEeeTouwGZ810nQ"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_sf0GIATEEeeTouwGZ810nQ">
+    <nodeSuccessors name="next" next="DecisionNode_4IfukATGEeeTouwGZ810nQ"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_4IfukATGEeeTouwGZ810nQ"
+      conditionKey="DefaultCurrencyMnemonic">
+    <nodeSuccessors name="decision_yes" next="JoinNode__eBxsATGEeeTouwGZ810nQ"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper_AxVzsATHEeeTouwGZ810nQ"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode__eBxsATGEeeTouwGZ810nQ">
+    <nodeSuccessors name="next" next="UpdateApplication1"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateApplication1">
+    <pipelet href="enfinity:/core/pipelets/UpdateApplication.xml"/>
+    <nodeSuccessors name="next" next="EndNode4"/>
+<!--@BendPoints 8,21-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="SUCCESS" strict="true">
+    <returnValues name="Application" type="com.intershop.beehive.core.capi.domain.Application"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="ERROR" strict="true">
+    <returnValues name="ERROR_UrlIdentifier" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_AxVzsATHEeeTouwGZ810nQ">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode__eBxsATGEeeTouwGZ810nQ"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentRequest:CurrencyCode"/>
+    <returnValueBindings name="OutValue_1" objectPath="DefaultCurrencyMnemonic"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_uybpAATEEeeTouwGZ810nQ">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_sf0GIATEEeeTouwGZ810nQ"/>
+    <parameterBindings name="InValue_1" objectPath="Locale:LocaleID"/>
+    <returnValueBindings name="OutValue_1" objectPath="DefaultLocaleID"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="UrlIdentifier"
+      operator="str_neq" conditionItem="Application:UrlIdentifier">
+    <nodeSuccessors name="decision_yes" next="GetApplication1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode10"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplication1">
+    <pipelet href="enfinity:/core/pipelets/GetApplication.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper_VCoNgATFEeeTouwGZ810nQ"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="Site" objectPath="Application:Site"/>
+    <parameterBindings name="UrlIdentifier" objectPath="UrlIdentifier"/>
+    <returnValueBindings name="Application" objectPath="anApplication"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_VCoNgATFEeeTouwGZ810nQ">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="InValue_1" constant="An application with this URL identifier already exists"/>
+    <returnValueBindings name="OutValue_1" objectPath="ERROR_UrlIdentifier"/>
+  </nodes>
+</pipeline:Pipeline>

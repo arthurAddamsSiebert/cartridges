@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex" optional="false" description="The search index"/>
+    <parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>    
+    <parameter name="LastIndexStartTime" type="java.util.Date" optional="true"/>    
+    <parameter name="CurrentDate" type="java.util.Date" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="Domain" processing="ProductSharingHelper"/>
+</processor>
+<template type="countedobjects">
+    SELECT uuid, count(uuid) over() as "ROWCOUNT" 
+    FROM 
+    (
+		(
+			SELECT
+			productid AS uuid
+			FROM
+			deletedproduct 
+			WHERE 
+			<template-if condition="Sharing:Enabled">
+			domainid IN (<template-loop alias="Domain" iterator="Sharing:Domains"><loop-statement><template-variable value="Domain:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>,
+				<template-loop alias="Domain" iterator="Sharing:SharingDomains"><loop-statement><template-variable value="Domain:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+			<if-else/>
+			domainid = <template-variable value="Domain:UUID"/>
+			</template-if>
+		)
+		<template-if condition="isDefined(LastIndexStartTime)">
+		<template-if condition="isDefined(SearchIndex:Configuration:AttributeByName(&apos;OnlineFlag&apos;))">
+			<template-comment>
+			  all offline and online products are indexed 
+			</template-comment>
+		<if-else/>
+			<template-comment>
+			  get all products that are offline and where modified since last index build.
+			  because of a possible switch from online to offline to remove offline products 
+			</template-comment>
+			UNION ALL 
+			(
+				SELECT p.uuid as uuid
+				FROM
+				(
+				<template-call name="product/GetProductsByAdvancedSearch">
+				<call-parameter name="ProductDomain" value="Domain"/>
+	            <call-parameter name="LocaleInformation" value="SearchIndex:Configuration:Locale"/>
+				<call-parameter name="Online" value="'(Integer)0'"/>
+				</template-call>
+				) p
+				WHERE
+				    p.lastmodified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>
+			)
+		</template-if>
+		<template-comment>
+		  get all products that have "ExcludeFromSearchIndex" flag.
+		</template-comment>
+		UNION ALL
+		(
+			SELECT p.uuid as uuid 
+			FROM product p 
+			WHERE 
+			    p.lastmodified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>
+				<sql-dialect name="Oracle">
+					AND contains(p.attributes, '(true) INPATH (/attrs/attr[@name="ExcludeFromSearchIndex"])')>0
+				</sql-dialect>
+				<sql-dialect name="Microsoft">
+					AND p.attributes.exist('/attrs/attr[@name="ExcludeFromSearchIndex"] [contains(., "true")]')>0
+				</sql-dialect>
+		)
+		</template-if>
+    ) a 
+</template>
+</query>

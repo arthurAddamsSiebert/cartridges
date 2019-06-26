@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Update and validate status flag from prodmotion code, if the reuse number of the promotion code group is changed .">
+<parameters>
+	<parameter name="ReUse" type="java.lang.Integer" optional="false"/>
+	<parameter name="PromotionCodeGroupID" type="java.lang.String" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template>
+	UPDATE PromotionCode
+	SET status = abs(status -1), oca = oca + 1 
+	WHERE 
+	uuid in 
+		(select pc.uuid from 
+			(select pc.status, pc.uuid, count(*) orderCount
+				from PromotionCode pc
+				inner join PromotionCodeGroup pcg on 
+					pcg.id = <template-variable value="PromotionCodeGroupID" /> and 
+				    pc.promotioncodegroupid = pcg.uuid 
+				inner join PromotionCodeOrderAssignment pcoa on 
+					pcoa.PROMOTIONCODEUUID = pc.UUID and 
+					pc.status &lt;&gt; 2 
+				    group by pc.status, pc.uuid
+			) pc   
+			where 
+				(<template-variable value="ReUse" /> = 0 and pc.status = 1) or 
+			    (pc.orderCount &lt; <template-variable value="ReUse" /> and pc.status = 1) or
+			    (<template-variable value="ReUse" /> &gt; 0 and pc.orderCount &gt;= <template-variable value="ReUse" /> and pc.status = 0)
+		)
+</template>
+</query>

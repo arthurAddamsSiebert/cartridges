@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Serves for handling CatalogBO instances.
+@Group Catalog-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCatalog" overrideMode="Inherit" type="process">
+<!--This pipeline returns the catalog the provided category belongs to.
+In the case of a shared catalog and a given repository of the channel, 
+the related channel proxy catalog will be returned.
+@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetCatalogBOByCatalogCategoryBO"
+      callMode="Private">
+<!--@BendPoints 7,2-->
+    <nodeSuccessors name="next" next="GetCatalogBOByCatalogCategoryBO0"/>
+    <parameters name="CategoryBO" type="com.intershop.component.catalog.capi.CatalogCategoryBO"/>
+    <parameters name="CatalogBORepository" type="com.intershop.component.catalog.capi.CatalogBORepository"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogBOByCatalogCategoryBO0">
+    <pipelet href="enfinity:/bc_catalog/pipelets/GetCatalogBOByCatalogCategoryBO.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+<!--@BendPoints 9,3-->
+    <nodeSuccessors name="pipelet_error" next="EndNode2"/>
+    <parameterBindings name="CatalogCategoryBO" objectPath="CategoryBO"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="Ok" strict="true">
+    <returnValues name="CatalogBO" type="com.intershop.component.catalog.capi.CatalogBO"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="Error" strict="true"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="GetStandardCatalogBOs"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetDomainByUUID0"/>
+<!--The BO Repository for CatalogBOs.-->
+    <parameters name="CatalogBORepository" type="com.intershop.component.catalog.capi.CatalogBORepository"/>
+<!--The (optional) desired locale.-->
+    <parameters name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+<!--@BendPoints 4,3 4,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="DomainUUID" objectPath="CatalogBORepository:RepositoryID"/>
+    <returnValueBindings name="Domain" objectPath="PreferenceDomain"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <startNode referencedName="ProcessCatalogSorting-PrepareCatalogSortingPreferences"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="SortAttributLocalizableFlag">
+    <nodeSuccessors name="decision_yes" next="DecisionNode0"/>
+<!--@BendPoints 6,9 6,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="SortAttributLocalizableFlag"
+      operator="eq" conditionValue="0">
+<!--@BendPoints 5,11-->
+    <nodeSuccessors name="decision_yes" next="GetLocale0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale0">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/core/pipelets/GetLocale.xml"/>
+<!--@BendPoints 5,15-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <returnValueBindings name="Locale" objectPath="LocaleInformation"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="GetCurrentDate0"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="GetCatalogTypeDefinitions0"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogTypeDefinitions0">
+    <configurationValues name="CatalogTypesString" value="1"/>
+    <pipelet href="enfinity:/bc_catalog/pipelets/GetCatalogTypeDefinitions.xml"/>
+    <nodeSuccessors name="next" next="GetSortedCatalogBOs0"/>
+    <parameterBindings name="CatalogTypesInt" nullBinding="true"/>
+    <returnValueBindings name="CatalogTypeDefinitions" objectPath="TypeCodesDefinitions"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSortedCatalogBOs0">
+    <pipelet href="enfinity:/bc_catalog/pipelets/GetSortedCatalogBOs.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+<!--@BendPoints 5,23-->
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+    <parameterBindings name="Date" objectPath="CurrentDate"/>
+    <parameterBindings name="Locale" objectPath="LocaleInformation"/>
+    <parameterBindings name="SortAttribute" objectPath="SortAttribute"/>
+    <parameterBindings name="SortAttributeType" objectPath="SortAttributeType"/>
+    <parameterBindings name="SortDirection" objectPath="SortDirection"/>
+    <parameterBindings name="TypeCodes" objectPath="TypeCodesDefinitions"/>
+    <returnValueBindings name="ErrorCode" objectPath="ErrorStatus"/>
+    <returnValueBindings name="SearchResult" objectPath="StandardCatalogBOs"/>
+  </nodes>
+<!--Implements retrieving standard CatalogBO instances using PO layer.
+@Location 1,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="Ok" strict="true">
+<!--The retrieved CatalogBO instances.-->
+    <returnValues name="StandardCatalogBOs" type="java.util.Collection&lt;com.intershop.component.catalog.capi.CatalogBO>"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="Error" strict="true"/>
+</pipeline:Pipeline>

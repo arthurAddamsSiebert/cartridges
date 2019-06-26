@@ -1,0 +1,118 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/ConfirmationScript", null, "2");} %><!-- Working Area -->
+<!-- Main Content --><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("text1",context.getFormattedValue(" - ",null) + context.getFormattedValue(localizeText(context.getFormattedValue("ChannelProductReviewDetials.Ratings.text1",null)),null)),
+new TagParameter("wizard","true"),
+new TagParameter("id",getObject("Review:ID")),
+new TagParameter("text",getObject("Review:ReviewTitle"))}, 5); %><!-- Working Area -->
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td width="100%" class="w e s n table_title"><% {String value = null;try{value=context.getFormattedValue(getObject("ReviewAttachedProduct:Name"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {13}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>&nbsp;-&nbsp;<% {String value = null;try{value=context.getFormattedValue(getObject("Review:ReviewTitle"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {13}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr>
+</table>
+<!-- delete confirmation--><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("confirmDelete"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",17,e);}if (_boolean_result) { %><% URLPipelineAction action230 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelProductReviewDetails-Dispatch",null)))),null));String site230 = null;String serverGroup230 = null;String actionValue230 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelProductReviewDetails-Dispatch",null)))),null);if (site230 == null){  site230 = action230.getDomain();  if (site230 == null)  {      site230 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup230 == null){  serverGroup230 = action230.getServerGroup();  if (serverGroup230 == null)  {      serverGroup230 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelProductReviewDetails-Dispatch",null)))),null));out.print("\"");out.print(" name=\"");out.print("deleteForm");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue230, site230, serverGroup230,true)); %><% processOpenTag(response, pageContext, "messagebox", new TagParameter[] {
+new TagParameter("colspan","1"),
+new TagParameter("subject",localizeText(context.getFormattedValue("ChannelProductReviewDetials.Rating.subject",null))),
+new TagParameter("cancelbtnname","cancelDelete"),
+new TagParameter("okbtnname","delete"),
+new TagParameter("type","sdc"),
+new TagParameter("message",localizeText(context.getFormattedValue("ChannelProductReviewDetials.AreYouSureYouWantToDeleteThisRating.message",null)))}, 20); %><input type="hidden" name="ReviewID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("Review:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {24}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="hidden" name="ProductID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("ReviewAttachedProduct:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {25}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="hidden" name="ChannelID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentChannel:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {26}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/><% out.print("</form>"); %><% } %></td>
+</tr>
+</table><% URLPipelineAction action231 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelProductReviewDetails-Dispatch",null)))),null));String site231 = null;String serverGroup231 = null;String actionValue231 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelProductReviewDetails-Dispatch",null)))),null);if (site231 == null){  site231 = action231.getDomain();  if (site231 == null)  {      site231 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup231 == null){  serverGroup231 = action231.getServerGroup();  if (serverGroup231 == null)  {      serverGroup231 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelProductReviewDetails-Dispatch",null)))),null));out.print("\"");out.print(" name=\"");out.print("updateReviewForm");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue231, site231, serverGroup231,true)); %><table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td>
+<table cellpadding="0" cellspacing="0" border="0" width="100%" class="w e s">
+<tr>
+<td colspan="2"><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="1" height="4" alt="" border="0"/></td>
+</tr>
+<tr>
+<td class="fielditem2" nowrap="nowrap"><% {out.write(localizeISText("ChannelProductReviewDetials.Author.fielditem2",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</td>
+<td class="table_detail" width="100%"><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"review/inc/AuthorName", null, "43");} %></td>
+</tr>
+<tr>
+<td class="fielditem2" nowrap="nowrap"><% {out.write(localizeISText("ChannelProductReviewDetials.Date.fielditem2",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</td>
+<td class="table_detail"><% {String value = null;try{value=context.getFormattedValue(getObject("Review:CreationDate"),new Integer(DATE_SHORT),null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {47}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>&nbsp;<% {String value = null;try{value=context.getFormattedValue(getObject("Review:CreationDate"),new Integer(DATE_TIME),null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {47}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr>
+<tr>
+<td class="fielditem2" nowrap="nowrap"><% {out.write(localizeISText("ChannelProductReviewDetials.Rating.fielditem2",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</td>
+<td class="table_detail"><% {String value = null;try{value=context.getFormattedValue(getObject("Review:RatingBO:RatingValue"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {52}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr>
+<tr>
+<td class="fielditem2" nowrap="nowrap"><% {out.write(localizeISText("ChannelProductReviewDetials.ReviewHeadline.fielditem2",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</td>
+<td class="table_detail"><% {String value = null;try{value=context.getFormattedValue(getObject("Review:ReviewTitle"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {56}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr>
+<tr>
+<td class="fielditem2" nowrap="nowrap"><% {out.write(localizeISText("ChannelProductReviewDetials.Review.fielditem2",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</td>
+<td class="table_detail"><% {String value = null;try{value=context.getFormattedValue(getObject("Review:ReviewContent"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {61}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr>
+<tr>
+<td class="fielditem2" nowrap="nowrap"><% {out.write(localizeISText("ChannelProductReviewDetials.Status.fielditem2",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</td>
+<td class="table_detail"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("ReviewApproval:Status"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",67,e);}if (_boolean_result) { %><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("ReviewApproval:Status"),null).equals(context.getFormattedValue("NEW",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",68,e);}if (_boolean_result) { %><% {out.write(localizeISText("ChannelProductReviewDetials.New.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } else {_boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("ReviewApproval:Status"),null).equals(context.getFormattedValue("APPROVED",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",70,e);}if (_boolean_result) { %><% {out.write(localizeISText("ChannelProductReviewDetials.Approved.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } else { %><% {out.write(localizeISText("ChannelProductReviewDetials.Rejected.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %><% }} %><% } %> 
+<% _boolean_result=false;try {_boolean_result=((Boolean)(((!(context.getFormattedValue(getObject("ReviewApproval:Status"),null).equals(context.getFormattedValue("NEW",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",76,e);}if (_boolean_result) { %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) ((disableErrorMessages().isDefined(getObject("ReviewApproval:ApproverName"))))).booleanValue() && ((Boolean) (((!(context.getFormattedValue(getObject("ReviewApproval:ApproverName"),null).equals(context.getFormattedValue("",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",77,e);}if (_boolean_result) { %><% {out.write(localizeISText("ChannelProductReviewDetials.By0.table_detail",null,null,encodeString(context.getFormattedValue(getObject("ReviewApproval:ApproverName"),null)),null,null,null,null,null,null,null,null,null));} %> 
+<% } %><% {out.write(localizeISText("ChannelProductReviewDetials.On.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %> <% {String value = null;try{value=context.getFormattedValue(getObject("ReviewApproval:ApprovalTime"),new Integer(DATE_SHORT),null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {80}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>&nbsp;<% {String value = null;try{value=context.getFormattedValue(getObject("ReviewApproval:ApprovalTime"),new Integer(DATE_TIME),null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {80}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %></td>
+</tr>
+<tr>
+<td class="fielditem2" nowrap="nowrap"><% {out.write(localizeISText("ChannelProductReviewDetials.Comment.fielditem2",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</td>
+<td class="table_detail"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_MANAGE_PRODUCTS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",88,e);}if (_boolean_result) { %><textarea rows="5" cols="69" name="Comment" class="inputfield_en"><% {String value = null;try{value=context.getFormattedValue(getObject("ReviewApproval:ApprovalComment"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {89}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></textarea><% } else { %><textarea rows="5" cols="69" name="Comment" class="inputfield_en" disabled="disabled"><% {String value = null;try{value=context.getFormattedValue(getObject("ReviewApproval:ApprovalComment"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {91}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></textarea><% } %></td>
+</tr>
+<tr>
+<td colspan="2"><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="1" height="4" alt="" border="0"/></td>
+</tr>
+</table><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_MANAGE_PRODUCTS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",99,e);}if (_boolean_result) { %><table class="w e s" width="100%" border="0" cellspacing="0" cellpadding="0">
+<tr>
+<td align="right">
+<table border="0" cellspacing="4" cellpadding="0">
+<tr><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("RequireReviewApproval"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",105,e);}if (_boolean_result) { %><td class="button" nowrap="nowrap">
+<input type="submit" name="approve" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ChannelProductReviewDetials.Approve.button",null)),null)%>" class="button"
+<% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (disableErrorMessages().isDefined(getObject("ProductLockedForMe")))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",108,e);}if (_boolean_result) { %>disabled="disabled"<% } %>
+/>
+</td>
+<td class="button" nowrap="nowrap">
+<input type="submit" name="reject" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ChannelProductReviewDetials.Reject.button",null)),null)%>" class="button"
+<% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (disableErrorMessages().isDefined(getObject("ProductLockedForMe")))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",113,e);}if (_boolean_result) { %>disabled="disabled"<% } %>
+/>
+</td><% } %><td class="button" nowrap="nowrap" style="padding-right: 20px;">
+<input type="submit" name="confirmDelete" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ChannelProductReviewDetials.Delete.button",null)),null)%>" class="button"
+<% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (disableErrorMessages().isDefined(getObject("ProductLockedForMe")))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",119,e);}if (_boolean_result) { %>disabled="disabled"<% } %>
+/>
+</td>
+<td class="button" nowrap="nowrap">
+<input type="hidden" name="ReviewID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("Review:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {123}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="hidden" name="ProductID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("ReviewAttachedProduct:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {124}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="submit" name="update" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ChannelProductReviewDetials.Apply.button",null)),null)%>" class="button"
+<% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (disableErrorMessages().isDefined(getObject("ProductLockedForMe")))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",126,e);}if (_boolean_result) { %>disabled="disabled"<% } %>
+/>
+<input type="reset" name="reset" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ChannelProductReviewDetials.Reset.button",null)),null)%>" class="button"
+<% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (disableErrorMessages().isDefined(getObject("ProductLockedForMe")))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",129,e);}if (_boolean_result) { %>disabled="disabled"<% } %>
+/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table><% } %></td>
+</tr>
+</table><% out.print("</form>"); %><% URLPipelineAction action232 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelProductReviewList-ShowAll",null)))),null));String site232 = null;String serverGroup232 = null;String actionValue232 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelProductReviewList-ShowAll",null)))),null);if (site232 == null){  site232 = action232.getDomain();  if (site232 == null)  {      site232 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup232 == null){  serverGroup232 = action232.getServerGroup();  if (serverGroup232 == null)  {      serverGroup232 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelProductReviewList-ShowAll",null)))),null));out.print("\"");out.print(" name=\"");out.print("refreshForm");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue232, site232, serverGroup232,true)); %><table border="0" cellspacing="0" cellpadding="0" width="100%">
+<tr>
+<td width="100%" class="backbar_left">
+<table border="0" cellspacing="0" cellpadding="0">
+<tr>
+<td class="button">
+<input type="hidden" name="ProductID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("ReviewAttachedProduct:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {150}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="hidden" name="ChannelID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentChannel:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {151}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="submit" name="refresh" value="&lt;&lt;&nbsp;<%=context.getFormattedValue(localizeText(context.getFormattedValue("ChannelProductReviewDetials.BackToList.button",null)),null)%>" class="button" title="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ChannelProductReviewDetials.GoBackToTheRatingList.button",null)),null)%>"/>
+</td>
+</tr>
+</table> 
+</td>
+</tr>
+</table><% out.print("</form>"); %><% printFooter(out); %>

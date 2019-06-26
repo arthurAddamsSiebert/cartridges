@@ -1,0 +1,348 @@
+<!--- TEMPLATENAME: CategoryLinkList.isml --->
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<isinclude template="inc/ConfirmationScript">
+<isinclude template="inc/LinkPageScript">
+
+<ISBreadCrumbTrail listview="true" id="#Category:UUID#" link="#URL(Action('ViewCategoryLinks-Start'), Parameter('CatalogCategoryID', Category:UUID), Parameter('CatalogUUID', Catalog:UUID), Parameter('ChannelID',ChannelID))#" text="#Category:DisplayName#" text1="#' - '.localizeText('CategoryLinkList.Links.text1')#">
+
+<isif condition="#isDefined(ChannelID) AND (ChannelID NE '')#">
+	<isset scope="request" name="PermissionMap" value="#CurrentChannelPermissionMap#">
+<iselse>
+	<isset scope="request" name="PermissionMap" value="#CurrentUserPermissionMap#">
+</isif>
+
+<!-- Working Area -->
+
+<!-- tabs -->
+<isset scope="request" name="SelectedTab" value="Links">
+<isif condition="#isDefined(CurrentChannel)#">
+	<isinclude template="#'inc/CatalogTabs_'.CurrentChannel:TypeCode#">
+<iselse>
+	<isinclude template="category/CategoryTabs">
+</isif>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td width="100%" class="w e s table_title">
+			<isprint value="#Category:DisplayName#">
+		</td>
+	</tr>
+	<tr>
+		<td valign="top" class="table_title_description w e s">
+			<isif condition="#Catalog:isProxy#">
+				<img src="#WebRoot()#/images/status_shared_product_from.gif" alt="#localizeText('CategoryLinkList.SharedFromAnother.alt')#" title="#localizeText('CategoryLinkList.SharedFromAnother.title')#" border="0"/> 
+				<istext key="CategoryLinkList.ThisCatalogIsSharedFrom" parameter0="#encodeValue(Catalog:OriginalCatalog:OwningDomain:DomainInformation:DomainName)#" encoding="off"/><br>
+			</isif>
+			<istext key="CategoryLinkList.TheListBelowShowsAllLinkTypesAndTheirAssignedProdu" encoding="off"/>
+		</td>
+	</tr>
+	<tr>
+		<td class="table_title2 w e s"><istext key="CategoryLinkList.LinkTypes.table_title2" encoding="off"/></td>
+	</tr>
+</table>
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="w e s" >
+	<tr>
+		<td colspan="2"><img src="#WebRoot()#/images/space.gif" alt="" border="0" width="1" height="6" /></td>
+	</tr>
+	<tr>
+		<td>
+			<table width="100%" name="category_links_select" id="category_links_select">
+				<tr>
+					<td class="table_detail3">
+						<istext key="CategoryLinkList.LinksFor.table_detail3" parameter0="#encodeValue(Category:DisplayName)#" encoding="off"/>
+					</td>
+				</tr>
+				<%
+					PipelineDictionary dict = getPipelineDictionary();
+					String selectedOutgoingLinkType = null;
+					String selectedIncomingLinkType = null;
+					String selectedLinkType = dict.get("SelectedLinkType");
+					String linkDirection = dict.get("LinkDirection");
+
+					if (selectedLinkType == null)
+					{
+						dict.put("itemIsVisible", true);
+					}
+
+					if (linkDirection != null && "Incoming".equals(linkDirection))
+					{
+						selectedOutgoingLinkType = null;
+						selectedIncomingLinkType = selectedLinkType;
+					}
+					else
+					{
+						selectedOutgoingLinkType = selectedLinkType;
+						selectedIncomingLinkType = null;
+					}
+				%>
+				<!--- dynamic link type   begin --->	
+				<isif condition="#isDefined(CategoryLinkTypeSummaryIter) AND hasLoopElements(CategoryLinkTypeSummaryIter)#">
+					<tr>
+						<script type="text/javascript">
+							$(document).ready(function() {
+								$('<tr class="nowrap"><td class="table_detail_actions"><a class="tableheader mass-action" data-action="select" href="#'#'#">show all</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a class="tableheader mass-action" data-action="deselect" href="#'#'#">hide all</a></td></tr>').insertAfter($('table#'#'#category_links_select > tbody > tr:first-child'));
+								$('<tr class="nowrap"><td class="table_detail_actions"><a class="tableheader mass-action" data-action="select" href="#'#'#">show all</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a class="tableheader mass-action" data-action="deselect" href="#'#'#">hide all</a></td></tr>').insertAfter($('table#'#'#category_incoming_links_select > tbody > tr:first-child'));
+								$(document).delegate('.mass-action', 'click', function(ev) {
+									ev.preventDefault();
+									$(this).parents('table:eq(0)').find(':checkbox').prop('checked', $(this).data('action') == 'select' || false).trigger('change');
+								});
+							});
+						</script>
+						<td>
+							<table width="100%" cellpadding="0" cellspacing="0">
+								<tr>
+									<isloop iterator="CategoryLinkTypeSummaryIter" alias="CategoryLinkTypeSummary" counter="CategoryLinkCount">
+										<td class="input_checkbox">
+											<isset scope="request" name="SummaryName" value="#CategoryLinkTypeSummary:TypeCodeDefinition:Name#" />
+
+											<isset scope="request" name="OutgoingProductLinkCount" value="#CategoryLinkTypeSummary:ProductLinkCount#" />
+											<isset scope="request" name="OutgoingCategoryLinkCount" value="#CategoryLinkTypeSummary:CategoryLinkCount#" />
+
+											<%
+												String summaryName = dict.get("SummaryName");
+												String isSelected = dict.get("select_" + summaryName);
+
+												if (selectedLinkType == null)
+												{
+													// Setup for initial loading of the page - display only link type sections which have at least 1 link to show, skip the rest
+													Integer productLinkCount = dict.get("OutgoingProductLinkCount");
+													Integer categoryLinkCount = dict.get("OutgoingCategoryLinkCount");
+													boolean checkBoxSelected = productLinkCount > 0 || categoryLinkCount > 0;
+													dict.put("checkboxIsSelected", checkBoxSelected);
+												}
+												else
+												{
+													dict.put("checkboxIsSelected", ( selectedOutgoingLinkType != null && selectedOutgoingLinkType.equalsIgnoreCase(summaryName) )
+																	|| ( isSelected != null && ( isSelected.equalsIgnoreCase("on") || isSelected.equalsIgnoreCase("select_" + summaryName) ) ) );
+												}
+											%>
+
+											<input class="product_check" type="checkbox"
+												   name="select_<isprint value="#SummaryName#">" 
+												   id="select_<isprint value="#SummaryName#">_outgoing_category_links" 
+												   <isif condition="#checkboxIsSelected#">
+												   	checked="checked"
+												   </isif>
+												/>
+										</td>
+										<td  class="label_checkbox_text" width="1">
+											<label class="label label_checkbox_text group-of-types" for="select_<isprint value="#SummaryName#">_outgoing_category_links">
+												<istext key="#'typeCodeDefinition.' . CategoryLinkTypeSummary:TypeCodeDefinition:Group . '.' . SummaryName . '.displayName'#" />
+											</label>
+										</td>
+										<isif condition="#CategoryLinkTypeSummary:ProductLinkAllowed#">
+											<isif condition="#CategoryLinkTypeSummary:CategoryLinkAllowed#">
+												<td class="label_checkbox_text">
+													<label class="label label_checkbox_text label_light last-in-type" for="select_<isprint value="#SummaryName#">_outgoing_category_links">
+											<iselse>
+												<td class="label_checkbox_text" colspan="2">
+													<label class="label label_checkbox_text label_light" for="select_<isprint value="#SummaryName#">_outgoing_category_links">
+											</isif>
+													<isif condition="#OutgoingProductLinkCount > 0#">
+														<strong>
+															<isprint value="#OutgoingProductLinkCount#"/>&nbsp;
+														</strong>
+													<iselse>
+														0
+													</isif>
+													<isif condition="#OutgoingProductLinkCount != 1#">
+														<istext key="CategoryLinkList.Products" encoding="off"/>
+													<iselse>
+														<istext key="CategoryLinkList.Product" encoding="off"/>
+													</isif>
+												</label>
+											</td>
+										</isif>
+										<isif condition="#CategoryLinkTypeSummary:CategoryLinkAllowed#">
+											<td class="label_checkbox_text"<isif condition="#NOT CategoryLinkTypeSummary:ProductLinkAllowed#"> colspan="2"</isif>>
+												<label class="label label_checkbox_text label_light" for="select_<isprint value="#SummaryName#">_outgoing_category_links">
+													<isif condition="#OutgoingCategoryLinkCount > 0#">
+														<strong>
+															<isprint value="#OutgoingCategoryLinkCount#"/>&nbsp;
+														</strong>
+													<iselse>
+														0
+													</isif>
+													<isif condition="#OutgoingCategoryLinkCount != 1#">
+														<istext key="CategoryLinkList.Categories" encoding="off"/>
+													<iselse>
+														<istext key="CategoryLinkList.Category" encoding="off"/>
+													</isif>
+												</label>
+											</td>
+										</isif>
+										<isif condition="#hasNext(CategoryLinkTypeSummary)#">
+											<td width="100%">&nbsp;</td>
+											</tr><tr>
+										</isif>
+									</isloop>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</isif>
+			</table>
+		</td>
+		<td>
+			<table width="100%" name="category_incoming_links_select" id="category_incoming_links_select">
+				<tr>
+					<td class="table_detail3">
+						<isprint value="#Category:DisplayName#"/>
+					</td>
+				</tr>
+
+				<!--- dynamic link type   begin --->
+				<isif condition="#isDefined(CategoryIncomingLinkTypeSummaryIter) AND hasLoopElements(CategoryIncomingLinkTypeSummaryIter)#">
+					<tr>
+						<td>
+							<table width="100%" cellpadding="0" cellspacing="0">
+								<tr>
+									<isloop iterator="CategoryIncomingLinkTypeSummaryIter" alias="CategoryIncomingLinkTypeSummary">
+										<td class="input_checkbox">
+											<isset scope="request" name="IncomingSummaryName" value="#CategoryIncomingLinkTypeSummary:TypeCodeDefinition:Name#" />
+
+											<%
+												dict.put("IncomingProductLinkCount", 0);
+											%>
+											<isloop iterator="CategoryIncomingProductLinkTypeSummaryIter" alias="CategoryIncomingProductLinkTypeSummary">
+												<isif condition="#IncomingSummaryName EQ (CategoryIncomingProductLinkTypeSummary:TypeCodeDefinition:Name.'_C')#">
+													<isset scope="request" name="IncomingProductLinkCount" value="#CategoryIncomingProductLinkTypeSummary:ProductLinkCount#" />
+													<isbreak>
+												</isif>
+											</isloop>
+
+											<isset name="IncomingCategoryLinkCount" value="#CategoryIncomingLinkTypeSummary:CategoryLinkCount#" scope="request" />
+
+											<%
+												String incomingSummaryName = dict.get("IncomingSummaryName");
+												String isSelected = dict.get("select_" + incomingSummaryName + "_incoming_category_links");
+
+												if (selectedLinkType == null)
+												{
+													// Setup for initial loading of the page - display only link type sections which have at least 1 link to show, skip the rest
+													Integer productLinkCount = dict.get("IncomingProductLinkCount");
+													Integer categoryLinkCount = dict.get("IncomingCategoryLinkCount");
+													boolean checkBoxSelected = productLinkCount > 0 || categoryLinkCount > 0;
+													dict.put("checkboxIsSelected", checkBoxSelected);
+												}
+												else
+												{
+													dict.put("checkboxIsSelected", ( selectedIncomingLinkType != null && selectedIncomingLinkType.equalsIgnoreCase(incomingSummaryName) ) 
+																|| ( isSelected != null && (isSelected.equalsIgnoreCase("on") || isSelected.equalsIgnoreCase("select_" + incomingSummaryName + "_incoming_category_links") ) ) );
+												}
+											%>
+											<input class="product_check" type="checkbox" 
+												name="select_<isprint value="#CategoryIncomingLinkTypeSummary:TypeCodeDefinition:Name#">_incoming_category_links" 
+												id="select_<isprint value="#CategoryIncomingLinkTypeSummary:TypeCodeDefinition:Name#">_incoming_category_links"
+												<isif condition="#checkboxIsSelected#">
+													checked="checked"
+												</isif>
+											/>
+										</td>
+										<td  class="label_checkbox_text" width="1">
+											<label class="label label_checkbox_text group-of-types" for="select_<isprint value="#IncomingSummaryName#">_incoming_category_links">
+												<istext key="CategoryLinkList.Is.label" encoding="off"/> <istext key="#'typeCodeDefinition.' . CategoryIncomingLinkTypeSummary:TypeCodeDefinition:Group . '.' . IncomingSummaryName . '.displayName'#" /> <istext key="CategoryLinkList.Of.label" encoding="off"/>
+											</label>
+										</td>
+										<isif condition="#CategoryIncomingLinkTypeSummary:ProductLinkAllowed#">
+											<isif condition="#CategoryIncomingLinkTypeSummary:CategoryLinkAllowed#">
+												<td class="label_checkbox_text">
+													<label class="label label_checkbox_text label_light last-in-type" for="select_<isprint value="#IncomingSummaryName#">_incoming_category_links">
+											<iselse>
+												<td class="label_checkbox_text" colspan="2">
+													<label class="label label_checkbox_text label_light" for="select_<isprint value="#IncomingSummaryName#">_incoming_category_links">
+											</isif>
+													<isif condition="#IncomingProductLinkCount > 0#">
+														<strong>
+															<isprint value="#IncomingProductLinkCount#"/>&nbsp;
+														</strong>
+													<iselse>
+														0
+													</isif>
+													<isif condition="#IncomingProductLinkCount != 1#">
+														<istext key="CategoryLinkList.Products" encoding="off"/>
+													<iselse>
+														<istext key="CategoryLinkList.Product" encoding="off"/>
+													</isif>
+												</label>
+											</td>
+										</isif>
+										<isif condition="#CategoryIncomingLinkTypeSummary:CategoryLinkAllowed#">
+											<td class="label_checkbox_text"<isif condition="#NOT CategoryIncomingLinkTypeSummary:ProductLinkAllowed#"> colspan="2"</isif>>
+												<label class="label label_checkbox_text label_light" for="select_<isprint value="#IncomingSummaryName#">_incoming_category_links">
+													<isif condition="#IncomingCategoryLinkCount > 0#">
+														<strong>
+															<isprint value="#IncomingCategoryLinkCount#"/>&nbsp;
+														</strong>
+													<iselse>
+														0
+													</isif>
+													<isif condition="#IncomingCategoryLinkCount != 1#">
+														<istext key="CategoryLinkList.Categories" encoding="off"/>
+													<iselse>
+														<istext key="CategoryLinkList.Category" encoding="off"/>
+													</isif>
+												</label>
+											</td>
+										</isif>
+										<isif condition="#hasNext(CategoryIncomingLinkTypeSummary)#">
+											<td width="100%">&nbsp;</td>
+											</tr><tr>
+										</isif>
+									</isloop>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</isif>
+			</table>
+		</td>
+	</tr>
+	<!--- dynamic link type   end --->
+	<tr>
+		<td colspan="2"><img src="#WebRoot()#/images/space.gif" alt="" border="0" width="1" height="6" /></td>
+	</tr>
+</table>
+
+<isif condition="#isDefined(CategoryLinkTypeSummaryIter) AND hasLoopElements(CategoryLinkTypeSummaryIter)#">
+	<isloop iterator="CategoryLinkTypeSummaryIter" alias="CategoryLinkTypeSummary" counter="CategoryLinkCount">
+
+		<isset name="ProductLinkTable_ID" value="#'select_'.CategoryLinkTypeSummary:TypeCodeDefinition:Name#" scope="request"/>
+		<isset name="ProductLinkTable_Name" value="#'typeCodeDefinition.TypedProductCategoryAssignment.' . CategoryLinkTypeSummary:TypeCodeDefinition:Name . '.displayName'#" scope="request"/>
+		<isset name="ProductLinkTable_TypeCode" value="#CategoryLinkTypeSummary:TypeCodeDefinition:Name#" scope="request"/>
+		<isset name="ProductLinksList" value="#CategoryLinkTypeSummary:ProductLinks#" scope="request"/>
+
+		<isset name="LinkTypeName" value="#CategoryLinkTypeSummary:TypeCodeDefinition:Name#" scope="request"/>
+		
+		<isloop iterator="CategoryIncomingLinkTypeSummaryIter" alias="CategoryIncomingLinkTypeSummary">
+			<isif condition="#CategoryLinkTypeSummary:TypeCodeDefinition:Name EQ CategoryIncomingLinkTypeSummary:TypeCodeDefinition:Name#">
+				<isset name="CategoryIncomingLinkTypeSummary" value="#CategoryIncomingLinkTypeSummary#" scope="request"/>
+				<isset name="CategoryIncomingLinksCount" value="#CategoryIncomingLinkTypeSummary:CategoryLinkCount#" scope="request"/>
+				<isset name="CategoryIncomingLinksList" value="#CategoryIncomingLinkTypeSummary:CategoryLinks#" scope="request"/>
+				<isbreak />
+			</isif>
+		</isloop>
+		<isloop iterator="CategoryIncomingProductLinkTypeSummaryIter" alias="CategoryIncomingProductLinkTypeSummary">
+			<isif condition="#CategoryLinkTypeSummary:TypeCodeDefinition:Name EQ (CategoryIncomingProductLinkTypeSummary:TypeCodeDefinition:Name.'_C')#">
+				<isset name="CategoryIncomingProductLinkTypeSummary" value="#CategoryIncomingProductLinkTypeSummary#" scope="request"/>
+				<isset name="CategoryIncomingProductLinksCount" value="#CategoryIncomingProductLinkTypeSummary:ProductLinkCount#" scope="request"/>
+				<isset name="CategoryIncomingProductLinksList" value="#CategoryIncomingProductLinkTypeSummary:ProductLinks#" scope="request"/>
+				<isbreak />
+			</isif>
+		</isloop>
+
+		<isif condition="#CategoryLinkTypeSummary:CategoryLinkAllowed#">
+			<isset name="CategoryLinksList" value="#CategoryLinkTypeSummary:CategoryLinks#" scope="request"/>
+
+			<isinclude template="category/CategoryLinkProductCategoryLinkTable">
+		<iselse>
+			<isinclude template="category/CategoryLinkProductLinkTable">
+		</isif>
+
+	</isloop>
+</isif>
+
+<isinclude template="inc/BackToList">
+<!-- EO Main Content -->
+<!-- EO Working Area -->

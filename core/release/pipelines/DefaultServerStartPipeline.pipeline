@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Pipeline can be configured (appserver.properties) to be executed at server start. Database preparers are executed which detect new configurations for active currencies, exchange rates, tax data set, locale information (allows update of lead locale and regional settings).
+@Group Common-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="DefaultServerStartPipeline" type="process">
+  <registry xsi:type="pipeline:PipelineRegistry" href="enfinity:/core/pipelines"/>
+<!--Starts server startup pipeline
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Start" sessionMode="Volatile"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateProcess1" action="begin"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateProcess1">
+    <configurationValues name="InitialState" value="Starting"/>
+    <configurationValues name="ProcessDescription" value="Locks the pipeline executed at server startup."/>
+    <configurationValues name="ProcessName" value="ExecuteUponServerStart"/>
+    <configurationValues name="Type" value="Pipeline"/>
+    <pipelet href="enfinity:/core/pipelets/CreateProcess.xml"/>
+    <nodeSuccessors name="next" next="AcquireResourcesForProcess1" action="commit"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AcquireResourcesForProcess1">
+    <configurationValues name="ResourceIDs" value="ExecuteUponServerStart"/>
+    <pipelet href="enfinity:/core/pipelets/AcquireResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="ExecuteCartridgePipelines1"/>
+<!--@BendPoints 6,5-->
+    <nodeSuccessors name="pipelet_error" next="EndNode2"/>
+    <parameterBindings name="AcquisitionTimeout" constant="(Integer)60"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCartridgePipelines1">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelinePropertyName" value="PrepareDuringStartupPipeline"/>
+    <configurationValues name="ProcessReversely" value="false"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCartridgePipelines.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 4,7 4,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="ReleaseResourcesForProcess1" action="begin"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ReleaseResourcesForProcess1">
+    <pipelet href="enfinity:/core/pipelets/ReleaseResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="FinishProcess1"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FinishProcess1">
+    <pipelet href="enfinity:/core/pipelets/FinishProcess.xml"/>
+    <nodeSuccessors name="next" next="EndNode1" action="commit"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="ERROR"/>
+</pipeline:Pipeline>

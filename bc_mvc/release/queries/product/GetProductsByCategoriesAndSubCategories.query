@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<query>
+<parameters>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="CategoryUUIDIterator" type="java.util.Iterator" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttributeType" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Product" type="provider" class="ProductViewProvider">
+		<return-attribute name="UUID"/>
+		<return-attribute name="DOMAINID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	<sql-dialect name="Microsoft">
+		WITH abc(uuid) AS
+		(
+			SELECT r.uuid FROM catalogcategory r
+			where  r.uuid IN(
+					<template-loop iterator="CategoryUUIDIterator" alias="CategoryUUID"><loop-statement><template-variable value="CategoryUUID"/></loop-statement>
+						<loop-separator>,</loop-separator>
+					</template-loop>
+				   )
+			UNION ALL 
+			 SELECT c.uuid FROM catalogcategory c
+			 INNER JOIN abc a ON a.uuid = c.parentcategoryid
+		)
+		SELECT iepca.productid AS UUID,
+	</sql-dialect>
+	<sql-dialect name="Oracle">
+		SELECT
+		distinct(iepca.productid) AS UUID,
+	</sql-dialect>
+		<template-variable value="ProductDomain:UUID"/> AS DOMAINID,
+		count(iepca.productid) over() as "ROWCOUNT",
+    	sorting
+	FROM
+	(
+	<template-call name="catalog/GetIEProductCategoryAssignmentsByCatalogDomainID">
+		<call-parameter name="ProductDomain" value="ProductDomain"/>
+		<call-parameter name="LocaleInformation" value="LocaleInformation"/>
+	    <call-parameter name="SortAttribute" value="SortAttribute"/>
+	    <call-parameter name="SortAttributeType" value="SortAttributeType"/>
+	</template-call>
+	) iepca
+	WHERE iepca.categoryid IN 
+	<sql-dialect name="Oracle">
+		(
+					   SELECT r.uuid
+						 FROM catalogcategory r
+		 CONNECT BY PRIOR r.uuid = r.parentcategoryid
+				   START WITH r.uuid IN (
+		<template-loop iterator="CategoryUUIDIterator" alias="CategoryUUID"><loop-statement><template-variable value="CategoryUUID"/></loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>
+				   ))
+		ORDER BY SORTING
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+			DESC NULLS 
+				<template-if condition="SortAttribute EQ 'value'">
+					LAST
+				<if-else/>
+					FIRST
+				</template-if>
+			<if-else/>
+			ASC NULLS LAST
+		</template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		(
+			SELECT uuid FROM abc
+		)
+		ORDER BY CASE WHEN SORTING IS NULL THEN 1 ELSE 0 END
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+			ASC, SORTING DESC
+		<if-else/>
+			DESC, SORTING ASC
+		</template-if>
+	</sql-dialect>
+</template>
+</query>

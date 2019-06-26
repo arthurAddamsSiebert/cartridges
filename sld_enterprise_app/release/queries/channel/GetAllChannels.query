@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets all channels">
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false" description="current organization domain"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="ProxyFlag" type="java.lang.Integer" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Channel" type="orm" class="com.intershop.component.mvc.internal.catalog.RepositoryPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+		SELECT 
+			r.uuid, r_av.stringvalue, COUNT(r.uuid) over() AS "rowcount"
+	<template-if condition="isDefined(SortBy) AND SortBy EQ 'namelink'">
+		, r_av.stringvalue
+	<if-elseif condition="isDefined(SortBy) AND SortBy EQ 'id'"/>
+		, r.id
+	<if-else/>
+		, r_av.stringvalue 
+	</template-if>
+		AS sorting
+		FROM 
+			repository r
+	<template-if condition="isDefined(SortBy) AND SortBy EQ 'namelink'">
+		LEFT OUTER JOIN repository_av rep_av ON (rep_av.ownerid=r.uuid AND rep_av.name='displayName' AND rep_av.localeid=<template-variable value="Locale:LocaleID"/>)
+	</template-if>
+		LEFT OUTER JOIN 
+			repository_av r_av ON (r.uuid = r_av.ownerid)
+			AND r_av.name = 'displayName'
+			AND r_av.localeid = <template-variable value="LocaleInformation:LocaleID"/>
+		WHERE 
+			r.DomainID = <template-variable value="Domain:UUID"/> 
+			AND r.TypeCode &lt;&gt; 22 
+			AND r.TypeCode &lt;&gt; 21 
+			AND r.TypeCode &lt;&gt; 1
+			<template-if condition="isDefined(ProxyFlag)">
+			AND r.proxyflag=<template-variable value="ProxyFlag"/>
+			</template-if>
+			
+	<sql-dialect name="Oracle">
+		ORDER BY sorting
+		<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;">
+			DESC NULLS LAST
+		<if-else/>
+			ASC NULLS FIRST
+		</template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		ORDER BY
+		<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;">
+			CASE
+				WHEN
+					<template-if condition="isDefined(SortBy) AND SortBy EQ 'namelink'">
+						r_av.stringvalue
+					<if-elseif condition="isDefined(SortBy) AND SortBy EQ 'id'"/>
+						r.id
+					<if-else/>
+						r_av.stringvalue 
+					</template-if>
+					IS NULL THEN 1
+				ELSE 0
+			END, sorting DESC
+		<if-else/>
+			CASE
+				WHEN
+					<template-if condition="isDefined(SortBy) AND SortBy EQ 'namelink'">
+						r_av.stringvalue
+					<if-elseif condition="isDefined(SortBy) AND SortBy EQ 'id'"/>
+						r.id
+					<if-else/>
+						r_av.stringvalue 
+					</template-if>
+					IS NULL THEN 0
+				ELSE 1
+			END, sorting ASC
+		</template-if>
+	</sql-dialect>
+</template>
+</query>

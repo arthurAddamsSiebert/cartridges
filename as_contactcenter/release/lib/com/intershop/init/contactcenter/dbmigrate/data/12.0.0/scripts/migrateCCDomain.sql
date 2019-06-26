@@ -1,0 +1,10 @@
+BEGIN
+
+	UPDATE "APPLICATION" SET "DOMAINID" =  
+		(SELECT domainid FROM DOMAININFORMATION WHERE domainname = 'system')
+	WHERE APPID = 'intershop.CC';
+
+	COMMIT;
+
+END;
+/

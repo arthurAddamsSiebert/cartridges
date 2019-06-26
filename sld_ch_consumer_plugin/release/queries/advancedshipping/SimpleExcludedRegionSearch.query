@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="@Deprecated since 7.10. Currently unused and will be removed in a future release.">
+<parameters>
+	<parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="Region" type="com.intershop.component.region.capi.region.Region" optional="false"/>	
+</parameters>
+<return-mappings>
+	<return-mapping name="Region" type="orm" class="com.intershop.component.region.internal.region.RegionPO">
+		<return-attribute name="RegionUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects" sqlDialect="Oracle">
+	SELECT DISTINCT(r.uuid) as RegionUUID,
+	r.id AS sorting,
+	COUNT(DISTINCT(r.uuid)) over() AS "ROWCOUNT"
+	FROM Region r
+	<template-if condition="isDefined(NameOrID) AND (NameOrID NE &apos;&apos;)">
+		INNER JOIN Region_av rav ON (rav.ownerid = r.uuid)
+	</template-if>
+	where r.domainid=
+	<template-variable value="Domain:UUID"/>
+	<template-if condition="isDefined(NameOrID) AND (NameOrID NE &apos;&apos;)">
+		AND 
+		((<template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="NameOrID"/><call-parameter name="ColumnNames" value="&quot;r.id&quot;"/><call-parameter name="CaseInsensitive" value="true()"/></template-call>)
+		
+		OR 
+		(rav.name=&apos;displayName&apos;
+		<template-if condition="isDefined(Locale)">
+			AND (rav.localeid =
+			<template-variable value="Locale:LocaleID"/>
+			OR rav.localizedflag=0)
+		</template-if>
+		AND
+		<template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="NameOrID"/><call-parameter name="ColumnNames" value="&apos;rav.stringvalue&apos;"/><call-parameter name="CaseInsensitive" value="true()"/></template-call>))
+	</template-if>
+	AND r.uuid in (select excludedregionid from regionassignment where excludingregionid = <template-variable value="Region:UUID" />)
+	
+	ORDER BY sorting
+	ASC NULLS LAST
+</template>
+<template type="countedobjects" sqlDialect="Microsoft">
+	SELECT r.uuid as RegionUUID,
+	r.id AS sorting,
+	COUNT(r.uuid) over() AS "ROWCOUNT"
+	FROM Region r
+	<template-if condition="isDefined(NameOrID) AND (NameOrID NE &apos;&apos;)">
+		INNER JOIN Region_av rav ON (rav.ownerid = r.uuid)
+	</template-if>
+	where r.domainid=
+	<template-variable value="Domain:UUID"/>
+	<template-if condition="isDefined(NameOrID) AND (NameOrID NE &apos;&apos;)">
+		AND 
+		((<template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="NameOrID"/><call-parameter name="ColumnNames" value="&quot;r.id&quot;"/><call-parameter name="CaseInsensitive" value="true()"/></template-call>)
+		
+		OR 
+		(rav.name=&apos;displayName&apos;
+		<template-if condition="isDefined(Locale)">
+			AND (rav.localeid =
+			<template-variable value="Locale:LocaleID"/>
+			OR rav.localizedflag=0)
+		</template-if>
+		AND
+		<template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="NameOrID"/><call-parameter name="ColumnNames" value="&apos;rav.stringvalue&apos;"/><call-parameter name="CaseInsensitive" value="true()"/></template-call>))
+	</template-if>
+	AND r.uuid in (select excludedregionid from regionassignment where excludingregionid = <template-variable value="Region:UUID" />)
+	
+	ORDER BY 
+	CASE
+		WHEN r.id IS NULL THEN 1
+		ELSE 0
+	END, sorting ASC
+</template>
+</query>

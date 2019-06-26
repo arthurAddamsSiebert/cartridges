@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="search for budget sources">
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false" description="The domain the budget source is assigned to"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true" description="Sort records by this column"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false" description="Locale information"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="BudgetSource" type="orm" class="com.intershop.component.marketing.internal.rebate.PromotionBudgetSourcePO" description="primary key of promotion budget source">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	SELECT 
+		result.UUID, result.ID, result.STRINGVALUE, COUNT(1) over() AS "rowcount"
+	FROM 
+	(
+		SELECT 
+			DISTINCT bs.UUID, bs.ID, av.STRINGVALUE  
+		FROM 
+			PROMOTIONBUDGETSOURCE bs
+		LEFT OUTER JOIN 
+	        PROMOTIONBUDGETSOURC_AV av ON 
+	            (bs.UUID = av.OWNERID
+	             AND av.NAME = &apos;displayName&apos;
+	             AND (av.LOCALEID = <template-variable value="Locale:LocaleID"/> OR av.LOCALIZEDFLAG = 0))
+		WHERE 
+			bs.DOMAINID = <template-variable value="Domain:UUID"/>
+	) result
+	<template-if condition="isDefined(SortBy) and SortBy eq &apos;displayName&apos;">
+    ORDER BY 
+	<sql-dialect name="Oracle">
+        result.STRINGVALUE 
+        ASC 
+        NULLS LAST
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+    	CASE
+    		WHEN result.STRINGVALUE IS NULL 
+    		THEN 1
+    		ELSE 0
+    	END,
+        result.STRINGVALUE
+        ASC 
+	</sql-dialect>
+	<if-else/>
+		ORDER BY result.ID
+	</template-if>
+</template>
+</query>

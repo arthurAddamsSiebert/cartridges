@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline is used for checking activity of all back office users in the domain which the job is assigned to. The pipeline will check inactivity period of each back office user in the domain. The domain needs to be organization domain \- this should be the domain of enterprise organization (type code 20), the domain of standard and advanced business customer organization (type code 40 and 41), the domain of partner organization (type code 30). 
+If an user was not logged in at a certain time his account will be disabled and such user will not be able to access the back office application. The decision whether the user will be disabled or not depends on configured inactivity period as a domain preference. If the inactivity time of the user is bigger than this configured domain preference (inactivity period), then the user will be disabled. But if domain preference is not presented, no disabling will take place. One week before user to be disabled, an e\-mail notification will be send to this user every day during this week until the user has been logged in again or the notification period has been expired. When the expiration happens user will be disabled and an e\-mail will be send with message which explains that the user is already disabled.
+@Group Job-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="DisableInactiveUsers" type="job">
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="DisableInactiveUsers"
+      callMode="Private">
+<!--@BendPoints 15,2-->
+    <nodeSuccessors name="next" next="GetCurrentDate1"/>
+    <parameters name="InactivityPeriod" type="java.lang.Integer"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <configurationValues name="OffsetTime" value="00:00"/>
+    <pipelet href="enfinity:/core/pipelets/GetCurrentDate.xml"/>
+<!--@BendPoints 15,4-->
+    <nodeSuccessors name="next" next="CalculateDate3"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDate3">
+    <configurationValues name="CalculationMethod" value="Subtract"/>
+    <pipelet href="enfinity:/core/pipelets/CalculateDate.xml"/>
+<!--@BendPoints 15,6-->
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+    <parameterBindings name="Date" objectPath="CurrentDate"/>
+    <parameterBindings name="Days" objectPath="InactivityPeriod"/>
+    <returnValueBindings name="CalculatedDate" objectPath="InactivityPeriodDate"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="ParameterName_01" value="DateThreshold"/>
+    <configurationValues name="ParameterName_02" value="Domain"/>
+    <configurationValues name="ParameterName_03" value="DomainID"/>
+    <configurationValues name="QueryName" value="user/GetInactiveUsers"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 15,8-->
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <parameterBindings name="ParameterValue_01" objectPath="InactivityPeriodDate"/>
+    <parameterBindings name="ParameterValue_02" objectPath="Domain"/>
+    <parameterBindings name="ParameterValue_03" objectPath="OrganizationDomain"/>
+    <returnValueBindings name="SearchResult" objectPath="ProfilesToBeDisabled"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="ProfilesToBeDisabled">
+<!--@BendPoints 18,9-->
+    <nodeSuccessors name="next" next="EndNode15"/>
+    <entry key="ProfileToBeDisabled">
+      <nodeSuccessors name="loop_entry_next" next="DetermineUser1"/>
+    </entry>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUser1">
+    <pipelet href="enfinity:/core/pipelets/DetermineUser.xml"/>
+    <nodeSuccessors name="next" next="UpdateUserCredentials2"/>
+    <parameterBindings name="UserID" objectPath="ProfileToBeDisabled:UUID"/>
+    <returnValueBindings name="User" objectPath="UserToBeDisabled"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateUserCredentials2">
+    <configurationValues name="allowMixedCaseLogin" value="Default"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateUserCredentials.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+<!--@BendPoints 16,13 16,15-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="IPRange" nullBinding="true"/>
+    <parameterBindings name="IsActive" constant="false"/>
+    <parameterBindings name="LastLoggedInDate" nullBinding="true"/>
+    <parameterBindings name="Login" nullBinding="true"/>
+    <parameterBindings name="NewPasswordExpiry" nullBinding="true"/>
+    <parameterBindings name="Password" nullBinding="true"/>
+    <parameterBindings name="PasswordConfirmation" nullBinding="true"/>
+    <parameterBindings name="PasswordReminder" nullBinding="true"/>
+    <parameterBindings name="SecurityQuestion" nullBinding="true"/>
+    <parameterBindings name="User" objectPath="UserToBeDisabled"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 14,15 14,9-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true"/>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="GetInactivityPeriod"
+      callMode="Private">
+<!--@BendPoints 3,28-->
+    <nodeSuccessors name="next" next="GetDomainPreference2"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference2">
+    <configurationValues name="DefaultPreferenceKey" value="InactivityPeriod"/>
+    <configurationValues name="Type" value="Integer"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode11"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Organization:OrganizationDomain"/>
+    <returnValueBindings name="PreferenceIntValue" objectPath="InactivityPeriod"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="InactivityPeriod"
+      operator="gt" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="EndNode14"/>
+<!--@BendPoints 5,31 5,32-->
+    <nodeSuccessors name="decision_no" next="EndNode13"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" name="" strict="true">
+    <returnValues name="InactivityPeriod" type="java.lang.Integer"/>
+  </nodes>
+<!--@Location 2,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" name="DISABLED"/>
+<!--@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="NotifyImminentInactiveUsers"
+      callMode="Private">
+<!--@BendPoints 23,2-->
+    <nodeSuccessors name="next" next="GetCurrentDate0"/>
+    <parameters name="InactivityPeriod" type="java.lang.Integer"/>
+    <parameters name="MailFrom" type="java.lang.String"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate0">
+    <configurationValues name="OffsetTime" value="00:00"/>
+    <pipelet href="enfinity:/core/pipelets/GetCurrentDate.xml"/>
+<!--@BendPoints 23,4-->
+    <nodeSuccessors name="next" next="CalculateDate1"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDate1">
+    <configurationValues name="CalculationMethod" value="Subtract"/>
+    <pipelet href="enfinity:/core/pipelets/CalculateDate.xml"/>
+    <nodeSuccessors name="next" next="CalculateDate0"/>
+    <parameterBindings name="Date" objectPath="CurrentDate"/>
+    <parameterBindings name="Days" objectPath="InactivityPeriod"/>
+    <returnValueBindings name="CalculatedDate" objectPath="InactivityPeriodDate"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDate0">
+    <configurationValues name="CalculationMethod" value="Add"/>
+    <pipelet href="enfinity:/core/pipelets/CalculateDate.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery2"/>
+    <parameterBindings name="Date" objectPath="InactivityPeriodDate"/>
+    <parameterBindings name="Days" constant="(java.lang.Integer)7"/>
+    <returnValueBindings name="CalculatedDate" objectPath="NotificationDate"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery2">
+    <configurationValues name="ParameterName_01" value="DateThreshold"/>
+    <configurationValues name="ParameterName_02" value="Domain"/>
+    <configurationValues name="ParameterName_03" value="DomainID"/>
+    <configurationValues name="QueryName" value="user/GetInactiveUsers"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 23,10-->
+    <nodeSuccessors name="next" next="LoopNode3"/>
+    <parameterBindings name="ParameterValue_01" objectPath="NotificationDate"/>
+    <parameterBindings name="ParameterValue_02" objectPath="Domain"/>
+    <parameterBindings name="ParameterValue_03" objectPath="OrganizationDomain"/>
+    <returnValueBindings name="SearchResult" objectPath="ProfilesToBeNotified"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="ProfilesToBeNotified">
+<!--@BendPoints 26,11-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <entry key="Profile">
+      <nodeSuccessors name="loop_entry_next" next="DetermineUser2"/>
+    </entry>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUser2">
+    <pipelet href="enfinity:/core/pipelets/DetermineUser.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameterBindings name="UserID" objectPath="Profile:UUID"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Profile:Credentials:LastLoggedIn">
+    <nodeSuccessors name="decision_yes" next="KeyMapper0"/>
+<!--@BendPoints 25,15-->
+    <nodeSuccessors name="decision_no" next="KeyMapper1"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InValue_1" objectPath="Profile:Credentials:LastLoggedIn"/>
+    <returnValueBindings name="OutValue_1" objectPath="LastActivityDate"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="CalculateDate2"/>
+  </nodes>
+<!--@Location 11,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDate2">
+    <configurationValues name="CalculationMethod" value="Add"/>
+    <pipelet href="enfinity:/core/pipelets/CalculateDate.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+    <parameterBindings name="Date" objectPath="LastActivityDate"/>
+    <parameterBindings name="Days" objectPath="InactivityPeriod"/>
+    <returnValueBindings name="CalculatedDate" objectPath="DisablingDate"/>
+  </nodes>
+<!--@Location 11,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="Profile:DefaultAddress:EMail"
+      operator="str_empty">
+<!--@BendPoints 25,23-->
+    <nodeSuccessors name="decision_yes" next="JoinNode4"/>
+<!--@BendPoints 23,24-->
+    <nodeSuccessors name="decision_no" next="ProcessMail1"/>
+  </nodes>
+<!--@Location 12,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 25,27-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 11,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 21,27 21,11-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+  </nodes>
+<!--@Location 11,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail1">
+    <configurationValues name="UseErrorConnector" value="false"/>
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="MailFrom" objectPath="MailFrom"/>
+    <parameterBindings name="MailTemplate" constant="user/InactiveUserNotificationMail"/>
+    <parameterBindings name="MailTo" objectPath="Profile:DefaultAddress:EMail"/>
+  </nodes>
+<!--@Location 12,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 25,19-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InValue_1" objectPath="Profile:Credentials:LastModified"/>
+    <returnValueBindings name="OutValue_1" objectPath="LastActivityDate"/>
+  </nodes>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Start"
+      callMode="Private">
+<!--@BendPoints 3,3-->
+    <nodeSuccessors name="next" next="GetDomainByName1"/>
+    <parameters name="UnitName" type="java.lang.String"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByName1">
+    <pipelet href="enfinity:/core/pipelets/GetDomainByName.xml"/>
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="GetOrganizationByDomain1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="DomainName" objectPath="UnitName"/>
+    <returnValueBindings name="Domain" objectPath="OrganizationDomain"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByDomain1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByDomain.xml"/>
+<!--@BendPoints 3,8-->
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="CallNode1"/>
+<!--@BendPoints 5,10 5,11-->
+    <nodeSuccessors name="DISABLED" next="JoinNode8"/>
+    <startNode referencedName="DisableInactiveUsers-GetInactivityPeriod"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 3,14 2,14 2,15-->
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameterBindings name="Domain" objectPath="OrganizationDomain"/>
+    <startNode referencedName="DisableInactiveUsers-DisableInactiveUsers"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Organization:Profile:AddressBook:DefaultAddress:EMail"
+      operator="str_empty">
+<!--@BendPoints 4,15 4,19-->
+    <nodeSuccessors name="decision_yes" next="JoinNode6"/>
+<!--@BendPoints 3,16-->
+    <nodeSuccessors name="decision_no" next="CallNode3"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 3,22-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="Domain" objectPath="OrganizationDomain"/>
+    <parameterBindings name="MailFrom" objectPath="Organization:Profile:AddressBook:DefaultAddress:EMail"/>
+    <startNode referencedName="DisableInactiveUsers-NotifyImminentInactiveUsers"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 7,21-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 8,5-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR" strict="true"/>
+</pipeline:Pipeline>

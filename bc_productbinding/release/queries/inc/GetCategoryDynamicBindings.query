@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query returns all necessary relations-data (UUIDs &amp; SQDName) for all existing Category&apos;s Dynamic Assignments, including sharing of the dynamic assignment. Each returned record will have: Category&apos;s UUID, It&apos;s SearchQueryDefinition Name, Catalog&apos;s Domain UUID, UUID of CatalogDomain&apos;s Repository, UUID of Repository&apos;s Organization, UUID of Repository&apos;s Site, and UUID of SQD&apos;s Domain.">
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+SELECT cat_data.*, d.siteid as site_id, sqd.domainid as sqd_domain_UUID
+FROM
+
+   (SELECT cat_dom.*, 
+        r.repositorydomainid AS repo_domain_uuid, r.domainid AS org_domain_uuid
+    FROM (
+      SELECT cc.uuid AS category_uuid, cc.searchquerydefinitionname as sqd_name, cc.onlineflag AS category_onlineflag, c.domainid AS catalog_domain_uuid
+      FROM catalogcategory cc, catalog c
+      WHERE cc.domainid = c.catalogdomainid 
+      AND cc.searchquerydefinitionname IS NOT NULL) cat_dom
+
+    JOIN repository r
+      ON r.repositorydomainid = cat_dom.catalog_domain_uuid
+        OR (r.typecode = 21 AND r.domainid = cat_dom.catalog_domain_uuid )
+    ) cat_data
+
+    JOIN domain d
+      ON repo_domain_uuid = d.uuid
+
+    JOIN SearchQueryDefinition sqd
+      ON sqd.name = sqd_name
+        AND (
+         sqd.domainid = d.siteid
+            OR
+         sqd.domainid IN (SELECT d.siteid FROM domain d WHERE d.uuid = org_domain_uuid)
+        )
+</template>
+</query>

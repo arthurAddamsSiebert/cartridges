@@ -1,0 +1,324 @@
+<!--- TEMPLATENAME: SMCFileBrowser.isml --->
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<%@page import = "com.intershop.beehive.core.capi.pipeline.PipelineDictionary"%>
+<isinclude template="inc/Modules">
+
+<isform action="#URL(Action('SMCFileBrowser-Dispatch'))#" method="post" name="fileBrowserForm">
+<table cellpadding="0" cellspacing="0" border="0" class="w100">
+	<tr>
+		<td><isinclude url="#URL(Action('ViewServerSelection-Start'), Parameter('TargetPipeline', 'SMCFileBrowser-Browse'),Parameter('TargetServerID', TargetServerID))#"></td>
+	</tr>
+	<tr>
+		<td><img src="#WebRoot()#/images/spacer.gif" width="1" height="5" border="0" alt=""/></td> <!-- blank line, separates server select from content -->
+	</tr>
+	<!-- Content Area -->
+	<tr>
+		<td class="table_title aldi"><istext key="smc.FileBrowser.table_title"/></td>
+	</tr>
+	<!-- start error handling -->
+		<!-- delete confirmation if one is selected-->
+		<isif condition="#isDefined(ErrorCode)#">
+			<!--- ErrorCodes defined in 
+					* CopyFilesToOutputStream.java
+					* CopyTempFileToOutputStream.java
+			    ERROR_CODE_NOT_READABLE = "FILE_NOT_READABLE";
+    			ERROR_CODE_TMP_ZIP_CREATION = "ERROR_CODE_TMP_ZIP_CREATION";
+    			ERROR_CODE_ZIP_FAULTY = "ERROR_CODE_ZIP_FAULTY";
+    			ERROR_CODE_GENERAL = "GENERAL_ERROR";
+    			ERROR_CODE_FILE_NOT_FOUND = "ERROR_CODE_FILE_NOT_FOUND";
+    			
+     		--->
+     		<tr>
+				<td class="w e s">
+					<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box">
+						<tr>
+							<td class="error_icon e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+							<td class="error" width="100%">
+					     		<isif condition="#ErrorCode EQ 'FILE_NOT_READABLE'#">
+					     			<istext key="SMCFileBrowser.TheFilesYouVeRequestedCouldNotBeRead.error"/>
+					     		<iselsif condition="#ErrorCode EQ 'ERROR_CODE_TMP_ZIP_CREATION'#">
+					     			<istext key="SMCFileBrowser.ThereWasAnErrorCreatingYourZipFile.error"/>
+					     		<iselsif condition="#ErrorCode EQ 'ERROR_CODE_ZIP_FAULTY'#">
+					     			<istext key="SMCFileBrowser.SomeOfTheFilesYouRequestedCouldNotBePacked.error"/> 
+					     			<isif condition="#isDefined(SessionKeyFaultTempZip)#">
+						     			<istext key="SMCFileBrowser.YouCanDownloadTheIncompleteZipFile.error" parameter0="#URL(action('SMCFileBrowser-DownloadTempFile'), Parameter('ZipFile', SessionKeyFaultTempZip))#" encoding="off"/>
+					     			<iselse>
+					     				<istext key="SMCFileBrowser.PleaseTryAgain.link"/>
+					     			</isif>
+					     		<iselsif condition="#ErrorCode EQ 'ERROR_CODE_FILE_NOT_FOUND'#">
+					     			<istext key="SMCFileBrowser.TheFileYouRequestedCouldNotBeFound.link"/>
+					     		<iselsif condition="#ErrorCode EQ 'GENERAL_ERROR'#">
+					     			<istext key="SMCFileBrowser.ThereWasAnErrorDownloadingYourFiles.link"/>
+					     		</isif>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		<iselsif condition="#isDefined(downloadSelected)#">
+			<isif condition="#hasElements(SelectedObjectUUIDs)#">
+				<iframe src="#URL(Action('SMCFileBrowser-DownloadTempFile'),Parameter('ZipFile', SessionKeyFaultTempZip))#" style="visibility:hidden" width="0" height="0">
+				</iframe>
+			<iselse>			
+				<ISMessageBox subject="#localizeText('smc.FileBrowser.subject')#" type="nse" okbtnname="Download selected" colspan="1">
+			</isif>
+		<iselsif condition="#isDefined(downloadAll) AND isDefined(SessionKeyFaultTempZip)#">
+			<iframe src="#URL(Action('SMCFileBrowser-DownloadTempFile'),Parameter('ZipFile', SessionKeyFaultTempZip))#" style="visibility:hidden" width="0" height="0">
+			</iframe>
+		</isif>
+	<tr>
+		<td class="table_title_description w e"><istext key="SMCFileBrowser.SelectAnApplicationServerAndBrowseTheFileSystem.table_title_description"/>
+		</td>
+	</tr>
+	
+	<isif condition="#NOT isDefined(FileBrowserFile)#">
+		<tr>
+			<td>
+				<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box aldi">
+					<tr>
+						<td class="error_icon e middle"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+						<td class="error" width="100%"><istext key="SMCFileBrowser.ThisDirectoryCouldNotBeBrowsed.error"/></td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	<iselse>
+		<!-- Main Area -->
+			<tr>
+				<!-- Main Content -->
+				<td>
+					<table width="100%" cellpadding="0" cellspacing="0" border="0" class="aldi">
+						<colgroup>
+							<col width="5%">
+							<col width="5%">
+							<col width="50%">
+							<col width="8%">
+							<col width="20%">
+							<col width="12%">
+						</colgroup>
+						<isif condition="#hasElements(Pageable)#">
+						<tr>
+							<td colspan="6" class="table_detail" nowrap="nowrap">
+								<isset scope="request" name="Iterator" value="#FileBrowserFile:ParentsIterator#">
+								<isloop iterator="Iterator" alias="CurrentFile">
+									<a href="#URL(action('SMCFileBrowser-Browse'), Parameter('dir', CurrentFile:FormattedPath))#" class="breadcrumb">
+										<isif condition="#CurrentFile:Name EQ ''#">
+									    	<istext key="SMCFileBrowser.Overview.link"/>
+										<iselse>
+									    	<isprint value="#CurrentFile:Name#">
+										</isif>
+									</a> 
+									<isif condition="#hasNext(CurrentFile)#">
+									    &gt;
+									</isif>
+								</isloop>
+							</td>
+						</tr>
+
+						<tr>
+							<td class="table_header e n" align="center">
+								<div id="A">
+									<table border="0" cellspacing="0" cellpadding="0" class="table_detail_link center" width="75">
+										<tr>
+											<td nowrap="nowrap">
+												<a href="javascript:selectAll('fileBrowserForm','SelectedObjectUUID','A','B');" class="tableheader"><istext key="smc.SelectAll.link1"/></a>
+											</td>
+										</tr>
+									</table>
+								</div>
+								<div id="B" style="display:none">
+									<table border="0" cellspacing="0" cellpadding="0" class="table_detail_link center" width="75">
+										<tr>
+											<td nowrap="nowrap">
+													<a href="javascript:selectAll('fileBrowserForm','SelectedObjectUUID','A','B');" class="tableheader"><istext key="smc.ClearAll.link1"/></a>
+											</td>
+										</tr>
+									</table>
+								</div>
+							</td>		
+							<td class="table_header e n" align="center">
+								<isif condition="#isDefined(SortOrder) AND (SortOrder EQ 'desc') AND (SortField EQ 'Type')#">
+									<a class="tableheader" href="#URL(Action('SMCFileBrowser-Browse'), Parameter('dir', FileBrowserFile:FormattedPath), Parameter('SortField','Type'), Parameter('SortOrder', 'asc'))#"><istext key="smc.Type.link"/></a>
+								<iselse>
+									<a class="tableheader" href="#URL(Action('SMCFileBrowser-Browse'), Parameter('dir', FileBrowserFile:FormattedPath), Parameter('SortField','Type'), Parameter('SortOrder', 'desc'))#"><istext key="smc.Type.link"/></a>
+								</isif>
+							</td>
+							<td class="table_header e n">
+								<isif condition="#isDefined(SortOrder) AND (SortOrder EQ 'asc') AND (SortField EQ 'Name')#">
+									<a class="tableheader" href="#URL(Action('SMCFileBrowser-Browse'), Parameter('dir', FileBrowserFile:FormattedPath), Parameter('SortField','Name'), Parameter('SortOrder', 'desc'))#"><istext key="smc.Name.link"/></a>
+								<iselse>
+									<a class="tableheader" href="#URL(Action('SMCFileBrowser-Browse'), Parameter('dir', FileBrowserFile:FormattedPath), Parameter('SortField','Name'), Parameter('SortOrder', 'asc'))#"><istext key="smc.Name.link"/></a>
+								</isif>
+							</td>
+							<td class="table_header e n">
+								<isif condition="#isDefined(SortOrder) AND (SortOrder EQ 'asc') AND (SortField EQ 'Size')#">
+									<a class="tableheader" href="#URL(Action('SMCFileBrowser-Browse'), Parameter('dir', FileBrowserFile:FormattedPath), Parameter('SortField','Size'), Parameter('SortOrder', 'desc'))#"><istext key="smc.Size.link"/></a>
+								<iselse>
+									<a class="tableheader" href="#URL(Action('SMCFileBrowser-Browse'), Parameter('dir', FileBrowserFile:FormattedPath), Parameter('SortField','Size'), Parameter('SortOrder', 'asc'))#"><istext key="smc.Size.link"/></a>
+								</isif>
+							</td>
+							<td class="table_header e n" nowrap="nowrap">
+								<isif condition="#isDefined(SortOrder) AND (SortOrder EQ 'asc') AND (SortField EQ 'LastModified')#">
+									<a class="tableheader" href="#URL(Action('SMCFileBrowser-Browse'), Parameter('dir', FileBrowserFile:FormattedPath), Parameter('SortField','LastModified'), Parameter('SortOrder', 'desc'))#"><istext key="smc.LastModified.link"/></a>
+								<iselse>
+									<a class="tableheader" href="#URL(Action('SMCFileBrowser-Browse'), Parameter('dir', FileBrowserFile:FormattedPath), Parameter('SortField','LastModified'), Parameter('SortOrder', 'asc'))#"><istext key="smc.LastModified.link"/></a>
+								</isif>
+							</td>
+							<td class="table_header n">
+								<istext key="SMCFileBrowser.Download.table_header"/>
+							</td>
+						</tr>
+						
+							<isloop iterator="Pageable" alias="File">
+								<% 
+									String selectedIDs = String.valueOf(getPipelineDictionary().get("SelectedIDs"));
+									if (selectedIDs != null && !selectedIDs.isEmpty())
+									{
+										String objectID = String.valueOf(getObject("File:FormattedPath"));
+										if (objectID != null && !objectID.isEmpty() && (selectedIDs.startsWith(objectID + ";") || selectedIDs.indexOf(";" + objectID + ";" ) != -1))
+										{
+											getPipelineDictionary().put("select", objectID);
+										}
+									}	
+								%>
+								<tr>
+									<td class="table_detail_link e s" align="center">
+									    <input type="hidden" name="ObjectUUID" value="<isprint value="#File:FormattedPath#">"/>
+										<input type="checkbox" name="SelectedObjectUUID" value="<isprint value="#File:FormattedPath#">"<isif condition="#isDefined(select) AND (select eq File:FormattedPath)#"> checked="checked"</isif> />
+									</td>
+									<td class="table_detail e s" align="center">
+										<isif condition="#NOT (File:File OR File:Directory)#">
+											&nbsp;
+										<iselseif condition="#File:Directory#">
+											<a href="#URL(Action('SMCFileBrowser-Browse'), Parameter('dir', File:FormattedPath))#" class="table_detail_link">
+												<img src="#WebRoot()#/images/folder.png" border="0" alt=""/>
+											</a>
+										<iselse>
+											<isif condition="#File:Size EQ '0'#">
+												<img src="#WebRoot()#/images/file.png" border="0" alt=""/>
+											<iselse>
+												<a href="#URL(Action('SMCFileBrowser-Download'), Parameter('file', File:FormattedPath), Parameter('dir', dir))#" class="table_detail_link2">
+													<img src="#WebRoot()#/images/file.png" border="0" alt=""/>
+												</a>
+											</isif>
+										</isif>
+									</td>
+									<td class="table_detail top e s">
+										<isif condition="#NOT (File:File OR File:Directory)#">
+											<isprint value="#File:Name(FileBrowserFile:Root)#">
+										<iselseif condition="#File:Directory#">
+											<a href="#URL(Action('SMCFileBrowser-Browse'), Parameter('dir', File:FormattedPath))#" class="table_detail_link">
+												<isprint value="#File:Name(FileBrowserFile:Root)#">
+											</a>
+										<iselse>
+											<isif condition="#File:Size EQ '0'#">
+												<isprint value="#File:Name#"/>
+											<iselse>
+												<a href="#URL(Action('SMCFileBrowser-Download'), Parameter('file', File:FormattedPath), Parameter('dir', dir))#" class="table_detail_link2">
+													<isprint value="#File:Name#"/>
+												</a>
+											</isif>
+										</isif>
+									</td>
+									<td class="table_detail top e s" nowrap="nowrap">
+										<isif condition="#File:File#">
+											<% 
+												Long sizeInByte = (Long) getObject("File:Size");
+												String unit = null;
+												java.math.BigDecimal size = null;
+												
+												if (sizeInByte > (1024 * 1024)) // MB
+												{
+													unit = "MB";
+													size = new java.math.BigDecimal(sizeInByte)
+																		.divide(new java.math.BigDecimal(1024).pow(2), 
+																					2, 
+																					java.math.BigDecimal.ROUND_HALF_UP);
+												}
+												else if (sizeInByte > 1024) // KB
+												{
+													unit = "KB";
+													size = new java.math.BigDecimal(sizeInByte)
+																		.divide(new java.math.BigDecimal(1024), 
+																					2, 
+																					java.math.BigDecimal.ROUND_HALF_UP);
+												}
+												else // byte
+												{
+													unit = "B";
+													size = new java.math.BigDecimal(sizeInByte);
+												}
+												
+												getPipelineDictionary().put("unit", unit);
+												getPipelineDictionary().put("calculatedSite", size);
+											%>
+											<isprint value="#calculatedSite#" formatter="#.##"> <isprint value="#unit#" >
+										<iselse>
+											&nbsp;
+										</isif>
+									</td>
+									<td class="table_detail top e s" nowrap="nowrap">
+										<isif condition="#File:File OR File:Directory#">
+											<isprint formatter="yyyy-MM-dd hh:mm:ss" value="#File:LastModified#">
+										<iselse>
+											&nbsp;
+										</isif>
+									</td>
+									<td class="table_detail top s" nowrap="nowrap">
+										<isif condition="#File:File OR File:Directory#">
+											<a href="#URL(Action('SMCFileBrowser-Download'), Parameter('file', File:FormattedPath), Parameter('asZip', "true"), Parameter('dir', dir))#" class="table_detail_link2">
+												<istext key="SMCFileBrowser.DownloadZip.link"/>
+											</a>
+										<iselse>
+											&nbsp;
+										</isif>
+									</td>
+								</tr>
+							</isloop>
+							<tr>
+								<td colspan="6">
+									<table width="100%" border="0" cellspacing="0" cellpadding="0">
+										<tr>
+											<td align="left">
+												<table cellpadding="0" cellspacing="4" border="0">
+													<tr>
+														<td class="button">
+															<input type="submit" name="downloadAll" value="#localizeText('SMCFileBrowser.DownloadAll.button')#" class="button"/>
+															<input type="hidden" name="dir" value="<isprint value="#FileBrowserFile:FormattedPath#">">
+															<input type="hidden" name="SortField" value="<isprint value="#SortField#">">
+															<input type="hidden" name="SortOrder" value="<isprint value="#SortOrder#">">
+														</td>
+														<td class="button">
+															<input type="submit" name="downloadSelected" value="#localizeText('SMCFileBrowser.DownloadSelected.button')#" class="button"/>
+														</td>
+													</tr>
+												</table>
+											</td>
+										</tr>
+									</table>	
+								</td>
+							</tr>
+						<iselse>
+							<tr>
+								<td class="table_detail top" colspan="6">
+									<isif condition="#FileBrowserFile:Root#">
+										<istext key="SMCFileBrowser.NoDirectoriesConfigured.table_detail"/>
+									<iselse>
+										<istext key="SMCFileBrowser.ThisDirectoryIsEmpty.table_detail"/>
+									</isif>
+								</td>
+							</tr>
+						</isif>
+					</table>
+				</td>
+			</tr>
+	
+			<tr><td><div><img src="#WebRoot()#/images/space.gif" width="1" height="6" alt="" border="0"/></div></td></tr>
+			<!-- Start Page Cursor -->
+			<tr><td><ISPagingBar variablepagesize="true" pageable="Pageable"></td></tr>
+			<!-- EO Start Page Cursor -->
+
+		<!-- /Content Area -->
+	</isif>
+</table>
+</isform>
+	

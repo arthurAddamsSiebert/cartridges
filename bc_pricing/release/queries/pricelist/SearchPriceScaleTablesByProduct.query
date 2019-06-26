@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Product" type="com.intershop.beehive.xcs.capi.product.Product" optional="false"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="SortingAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="SearchInAllDomains" type="java.lang.Boolean" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="PriceScaleTable" type="orm" class="com.intershop.component.pricing.internal.scale.PriceScaleTablePO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+	SELECT pst.uuid AS UUID, COUNT(*) over() AS "rowcount"
+		<template-if condition="isDefined(SortingAttribute)">
+			<template-if condition="(SortingAttribute EQ 'validFrom')">	
+				, pst.ValidFrom as sorting FROM pricelist pl, pricescaletable pst, pricescaletableassignment ass
+			<if-elseif condition="(SortingAttribute EQ 'validTo')"/>				
+				, pst.ValidTo as sorting FROM pricelist pl, pricescaletable pst, pricescaletableassignment ass
+			<if-elseif condition="(SortingAttribute EQ 'currency')"/>					
+				, pst.CURRENCYCODE as sorting FROM pricelist pl, pricescaletable pst, pricescaletableassignment ass
+			<if-elseif condition="(SortingAttribute EQ 'pricetype')"/>					
+				, pl.PRICETYPE as sorting FROM pricelist pl, pricescaletable pst, pricescaletableassignment ass
+			<if-elseif condition="(SortingAttribute EQ 'displayName')"/>
+				, av.stringvalue as sorting FROM pricelist pl, pricelist_av av, pricescaletable pst, pricescaletableassignment ass
+			</template-if>	
+		<if-else/>
+			, av.stringvalue as sorting FROM pricelist pl, pricelist_av av, pricescaletable pst, pricescaletableassignment ass
+		</template-if>
+		WHERE ass.pricescaletableuuid = pst.uuid
+		<template-if condition="NOT isDefined(SearchInAllDomains) OR (NOT SearchInAllDomains)">
+			AND ass.DomainID = <template-variable value="Product:Domain:DomainID"/>
+		</template-if>
+		AND ass.ProductUUID = <template-variable value="Product:UUID"/>
+		AND pl.UUID = ass.pricelistuuid 
+		<template-if condition="(NOT isDefined(SortingAttribute)) OR (SortingAttribute EQ 'displayName')">
+			AND (av.name = 'displayName' OR av.name IS NULL)
+			AND (av.localeid = <template-variable value="LocaleInformation:LocaleID"/> OR av.localeid IS NULL)
+			AND (pl.uuid=av.ownerid OR av.ownerid IS NULL)
+		</template-if>
+		<sql-dialect name="Oracle">
+			ORDER BY sorting 
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+				desc NULLS FIRST
+			<if-else />
+				asc NULLS LAST 
+			</template-if>
+			, pst.lastmodified asc
+		</sql-dialect>
+		<sql-dialect name="Microsoft">
+			ORDER BY 
+			<template-if condition="isDefined(SortingAttribute)">
+				<template-if condition="(SortingAttribute EQ 'validFrom')">	
+					CASE WHEN pst.ValidFrom IS NULL THEN 1 ELSE 0 END  
+					<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+						desc, pst.ValidFrom DESC 
+					<if-else />
+						asc, pst.ValidFrom ASC 
+					</template-if>
+				<if-elseif condition="(SortingAttribute EQ 'validTo')"/>				
+					CASE WHEN pst.ValidTo  IS NULL THEN 1 ELSE 0 END 
+					<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+						desc, pst.ValidTo DESC 
+					<if-else />
+						asc, pst.ValidTo ASC 
+					</template-if>
+				<if-elseif condition="(SortingAttribute EQ 'currency')"/>					
+					CASE WHEN pst.CURRENCYCODE  IS NULL THEN 1 ELSE 0 END 
+					<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+						desc, pst.CURRENCYCODE DESC 
+					<if-else />
+						asc, pst.CURRENCYCODE ASC 
+					</template-if>
+				<if-elseif condition="(SortingAttribute EQ 'pricetype')"/>					
+					CASE WHEN pl.PRICETYPE  IS NULL THEN 1 ELSE 0 END 
+					<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+						desc, pl.PRICETYPE DESC 
+					<if-else />
+						asc, pl.PRICETYPE ASC 
+					</template-if>
+				<if-elseif condition="(SortingAttribute EQ 'displayName')"/>
+					CASE WHEN av.stringvalue  IS NULL THEN 1 ELSE 0 END 
+					<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+						desc, av.stringvalue DESC 
+					<if-else />
+						asc, av.stringvalue ASC 
+					</template-if>
+				</template-if>	
+			<if-else/>
+				 CASE WHEN av.stringvalue IS NULL THEN 1 ELSE 0 END 
+				<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+					desc, av.stringvalue  DESC 
+				<if-else />
+					asc, av.stringvalue ASC 
+				</template-if>
+			</template-if>
+		</sql-dialect>
+</template>
+</query>

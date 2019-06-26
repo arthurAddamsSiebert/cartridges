@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Statuses" type="java.util.Collection" optional="false"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="RatingComment" type="orm" class="com.intershop.component.rating.orm.internal.RatingCommentPO">
+		<return-attribute name="RatingCommentUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+<sql-dialect name="Microsoft">
+			<template-call name="product/inc/GetProductUUIDsByDomain">
+				<call-parameter name="DomainUUID" value="Domain:UUID"/>
+			</template-call>
+</sql-dialect>
+		
+SELECT uuid RatingCommentUUID, rc.*
+	FROM RatingComment rc
+	 
+	WHERE 
+	
+	EXISTS 
+	(
+		SELECT 1 FROM ProductRatingAssignment
+		WHERE
+		ratingCommentUUID = rc.uuid AND
+		<sql-dialect name="Oracle">
+			productUUID IN (
+				<template-call name="product/inc/GetProductUUIDsByDomain">
+					<call-parameter name="DomainUUID" value="Domain:UUID"/>
+				</template-call>
+			)
+		</sql-dialect>
+		<sql-dialect name="Microsoft">
+			productUUID IN (select uuid from ProductUUIDs)
+		</sql-dialect>
+	)
+	
+	
+	<template-if condition="hasLoopElements(Statuses)">
+	AND
+	(
+		<template-loop alias="Status" iterator="Statuses">
+			<loop-statement>
+				<template-if condition="Status:Name EQ 'NEW'">
+					rc.approvalStatus=0 OR rc.approvalStatus IS NULL
+				<if-elseif condition="Status:Name EQ 'APPROVED'"/>
+					rc.approvalStatus=1
+				<if-elseif condition="Status:Name EQ 'REJECTED'"/>
+					rc.approvalStatus=2
+				<if-else/>
+					<template-comment>Ensures that we don't get an error if the status is unknown</template-comment>
+					1=2
+				</template-if>		
+			</loop-statement>
+			<loop-separator> OR </loop-separator>
+		</template-loop>
+	)
+	</template-if>
+	
+	<template-if condition="isDefined(Locale)">
+		AND rc.localeID = <template-variable value="Locale:LocaleID"/>
+	</template-if>
+	
+	AND rc.domainid = <template-variable value="Domain:UUID"/>
+</template>
+</query>

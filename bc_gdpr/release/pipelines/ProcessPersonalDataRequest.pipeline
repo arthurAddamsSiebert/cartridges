@@ -1,0 +1,693 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Contains the base process logic for creation, retrieval and search of PersonalDataRequestBOs.
+@Group GDPR-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessPersonalDataRequest" overrideMode="Inherit" type="process">
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_gA_eQExIEeiPcLymSFTzHA" strict="true"
+      name="ConfirmPersonalDataRequest" callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper_TlO9oExHEeiPcLymSFTzHA"/>
+    <parameters name="Hash" type="java.lang.String"/>
+    <parameters name="PersonalDataRequestBO" type="com.intershop.component.gdpr.capi.PersonalDataRequestBO"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--@Location 16,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_TlO9oExHEeiPcLymSFTzHA">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_TlKFIExHEeiPcLymSFTzHA"/>
+    <parameterBindings name="InValue_1" objectPath="PersonalDataRequestBO:Extension(&quot;PersonalDataRequestBODoubleOptInExtension&quot;)"/>
+    <parameterBindings name="InValue_10" objectPath="ApplicationBO:NamedObject(&quot;GDPRRequestStatusEnumProvider&quot;)"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:NamedObject(&quot;GDPRRequestTypeEnumProvider&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="DoubleOptInExtension"/>
+    <returnValueBindings name="OutValue_10" objectPath="GDPRRequestStatusEnumProvider"/>
+    <returnValueBindings name="OutValue_2" objectPath="GDPRRequestTypeEnumProvider"/>
+  </nodes>
+<!--@Location 16,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_TlKFIExHEeiPcLymSFTzHA"
+      conditionKey="DoubleOptInExtension:ConfirmationLinkHash" operator="str_eq" conditionItem="Hash">
+    <nodeSuccessors name="decision_yes" next="DecisionNode_TlCJUExHEeiPcLymSFTzHA"/>
+    <nodeSuccessors name="decision_no" next="EndNode_svtMkExIEeiPcLymSFTzHA"/>
+  </nodes>
+<!--@Location 16,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_TlCJUExHEeiPcLymSFTzHA"
+      conditionKey="PersonalDataRequestBO:RequestStatus:Value" operator="eq" conditionItem="GDPRRequestStatusEnumProvider:ByName(&quot;INITIAL&quot;):Value">
+    <nodeSuccessors name="decision_yes" next="DecisionNode_Tk_GAExHEeiPcLymSFTzHA"/>
+    <nodeSuccessors name="decision_no" next="EndNode_51dh4ExIEeiPcLymSFTzHA"/>
+  </nodes>
+<!--@Location 16,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_Tk_GAExHEeiPcLymSFTzHA"
+      conditionKey="DoubleOptInExtension:ConfirmationLinkExpired" operator="str_eq"
+      conditionValue="false">
+    <nodeSuccessors name="decision_yes" next="StartSafeChangesBlock_TlLTQExHEeiPcLymSFTzHA"/>
+    <nodeSuccessors name="decision_no" next="EndNode_674XYExIEeiPcLymSFTzHA"/>
+  </nodes>
+<!--@Location 16,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="StartSafeChangesBlock_TlLTQExHEeiPcLymSFTzHA">
+    <pipelet href="enfinity:/core/pipelets/StartSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="SetPersonalDataRequestBOStatus_TlFMoExHEeiPcLymSFTzHA_setPersonalDataRequestBOStatus"
+        action="begin"/>
+  </nodes>
+<!--@Location 16,12-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="SetPersonalDataRequestBOStatus_TlFMoExHEeiPcLymSFTzHA">
+    <pipelet href="enfinity:/bc_gdpr/pipelets/com.intershop.component.gdpr.pipelet.SetPersonalDataRequestBOStatus.pipelinenode"/>
+    <inConnectors name="setPersonalDataRequestBOStatus">
+      <parameterBindings name="RequestStatus" objectPath="GDPRRequestStatusEnumProvider:ByName(&quot;OPEN&quot;)"/>
+    </inConnectors>
+    <outConnectors name="next">
+      <nodeSuccessors next="DecisionNode_TlOWkExHEeiPcLymSFTzHA"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 16,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_TlOWkExHEeiPcLymSFTzHA"
+      conditionKey="PersonalDataRequestBO:UserBO:Present" operator="str_eq" conditionValue="true">
+<!--@BendPoints 33,28-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode_TlQLwExHEeiPcLymSFTzHA"/>
+<!--@BendPoints 35,27 35,33-->
+    <nodeSuccessors name="decision_no" next="JoinNode_TlHo4ExHEeiPcLymSFTzHA"/>
+  </nodes>
+<!--@Location 16,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_TlQLwExHEeiPcLymSFTzHA"
+      conditionKey="PersonalDataRequestBO:RequestType:Value" operator="eq" conditionItem="GDPRRequestTypeEnumProvider:ByName(&quot;DELETE_DATA&quot;):Value">
+    <nodeSuccessors name="decision_yes" next="UpdateUserBOCredentials_TlMhYExHEeiPcLymSFTzHA"/>
+<!--@BendPoints 34,29 34,33-->
+    <nodeSuccessors name="decision_no" next="JoinNode_TlHo4ExHEeiPcLymSFTzHA"/>
+  </nodes>
+<!--@Location 16,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateUserBOCredentials_TlMhYExHEeiPcLymSFTzHA">
+    <pipelet href="enfinity:/bc_user/pipelets/UpdateUserBOCredentials.xml"/>
+<!--@BendPoints 33,32-->
+    <nodeSuccessors name="next" next="JoinNode_TlHo4ExHEeiPcLymSFTzHA"/>
+<!--@BendPoints 34,31 34,33-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode_TlHo4ExHEeiPcLymSFTzHA"/>
+    <parameterBindings name="IsActive" constant="(Boolean)false"/>
+    <parameterBindings name="UserBO" objectPath="PersonalDataRequestBO:UserBO:get"/>
+  </nodes>
+<!--@Location 16,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_TlHo4ExHEeiPcLymSFTzHA">
+    <nodeSuccessors name="next" next="CallNode_TlDXcExHEeiPcLymSFTzHA"/>
+  </nodes>
+<!--@Location 16,17-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_TlDXcExHEeiPcLymSFTzHA">
+    <nodeSuccessors name="next" next="CallNode_TlI3AExHEeiPcLymSFTzHA"/>
+    <startNode referencedName="ProcessPersonalDataRequest-SendMailToCSR"/>
+  </nodes>
+<!--@Location 16,18-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_TlI3AExHEeiPcLymSFTzHA">
+    <nodeSuccessors name="next" next="EndSafeChangesBlock_TlA7MExHEeiPcLymSFTzHA"
+        action="commit"/>
+    <startNode referencedName="ProcessPersonalDataRequest-SendConfirmationMail"/>
+  </nodes>
+<!--@Location 16,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EndSafeChangesBlock_TlA7MExHEeiPcLymSFTzHA">
+    <pipelet href="enfinity:/core/pipelets/EndSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="EndNode_7pWhYExIEeiPcLymSFTzHA"/>
+  </nodes>
+<!--@Location 16,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_7pWhYExIEeiPcLymSFTzHA" name="next"
+      strict="true"/>
+<!--@Location 18,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_674XYExIEeiPcLymSFTzHA" name="LINK_EXPIRED"
+      strict="true"/>
+<!--@Location 18,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_51dh4ExIEeiPcLymSFTzHA" name="ALREADY_VERIFIED"
+      strict="true"/>
+<!--@Location 18,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_svtMkExIEeiPcLymSFTzHA" name="ERROR_INVALID_HASH"
+      strict="true"/>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_hlb14D2JEeipZ7dm_wToww" strict="true"
+      name="CreateInitialRequestForAnonymousUser" callMode="Private">
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery_5mlr4FjfEeiuXavI8Li1gw"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="RequestType" type="com.intershop.component.gdpr.capi.RequestType"/>
+    <parameters name="Email" type="java.lang.String"/>
+    <parameters name="RequesterName" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery_5mlr4FjfEeiuXavI8Li1gw">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="ParameterName_02" value="Email"/>
+    <configurationValues name="QueryName" value="gdpr/GetUserPersonalDataRequests"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_7qUeMFjfEeiuXavI8Li1gw"/>
+    <parameterBindings name="ParameterValue_02" objectPath="Email"/>
+    <returnValueBindings name="SearchResult" objectPath="Iterator"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_7qUeMFjfEeiuXavI8Li1gw"
+      conditionKey="Iterator" operator="has_elements">
+<!--@BendPoints 9,5-->
+    <nodeSuccessors name="decision_yes" next="EndNode_Ebk4cFjgEeiuXavI8Li1gw"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper_jNrlED2UEeizoctqBQDNRw"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_Ebk4cFjgEeiuXavI8Li1gw" name="ERROR"
+      strict="true">
+    <returnValues name="ERROR_RequestAlreadyExists" constant="true" type="java.lang.String"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_jNrlED2UEeizoctqBQDNRw">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CreatePersonalDataRequestBOForAnonymousUser_epeaED2UEeizoctqBQDNRw_createPersonalDataRequestBO"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;PersonalDataRequestBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="PersonalDataRequestBORepository"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="CreatePersonalDataRequestBOForAnonymousUser_epeaED2UEeizoctqBQDNRw">
+    <configurationValues name="RequestStatus" value="INITIAL"/>
+    <pipelet href="enfinity:/bc_gdpr/pipelets/com.intershop.component.gdpr.pipelet.CreatePersonalDataRequestBOForAnonymousUser.pipelinenode"/>
+    <inConnectors name="createPersonalDataRequestBO"/>
+    <outConnectors name="next">
+      <nodeSuccessors next="EndNode_WpivED2UEeizoctqBQDNRw"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_WpivED2UEeizoctqBQDNRw" strict="true">
+    <returnValues name="PersonalDataRequestBO" type="com.intershop.component.gdpr.capi.PersonalDataRequestBO"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_3U7HMCj7EeiGju-MVuSxrQ" strict="true"
+      name="CreateInitialRequestForRegisteredUser" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode_JMYs8ExnEeiPcLymSFTzHA"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="RequestType" type="com.intershop.component.gdpr.capi.RequestType"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_JMYs8ExnEeiPcLymSFTzHA"
+      conditionKey="UserBO:Extension(&quot;PersonalData&quot;):hasPendingPersonalDataRequest(RequestType)"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 5,3-->
+    <nodeSuccessors name="decision_yes" next="EndNode_VNg-sEx2EeiIrovQheYP6Q"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper_oKy_UD2UEeizoctqBQDNRw"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_VNg-sEx2EeiIrovQheYP6Q" name="ERROR"
+      strict="true">
+    <returnValues name="ERROR_RequestAlreadyExists" constant="true" type="java.lang.String"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_oKy_UD2UEeizoctqBQDNRw">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CreatePersonalDataRequestBOForUser_HGNlED2JEeipZ7dm_wToww_createPersonalDataRequestBO"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;PersonalDataRequestBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="PersonalDataRequestBORepository"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="CreatePersonalDataRequestBOForUser_HGNlED2JEeipZ7dm_wToww">
+    <configurationValues name="RequestStatus" value="INITIAL"/>
+    <pipelet href="enfinity:/bc_gdpr/pipelets/com.intershop.component.gdpr.pipelet.CreatePersonalDataRequestBOForUser.pipelinenode"/>
+    <inConnectors name="createPersonalDataRequestBO"/>
+    <outConnectors name="next">
+      <nodeSuccessors next="EndNode_6530oCj7EeiGju-MVuSxrQ"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_6530oCj7EeiGju-MVuSxrQ" strict="true">
+    <returnValues name="PersonalDataRequestBO" type="com.intershop.component.gdpr.capi.PersonalDataRequestBO"/>
+  </nodes>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_H054MD5nEeizoctqBQDNRw" strict="true"
+      name="CreateOpenRequestForAnonymousUser" callMode="Private">
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery_-EfTMFjiEeiuXavI8Li1gw"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="RequestType" type="com.intershop.component.gdpr.capi.RequestType"/>
+    <parameters name="Email" type="java.lang.String"/>
+    <parameters name="RequesterName" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery_-EfTMFjiEeiuXavI8Li1gw">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="ParameterName_02" value="Email"/>
+    <configurationValues name="QueryName" value="gdpr/GetUserPersonalDataRequests"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_-EghUFjiEeiuXavI8Li1gw"/>
+    <parameterBindings name="ParameterValue_02" objectPath="Email"/>
+    <returnValueBindings name="SearchResult" objectPath="Iterator"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_-EghUFjiEeiuXavI8Li1gw"
+      conditionKey="Iterator" operator="has_elements">
+<!--@BendPoints 17,5-->
+    <nodeSuccessors name="decision_yes" next="EndNode_-EhIYFjiEeiuXavI8Li1gw"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper_H1Al4D5nEeizoctqBQDNRw"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_-EhIYFjiEeiuXavI8Li1gw" name="ERROR"
+      strict="true">
+    <returnValues name="ERROR_RequestAlreadyExists" constant="true" type="java.lang.String"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_H1Al4D5nEeizoctqBQDNRw">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CreatePersonalDataRequestBOForAnonymousUser_H0-JoD5nEeizoctqBQDNRw_createPersonalDataRequestBO"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;PersonalDataRequestBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="PersonalDataRequestBORepository"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="CreatePersonalDataRequestBOForAnonymousUser_H0-JoD5nEeizoctqBQDNRw">
+    <configurationValues name="RequestStatus" value="OPEN"/>
+    <pipelet href="enfinity:/bc_gdpr/pipelets/com.intershop.component.gdpr.pipelet.CreatePersonalDataRequestBOForAnonymousUser.pipelinenode"/>
+    <inConnectors name="createPersonalDataRequestBO"/>
+    <outConnectors name="next">
+      <nodeSuccessors next="EndNode_H0_XwD5nEeizoctqBQDNRw"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_H0_XwD5nEeizoctqBQDNRw" strict="true">
+    <returnValues name="PersonalDataRequestBO" type="com.intershop.component.gdpr.capi.PersonalDataRequestBO"/>
+  </nodes>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_H07GUD5nEeizoctqBQDNRw" strict="true"
+      name="CreateOpenRequestForRegisteredUser" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode_744PgExmEeiPcLymSFTzHA"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="RequestType" type="com.intershop.component.gdpr.capi.RequestType"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_744PgExmEeiPcLymSFTzHA"
+      conditionKey="UserBO:Extension(&quot;PersonalData&quot;):hasPendingPersonalDataRequest(RequestType)"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 13,3-->
+    <nodeSuccessors name="decision_yes" next="EndNode_YH3P8Ex2EeiIrovQheYP6Q"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper_H1DpMD5nEeizoctqBQDNRw"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_YH3P8Ex2EeiIrovQheYP6Q" name="ERROR"
+      strict="true">
+    <returnValues name="ERROR_RequestAlreadyExists" constant="true" type="java.lang.String"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_H1DpMD5nEeizoctqBQDNRw">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CreatePersonalDataRequestBOForUser_H087gD5nEeizoctqBQDNRw_createPersonalDataRequestBO"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;PersonalDataRequestBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="PersonalDataRequestBORepository"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="CreatePersonalDataRequestBOForUser_H087gD5nEeizoctqBQDNRw">
+    <configurationValues name="RequestStatus" value="OPEN"/>
+    <pipelet href="enfinity:/bc_gdpr/pipelets/com.intershop.component.gdpr.pipelet.CreatePersonalDataRequestBOForUser.pipelinenode"/>
+    <inConnectors name="createPersonalDataRequestBO"/>
+    <outConnectors name="next">
+      <nodeSuccessors next="EndNode_H0204D5nEeizoctqBQDNRw"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_H0204D5nEeizoctqBQDNRw" strict="true">
+    <returnValues name="PersonalDataRequestBO" type="com.intershop.component.gdpr.capi.PersonalDataRequestBO"/>
+  </nodes>
+<!--@Location 20,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_i8vTIExHEeiPcLymSFTzHA" strict="true"
+      name="CreatePersonalDataRequest" callMode="Private" secure="true">
+    <nodeSuccessors name="next" next="CallNode_i8usEExHEeiPcLymSFTzHA"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="RequestType" type="com.intershop.component.gdpr.capi.RequestType"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+  </nodes>
+<!--@Location 20,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_i8usEExHEeiPcLymSFTzHA">
+    <nodeSuccessors name="next" next="CallNode_i8s24ExHEeiPcLymSFTzHA"/>
+<!--@BendPoints 43,15-->
+    <nodeSuccessors name="ERROR" next="EndNode_4qe-4Ex8EeiIrovQheYP6Q"/>
+    <startNode referencedName="ProcessPersonalDataRequest-CreateOpenRequestForRegisteredUser"/>
+  </nodes>
+<!--@Location 20,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_i8s24ExHEeiPcLymSFTzHA">
+    <nodeSuccessors name="next" next="CallNode_i8v6MExHEeiPcLymSFTzHA"/>
+    <startNode referencedName="ProcessPersonalDataRequest-SendConfirmationMail"/>
+  </nodes>
+<!--@Location 20,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_i8v6MExHEeiPcLymSFTzHA">
+    <nodeSuccessors name="next" next="EndNode_i8uFAExHEeiPcLymSFTzHA"/>
+    <startNode referencedName="ProcessPersonalDataRequest-SendMailToCSR"/>
+  </nodes>
+<!--@Location 20,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_i8uFAExHEeiPcLymSFTzHA" strict="true"/>
+<!--@Location 21,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_4qe-4Ex8EeiIrovQheYP6Q" name="Error"
+      strict="true"/>
+<!--@Location 16,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_QQ5RgExnEeiPcLymSFTzHA" strict="true"
+      name="DeactivateUser" callMode="Private">
+    <nodeSuccessors name="next" next="UpdateUserBOCredentials_Pg4w4ExnEeiPcLymSFTzHA"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+  </nodes>
+<!--@Location 16,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateUserBOCredentials_Pg4w4ExnEeiPcLymSFTzHA">
+    <pipelet href="enfinity:/bc_user/pipelets/UpdateUserBOCredentials.xml"/>
+    <nodeSuccessors name="next" next="CallNode_Pg3iwExnEeiPcLymSFTzHA"/>
+    <parameterBindings name="IsActive" constant="(Boolean)false"/>
+    <parameterBindings name="UserBO" objectPath="UserBO"/>
+  </nodes>
+<!--@Location 16,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_Pg3iwExnEeiPcLymSFTzHA">
+    <nodeSuccessors name="next" next="EndNode_RlDBAExnEeiPcLymSFTzHA"/>
+    <startNode referencedName="ProcessUserLogin-LogoutUser"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_RlDBAExnEeiPcLymSFTzHA" strict="true"/>
+<!--@Location 13,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_Uc3B0EnZEeidzJCLXPwU3A" strict="true"
+      name="DeleteCustomerAccount" callMode="Private">
+    <nodeSuccessors name="next" next="DeleteCustomerAccount_dmVb4EnmEeiFUZ-8tw-z1A_deleteAccount"/>
+    <parameters name="PersonalDataRequestBO" type="com.intershop.component.gdpr.capi.PersonalDataRequestBO"/>
+  </nodes>
+<!--@Location 13,1-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="DeleteCustomerAccount_dmVb4EnmEeiFUZ-8tw-z1A">
+    <pipelet href="enfinity:/bc_gdpr/pipelets/com.intershop.component.gdpr.pipelet.DeleteCustomerAccount.pipelinenode"/>
+    <inConnectors name="deleteAccount"/>
+    <outConnectors name="next">
+      <nodeSuccessors next="EndNode_uLw9EEnmEeiFUZ-8tw-z1A"/>
+    </outConnectors>
+    <outConnectors name="error">
+<!--@BendPoints 29,3-->
+      <nodeSuccessors next="EndNode_x0_tkEnmEeiFUZ-8tw-z1A"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_uLw9EEnmEeiFUZ-8tw-z1A" strict="true"/>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_x0_tkEnmEeiFUZ-8tw-z1A" name="Error"
+      strict="true">
+    <returnValues name="Error" objectPath="Error" type="java.lang.String"/>
+  </nodes>
+<!--@Location 9,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_irHW8EOcEeiYuIVyXsIT7Q" strict="true"
+      name="DeletePersonalDataRequestBO" callMode="Private">
+    <nodeSuccessors name="next" next="DeletePersonalDataRequestBO_hMk8YEOcEeiYuIVyXsIT7Q_deletePersonalDataRequestBO"/>
+    <parameters name="PersonalDataRequestBO" type="com.intershop.component.gdpr.capi.PersonalDataRequestBO"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="DeletePersonalDataRequestBO_hMk8YEOcEeiYuIVyXsIT7Q">
+    <pipelet href="enfinity:/bc_gdpr/pipelets/com.intershop.component.gdpr.pipelet.DeletePersonalDataRequestBO.pipelinenode"/>
+    <inConnectors name="deletePersonalDataRequestBO"/>
+    <outConnectors name="next">
+      <nodeSuccessors next="EndNode_sYe0IEOcEeiYuIVyXsIT7Q"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_sYe0IEOcEeiYuIVyXsIT7Q" strict="true"/>
+<!--@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_l36qIEOcEeiYuIVyXsIT7Q" strict="true"
+      name="DeletePersonalDataRequestBOByID" callMode="Private">
+    <nodeSuccessors name="next" next="DeletePersonalDataRequestBOByID_eIYLkEOcEeiYuIVyXsIT7Q_deletePersonalDataRequestBO"/>
+    <parameters name="PersonalDataRequestBORepository" type="com.intershop.component.gdpr.capi.PersonalDataRequestBORepository"/>
+    <parameters name="PersonalDataRequestID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="DeletePersonalDataRequestBOByID_eIYLkEOcEeiYuIVyXsIT7Q">
+    <pipelet href="enfinity:/bc_gdpr/pipelets/com.intershop.component.gdpr.pipelet.DeletePersonalDataRequestBOByID.pipelinenode"/>
+    <inConnectors name="deletePersonalDataRequestBO"/>
+    <outConnectors name="next">
+      <nodeSuccessors next="EndNode_qSNEIEOcEeiYuIVyXsIT7Q"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_qSNEIEOcEeiYuIVyXsIT7Q" strict="true"/>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_HNJrYEfNEeillYIOD8lrRg" strict="true"
+      name="GetRecipientLocale" callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper_nUbUEE4TEeiFUZ-8tw-z1A"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="PersonalDataRequestBO" type="com.intershop.component.gdpr.capi.PersonalDataRequestBO"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_nUbUEE4TEeiFUZ-8tw-z1A">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_aI15UEfNEeillYIOD8lrRg"/>
+    <parameterBindings name="InValue_1" objectPath="PersonalDataRequestBO:UserBO"/>
+    <returnValueBindings name="OutValue_1" objectPath="UserBOOptional"/>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_aI15UEfNEeillYIOD8lrRg"
+      conditionKey="UserBOOptional:Present" operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="KeyMapper_HNH2MEfNEeillYIOD8lrRg"/>
+<!--@BendPoints 19,17-->
+    <nodeSuccessors name="decision_no" next="KeyMapper_uGhvwEfNEeillYIOD8lrRg"/>
+  </nodes>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_HNH2MEfNEeillYIOD8lrRg">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_lLOy8E4TEeiFUZ-8tw-z1A"/>
+    <parameterBindings name="InValue_1" objectPath="UserBOOptional:get:Extension(&quot;UserBOPreferencesExtension&quot;):PreferredLocale"/>
+    <returnValueBindings name="OutValue_1" objectPath="RecipientLocale"/>
+  </nodes>
+<!--@Location 8,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_lLOy8E4TEeiFUZ-8tw-z1A">
+    <nodeSuccessors name="next" next="EndNode_HNKScEfNEeillYIOD8lrRg"/>
+  </nodes>
+<!--@Location 8,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_HNKScEfNEeillYIOD8lrRg" strict="true">
+    <returnValues name="RecipientLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_uGhvwEfNEeillYIOD8lrRg">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 19,21-->
+    <nodeSuccessors name="next" next="JoinNode_lLOy8E4TEeiFUZ-8tw-z1A"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:DefaultLocale"/>
+    <returnValueBindings name="OutValue_1" objectPath="RecipientLocale"/>
+  </nodes>
+<!--@Location 10,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_Nim_gEMVEeiYuIVyXsIT7Q" strict="true"
+      name="GetSenderEmail" callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper_C7gd8EMVEeiYuIVyXsIT7Q"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--@Location 10,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_C7gd8EMVEeiYuIVyXsIT7Q">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode_RE9E4EMVEeiYuIVyXsIT7Q"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Configuration:String(&quot;gdpr.NotificationsEmailFrom&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="SenderEmail"/>
+  </nodes>
+<!--@Location 10,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_RE9E4EMVEeiYuIVyXsIT7Q" strict="true">
+    <returnValues name="SenderEmail" type="java.lang.String"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_CZlVEEfVEeillYIOD8lrRg" strict="true"
+      name="SendConfirmationMail" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode_FjFeYEheEeiGBYBDH_39HQ"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="PersonalDataRequestBO" type="com.intershop.component.gdpr.capi.PersonalDataRequestBO"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_FjFeYEheEeiGBYBDH_39HQ">
+    <nodeSuccessors name="next" next="EndNode_CZf1gEfVEeillYIOD8lrRg"/>
+<!--@BendPoints 13,15-->
+    <nodeSuccessors name="Error" next="EndNode_CZmjMEfVEeillYIOD8lrRg"/>
+    <parameterBindings name="MailTemplateForDataDeletion" constant="email/gdpr/user/DeletePersonalDataConfirmation"/>
+    <parameterBindings name="MailTemplateForDataRetrieval" constant="email/gdpr/user/RequestPersonalDataConfirmation"/>
+    <startNode referencedName="ProcessPersonalDataRequest-SendMailToCustomer"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_CZf1gEfVEeillYIOD8lrRg" strict="true"/>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_CZmjMEfVEeillYIOD8lrRg" name="Error"
+      strict="true"/>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_0_biUESNEeiZu57Ag9fy6Q" strict="true"
+      name="SendMailToCSR" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode_0_WCwESNEeiZu57Ag9fy6Q"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="PersonalDataRequestBO" type="com.intershop.component.gdpr.capi.PersonalDataRequestBO"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_0_WCwESNEeiZu57Ag9fy6Q">
+    <nodeSuccessors name="next" next="ProcessMail_0_OG8ESNEeiZu57Ag9fy6Q"/>
+    <startNode referencedName="ProcessPersonalDataRequest-GetSenderEmail"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail_0_OG8ESNEeiZu57Ag9fy6Q">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="EndNode_0_SYYESNEeiZu57Ag9fy6Q"/>
+<!--@BendPoints 5,17-->
+    <nodeSuccessors name="pipelet_error" next="EndNode_7781AEetEeiPnsUjajPq2A"/>
+    <parameterBindings name="LocaleID" objectPath="ApplicationBO:DefaultLocale:LocaleID"/>
+    <parameterBindings name="MailFrom" objectPath="SenderEmail"/>
+    <parameterBindings name="MailTemplate" constant="email/gdpr/csr/NewPersonalDataRequest"/>
+    <parameterBindings name="MailTo" objectPath="ApplicationBO:Configuration:String(&quot;ContactFormUserServiceEmailTo&quot;)"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_0_SYYESNEeiZu57Ag9fy6Q" strict="true"/>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_7781AEetEeiPnsUjajPq2A" name="Error"
+      strict="true"/>
+<!--@Location 13,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_F2sMUEhdEeiGBYBDH_39HQ" strict="true"
+      name="SendMailToCustomer" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode_F2610EhdEeiGBYBDH_39HQ"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="MailTemplateForDataRetrieval" type="java.lang.String"/>
+    <parameters name="MailTemplateForDataDeletion" type="java.lang.String"/>
+    <parameters name="PersonalDataRequestBO" type="com.intershop.component.gdpr.capi.PersonalDataRequestBO"/>
+  </nodes>
+<!--@Location 13,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_F2610EhdEeiGBYBDH_39HQ">
+    <nodeSuccessors name="next" next="CallNode_F2vPoEhdEeiGBYBDH_39HQ"/>
+    <startNode referencedName="ProcessPersonalDataRequest-GetSenderEmail"/>
+  </nodes>
+<!--@Location 13,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_F2vPoEhdEeiGBYBDH_39HQ">
+    <nodeSuccessors name="next" next="DecisionNode_F2zhEEhdEeiGBYBDH_39HQ"/>
+    <startNode referencedName="ProcessPersonalDataRequest-GetRecipientLocale"/>
+  </nodes>
+<!--@Location 13,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_F2zhEEhdEeiGBYBDH_39HQ"
+      conditionKey="PersonalDataRequestBO:RequestType:Name" operator="str_eq" conditionValue="REQUEST_DATA">
+    <nodeSuccessors name="decision_yes" next="KeyMapper_F2_HQEhdEeiGBYBDH_39HQ"/>
+<!--@BendPoints 29,19-->
+    <nodeSuccessors name="decision_no" next="KeyMapper_F20vMEhdEeiGBYBDH_39HQ"/>
+  </nodes>
+<!--@Location 13,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_F2_HQEhdEeiGBYBDH_39HQ">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_F23LcEhdEeiGBYBDH_39HQ"/>
+    <parameterBindings name="InValue_1" objectPath="MailTemplateForDataRetrieval"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTemplate"/>
+  </nodes>
+<!--@Location 13,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_F23LcEhdEeiGBYBDH_39HQ">
+    <nodeSuccessors name="next" next="ProcessMail_F28D8EhdEeiGBYBDH_39HQ"/>
+  </nodes>
+<!--@Location 13,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail_F28D8EhdEeiGBYBDH_39HQ">
+    <configurationValues name="UseErrorConnector" value="true"/>
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="EndNode_F3AVYEhdEeiGBYBDH_39HQ"/>
+<!--@BendPoints 29,25-->
+    <nodeSuccessors name="pipelet_error" next="EndNode_F25nsEhdEeiGBYBDH_39HQ"/>
+    <parameterBindings name="LocaleID" objectPath="RecipientLocale:LocaleID"/>
+    <parameterBindings name="MailFrom" objectPath="SenderEmail"/>
+    <parameterBindings name="MailTo" objectPath="PersonalDataRequestBO:Email"/>
+  </nodes>
+<!--@Location 13,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_F3AVYEhdEeiGBYBDH_39HQ" strict="true"/>
+<!--@Location 14,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_F25nsEhdEeiGBYBDH_39HQ" name="Error"
+      strict="true"/>
+<!--@Location 14,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_F20vMEhdEeiGBYBDH_39HQ">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 29,23-->
+    <nodeSuccessors name="next" next="JoinNode_F23LcEhdEeiGBYBDH_39HQ"/>
+    <parameterBindings name="InValue_1" objectPath="MailTemplateForDataDeletion"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTemplate"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_n_8ogEfMEeillYIOD8lrRg" strict="true"
+      name="SendMailWithVerificationLink" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode_p337kEhdEeiGBYBDH_39HQ"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="PersonalDataRequestBO" type="com.intershop.component.gdpr.capi.PersonalDataRequestBO"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_p337kEhdEeiGBYBDH_39HQ">
+    <nodeSuccessors name="next" next="EndNode_n_6zUEfMEeillYIOD8lrRg"/>
+<!--@BendPoints 9,15-->
+    <nodeSuccessors name="Error" next="EndNode_n__EwEfMEeillYIOD8lrRg"/>
+    <parameterBindings name="MailTemplateForDataDeletion" constant="email/gdpr/user/ConfirmDeletePersonalData"/>
+    <parameterBindings name="MailTemplateForDataRetrieval" constant="email/gdpr/user/ConfirmRequestPersonalData"/>
+    <startNode referencedName="ProcessPersonalDataRequest-SendMailToCustomer"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_n_6zUEfMEeillYIOD8lrRg" strict="true"/>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_n__EwEfMEeillYIOD8lrRg" name="Error"
+      strict="true"/>
+<!--@Location 22,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_8SkuYIBaEei-i7urblJSoA" strict="true"
+      name="SetPersonalDataRequestBOStatusByID" callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper_1PaYMIBbEei-i7urblJSoA"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="PersonalDataRequestID" type="java.lang.String"/>
+    <parameters name="RequestStatusName" type="java.lang.String"/>
+  </nodes>
+<!--@Location 22,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_1PaYMIBbEei-i7urblJSoA">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetPersonalDataRequestBOByID_1Pc0cIBbEei-i7urblJSoA_getPersonalDataRequestBO"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;PersonalDataRequestBORepository&quot;)"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:NamedObject(&quot;GDPRRequestStatusEnumProvider&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="PersonalDataRequestBORepository"/>
+    <returnValueBindings name="OutValue_2" objectPath="GDPRRequestStatusEnumProvider"/>
+  </nodes>
+<!--@Location 22,2-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="GetPersonalDataRequestBOByID_1Pc0cIBbEei-i7urblJSoA">
+    <pipelet href="enfinity:/bc_gdpr/pipelets/com.intershop.component.gdpr.pipelet.GetPersonalDataRequestBOByID.pipelinenode"/>
+    <inConnectors name="getPersonalDataRequestBO"/>
+    <outConnectors name="next">
+      <nodeSuccessors next="KeyMapper_k4_3gIBoEei-i7urblJSoA"/>
+    </outConnectors>
+    <outConnectors name="notFound">
+      <nodeSuccessors next="SetDictionaryValue_ri8R4IBmEei-i7urblJSoA"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 22,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_k4_3gIBoEei-i7urblJSoA">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_xBAyMIBoEei-i7urblJSoA"/>
+    <parameterBindings name="InValue_1" objectPath="GDPRRequestStatusEnumProvider:ByName(&quot;INITIAL&quot;)"/>
+    <parameterBindings name="InValue_2" objectPath="GDPRRequestStatusEnumProvider:ByName(RequestStatusName)"/>
+    <returnValueBindings name="OutValue_1" objectPath="INITIAL_STATUS"/>
+    <returnValueBindings name="OutValue_2" objectPath="RequestStatus"/>
+  </nodes>
+<!--@Location 22,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_xBAyMIBoEei-i7urblJSoA"
+      conditionKey="PersonalDataRequestBO:RequestStatus" operator="str_neq" conditionItem="INITIAL_STATUS">
+    <nodeSuccessors name="decision_yes" next="DecisionNode_DatbcIBrEei-i7urblJSoA"/>
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue_cHkBoIBpEei-i7urblJSoA"/>
+  </nodes>
+<!--@Location 22,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_DatbcIBrEei-i7urblJSoA"
+      conditionKey="RequestStatus">
+    <nodeSuccessors name="decision_yes" next="SetPersonalDataRequestBOStatus_1PeCkIBbEei-i7urblJSoA_setPersonalDataRequestBOStatus"/>
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue_QWt-4IBrEei-i7urblJSoA"/>
+  </nodes>
+<!--@Location 22,7-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="SetPersonalDataRequestBOStatus_1PeCkIBbEei-i7urblJSoA">
+    <pipelet href="enfinity:/bc_gdpr/pipelets/com.intershop.component.gdpr.pipelet.SetPersonalDataRequestBOStatus.pipelinenode"/>
+    <inConnectors name="setPersonalDataRequestBOStatus"/>
+    <outConnectors name="next">
+      <nodeSuccessors next="EndNode_2JOUEIBmEei-i7urblJSoA"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 22,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_2JOUEIBmEei-i7urblJSoA" strict="true"/>
+<!--@Location 23,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue_QWt-4IBrEei-i7urblJSoA">
+    <configurationValues name="Name" value="ERROR_SetRequestStatus"/>
+    <configurationValues name="Value" value="UnknownStatus"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_fGSckIBpEei-i7urblJSoA"/>
+  </nodes>
+<!--@Location 24,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_fGSckIBpEei-i7urblJSoA">
+    <nodeSuccessors name="next" next="EndNode_lmJjUIBmEei-i7urblJSoA"/>
+  </nodes>
+<!--@Location 24,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_lmJjUIBmEei-i7urblJSoA" name="ERROR"
+      strict="true">
+    <returnValues name="ERROR_SetRequestStatus" type="java.lang.String"/>
+  </nodes>
+<!--@Location 23,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue_cHkBoIBpEei-i7urblJSoA">
+    <configurationValues name="Name" value="ERROR_SetRequestStatus"/>
+    <configurationValues name="Value" value="PendingStatus"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 49,11-->
+    <nodeSuccessors name="next" next="JoinNode_fGSckIBpEei-i7urblJSoA"/>
+  </nodes>
+<!--@Location 23,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue_ri8R4IBmEei-i7urblJSoA">
+    <configurationValues name="Name" value="ERROR_SetRequestStatus"/>
+    <configurationValues name="Value" value="PersonalDataRequestNotFound"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 48,5 49,5 49,12-->
+    <nodeSuccessors name="next" next="JoinNode_fGSckIBpEei-i7urblJSoA"/>
+  </nodes>
+</pipeline:Pipeline>

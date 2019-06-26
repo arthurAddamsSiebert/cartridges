@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets all pagelet-usergroup assignment objects which are assigned to a campaign, a given pagelet and a given domain.">
+<parameters>
+    <parameter name="Pagelet" type="com.intershop.component.pmc.capi.pagelet.Pagelet" optional="false"/>
+	<parameter name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Assignments" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletUserGroupAssignmentPO" description="The pagelet-usergroup assignment objects which are assigned to a user group.">
+        <return-attribute name="uuid"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="SharingHelper" input="Repository:RepositoryDomain" processing="ContentSharingHelper"/>
+</processor>
+<template type="countedobjects">
+select usergroup_pa.uuid as uuid, COUNT (*) over() AS "rowcount"
+from usergroup_pa
+ left outer join 
+  campaign ON
+  targetgroupid = usergroup_pa.usergroupid
+where
+  pageletuuid = <template-variable value="Pagelet:UUID"/>
+	<template-if condition="SharingHelper:SharingEnabled">
+		AND usergroup_pa.domainid IN (
+			<template-loop alias="DomainUUID" iterator="SharingHelper:DomainUUIDsAsSet"><loop-statement><template-variable value="DomainUUID"/></loop-statement><loop-separator>,</loop-separator>
+			</template-loop>
+		)
+	<if-else/>
+		AND usergroup_pa.domainid = <template-variable value="Repository:RepositoryDomain:UUID"/>
+	</template-if>
+</template>
+</query>

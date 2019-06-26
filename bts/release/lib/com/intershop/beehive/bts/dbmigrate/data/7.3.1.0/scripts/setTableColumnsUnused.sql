@@ -1,0 +1,1 @@
+-- EXEC staging_ddl.alter_table('StaticAddress', 'SET UNUSED (country)', -904);

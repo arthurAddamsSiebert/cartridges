@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Resolves initial vanity domain requests.
+@Group Application-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="VanityDomainMapping" type="process">
+<!--check enabled start\- and endtime
+if not\-> search for the default link for this domain
+@Location 6,4-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text3" height="1" width="1"/>
+<!--Get the shortlink object by this string
+@Location 6,2-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2" height="1" width="1"/>
+<!--Get the request url
+@Location 6,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1" height="1" width="1"/>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="CheckLinkDate" callMode="Private">
+    <nodeSuccessors name="next" next="Decision5"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision5" conditionKey="ShortLink:Enabled"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="GetCurrentDate1"/>
+    <nodeSuccessors name="decision_no" next="End4"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="Decision4"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision4" conditionKey="ShortLink:StartDate">
+    <nodeSuccessors name="decision_yes" next="Decision3"/>
+<!--@BendPoints 18,7 18,11-->
+    <nodeSuccessors name="decision_no" next="Join4"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="CurrentDate:Time"
+      operator="gte" conditionItem="ShortLink:StartDate:Time">
+    <nodeSuccessors name="decision_yes" next="Join4"/>
+    <nodeSuccessors name="decision_no" next="End3"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+    <nodeSuccessors name="next" next="Decision2"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="ShortLink:EndDate">
+    <nodeSuccessors name="decision_yes" next="Decision1"/>
+<!--@BendPoints 18,13 18,17-->
+    <nodeSuccessors name="decision_no" next="Join3"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="CurrentDate:Time"
+      operator="lte" conditionItem="ShortLink:EndDate:Time">
+    <nodeSuccessors name="decision_yes" next="Join3"/>
+    <nodeSuccessors name="decision_no" next="End2"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2" name="ERROR"/>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3" name="ERROR"/>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4" name="ERROR"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="Resolve">
+<!--@BendPoints 1,2-->
+    <nodeSuccessors name="next" next="DetermineRequestString2"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineRequestString2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/DetermineRequestString.xml"/>
+<!--@BendPoints 1,4-->
+    <nodeSuccessors name="next" next="ResolveShortLink1"/>
+<!--@BendPoints 9,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ResolveShortLink1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ResolveShortLink.xml"/>
+<!--@BendPoints 1,27-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+<!--@BendPoints 4,5 4,17-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <returnValueBindings name="TargetLink" objectPath="TargetURL"/>
+    <returnValueBindings name="TargetLinkObject" objectPath="ShortLink"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 5,28-->
+    <nodeSuccessors name="next" next="InteractionEnd1"/>
+  </nodes>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionEnd1">
+    <template referencedName="application/VanityDomainMapping"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 5,18-->
+    <nodeSuccessors name="next" next="GetDefaultShortLinkForDomain1"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDefaultShortLinkForDomain1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDefaultShortLinkForDomain.xml"/>
+    <nodeSuccessors name="next" next="Call2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="Domain" objectPath="ShortLink:Domain"/>
+    <returnValueBindings name="DefaultShortLink" objectPath="ShortLink"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+<!--@BendPoints 5,22-->
+    <nodeSuccessors name="ERROR" next="Join1"/>
+    <startNode referencedName="VanityDomainMapping-CheckLinkDate"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Join6"/>
+    <parameterBindings name="InValue_1" objectPath="ShortLink:TargetURL"/>
+    <returnValueBindings name="OutValue_1" objectPath="TargetURL"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+<!--@BendPoints 9,28-->
+    <nodeSuccessors name="next" next="InteractionNode1"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode1">
+    <template referencedName="application/URLError"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="Join5"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="ResolveOld" callMode="Private">
+<!--@BendPoints 5,6-->
+    <nodeSuccessors name="next" next="DetermineRequestString1"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineRequestString1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/DetermineRequestString.xml"/>
+    <nodeSuccessors name="next" next="ResolveShortLink2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ResolveShortLink2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ResolveShortLink.xml"/>
+    <nodeSuccessors name="next" next="GetShortLinkByURL1"/>
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+    <parameterBindings name="ShortLink" objectPath="RequestString"/>
+    <returnValueBindings name="TargetLink" objectPath="TargetURL"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetShortLinkByURL1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetShortLinkByURL.xml"/>
+    <nodeSuccessors name="next" next="Call1"/>
+    <nodeSuccessors name="pipelet_error" next="Join5"/>
+    <parameterBindings name="ShortURL" objectPath="RequestString"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+<!--@BendPoints 3,14 3,25-->
+    <nodeSuccessors name="next" next="Join6"/>
+    <nodeSuccessors name="ERROR" next="JoinNode3"/>
+    <startNode referencedName="VanityDomainMapping-CheckLinkDate"/>
+  </nodes>
+</pipeline:Pipeline>

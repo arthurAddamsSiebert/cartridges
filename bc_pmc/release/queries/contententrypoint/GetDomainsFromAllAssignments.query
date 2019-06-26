@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ContentEntryPointUUID" type="java.lang.String" optional="false"/>
+	<parameter name="Domains" type="java.util.Collection" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Domain" type="orm" class="com.intershop.beehive.core.internal.domain.DomainPO">
+		<return-attribute name="DOMAINID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	SELECT DOMAINID, UUID
+	FROM
+	(
+		SELECT spa.domainid AS DOMAINID, spa.uuid AS UUID
+		FROM SLOTPAGELETASSIGNMENT spa
+		WHERE 
+		    spa.PARENTSLOTID = <template-variable value="ContentEntryPointUUID"/>
+		AND
+		    spa.domainid in (<template-loop iterator="Domains:Iterator" alias="Domain"><loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>
+		    )
+	)
+	<sql-dialect name="Microsoft"> 
+		abc
+	</sql-dialect>
+	UNION
+	(
+		SELECT ppa.domainid AS DOMAINID, ppa.uuid AS UUID
+		FROM PAGELETENTRYPOINT_PA ppa
+		WHERE 
+		    ppa.ENTRYPOINTID = <template-variable value="ContentEntryPointUUID"/>
+		AND
+		    ppa.domainid in (<template-loop iterator="Domains:Iterator" alias="Domain"><loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>
+		    )
+	)
+	UNION
+    (
+        SELECT pa.domainid AS DOMAINID, pa.uuid AS UUID
+        FROM PLACEHOLDER_PA pa
+        JOIN PLACEHOLDER_OVERRIDE op on (op.uuid = pa.placeholderid)
+        JOIN placeholderdef_override od on (od.targetSlotId = <template-variable value="ContentEntryPointUUID"/> and od.uuid = op.overrideDefinitionID) 
+        WHERE 
+            pa.domainid in (<template-loop iterator="Domains:Iterator" alias="Domain"><loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+            <loop-separator>,</loop-separator>
+        </template-loop>
+            )
+     )
+</template>
+</query>

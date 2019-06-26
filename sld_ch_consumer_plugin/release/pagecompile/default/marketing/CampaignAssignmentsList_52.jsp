@@ -1,0 +1,51 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><!-- Working Area -->
+<!-- Main Content --><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("text1",context.getFormattedValue(" - ",null) + context.getFormattedValue(localizeText(context.getFormattedValue("CampaignAssignmentsList_52.Content.text1",null)),null)),
+new TagParameter("listview","true"),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewCampaignAssignments_52-ListAll",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("SelectedMenuItem",null),context.getFormattedValue("OnlineMarketing",null))).addURLParameter(context.getFormattedValue("ChannelID",null),context.getFormattedValue(getObject("CurrentChannel:UUID"),null)).addURLParameter(context.getFormattedValue("CampaignUUID",null),context.getFormattedValue(getObject("Campaign:UUID"),null)))),
+new TagParameter("id",getObject("Campaign:UUID")),
+new TagParameter("text",getObject("Campaign:DisplayName"))}, 5); %><!-- Campaign Details Heading --><% URLPipelineAction action592 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewCampaignAssignments_52-DispatchGeneral",null)))),null));String site592 = null;String serverGroup592 = null;String actionValue592 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewCampaignAssignments_52-DispatchGeneral",null)))),null);if (site592 == null){  site592 = action592.getDomain();  if (site592 == null)  {      site592 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup592 == null){  serverGroup592 = action592.getServerGroup();  if (serverGroup592 == null)  {      serverGroup592 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewCampaignAssignments_52-DispatchGeneral",null)))),null));out.print("\"");out.print(" name=\"");out.print("CampaignAssignmentsListFormGeneral");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue592, site592, serverGroup592,true)); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"marketing/inc/CampaignDetailsHeadingInc", null, "9");} %><% out.print("</form>"); %><!-- Tabs --><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"content/Modules", null, "13");} %><% processOpenTag(response, pageContext, "put", new TagParameter[] {
+new TagParameter("name","SelectedTab"),
+new TagParameter("value","Assignments")}, 14); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"marketing/CampaignTabs_52", null, "15");} %><!-- EO Tabs --><% URLPipelineAction action593 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewCampaignAssignments_52-DispatchComponent",null)))),null));String site593 = null;String serverGroup593 = null;String actionValue593 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewCampaignAssignments_52-DispatchComponent",null)))),null);if (site593 == null){  site593 = action593.getDomain();  if (site593 == null)  {      site593 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup593 == null){  serverGroup593 = action593.getServerGroup();  if (serverGroup593 == null)  {      serverGroup593 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewCampaignAssignments_52-DispatchComponent",null)))),null));out.print("\"");out.print(" name=\"");out.print("DeleteCampaignForm");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue593, site593, serverGroup593,true)); %><table border="0" cellpadding="0" cellspacing="0" width="100%">
+<input type="hidden" name="CampaignUUID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("Campaign:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {20}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="hidden" name="ChannelID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentChannel:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {21}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="hidden" name="ContentRepositoryUUID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("ChannelRepository:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {22}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/> 
+<!-- delete error message and delete confirmation for the campaign as a whole --><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("confirmDelete"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",24,e);}if (_boolean_result) { %><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("Campaign:isEnabled"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",25,e);}if (_boolean_result) { %><tr>
+<td>
+<table border="0" cellpadding="4" cellspacing="0" width="100%" class="confirm_box w e s">
+<tr>
+<td class="error_icon e"><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+<td class="confirm" width="100%"><% {out.write(localizeISText("CampaignAssignmentsList_52.UnableToDeleteTheCampaignBecauseItIsEnabledDisable.confirm",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table>
+</td>
+</tr><% } else { %><!-- delete confirmation--><% processOpenTag(response, pageContext, "messagebox", new TagParameter[] {
+new TagParameter("subject",localizeText(context.getFormattedValue("CampaignAssignmentsList_52.Campaign.subject",null))),
+new TagParameter("cancelbtnname","cancelDelete"),
+new TagParameter("okbtnname","delete"),
+new TagParameter("type","sdc")}, 38); %><% } %><% } %></table><% out.print("</form>"); %><table border="0" cellpadding="0" cellspacing="0" width="100%"> 
+<tr>
+<td width="100%" class="table_title2 e s w" colspan="4"><% {out.write(localizeISText("CampaignAssignmentsList_52.ContentAssignment.table_title",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+<tr>
+<td class="table_title_description w e s"><% {out.write(localizeISText("CampaignAssignmentsList_52.AssignCampaignContentToTheDefinedCampaignGroups.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table>
+<div><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="1" height="6" alt="" border="0"/></div><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"marketing/CampaignPromotionAssignmentsList_52", null, "57");} %><table width="100%" border="0" cellspacing="0" cellpadding="0">
+<tr>
+<td>
+<img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="1" height="6" alt="" border="0"/>
+</td>
+</tr>
+</table><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"marketing/CampaignComponentAssignmentsList_52", null, "68");} %><table width="100%" border="0" cellspacing="0" cellpadding="0">
+<tr>
+<td>
+<img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="1" height="6" alt="" border="0"/>
+</td>
+</tr>
+</table><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"marketing/CampaignPageVariantAssignmentsList_52", null, "79");} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/BackToList", null, "81");} %><% printFooter(out); %>

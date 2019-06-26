@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Conditions-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessPromotionPaymentMethodCondition" type="process">
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" strict="true" name="GetPaymentMethods"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetPaymentConfigurationsByDomain1"/>
+<!--Channel domain.-->
+    <parameters name="ChannelDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPaymentConfigurationsByDomain1">
+    <pipelet href="enfinity:/bts/pipelets/GetPaymentConfigurationsByDomain.xml"/>
+    <nodeSuccessors name="next" next="SortIteratorByComparator1"/>
+    <parameterBindings name="Domain" objectPath="ChannelDomain"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SortIteratorByComparator1">
+    <configurationValues name="DefaultSortingAttribute" value="ID"/>
+    <configurationValues name="DefaultSortingOrder" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SortIteratorByComparator.xml"/>
+    <nodeSuccessors name="next" next="LoopNode8"/>
+    <parameterBindings name="Iterator" objectPath="PaymentConfigurations"/>
+    <parameterBindings name="SortingAttribute" nullBinding="true"/>
+    <parameterBindings name="SortingOrder" nullBinding="true"/>
+    <returnValueBindings name="SortedIterator" objectPath="PaymentConfigurations"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode8" loop="PaymentConfigurations">
+<!--@BendPoints 11,7-->
+    <nodeSuccessors name="next" next="EndNode14"/>
+    <entry key="PaymentConfiguration">
+<!--@BendPoints 9,8-->
+      <nodeSuccessors name="loop_entry_next" next="AddEntryToMap5"/>
+    </entry>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+<!--@BendPoints 9,10 8,10 8,7-->
+    <nodeSuccessors name="next" next="LoopNode8_Entry"/>
+    <parameterBindings name="InMap" objectPath="PaymentsMap"/>
+    <parameterBindings name="Key" objectPath="PaymentConfiguration:ID"/>
+    <parameterBindings name="Value" objectPath="PaymentConfiguration"/>
+    <returnValueBindings name="OutMap" objectPath="PaymentsMap"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" strict="true">
+<!--The payment configurations.-->
+    <returnValues name="PaymentConfigurations" type="java.util.Iterator"/>
+<!--map with payments (key=PaymentConfiguration.Id)-->
+    <returnValues name="PaymentsMap" type="java.util.Map"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="Start" callMode="Private">
+<!--@BendPoints 3,2-->
+    <nodeSuccessors name="next" next="DecisionNode16"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode16" conditionKey="addPaymentMethods">
+    <nodeSuccessors name="decision_yes" next="UpdateAssignmentLists1"/>
+<!--@BendPoints 4,3 4,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateAssignmentLists1">
+    <configurationValues name="Sorting" value="true"/>
+    <configurationValues name="UpdateMode" value="Add"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateAssignmentLists.xml"/>
+    <nodeSuccessors name="next" next="SetFormParameterValue3"/>
+    <parameterBindings name="AssignedValuesParameter" objectPath="ConditionForm:PaymentMethods:QualifiedName"/>
+    <parameterBindings name="AvailableValuesParameter" constant="AvailablePaymentMethods"/>
+    <parameterBindings name="ValuesToAddParameter" constant="MethodsToAdd"/>
+    <parameterBindings name="ValuesToRemoveParameter" constant="MethodsToRemove"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetFormParameterValue3">
+    <pipelet href="enfinity:/core/pipelets/SetFormParameterValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="FormParameter" objectPath="ConditionForm:PaymentMethods"/>
+    <parameterBindings name="Value" objectPath="AssignedValues"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="DecisionNode17"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode17" conditionKey="removePaymentMethods">
+<!--@BendPoints 3,12-->
+    <nodeSuccessors name="decision_yes" next="UpdateAssignmentLists2"/>
+<!--@BendPoints 4,11 4,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateAssignmentLists2">
+    <configurationValues name="Sorting" value="true"/>
+    <configurationValues name="UpdateMode" value="Remove"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateAssignmentLists.xml"/>
+    <nodeSuccessors name="next" next="SetFormParameterValue2"/>
+    <parameterBindings name="AssignedValuesParameter" objectPath="ConditionForm:PaymentMethods:QualifiedName"/>
+    <parameterBindings name="AvailableValuesParameter" constant="AvailablePaymentMethods"/>
+    <parameterBindings name="ValuesToAddParameter" constant="MethodsToAdd"/>
+    <parameterBindings name="ValuesToRemoveParameter" constant="MethodsToRemove"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetFormParameterValue2">
+    <pipelet href="enfinity:/core/pipelets/SetFormParameterValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="FormParameter" objectPath="ConditionForm:PaymentMethods"/>
+    <parameterBindings name="Value" objectPath="AssignedValues"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 3,18-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+</pipeline:Pipeline>

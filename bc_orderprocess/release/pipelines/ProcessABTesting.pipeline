@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Handles abtest related functions, that are special to the app_sf_webshop cartridge. Especially the logging of the promotion\-applied\-to\-basket event and of the order events.
+@Group OnlineMarketing-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessABTesting" overrideMode="Inherit" type="process">
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="GetAssignedPromotions"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO2"/>
+    <parameters name="Basket" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO2">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetBasketBO2"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetBasketBO2">
+    <pipelet href="enfinity:/bc_basket/pipelets/GetBasketBO.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+    <parameterBindings name="Basket" objectPath="Basket"/>
+    <parameterBindings name="BasketBORepository" objectPath="ApplicationBO:Extension(&quot;Basket&quot;):getBasketBORepository(CurrentDomain)"/>
+    <returnValueBindings name="BasketBO" objectPath="CartBO"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="LoopNode4"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="PromotionsIterator"/>
+    <returnValueBindings name="OutVector" objectPath="Promotions"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode4" loop="CartBO:Extension(&quot;AppliedRebate&quot;):AppliedPromotions">
+<!--@BendPoints 17,9 17,12-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <entry key="AppliedRebateBO">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode2"/>
+    </entry>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="AppliedRebateBO:RebateBO">
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector2"/>
+<!--@BendPoints 16,11 16,15-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="InVector" objectPath="Promotions"/>
+    <parameterBindings name="Object" objectPath="AppliedRebateBO:RebateBO:PromotionBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="PromotionsIterator"/>
+    <returnValueBindings name="OutVector" objectPath="Promotions"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 14,15 14,9-->
+    <nodeSuccessors name="next" next="LoopNode4_Entry"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="PromotionsIterator"
+      operator="has_elements">
+<!--@BendPoints 17,14-->
+    <nodeSuccessors name="decision_yes" next="EndNode3"/>
+<!--@BendPoints 19,13 19,14-->
+    <nodeSuccessors name="decision_no" next="EndNode2"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+    <returnValues name="PromotionsIterator" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 9,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="EMPTY" strict="true"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode22" strict="true" name="LogOrderEvents"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode4"/>
+<!--@deprecated Provide BasketBO instead.-->
+    <parameters name="Basket" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+<!--@deprecated Provide parameter OrderBO instead.-->
+    <parameters name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"/>
+<!--Ordered Basket-->
+    <parameters name="BasketBO" type="com.intershop.component.basket.capi.BasketBO"
+        optional="true"/>
+<!--Created Order-->
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO" optional="true"/>
+<!--The session-->
+    <parameters name="Session" type="com.intershop.beehive.core.capi.request.Session"
+        optional="true"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+<!--@BendPoints 13,3-->
+    <nodeSuccessors name="ERROR" next="JoinNode4"/>
+    <startNode referencedName="ProcessABTesting-GetCurrentABTestGroupsFromSession"/>
+    <returnValueBindings name="CurrentABTestGroups" objectPath="CurrentABTestGroups"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="OrderBO">
+    <nodeSuccessors name="decision_yes" next="JoinNode0"/>
+    <nodeSuccessors name="decision_no" next="GetApplicationBO0"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="BasketBO">
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+    <nodeSuccessors name="decision_no" next="GetApplicationBO1"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="LogABTestEvent0"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogABTestEvent0">
+    <configurationValues name="Type" value="OrderCreatedEvent"/>
+    <pipelet href="enfinity:/bc_abtest/pipelets/LogABTestEvent.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <parameterBindings name="ABTestGroup" nullBinding="true"/>
+    <parameterBindings name="ABTestGroups" objectPath="CurrentABTestGroups"/>
+    <parameterBindings name="CurrentSession" objectPath="CurrentSession"/>
+    <parameterBindings name="CurrentUser" objectPath="CurrentUser"/>
+    <parameterBindings name="DoubleValue" nullBinding="true"/>
+    <parameterBindings name="MoneyValue" objectPath="OrderBO:GrandTotalGross"/>
+    <parameterBindings name="TestObject" nullBinding="true"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="LoopNode7"/>
+    <parameterBindings name="InValue_1" constant="(Double)0"/>
+    <returnValueBindings name="OutValue_1" objectPath="ItemCount"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode7" loop="OrderBO:ProductLineItemBOs">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <entry key="PLI">
+      <nodeSuccessors name="loop_entry_next" next="CalculateDouble0"/>
+    </entry>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDouble0">
+    <configurationValues name="Operation" value="+"/>
+    <pipelet href="enfinity:/core/pipelets/CalculateDouble.xml"/>
+    <nodeSuccessors name="next" next="CalculateDouble1"/>
+    <parameterBindings name="Operand1" objectPath="ItemCount"/>
+    <parameterBindings name="Operand2" objectPath="PLI:Quantity:Value"/>
+    <returnValueBindings name="Result" objectPath="ItemCount"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDouble1">
+    <configurationValues name="Operand2" value="0"/>
+    <configurationValues name="Operation" value="+"/>
+    <pipelet href="enfinity:/core/pipelets/CalculateDouble.xml"/>
+    <nodeSuccessors name="next" next="GetProductByProductRef1"/>
+    <parameterBindings name="Operand1" objectPath="PLI:Quantity:Value"/>
+    <returnValueBindings name="Result" objectPath="DoubleValue"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByProductRef1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByProductRef.xml"/>
+    <nodeSuccessors name="next" next="LogABTestEvent1"/>
+<!--@BendPoints 11,23 11,27-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="ProductRef" objectPath="PLI:ProductRef"/>
+    <parameterBindings name="ProductRefID" nullBinding="true"/>
+    <parameterBindings name="ProductRefIDs" nullBinding="true"/>
+    <parameterBindings name="ProductRefs" nullBinding="true"/>
+    <returnValueBindings name="Product" objectPath="Product"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogABTestEvent1">
+    <configurationValues name="Type" value="ItemsOrderedEvent"/>
+    <pipelet href="enfinity:/bc_abtest/pipelets/LogABTestEvent.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="ABTestGroup" nullBinding="true"/>
+    <parameterBindings name="ABTestGroups" objectPath="CurrentABTestGroups"/>
+    <parameterBindings name="CurrentSession" objectPath="CurrentSession"/>
+    <parameterBindings name="CurrentUser" objectPath="CurrentUser"/>
+    <parameterBindings name="DoubleValue" objectPath="DoubleValue"/>
+    <parameterBindings name="MoneyValue" objectPath="PLI:Price"/>
+    <parameterBindings name="TestObject" objectPath="Product"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 8,27 8,17-->
+    <nodeSuccessors name="next" next="LoopNode7_Entry"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode26"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode26" strict="true"/>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetBasketBO0"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetBasketBO0">
+    <pipelet href="enfinity:/bc_basket/pipelets/GetBasketBO.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="BasketBORepository" objectPath="ApplicationBO:Repository(&quot;BasketBORepository&quot;)"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetOrderBO0"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderBO0">
+    <pipelet href="enfinity:/bc_order/pipelets/GetOrderBO.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="OrderBORepository" objectPath="ApplicationBO:Repository(&quot;OrderBORepository&quot;)"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="LogPromotionAppliedToBasketEvents"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="CallNode3"/>
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="EMPTY" next="JoinNode1"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+    <startNode referencedName="ProcessABTesting-GetAssignedPromotions"/>
+    <returnValueBindings name="PromotionsIterator" objectPath="Promotions"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <nodeSuccessors name="ERROR" next="JoinNode1"/>
+    <startNode referencedName="ProcessABTesting-GetCurrentAssignedABTestGroupsFromSession"/>
+    <returnValueBindings name="CurrentAssignedABTestGroups" objectPath="CurrentAssignedABTestGroups"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Promotions">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <entry key="Promotion">
+      <nodeSuccessors name="loop_entry_next" next="GetABTestGroupsByObjectAssignment0"/>
+    </entry>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetABTestGroupsByObjectAssignment0">
+    <pipelet href="enfinity:/bc_abtest/pipelets/GetABTestGroupsByObjectAssignment.xml"/>
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="LoopNode3"/>
+<!--@BendPoints 5,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="ABTestGroups" objectPath="CurrentAssignedABTestGroups"/>
+    <parameterBindings name="TestObject" objectPath="Promotion"/>
+    <returnValueBindings name="AssignedABTestGroups" objectPath="AssignedABTestGroups"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="AssignedABTestGroups">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <entry key="AssignedABTestGroup">
+<!--@BendPoints 3,12-->
+      <nodeSuccessors name="loop_entry_next" next="CallNode7"/>
+    </entry>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+<!--@BendPoints 3,14 2,14 2,11-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+    <parameterBindings name="ABTestGroup" objectPath="AssignedABTestGroup"/>
+    <parameterBindings name="TestObject" objectPath="Promotion"/>
+    <startNode referencedName="ProcessABTesting-LogApplyEvent"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 5,15 1,15 1,7-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 6,7-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+</pipeline:Pipeline>

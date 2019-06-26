@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="get all direct user groups">
+<parameters>
+    <parameter name="User" type="com.intershop.beehive.core.capi.user.User" optional="false"/>
+</parameters>
+<processor name="ORM"/>
+<template type="objects">
+
+  SELECT FROM usergroup
+  WHERE EXISTS
+  (
+      SELECT ugua.usergroupid, ugua.usergroupdomainid
+        FROM usergroupuserassignment ugua
+       WHERE ugua.userid = <template-variable value="User:ID"/>
+         AND ugua.usergroupid = this.id
+	     AND ugua.usergroupdomainid = this.domainid
+   UNION ALL
+      SELECT &apos;Everyone&apos;, bp.domainid
+        FROM basicprofile bp
+       WHERE bp.uuid = <template-variable value="User:ID"/>
+	     AND &apos;Everyone&apos; = this.id
+	     AND bp.domainid = this.domainid
+   UNION ALL
+      SELECT &apos;Everyone&apos;, di.domainid
+        FROM domaininformation di
+       WHERE di.domainname = &apos;system&apos;
+         AND &apos;Everyone&apos; = this.id
+         AND di.domainid = this.domainid
+  )
+
+<template-comment>
+
+  There are two basic plans to retrieve affected data for direct
+  usergroups (usergroupuserassignment), default: 1. nested loop driven.
+
+  1. small number of affected usergroups: nested loop driven.
+  2. high number of affected usergroups: usergroup full table scan, throughput bounded.
+
+  ----------------
+  1. NESTED LOOPS:
+  ----------------
+
+  SELECT FROM usergroup
+  WHERE (this.id, this.domainid) IN
+  (
+    SELECT ugua.usergroupid, ugua.usergroupdomainid
+      FROM usergroupuserassignment ugua
+     WHERE ugua.userid = template-variable value="User:ID"
+   UNION ALL
+    SELECT &apos;Everyone&apos;, bp.domainid
+      FROM basicprofile bp
+     WHERE bp.uuid = template-variable value="User:ID"
+   UNION ALL
+    SELECT &apos;Everyone&apos;, di.domainid
+      FROM domaininformation di
+     WHERE di.domainname = &apos;system&apos;
+  )
+
+  Explain plan:
+  -------------
+
+  SELECT STATEMENT
+  WINDOW BUFFER
+    NESTED LOOPS
+     VIEW (VW_NSO_1)
+      HASH UNIQUE
+       UNION-ALL
+        TABLE ACCESS BY INDEX ROWID (USERGROUPUSERASSIGNMENT)
+         INDEX RANGE SCAN (USERGROUPUSERASSIGNMENT_IE999)
+        TABLE ACCESS BY INDEX ROWID (BASICPROFILE)
+         INDEX UNIQUE SCAN (SYS_C00...)
+        TABLE ACCESS BY INDEX ROWID (DOMAININFORMATION)
+         INDEX UNIQUE SCAN (SYS_C00...)
+     TABLE ACCESS BY INDEX ROWID (USERGROUP)
+      INDEX UNIQUE SCAN (SYS_C00...)
+
+  -----------------------------
+  2. FULL TABLE SCAN usergroup:
+  -----------------------------
+
+  SELECT FROM usergroup WHERE
+  EXISTS
+  (
+    SELECT 1
+      FROM usergroupuserassignment ugua
+     WHERE this.domainid = ugua.usergroupdomainid
+       AND this.id       = ugua.usergroupid
+       AND ugua.userid   = template-variable value="User:ID"
+  )
+  OR EXISTS
+  (
+    SELECT 1
+      FROM basicprofile bp
+     WHERE this.domainid = bp.domainid
+       AND this.id       = &apos;Everyone&apos;
+       AND bp.uuid       = template-variable value="User:ID"
+  )
+  OR EXISTS
+  (
+    SELECT 1
+      FROM domaininformation di
+     WHERE this.domainid = di.domainid
+       AND this.id       = &apos;Everyone&apos;
+       AND di.domainname = &apos;system&apos;
+  )
+
+  Explain plan:
+  -------------
+
+  SELECT STATEMENT
+  WINDOW BUFFER
+    FILTER
+     TABLE ACCESS FULL (USERGROUP)
+     INDEX UNIQUE SCAN (SYS_C00...)
+      FILTER
+       TABLE ACCESS BY INDEX ROWID (BASICPROFILE)
+        INDEX UNIQUE SCAN (SYS_C00...)
+       FILTER
+        TABLE ACCESS BY INDEX ROWID (DOMAININFORMATION)
+         INDEX UNIQUE SCAN (SYS_C00...)
+
+</template-comment>
+</template>
+</query>

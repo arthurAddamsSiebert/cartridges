@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductID" type="java.lang.String" optional="false"/>
+	<parameter name="Statuses" type="java.util.Collection" optional="true"/>
+	<parameter name="AuthorID" type="java.lang.String" optional="true"/>
+	<parameter name="ExceptForAuthorID" type="java.lang.String" optional="true"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="RatingComment" type="orm" class="com.intershop.component.rating.orm.internal.RatingCommentPO">
+		<return-attribute name="RatingCommentUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+SELECT rc.uuid AS RatingCommentUUID
+	FROM productratingassignment pra,
+	<template-if condition="isDefined(Statuses) AND hasLoopElements(Statuses)">
+		(
+		<template-call name="GetRatingCommentsByApprovalStatuses">
+			<call-parameter name="Statuses" value="Statuses"/>
+			<call-parameter name="Locale" value="Locale"/>
+		</template-call>
+		) r,
+	</template-if>
+	ratingcomment rc	
+	WHERE 
+	<template-if condition="isDefined(Statuses) AND hasLoopElements(Statuses)">
+		r.RatingCommentUUID = rc.uuid AND
+	</template-if>
+	rc.uuid = pra.ratingcommentuuid
+	AND pra.productuuid = <template-variable value="ProductID"/>
+	
+	<template-if condition="isDefined(AuthorID)">
+		AND rc.authorID = <template-variable value="AuthorID"/>
+	</template-if>
+	
+	<template-if condition="isDefined(ExceptForAuthorID)">
+		AND (rc.authorID != <template-variable value="ExceptForAuthorID"/>  OR rc.authorID IS NULL) 
+	</template-if>
+	
+	<template-if condition="isDefined(Locale)">
+		AND rc.localeID = <template-variable value="Locale:LocaleID"/>
+	</template-if>
+	
+	AND rc.domainid = <template-variable value="Domain:UUID"/>
+</template>
+</query>

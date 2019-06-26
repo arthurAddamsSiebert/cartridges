@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline is used to create and delete reviews.
+@Group REST-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessReviewREST" type="process">
+<!--The pipelet GetReviewByID does throw a null pointer exception 
+when reviewID does not exist. The correct behaviour would be 
+to return null for the dictionary key "ReviewBo"
+
+
+@Location 6,5-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="CreateReview"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+<!--The product for which the review is created-->
+    <parameters name="ProductBO" type="com.intershop.component.product.capi.ProductBO"/>
+<!--The review content-->
+    <parameters name="ReviewContent" type="java.lang.String"/>
+<!--The review title-->
+    <parameters name="ReviewTitle" type="java.lang.String"/>
+<!--the rating value for the review-->
+    <parameters name="RatingValue" type="java.lang.Integer"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <startNode referencedName="ProcessReviewREST-GetUser"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CreateReview0"/>
+    <parameterBindings name="InValue_1" objectPath="ProductBO:Extension(&quot;Review&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="BusinessObjectReviewBORepository"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateReview0">
+    <pipelet href="enfinity:/bc_rating/pipelets/CreateReview.xml"/>
+    <nodeSuccessors name="next" next="UpdateRating0"/>
+    <parameterBindings name="Author" objectPath="UserBO"/>
+    <parameterBindings name="BusinessObjectReviewBORepository" objectPath="ProductBO:Extension(&quot;Review&quot;)"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRating0">
+    <pipelet href="enfinity:/bc_rating/pipelets/UpdateRating.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <parameterBindings name="Rating" objectPath="ReviewBO:RatingBO"/>
+    <parameterBindings name="RatingValue" objectPath="RatingValue"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+<!--The created ReviewBO.-->
+    <returnValues name="ReviewBO" type="com.intershop.component.rating.capi.ReviewBO"/>
+  </nodes>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="DeleteReview"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode2"/>
+<!--The reviewID of the the review to be deleted-->
+    <parameters name="ReviewID" type="java.lang.String"/>
+<!--the product to which the review belongs to-->
+    <parameters name="ProductBO" type="com.intershop.component.product.capi.ProductBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+    <startNode referencedName="ProcessReviewREST-GetUser"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetReviewByID0"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;ProductReview&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ReviewBORepository"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetReviewByID0">
+    <pipelet href="enfinity:/bc_rating/pipelets/GetReviewByID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <returnValueBindings name="Review" objectPath="ReviewBO"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ReviewBO">
+    <nodeSuccessors name="decision_yes" next="DecisionNode0"/>
+<!--@BendPoints 13,13-->
+    <nodeSuccessors name="decision_no" next="EndNode4"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="ReviewBO:AuthorBO:ID"
+      operator="str_eq" conditionItem="UserBO:ID">
+    <nodeSuccessors name="decision_yes" next="DeleteReview0"/>
+<!--@BendPoints 11,15-->
+    <nodeSuccessors name="decision_no" next="EndNode3"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DeleteReview0">
+    <pipelet href="enfinity:/bc_rating/pipelets/DeleteReview.xml"/>
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <parameterBindings name="Review" objectPath="ReviewBO"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="" strict="true"/>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="401" strict="true"/>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="404" strict="true"/>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetUser"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <parameterBindings name="Domain" objectPath="CurrentDomain"/>
+    <parameterBindings name="Request" objectPath="CurrentRequest"/>
+    <startNode referencedName="ProcessOrganization-GetOrganization"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+    <parameterBindings name="InValue_1" objectPath="Organization"/>
+    <returnValueBindings name="OutValue_1" objectPath="CurrentOrganization"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetUserBO0"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserBO0">
+    <pipelet href="enfinity:/bc_user/pipelets/GetUserBO.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <parameterBindings name="UserBORepository" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <parameterBindings name="UserID" objectPath="CurrentUser:ID"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+<!--The UserBO for the current user.-->
+    <returnValues name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+  </nodes>
+</pipeline:Pipeline>

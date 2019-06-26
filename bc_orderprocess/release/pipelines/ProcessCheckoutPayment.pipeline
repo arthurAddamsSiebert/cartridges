@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline includes the main logic pipelines around payment handling. 
+@Group Checkout-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCheckoutPayment" overrideMode="Inherit" type="process">
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use new Payment API with Pipeline bc_payment/staticfiles/cartridge/pipelines/ProcessPayment instead.
+@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="ApplyGiftCard"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode7" action="begin"/>
+    <parameters name="PaymentServiceConfiguration" type="com.intershop.beehive.bts.capi.payment.PaymentServiceConfiguration"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="PIIDataMap" type="java.util.Map&lt;java.lang.String,java.lang.String>"
+        optional="true"/>
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <nodeSuccessors name="ERROR" next="EndNode3" action="rollback"/>
+    <parameterBindings name="Domain" objectPath="Domain"/>
+    <parameterBindings name="PaymentService" objectPath="PaymentServiceConfiguration:PaymentService"/>
+    <startNode referencedName="ProcessPaymentInstrument-CreatePaymentInstrumentInfo"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="CallNode6"/>
+<!--@BendPoints 21,6-->
+    <nodeSuccessors name="ERROR" next="SetDictionaryValue2"/>
+    <startNode referencedName="ProcessPaymentInstrumentAssignment-AtCart"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 17,8-->
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameterBindings name="PaymentInstrumentInfo" objectPath="CartPII"/>
+    <startNode referencedName="ProcessPayment-AssignPIItoCart"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="PaymentTenderBalanceResult:TenderBalance:CurrencyMnemonic"
+      operator="str_eq" conditionItem="Cart:PurchaseCurrencyCode">
+<!--@BendPoints 17,10-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode1"/>
+<!--@BendPoints 18,9-->
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue0"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="PaymentTenderBalanceResult:TenderBalance:Value"
+      operator="neq" conditionValue="0.0">
+<!--@BendPoints 17,14-->
+    <nodeSuccessors name="decision_yes" next="JoinNode2" action="commit"/>
+<!--@BendPoints 18,11-->
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue1"/>
+  </nodes>
+<!--@Location 9,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 9,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true">
+    <returnValues name="ERROR_currencyMismatch" type="java.lang.String" optional="true"/>
+    <returnValues name="ERROR_zeroAmountPII" type="java.lang.String" optional="true"/>
+    <returnValues name="ERROR_duplicateGiftCard" type="java.lang.String" optional="true"/>
+    <returnValues name="RemovedPaymentInstrumentInfoUUID" type="java.lang.String"
+        optional="true"/>
+    <returnValues name="PaymentTenderBalanceResult" type="com.intershop.beehive.bts.capi.payment.TenderBalanceResult"
+        optional="true"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="ERROR_zeroAmountPII"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 21,12-->
+    <nodeSuccessors name="next" next="CallNode5"/>
+  </nodes>
+<!--@Location 10,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+<!--@BendPoints 21,14-->
+    <nodeSuccessors name="next" next="JoinNode2" action="commit"/>
+    <startNode referencedName="ProcessPayment-RemovePaymentInstrumentInfo"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue0">
+    <configurationValues name="Name" value="ERROR_currencyMismatch"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="ERROR_duplicateGiftCard"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="Error" strict="true">
+    <returnValues name="PIIDataVerificationResult" type="com.intershop.beehive.bts.capi.payment.PIIDataVerificationResult"/>
+  </nodes>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use new Payment API with Pipeline bc_payment/staticfiles/cartridge/pipelines/ProcessPayment instead.
+@Location 12,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="CheckDefaultUserSettings"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode9"/>
+    <parameters name="BasketBO" type="com.intershop.component.basket.capi.BasketBO"/>
+  </nodes>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <startNode referencedName="ProcessPayment-GetPaymentsFromBasket"/>
+  </nodes>
+<!--@Location 12,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="PaymentBOs"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="JoinNode6"/>
+    <nodeSuccessors name="decision_no" next="CheckForZeroMoney0"/>
+  </nodes>
+<!--@Location 12,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 12,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--Don't create payment if basket
+value is zero.
+@Location 13,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForZeroMoney0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForZeroMoney.xml"/>
+<!--@BendPoints 29,5-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <nodeSuccessors name="pipelet_error" next="CallNode10"/>
+    <parameterBindings name="MoneyToCheck" objectPath="BasketBO:BasketTotalPriceMinusLimitedTenderGross"/>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 14,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 29,13-->
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="CallNode11"/>
+    <nodeSuccessors name="Error" next="JoinNode8"/>
+    <parameterBindings name="UserBO" objectPath="BasketBO:UserBO"/>
+    <startNode referencedName="This:GetDefaultUserPaymentInstrument"/>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <nodeSuccessors name="Error" next="JoinNode7"/>
+    <startNode referencedName="ProcessPayment-CreatePayment"/>
+  </nodes>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="Basket" nullBinding="true"/>
+    <startNode referencedName="ProcessBasketInvalidation-InvalidateBasketCalculation"/>
+  </nodes>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use new Payment API with Pipeline bc_payment/staticfiles/cartridge/pipelines/ProcessPayment instead.
+
+Creates the PaymentInstrumentInfo after a redirect from the payment provider
+@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CreatePIIFromRedirectByRequisition"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode3"/>
+<!--The current cart-->
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+<!--The current domain-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--Verification results of the PII data-->
+    <parameters name="PIIDataVerificationResult" type="com.intershop.beehive.bts.capi.payment.PIIDataVerificationResult"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <startNode referencedName="ProcessCheckoutPayment-RemovePIIFromCart"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+<!--@BendPoints 7,5 7,11-->
+    <nodeSuccessors name="ERROR" next="JoinNode3"/>
+    <parameterBindings name="CurrentDomain" objectPath="Domain"/>
+    <parameterBindings name="PIIDataMap" objectPath="PIIDataVerificationResult:Values"/>
+    <parameterBindings name="PaymentService" objectPath="PIIDataVerificationResult:PaymentService"/>
+    <parameterBindings name="Requisition" objectPath="Cart"/>
+    <startNode referencedName="ProcessPaymentInstrument-CreatePaymentInstrumentInfoByRequisition"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+<!--The adjusted cart-->
+    <returnValues name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+  </nodes>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use new Payment API with Pipeline bc_payment/staticfiles/cartridge/pipelines/ProcessPayment instead.
+
+Creates the PaymentInstrumentInfo after a redirect from the payment provider
+@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="CreatePIIFromRedirectByUser"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+<!--The current cart-->
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+<!--The current domain-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--Verification results of the PII data-->
+    <parameters name="PIIDataVerificationResult" type="com.intershop.beehive.bts.capi.payment.PIIDataVerificationResult"/>
+<!--The current user-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <startNode referencedName="ProcessCheckoutPayment-RemovePIIFromCart"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="ClonePaymentInstrumentInfo0"/>
+<!--@BendPoints 3,5 3,11-->
+    <nodeSuccessors name="ERROR" next="JoinNode1"/>
+    <parameterBindings name="CurrentDomain" objectPath="Domain"/>
+    <parameterBindings name="CurrentUser" objectPath="User"/>
+    <parameterBindings name="PIIDataMap" objectPath="PIIDataVerificationResult:Values"/>
+    <parameterBindings name="PaymentService" objectPath="PIIDataVerificationResult:PaymentService"/>
+    <startNode referencedName="ProcessPaymentInstrument-CreatePaymentInstrumentInfoByUser"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ClonePaymentInstrumentInfo0">
+    <pipelet href="enfinity:/bts/pipelets/ClonePaymentInstrumentInfo.xml"/>
+    <nodeSuccessors name="next" next="SetPaymentInstrumentInfoOwner0"/>
+    <parameterBindings name="OriginalPaymentInstrumentInfo" objectPath="PaymentInstrumentInfo"/>
+    <returnValueBindings name="ClonedPaymentInstrumentInfo" objectPath="ClonedPII"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetPaymentInstrumentInfoOwner0">
+    <pipelet href="enfinity:/bts/pipelets/SetPaymentInstrumentInfoOwner.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+    <parameterBindings name="Domain" nullBinding="true"/>
+    <parameterBindings name="PaymentInstrumentInfo" objectPath="ClonedPII"/>
+    <parameterBindings name="User" nullBinding="true"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+<!--The adjusted cart-->
+    <returnValues name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+  </nodes>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use new Payment API with Pipeline bc_payment/staticfiles/cartridge/pipelines/ProcessPayment instead.
+@Location 15,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="GetDefaultUserPaymentInstrument"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetUserDefaultPaymentInstrumentBO0"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+  </nodes>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserDefaultPaymentInstrumentBO0">
+    <pipelet href="enfinity:/bc_orderprocess/pipelets/GetUserDefaultPaymentInstrumentBO.xml"/>
+    <nodeSuccessors name="next" next="EndNode7"/>
+<!--@BendPoints 33,3-->
+    <nodeSuccessors name="pipelet_error" next="EndNode6"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true">
+    <returnValues name="PaymentInstrumentBO" type="com.intershop.component.payment.capi.PaymentInstrumentBO"/>
+  </nodes>
+<!--@Location 16,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="Error" strict="true"/>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use new Payment API with Pipeline bc_payment/staticfiles/cartridge/pipelines/ProcessPayment instead.
+
+Removes all PII stored at the given cart object
+@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="RemovePIIFromCart"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode2"/>
+<!--The cart to remove the PII from-->
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Cart:PaymentInstrumentInfo">
+<!--@BendPoints 13,3-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <entry key="RemovePII">
+      <nodeSuccessors name="loop_entry_next" next="RemovePaymentInstrumentInfo2"/>
+    </entry>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemovePaymentInstrumentInfo2">
+    <pipelet href="enfinity:/bts/pipelets/RemovePaymentInstrumentInfo.xml"/>
+<!--@BendPoints 9,5 9,3-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <parameterBindings name="PaymentInstrumentInfo" objectPath="RemovePII"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+<!--The adjusted cart-->
+    <returnValues name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+  </nodes>
+</pipeline:Pipeline>

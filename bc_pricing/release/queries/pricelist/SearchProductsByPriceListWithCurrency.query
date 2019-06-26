@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="PriceList" type="com.intershop.component.pricing.capi.pricelist.PriceList" optional="false"/>
+    <parameter name="Currency" type="com.intershop.beehive.core.capi.currency.Currency" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+    <parameter name="SearchExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="SortByProduct" type="java.lang.String" optional="true"/>
+    <parameter name="SortByListPrice" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="count" type="rename">
+        <return-attribute name="count"/>
+    </return-mapping>
+    <return-mapping name="Product" type="provider" class="ProductViewProvider">
+        <return-attribute name="UUID"/>
+        <return-attribute name="DOMAINID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="SearchExpressionc" input="SearchExpression" processing="SearchExpression2Contains"/>
+</processor>
+<template type="count">
+    SELECT count(p.uuid) as count 
+    FROM ( 
+    <template-call name="product/GetProductsByAdvancedSearch">
+        <call-parameter name="ProductDomain" value="PriceList:Domain"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+        <call-parameter name="NameOrID" value="SearchExpression"/>
+    </template-call>
+    ) p
+       WHERE p.uuid IN
+                (
+                    SELECT psa.PRODUCTUUID from pricescaletableassignment psa,  pricescaletable ps
+                    WHERE psa.PRICELISTUUID = <template-variable value="PriceList:UUID"/>
+                        AND psa.PRODUCTUUID = p.uuid
+                        AND psa.PRICESCALETABLEUUID = ps.uuid  
+                        AND ps.CURRENCYCODE = <template-variable value="Currency:Mnemonic"/>
+                )
+</template>
+<template type="objects">
+SELECT
+    p.uuid AS UUID,
+    <template-variable value="PriceList:DomainID"/> AS DOMAINID,
+    <template-if condition="isDefined(SortByListPrice)">
+        pl.VALUE AS SORTING
+    <if-else/>
+        p.sorting AS SORTING
+    </template-if>
+FROM
+    (
+    <template-call name="product/GetProductsByAdvancedSearch">
+        <call-parameter name="ProductDomain" value="PriceList:Domain"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+        <call-parameter name="NameOrID" value="SearchExpression"/>
+        <call-parameter name="SortAttribute" value="SortByProduct"/>
+    </template-call>
+    ) p
+    <template-if condition="isDefined(SortByListPrice)">
+        LEFT OUTER JOIN   
+        (
+            <template-call name="price/GetListPricesByDomain">
+                <call-parameter name="ProductDomain" value="PriceList:Domain"/>
+            </template-call>
+        ) pl
+        ON pl.PRODUCTID = p.uuid AND pl.CURRENCY = <template-variable value="Currency:Mnemonic"/>
+    </template-if>
+WHERE p.uuid IN
+        (
+            SELECT psa.PRODUCTUUID
+            FROM pricescaletableassignment psa,  pricescaletable ps 
+            WHERE psa.PRICELISTUUID = <template-variable value="PriceList:UUID"/>
+                AND psa.PRODUCTUUID = p.uuid
+                AND psa.PRICESCALETABLEUUID = ps.uuid  
+                AND ps.CURRENCYCODE = <template-variable value="Currency:Mnemonic"/>
+        )        
+    <sql-dialect name="Oracle">
+		ORDER BY SORTING 
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+			desc NULLS LAST
+		<if-else />
+			asc NULLS LAST
+		</template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		ORDER BY 
+		<template-if condition="isDefined(SortByListPrice)">
+			CASE WHEN pl.VALUE IS NULL THEN 1 ELSE 0 END ASC, pl.VALUE 
+		<if-else/>
+			CASE WHEN p.sorting IS NULL THEN 1 ELSE 0 END ASC, p.sorting 
+		</template-if>
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+				DESC 
+			<if-else/>
+				ASC 
+		</template-if>
+	</sql-dialect>
+</template>
+</query>
+
+
+

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+    <parameters>
+        <parameter name="ObjectDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    </parameters>
+    <processor name="OracleSQL">
+        <processor-preprocessing output="SharingHelper" input="ObjectDomain" processing="ContentSharingHelper"/>
+        <processor-preprocessing output="PageletModelRepository" input="ObjectDomain" processing="PageletModelRepositoryHelper"/>
+    </processor>
+    <template type="objects">
+  SELECT 
+    sum(contexts) AS "ROWCOUNT1"
+
+  FROM  (
+    SELECT 
+        count(pep.uuid) AS contexts
+    FROM 
+        ViewContext pep
+    WHERE  
+        pep.domainid = <template-variable value="ObjectDomain:UUID"/> AND
+        pep.systemmanagedflag=1
+    UNION ALL
+        SELECT 
+            count(pep1.uuid) AS contexts
+        FROM 
+            ViewContext pep1 
+        WHERE  
+            pep1.domainid IN (
+                <template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain">
+                    <loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+                    <loop-separator>,</loop-separator>
+                </template-loop>) AND
+            pep1.systemmanagedflag=0 AND
+            pep1.resourceSetId IN 
+            (
+                <template-loop iterator="PageletModelRepository:ResourceSetIds" alias="SetId">
+                     <loop-statement><template-variable value="SetId"/></loop-statement>
+                     <loop-separator>,</loop-separator>
+                </template-loop>
+            )
+  ) a     
+    </template>
+</query>

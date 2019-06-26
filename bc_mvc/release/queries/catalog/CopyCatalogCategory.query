@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query was used in the old Procurement system to copy the catalog category from the source catalog to the target catalog. It will be removed when the other not used artifacts from the old Procurement system are deleted">
+<parameters>
+	<parameter name="targetRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="sourceRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+</parameters>
+
+<processor name="JDBC">
+</processor>
+<template sqlDialect="Oracle">
+insert into CatalogCategory (UUID, DOMAINID, NAME, ONLINEFLAG, POSITION, LASTMODIFIED, OCA)  
+       select 'CC_'||sf_create_uuid('A', 24),
+           <template-variable value="targetRoot:Domain:UUID"/>,
+           sc.name||'@'||<template-variable value="sourceRoot:Domain:UUID"/>, 
+           1,
+           sc.POSITION,
+           UTCTIMESTAMP(),
+           1
+       from CatalogCategory sc
+       where sc.uuid &lt;&gt; <template-variable value="sourceRoot:UUID"/>
+           and not exists (select * from CatalogCategory tc
+                           where tc.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+                               and tc.name = (sc.name||'@'||<template-variable value="sourceRoot:Domain:DomainName"/>) )
+       start with sc.uuid in (<template-variable value="sourceRoot:UUID"/>)
+       connect by sc.PARENTCATEGORYID = prior sc.uuid and sc.ONLINEFLAG = 1
+</template>
+<template sqlDialect="Microsoft">
+WITH n(uuid, domainid, name, onlineflag, position, lastmodified, oca) AS (
+                 SELECT 'CC_' + dbo.sf_create_uuid(), <template-variable value="sourceRoot:Domain:UUID"/>,
+                  sc.name + '@' + <template-variable value="sourceRoot:Domain:DomainName"/>, 1, 
+                 	sc.POSITION, GetUTCDate(), 1 
+                 FROM CatalogCategory sc
+                 WHERE NOT EXISTS(
+                  SELECT *
+                  FROM CatalogCategory tc 
+                  WHERE tc.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+                  	AND tc.name =(sc.name + '@' + <template-variable value="sourceRoot:Domain:DomainName"/>) )
+                  	AND sc.uuid in(<template-variable value="sourceRoot:UUID"/>) AND sc.onlineflag = 1 
+              UNION ALL
+                  SELECT 'CC_' + dbo.sf_create_uuid(), <template-variable value="targetRoot:Domain:UUID"/>,
+                  	sc2.name + '@' + <template-variable value="sourceRoot:Domain:DomainName"/>, 1, sc2.POSITION,
+                  	GetUTCDate(), 1 
+                  FROM CatalogCategory sc2, n
+                  WHERE sc2.parentcategoryid = n.uuid)
+INSERT INTO CatalogCategory(UUID, DOMAINID, NAME, ONLINEFLAG, POSITION, 
+	LASTMODIFIED, OCA) 
+SELECT n.uuid, n.domainid, n.name, n.onlineflag, n.position, n.lastmodified, n.oca 
+FROM n 
+where n.uuid &lt;&gt; <template-variable value="sourceRoot:UUID"/>
+</template>
+</query>

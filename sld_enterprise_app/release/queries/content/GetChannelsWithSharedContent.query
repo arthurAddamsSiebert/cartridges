@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="ContentSourceDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="OwningDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="WithoutSharedContent" type="java.lang.Boolean" optional="true"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Channel" type="orm" class="com.intershop.component.mvc.internal.catalog.RepositoryPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL" />
+<template type="countedobjects">
+	SELECT channel.uuid, COUNT(channel.uuid) OVER() AS "ROWCOUNT" 
+	    <template-if condition="SortBy eq &apos;name&apos; OR SortBy eq &apos;namelink&apos;">
+		, channel_av.stringvalue AS sorting
+	<if-elseif condition="SortBy eq &apos;id&apos;"/>
+		, channel.id AS sorting
+	<if-elseif condition="SortBy eq &apos;Type&apos;"/>
+		, ctav.stringvalue AS sorting
+	</template-if>
+	    FROM repository channel
+	    <template-if condition="SortBy eq &apos;name&apos; OR SortBy eq &apos;namelink&apos;">
+		LEFT OUTER JOIN repository_av channel_av ON (channel_av.ownerid=channel.uuid AND channel_av.name=&apos;displayName&apos; AND channel_av.localeid=<template-variable value="Locale:LocaleID"/>)
+	</template-if>
+	    <template-if condition="SortBy eq &apos;Type&apos;">
+		            inner join channeltype ct on ct.CHANNELTYPECODE =  channel.typecode
+		            left outer join channeltype_av ctav on (ctav.ownerid=ct.uuid AND ctav.name=&apos;displayName&apos; AND ctav.localeid=<template-variable value="Locale:LocaleID"/>)
+	</template-if>		
+	    WHERE channel.typecode IN (32, 42, 52)
+	    AND channel.domainid = <template-variable value="OwningDomain:UUID"/>
+	    AND <template-if condition="isDefined(WithoutSharedContent) and WithoutSharedContent">NOT</template-if>
+	    EXISTS
+	    (
+	      SELECT 1
+	        FROM repository master 
+	        JOIN repository sharedInChannel ON (master.repositorydomainid = sharedInChannel.repositorydomainid)
+	       WHERE master.repositorydomainid = <template-variable value="ContentSourceDomain:UUID"/>
+	         AND sharedInChannel.domainid  = channel.repositorydomainid
+	         AND sharedInChannel.proxyflag = 1
+	         AND master.typecode = 21 
+	 AND master.proxyflag = 0
+	         AND sharedInChannel.typecode = 27
+	    )   
+	    <template-if condition="isDefined(SortBy)">
+		ORDER BY sorting
+		<template-if condition="SortDirection eq &apos;ascending&apos;">
+			ASC
+		<if-else/>
+			DESC
+		</template-if>
+	</template-if>
+</template>
+</query>

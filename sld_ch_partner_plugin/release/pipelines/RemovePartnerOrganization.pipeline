@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Organization-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="RemovePartnerOrganization" type="extension">
+<!--This is not a fake! Under some circumstances the channel repository is processed by the loop before the channel recycle bin repository is processed. When the channel rep is processed the site of the channel rep (channel site) and all subunits of the site are set "To Be Deleted". Since the domain of the channel recycle bin rep is a subunit of the channel site it is also set "To Be Deleted". Later one asking the channel recyle bin rep for its domain returns null.
+@Location 5,14-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1" height="1" width="1"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" strict="true" name="Start"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Decision2"/>
+<!--The organization that is to be removed.-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="Organization:TypeCode"
+      operator="eq" conditionValue="30">
+    <nodeSuccessors name="decision_yes" next="Decision1"/>
+    <nodeSuccessors name="decision_no" next="End2"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="DeletionStack"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="CreateStack1"/>
+<!--@BendPoints 4,5 4,9-->
+    <nodeSuccessors name="decision_no" next="Join2"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStack1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStack.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+    <returnValueBindings name="Stack" objectPath="DeletionStack"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="ManipulateStack2"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack2">
+    <configurationValues name="ProcessMethod" value="PUSH"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="GetRepositories1"/>
+    <parameterBindings name="AddElement" objectPath="Organization"/>
+    <parameterBindings name="Stack" objectPath="DeletionStack"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositories1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositories.xml"/>
+    <nodeSuccessors name="next" next="ManipulateStack5"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Organization:Domain"/>
+    <returnValueBindings name="Repositories" objectPath="DeleteRepositories"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack5">
+    <configurationValues name="ProcessMethod" value="PUSH"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+    <parameterBindings name="AddElement" objectPath="DeleteRepositories"/>
+    <parameterBindings name="Stack" objectPath="DeletionStack"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="DeleteRepositories">
+<!--@BendPoints 15,17 15,18-->
+    <nodeSuccessors name="next" next="ManipulateStack3"/>
+    <entry key="DeleteRepository">
+      <nodeSuccessors name="loop_entry_next" next="ExecuteCartridgePipelines1"/>
+    </entry>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCartridgePipelines1">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelinePropertyName" value="ChannelDeletionHook"/>
+    <configurationValues name="ProcessReversely" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCartridgePipelines.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+<!--@BendPoints 5,19 5,21-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="ManipulateStack4"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack4">
+    <configurationValues name="ProcessMethod" value="PEEK"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="Decision3"/>
+    <parameterBindings name="Stack" objectPath="DeletionStack"/>
+    <returnValueBindings name="GetElement" objectPath="DeleteRepositories"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="DeleteRepository:TypeCode"
+      operator="neq" conditionValue="21">
+    <nodeSuccessors name="decision_yes" next="Decision4"/>
+<!--@BendPoints 7,25-->
+    <nodeSuccessors name="decision_no" next="Join7"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision4" conditionKey="DeleteRepository:TypeCode"
+      operator="neq" conditionValue="22">
+    <nodeSuccessors name="decision_yes" next="SetDomainStatus3"/>
+    <nodeSuccessors name="decision_no" next="Join7"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDomainStatus3">
+    <configurationValues name="DefaultStatus" value="ToBeDeleted"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDomainStatus.xml"/>
+<!--@BendPoints 3,33-->
+    <nodeSuccessors name="next" next="Join1"/>
+    <parameterBindings name="Domain" objectPath="DeleteRepository:Domain:Site"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+<!--@BendPoints 7,32 2,32 2,17-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+    <nodeSuccessors name="next" next="Decision5"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision5" conditionKey="DeleteRepository:Domain">
+    <nodeSuccessors name="decision_yes" next="SetDomainStatus2"/>
+<!--@BendPoints 8,29 8,33-->
+    <nodeSuccessors name="decision_no" next="Join1"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDomainStatus2">
+    <configurationValues name="DefaultStatus" value="ToBeDeleted"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDomainStatus.xml"/>
+    <nodeSuccessors name="next" next="Join1"/>
+    <parameterBindings name="Domain" objectPath="DeleteRepository:Domain"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack3">
+    <configurationValues name="ProcessMethod" value="POP"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+<!--@BendPoints 15,20-->
+    <nodeSuccessors name="next" next="ManipulateStack1"/>
+    <parameterBindings name="Stack" objectPath="DeletionStack"/>
+    <returnValueBindings name="GetElement" objectPath="DeleteRepositories"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack1">
+    <configurationValues name="ProcessMethod" value="POP"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="GetCatalogs1"/>
+    <parameterBindings name="Stack" objectPath="DeletionStack"/>
+    <returnValueBindings name="GetElement" objectPath="Organization"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogs1">
+    <configurationValues name="CatalogType" value="All"/>
+    <configurationValues name="OnlineOnly" value="False"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogs.xml"/>
+    <nodeSuccessors name="next" next="Loop2"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Organization:Domain"/>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="Catalogs">
+    <nodeSuccessors name="next" next="End1"/>
+    <entry key="Catalog">
+      <nodeSuccessors name="loop_entry_next" next="Decision6"/>
+    </entry>
+  </nodes>
+<!--@Location 7,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision6" conditionKey="Catalog:isProxy"
+      operator="str_neq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="SetDomainStatus1"/>
+<!--@BendPoints 16,27 16,31-->
+    <nodeSuccessors name="decision_no" next="Join3"/>
+  </nodes>
+<!--@Location 7,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDomainStatus1">
+    <configurationValues name="DefaultStatus" value="ToBeDeleted"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDomainStatus.xml"/>
+    <nodeSuccessors name="next" next="Join3"/>
+    <parameterBindings name="Domain" objectPath="Catalog:Domain"/>
+  </nodes>
+<!--@Location 7,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+<!--@BendPoints 15,34 14,34 14,25-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+  </nodes>
+<!--@Location 8,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1" name="next" strict="true"/>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2" name="next" strict="true"/>
+</pipeline:Pipeline>

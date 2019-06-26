@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Search promotions for export">
+<parameters>
+	<parameter name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration" optional="false"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Promotion" type="orm" class="com.intershop.component.marketing.internal.rebate.PromotionPO">
+		<return-attribute name="PROMOTIONUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+	<sql-dialect name="Microsoft">
+		SELECT PROMOTIONUUID, COUNT(*) over() AS "ROWCOUNT", SORTING FROM ( 
+	</sql-dialect>
+	SELECT DISTINCT(p.uuid) as PROMOTIONUUID, 
+	<sql-dialect name="Oracle">
+		COUNT(*) over() AS "ROWCOUNT",
+	</sql-dialect>
+	<template-if condition="NOT isDefined(SortBy) OR SortBy EQ &apos;PromotionName&apos;">
+		pav1.stringvalue 
+	</template-if>	
+	<template-if condition="SortBy EQ &apos;StartDate&apos;">
+		p.StartDate 
+	</template-if>
+	<template-if condition="SortBy EQ &apos;EndDate&apos;">
+		p.EndDate 
+	</template-if>
+	<template-if condition="SortBy EQ &apos;Status&apos;">
+		p.EnabledFlag 
+	</template-if>
+	<template-if condition="SortBy EQ &apos;Type&apos;">
+		(SELECT ract.actiondescriptorid
+		  FROM rebate reb
+		  LEFT OUTER JOIN rebateaction ract ON (ract.rebateid = reb.uuid)
+		  WHERE reb.promotionuuid = p.uuid AND reb.position = 0
+		 )
+	</template-if> 
+	<template-if condition="SortBy EQ &apos;Rank&apos;">
+		p.rank
+	</template-if> 
+	<template-if condition="SortBy EQ &apos;Edited&apos;">
+		case when pav2.datevalue is null then p.lastmodified else pav2.datevalue end
+	</template-if> 
+		as SORTING
+	    FROM promotion p 
+		<template-if condition="NOT isDefined(SortBy) OR SortBy EQ &apos;PromotionName&apos;">
+	 		LEFT OUTER JOIN promotion_av pav1 ON (
+	 			pav1.ownerid = p.uuid
+				and pav1.name = &apos;displayName&apos;
+				and pav1.localeid = <template-variable value="Locale:LocaleID"/>			
+			)
+		</template-if>	
+		<template-if condition="SortBy EQ &apos;Edited&apos;">
+		    LEFT OUTER JOIN promotion_av pav2  ON (pav2.ownerid = p.uuid and pav2.name=&apos;EditedDate&apos;)
+		</template-if>
+		WHERE    
+       		 p.domainid=<template-variable value="Domain:UUID"/>
+		<template-if condition="isDefined(JobConfiguration:StaticAssignments)">
+			<sql-dialect name="Oracle">
+				and instr(<template-variable value="JobConfiguration:StaticAssignments"/>, p.uuid) &gt; 0
+			</sql-dialect>
+			<sql-dialect name="Microsoft">
+				and CHARINDEX(p.uuid, <template-variable value="JobConfiguration:StaticAssignments"/>) &gt; 0
+			</sql-dialect>
+		<if-else/>
+			and 1=2
+		</template-if>
+		<sql-dialect name="Microsoft">
+			) a
+			ORDER BY CASE WHEN SORTING IS NULL THEN 1 ELSE 0 END 
+			<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;"> 
+				ASC, SORTING DESC 
+			<if-else/>
+				DESC, SORTING ASC 
+			</template-if>
+		</sql-dialect>
+		<sql-dialect name="Oracle">
+			ORDER BY SORTING 
+			<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;"> 
+				DESC NULLS LAST
+			<if-else/>
+				ASC NULLS FIRST
+			</template-if>
+		</sql-dialect>
+</template>
+</query>

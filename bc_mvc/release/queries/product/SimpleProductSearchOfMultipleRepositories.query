@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductRepositories" type="java.util.Iterator" optional="false"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+    <parameter name="SortLocalizedFlag" type="java.lang.Integer" optional="true"/>
+	<parameter name="Filters" type="java.util.Iterator" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Product" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+SELECT
+    p.uuid AS UUID,
+	<template-variable value="ProductDomain:UUID"/> AS DOMAINID,
+	COUNT(p.UUID) OVER() AS "ROWCOUNT",
+	<template-if condition="SortBy EQ 'value'">
+		pl.value AS SORTING
+	<if-else/>
+        <template-call name="product/inc/ProductSorting">
+            <call-parameter name="ProductAlias" value="'p'"/>
+            <call-parameter name="SortAttribute" value="SortAttribute"/>
+            <call-parameter name="SortAttributeType" value="SortAttributeType"/>
+            <call-parameter name="SortAttributeLocalizedFlag" value="SortAttributeLocalizedFlag"/>
+            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+        </template-call> AS SORTING
+	</template-if>
+FROM
+	product p
+	<template-if condition="SortBy EQ 'value'">
+		, productlistprice pl
+	</template-if>	
+WHERE
+	p.domainid IN
+	(
+		<template-loop iterator="ProductRepositories" alias="Repository">
+			<loop-statement>
+			<template-variable value="Repository:DomainID"/>
+			</loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>
+	)
+	<template-if condition="SortBy EQ 'value'">
+	    AND (pl.currency = <template-variable value="Currency"/> OR pl.currency IS NULL)
+		AND (p.uuid = pl.productid OR pl.productid IS NULL)
+	</template-if>	
+    <template-call name="product/inc/NameOrIDFilter">
+        <call-parameter name="ProductAlias" value="'p'"/>
+        <call-parameter name="NameOrID" value="NameOrID"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+    </template-call>
+    <template-if condition="isDefined(Filters) AND hasElements(Filters)">
+		AND EXISTS (SELECT * FROM product_ra ra 
+						WHERE p.uuid = ra.ao_uuid
+						<sql-dialect name="Oracle">
+							AND (ra.usergroupid, ra.usergroupdomainid) IN (
+								<template-loop iterator="Filters" alias="Filter">
+									<loop-statement>
+										(<template-variable value="Filter:FilterGroup:ID"/>, <template-variable value="Filter:FilterGroup:DomainID"/>)
+									</loop-statement>
+									<loop-separator>,</loop-separator>
+								</template-loop>
+								)
+						</sql-dialect>
+						<sql-dialect name="Microsoft">
+							AND (
+								<template-loop iterator="Filters" alias="Filter">
+									<loop-statement>
+										(ra.usergroupid = <template-variable value="Filter:FilterGroup:ID"/> AND ra.usergroupdomainid = <template-variable value="Filter:FilterGroup:DomainID"/>)
+									</loop-statement>
+									<loop-separator>AND</loop-separator>
+								</template-loop>
+								)
+						</sql-dialect>
+						)
+		
+    </template-if>
+	<sql-dialect name="Oracle">
+		ORDER BY SORTING
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+				DESC NULLS FIRST
+				<if-else/>
+				ASC NULLS LAST
+			</template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		ORDER BY 
+		<template-if condition="SortBy EQ 'value'">
+			CASE WHEN pl.value IS NULL THEN 1 ELSE 0 END 
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+				DESC, pl.value DESC
+			<if-else/>
+				ASC, pl.value ASC
+			</template-if>
+		<if-else/>
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+				DESC, <template-call name="product/inc/ProductSorting">
+					<call-parameter name="ProductAlias" value="'p'"/>
+					<call-parameter name="SortAttribute" value="SortAttribute"/>
+					<call-parameter name="SortAttributeType" value="SortAttributeType"/>
+					<call-parameter name="SortAttributeLocalizedFlag" value="SortAttributeLocalizedFlag"/>
+					<call-parameter name="LocaleInformation" value="LocaleInformation"/>
+				</template-call>, DESC
+			<if-else/>
+				ASC, <template-call name="product/inc/ProductSorting">
+					<call-parameter name="ProductAlias" value="'p'"/>
+					<call-parameter name="SortAttribute" value="SortAttribute"/>
+					<call-parameter name="SortAttributeType" value="SortAttributeType"/>
+					<call-parameter name="SortAttributeLocalizedFlag" value="SortAttributeLocalizedFlag"/>
+					<call-parameter name="LocaleInformation" value="LocaleInformation"/>
+				</template-call>, ASC
+			</template-if>
+		</template-if>
+
+	</sql-dialect>
+</template>
+</query>

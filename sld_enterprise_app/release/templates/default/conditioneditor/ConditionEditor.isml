@@ -1,0 +1,347 @@
+<!--- TEMPLATENAME: ConditionEditor.isml --->
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<%@page import="org.apache.commons.lang.StringUtils"%>
+<%@page import="com.intershop.beehive.core.capi.webform.FormParameter"%>
+<%@page import="java.util.Comparator"%>
+<%@page import="java.util.Collections"%>
+<%@page import="java.util.Map"%>
+<%@page import="java.util.Set"%>
+<%@page import="java.util.HashMap"%>
+<%@page import="com.intershop.beehive.core.capi.webform.Form"%>
+<%@page import="com.intershop.component.foundation.capi.condition.ConditionDescriptor"%>
+<%@page import="java.util.Iterator"%>
+<%@page import="com.intershop.component.foundation.capi.condition.ConditionDescriptorRegistry"%>
+
+<!---
+	Provides function to edit conditions.
+	
+	Parameters:
+		- ConditionEditorTitle
+		- ConditionDescriptorReqistry
+		- NewConditionForm
+		- TargetConditionID
+		- ConditionForm
+		- EditCondition
+		- EditConditionTypeGroup
+		- confirmDelete
+		- ConditionClipboard
+		- ContextObject 
+		- ContextObjectIDName
+		- ContextObjectID
+		- DispatchPipeline
+		- TargetContextObjectID
+		- OverrideApplicationExclusionsForms
+---> 
+
+<isset scope="request" name="ConditionEditorTitle" value="#conditioneditortitle#"/>
+<isset scope="request" name="ConditionDescriptorReqistry" value="#conditiondescriptorreqistry#"/>
+<isset scope="request" name="NewConditionForm" value="#newconditionform#"/>
+<isset scope="request" name="TargetConditionID" value="#targetconditionid#"/>
+<isset scope="request" name="ConditionForm" value="#conditionform#"/>
+<isset scope="request" name="EditCondition" value="#editcondition#"/>
+<isset scope="request" name="EditConditionTypeGroup" value="#editconditiontypegroup#"/>
+<isset scope="request" name="confirmDelete" value="#confirmDelete#"/>
+<isset scope="request" name="ConditionClipboard" value="#conditionclipboard#"/>
+<isset scope="request" name="ContextObject" value="#contextobject#"/>
+<isset scope="request" name="ContextObjectIDName" value="#contextobjectidname#"/>
+<isset scope="request" name="ContextObjectID" value="#contextobjectid#"/>
+<isset scope="request" name="DispatchPipeline" value="#dispatchpipeline#"/>
+<isset scope="request" name="TargetContextObjectID" value="#targetcontextobjectid#"/>
+<isset scope="request" name="OverrideApplicationExclusionsForms" value="#overrideapplicationexclusionsforms#"/>
+
+<isset scope="request" name="ParameterName1" value="#parametername1#"/>
+<isset scope="request" name="ParameterValue1" value="#parametervalue1#"/>
+<isset scope="request" name="ParameterName2" value="#parametername2#"/>
+<isset scope="request" name="ParameterValue2" value="#parametervalue2#"/>
+<isset scope="request" name="ParameterName3" value="#parametername3#"/>
+<isset scope="request" name="ParameterValue3" value="#parametervalue3#"/>
+<isset scope="request" name="ParameterName4" value="#parametername4#"/>
+<isset scope="request" name="ParameterValue4" value="#parametervalue4#"/>
+<isset scope="request" name="ParameterName5" value="#parametername5#"/>
+<isset scope="request" name="ParameterValue5" value="#parametervalue5#"/>
+
+<!--- Prepare special data container --->
+<!--- TypeConditionDescriptors : holds condition descriptors with predefined type --->
+<!--- ConditionTypes : holds all available condition types --->
+<!--- ConditionTypesMap : holds display names for condition types --->
+<!--- ConditionOperators : holds operator condition descriptors --->
+<%
+	 ArrayList<ConditionDescriptor> typeConditionDescriptors = new ArrayList<ConditionDescriptor>();
+	 HashMap<String, String> typesMap = new HashMap<String, String>();
+	 
+	 String selectedType = null;
+	 Form form = getObject("NewConditionForm")==null ? (Form) getObject("ConditionForm") : (Form) getObject("NewConditionForm");
+	 if (form!=null) {
+	 	FormParameter param = form.getParameter("ConditionType");
+	 	if (param!=null) selectedType = (String) param.getValue();
+	 }
+	 
+	 ConditionDescriptorRegistry reg = (ConditionDescriptorRegistry) getObject("ConditionDescriptorRegistry");
+	 Iterator<ConditionDescriptor> descriptors = reg.sortDescriptorsByName(Iterators.createCollection(reg.createSelectableDescriptorsIterator())).iterator();
+	 
+	 // collect descriptor information
+	 while (descriptors.hasNext()) {
+	 	ConditionDescriptor desc = descriptors.next();
+	 	
+	 	if (!desc.isConfigurable(getObject("ContextObject"))) 
+	 		continue;		// check if condition is configurable
+	 		
+	 	if (selectedType!=null && desc.getType().equals(selectedType)) 
+	 		typeConditionDescriptors.add(desc);
+	 		
+	 	if (StringUtils.isNotBlank(desc.getType())) 
+	 		typesMap.put(desc.getType(), desc.getTypeName());
+	 }
+	 
+	 List<String> conditionTypes = new ArrayList<String>();
+	 conditionTypes.addAll(typesMap.keySet());
+	 
+	 class MyComparator implements Comparator<String> 
+	 {
+	 	 private Map<String, String> typesMap;
+	 	 
+	     public MyComparator(Map<String, String> typesMap) {
+	     	this.typesMap = typesMap;
+	     }
+	 	
+	     public int compare(String s1, String s2) {
+	         return typesMap.get(s1).compareTo(typesMap.get(s2));
+	     }
+	 }
+	 
+	 Collections.sort(conditionTypes, new MyComparator(typesMap));
+	 
+	 getPipelineDictionary().put("TypeConditionDescriptors", typeConditionDescriptors.iterator());
+	 getPipelineDictionary().put("ConditionTypes", conditionTypes.iterator());
+	 getPipelineDictionary().put("ConditionTypesMap", typesMap);
+	 getPipelineDictionary().put("ConditionOperators", reg.createOperatorsIterator());
+
+	 // delete all parametername1..5|parametervalue1..5, to avoid that ismessagebox uses the parameters for his parametername1..5|parametervalue1..5 too
+	 for (int i=1; i < 6; i ++)
+	 { 	 
+	 	getPipelineDictionary().remove("parametername" + i);
+	 	getPipelineDictionary().remove("parametervalue" + i);
+	 }
+	 
+%>
+
+<!---  errors --->
+<!--- Collect condition error message keys --->
+<%@page import="java.util.ArrayList"%>
+<%@page import="java.util.List"%>
+<%
+	List<String> errors = new ArrayList<String>();
+	@SuppressWarnings("unchecked")
+	Set<String> keys = getPipelineDictionary().keySet();
+	for (String key : keys)
+	{
+		if (key.matches("ERROR.*Condition.*")) {
+			errors.add((String)getPipelineDictionary().get(key));
+		}
+	}
+	getPipelineDictionary().put("ThisError", errors);
+%>
+
+<!-- Begin of condition editor form -->
+<isform action="#url(action(DispatchPipeline))#" name="form" method="post">
+	<input type="hidden" name="<isprint value="#ContextObjectIDName#">" value="<isprint value="#ContextObjectID#">"/>
+	<input type="hidden" name="ChannelID" value="<isprint value="#CurrentChannel:UUID#">"/>
+	<isif condition="#isDefined(ParameterName1)#"><input type="hidden" name="<isprint value="#ParameterName1#">" value="<isprint value="#ParameterValue1#">"/></isif>
+	<isif condition="#isDefined(ParameterName2)#"><input type="hidden" name="<isprint value="#ParameterName2#">" value="<isprint value="#ParameterValue2#">"/></isif>
+	<isif condition="#isDefined(ParameterName3)#"><input type="hidden" name="<isprint value="#ParameterName3#">" value="<isprint value="#ParameterValue3#">"/></isif>
+	<isif condition="#isDefined(ParameterName4)#"><input type="hidden" name="<isprint value="#ParameterName4#">" value="<isprint value="#ParameterValue4#">"/></isif>
+	<isif condition="#isDefined(ParameterName5)#"><input type="hidden" name="<isprint value="#ParameterName5#">" value="<isprint value="#ParameterValue5#">"/></isif>
+	
+	<!-- Discount Conditions -->
+	<table border="0" cellpadding="0" cellspacing="0" width="100%" class="n e w s">
+		<tr>
+			<td class="table_title2 n w100"><istext key="#conditioneditortitle#"></td>
+			<isif condition="#isDefined(OverrideApplicationExclusionsForms)#">
+				<td class="table_detail n s right">
+					<isif condition="#OverrideApplicationExclusionsForms:get(ContextObjectID):Selection:Value#">
+						<isif condition="#isDefined(EditCondition) or isDefined(NewConditionForm) or isDefined(EditConditionTypeGroup)#">
+							<input type="checkbox" name="<isprint value="#OverrideApplicationExclusionsForms:get(ContextObjectID):Selection:QualifiedName#">" checked="checked" disabled="disabled"/>
+						<iselse>
+							<input type="checkbox" name="<isprint value="#OverrideApplicationExclusionsForms:get(ContextObjectID):Selection:QualifiedName#">" checked="checked"/>	
+						</isif>
+					<iselse>
+						<isif condition="#isDefined(EditCondition) or isDefined(NewConditionForm) or isDefined(EditConditionTypeGroup)#">
+							<input type="checkbox" name="<isprint value="#OverrideApplicationExclusionsForms:get(ContextObjectID):Selection:QualifiedName#">" disabled="disabled"/>
+						<iselse>
+							<input type="checkbox" name="<isprint value="#OverrideApplicationExclusionsForms:get(ContextObjectID):Selection:QualifiedName#">"/>
+						</isif>
+					</isif>
+				</td>
+				<td nowrap="nowrap" class="table_detail n s right">
+					<istext key="ConditionEditor.OverrideApplicationLevelExclusions" encoding="off" />
+				</td>
+			</isif>
+		</tr>
+		
+		<!--- delete confirmation if one is selected and error if nothing is selected--->
+		<isif condition="#isDefined(confirmDeleteCondition) AND (TargetContextObjectID EQ ContextObjectID)#">
+			<tr>
+				<td<isif condition="#isDefined(OverrideApplicationExclusionsForms)#"> colspan=3</isif>>
+					<table border="0" cellspacing="0" cellpadding="0" width="100%" class="confirm_box">
+						<isif condition="#hasLoopElements(ConditionClipboard:ObjectUUIDs)#">
+							<ISMessageBox subject="Conditions" type="cmdc"
+								message="#localizeText('ConditionEditor.DeleteAllSelectedConditions.subject')#"
+								class="s"
+								okbtnname="deleteCondition" cancelbtnname="cancelCondition" colspan="1" >
+						<iselse>
+							<ISMessageBox subject="Conditions" type="cmde" message="#localizeText('ConditionEditor.PleaseSelectAtLeastOneCondition.error')#" class="s" colspan="1">
+						</isif>
+					</table>
+				</td>
+			</tr>
+		</isif>
+		
+		<!--- errors --->
+		<isif condition="#hasLoopElements(ThisError:Iterator) AND (TargetContextObjectID EQ ContextObjectID)#">
+			<tr>
+				<td<isif condition="#isDefined(OverrideApplicationExclusionsForms)#"> colspan=3</isif>>
+					<isloop iterator="ThisError:Iterator" alias="ThisError">
+						<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box s">
+							<tr valign="top">
+								<td class="error_icon top e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+								<td class="error top" width="100%">
+									<b><!-- <isprint value="#ThisError#"> --><istext key="#ThisError#"></b><br/>
+								</td>
+							</tr>
+						</table>
+					</isloop>
+				</td>
+			</tr>
+		</isif>
+		<!---  eof errors --->
+	</table>
+	<table border="0" cellpadding="0" cellspacing="0" width="100%">
+		<tr>
+			<td>
+				<isif condition="#not isDefined(ContextObject:Condition)#">
+					<isif condition="#not (isDefined(NewConditionForm) and (TargetContextObjectID EQ ContextObjectID))#">
+						<!--- There is no condition currently--->
+						<table cellpadding="0" cellspacing="4" border="0" width="100%" class="e w">
+							<tr>
+								<td class="table_detail"><istext key="ConditionEditor.CurrentlyThereIsNoConditionDefined.subject" encoding="off"/> <isif condition="#EditCondition NE "false"#"><istext key="ConditionEditor.ClickNewToCreateACondition.subject" encoding="off"/></isif></td>
+							</tr>
+						</table>
+						<isif condition="#NOT (isDefined(EditCondition) or isDefined(NewConditionForm) or isDefined(EditConditionTypeGroup))#">
+							<table width="100%" cellspacing="0" cellpadding="0" border="0" class="n w e s">
+								<tr>
+									<td width="100%" align="right">
+										<table cellspacing="4" cellpadding="0" border="0">
+											<tr>
+												<isif condition="#EditCondition NE 'false'#">
+													<isif condition="#isDefined(OverrideApplicationExclusionsForms)#">
+														<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Apply.button')#" name="applyCondition"/></td>
+													</isif>
+													<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.New.button')#" name="newCondition" /></td>
+												</isif>
+											</tr>
+										</table>
+									</td>
+								</tr>
+							</table>
+						</isif>
+					</isif>
+				<iselse/>
+					<!--- There are conditions : Display conditions tree --->
+					<table cellpadding="0" cellspacing="4" border="0" width="100%" class="e w s">
+						<tr>
+							<td>
+								<ISPrintCondition condition="#ContextObject:Condition#"
+									conditiondescriptorregistry="#ConditionDescriptorRegistry#"
+									conditionoperators="#ConditionOperators#"
+									conditiondescriptors="#ConditionDescriptors#"
+									conditiontypesmap="#ConditionTypesMap#"
+									editcondition="#EditCondition#"
+									newconditionform="#NewConditionForm#"
+									conditionform="#ConditionForm#"
+									typeconditiondescriptors="#TypeConditionDescriptors#"
+									conditionclipboard="#ConditionClipboard#"
+									targetconditionid="#TargetConditionID#"
+									conditiontypes="#ConditionTypes#"
+									editconditiontypegroup="#EditConditionTypeGroup#"
+									contextobject="#ContextObject#"
+									dispatchpipeline="#DispatchPipeline#"
+									contextobjectidname="#ContextObjectIDName#"
+									contextobjectid="#ContextObjectID#"
+									channeldomain="#CurrentChannel:Domain#"	
+									parametername1="#ParameterName1#"
+									parametervalue1="#ParameterValue1#"
+									parametername2="#ParameterName2#"
+									parametervalue2="#ParameterValue2#"
+									parametername3="#ParameterName3#"
+									parametervalue3="#ParameterValue3#"
+									parametername4="#ParameterName4#"
+									parametervalue4="#ParameterValue4#"
+									parametername5="#ParameterName5#"
+									parametervalue5="#ParameterValue5#"
+									readonly="#isDefined(readonly) AND (readonly EQ 'true')#"
+								>
+							</td>
+						</tr>
+					</table>
+				</isif>
+				<isif condition="#isDefined(NewConditionForm) and not isDefined(TargetConditionID) and (not isDefined(TargetContextObjectID) or (TargetContextObjectID eq ContextObjectID))#">
+					<table cellpadding="0" cellspacing="4" border="0" width="100%" class="e w s">
+						<!---  User tries to create a new condition currently --->
+						<tr>
+							<isset scope="request" name="ChannelDomain" value="#CurrentChannel:Domain#"/>
+							<td width="65">&nbsp;
+							<!---  
+								<img src="#WebRoot()#/images/space.gif" width="65" height="15" alt="" border="0"/>
+							--->
+							</td>
+							<td>
+								<isinclude template="conditioneditor/NewCondition"/>
+							</td>
+							<td width="6">&nbsp;
+							<!---  
+								<img src="#WebRoot()#/images/space.gif" width="15" height="15" alt="" border="0"/>
+							--->
+							</td>
+						</tr>
+					</table>
+				</isif>
+			</td>
+		</tr>
+	</table>
+	
+	<!--- Button bar --->
+	<isif condition="#isDefined(ContextObject:Condition) AND NOT(isDefined(readonly) AND (readonly EQ 'true'))#">
+		<table width="100%" cellspacing="0" cellpadding="0" border="0" class="w e s">
+			<tr>
+				<td width="100%" align="right">
+					<table cellspacing="4" cellpadding="0" border="0">
+						<tr>
+							<isif condition="#isDefined(EditCondition) or isDefined(NewConditionForm) or isDefined(EditConditionTypeGroup)#">
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Group.button')#" name="groupConditions" disabled="disabled" /></td>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Ungroup.button')#" name="ungroupConditions" disabled="disabled" /></td>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.MoveUp.button')#" name="moveUpCondition" disabled="disabled" /></td>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.MoveDown.button')#" name="moveDownCondition" disabled="disabled" /></td>
+								<td ><img src="#WebRoot()#/images/space.gif" width="20" height="6" alt="" border="0"/></td>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.New.button')#" name="newCondition" disabled="disabled" /></td>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Apply.button')#" name="applyCondition" disabled="disabled" /></td>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Delete.button')#" name="confirmDeleteCondition" disabled="disabled" /></td>
+							<iselse/>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Group.button')#" name="groupConditions" /></td>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Ungroup.button')#" name="ungroupConditions" /></td>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.MoveUp.button')#" name="moveUpCondition" /></td>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.MoveDown.button')#" name="moveDownCondition" /></td>
+								<td ><img src="#WebRoot()#/images/space.gif" width="20" height="6" alt="" border="0"/></td>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.New.button')#" name="newCondition" /></td>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Apply.button')#" name="applyCondition" /></td>
+								<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Delete.button')#" name="confirmDeleteCondition" /></td>
+							</isif>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>
+	</isif>
+</isform>	
+
+

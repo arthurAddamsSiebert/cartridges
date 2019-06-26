@@ -1,0 +1,63 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><%@page import="java.util.List,
+    java.util.LinkedList,
+    java.util.Collection,
+    java.util.Collections,
+    com.google.common.collect.ImmutableList,
+    com.google.common.collect.Iterables,
+    com.intershop.component.user.capi.UserBO,
+    com.intershop.component.b2b.capi.user.UserBudgetCalculator"
+%><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"modules/B2BModules", null, "11");} %><% processOpenTag(response, pageContext, "createmap", new TagParameter[] {
+new TagParameter("key0","CustomerBO"),
+new TagParameter("value0",getObject("CustomerBO")),
+new TagParameter("mapname","PipelineParameters")}, 13); %><% {try{executePipeline("ViewUsers-TemplateCallback",((java.util.Map)(getObject("PipelineParameters"))),"Result");}catch(Exception e){Logger.error(this,"ISPIPELINE failed. Line: 16.",e);}} %><% processOpenTag(response, pageContext, "populatedictionary", new TagParameter[] {
+new TagParameter("map",getObject("Result"))}, 17); %><%
+    PipelineDictionary dictionary = getPipelineDictionary();
+    Collection<UserBO> users = dictionary.get("Users");
+    List<UserBO> userList = new LinkedList<UserBO>(users);
+    Collections.sort(userList, Collections.reverseOrder(UserBudgetCalculator.SPENT_BUDGED_PERCENTAGE_COMPARATOR));
+    dictionary.put("Users", new ImmutableList.Builder<UserBO>().addAll(Iterables.limit(userList, 5)).build());
+%><div class="section section-seperator">
+<h2><% {out.write(localizeISText("account.user.widget.user_budgets.heading","",null,null,null,null,null,null,null,null,null,null,null));} %></h2>
+<div class="list-header no-seperator hidden-xs">
+<div class="col-xs-4 list-header-item"><% {out.write(localizeISText("account.user.widget.table.users","",null,null,null,null,null,null,null,null,null,null,null));} %></div>
+<div class="col-xs-4 list-header-item"><% {out.write(localizeISText("account.user.list.table.budget_spent","",null,null,null,null,null,null,null,null,null,null,null));} %></div>
+</div>
+<div class="list-body"><% while (loop("Users","User",null)) { %><% {Object temp_obj = (getObject("User:Extension(\"UserBOOrderApprovalExtension\")")); getPipelineDictionary().put("OrderApprovalExtension", temp_obj);} %><% processOpenTag(response, pageContext, "userbudgetcalculator", new TagParameter[] {
+new TagParameter("UserBudgetCalculator","UserBudgetCalculator"),
+new TagParameter("User",getObject("User"))}, 43); %><div class="list-item-row"><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("UserBudgetCalculator:OrderSpendLimit:Available"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",46,e);}if (_boolean_result) { %><dl>
+<dd class="col-xs-4 col-sm-4 list-item">
+<div >
+<a href="<%=context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewUser-Start",null))), (new URLParameterSet().addURLParameter(context.getFormattedValue("UserID",null),context.getFormattedValue(getObject("User:ID"),null)))),null)%>"><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) ((((context.getFormattedValue(getObject("User:FirstName"),null).equals(context.getFormattedValue("",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("User:LastName"),null).equals(context.getFormattedValue("",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",51,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("User:Login"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {52}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } else { %><% {String value = null;try{value=context.getFormattedValue(getObject("User:FirstName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {54}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %> <% {String value = null;try{value=context.getFormattedValue(getObject("User:LastName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {54}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %></a>
+</div>
+</dd><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("OrderApprovalExtension:Budget(OrderApprovalExtension:BudgetType):Available"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",60,e);}if (_boolean_result) { %><dd class="col-xs-8 col-sm-8 list-item"><% processOpenTag(response, pageContext, "userbudgetcalculator", new TagParameter[] {
+new TagParameter("UserBudgetCalculator","UserBudgetCalculator"),
+new TagParameter("User",getObject("User"))}, 62); %><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("OrderApprovalExtension:Budget(OrderApprovalExtension:BudgetType):Available"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",63,e);}if (_boolean_result) { %><div data-toggle="popover" data-container="body" data-html="true" data-placement="top" class="progress" data-content="
+<div class='row col-md-12'>
+<div class='col-md-6'><label><% {out.write(localizeISText(context.getFormattedValue(context.getFormattedValue("orders.widget.",null) + context.getFormattedValue((context.getFormattedValue(getObject("OrderApprovalExtension:BudgetType"),null).toLowerCase()),null) + context.getFormattedValue("_spend_limit.label",null),null),"",null,null,null,null,null,null,null,null,null,null,null));} %></label></div>
+<div class='col-md-6 text-right'><% {String value = null;try{value=context.getFormattedValue(getObject("UserBudgetCalculator:Budget:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {68}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></div>
+</div>
+<div class='row col-md-12'>
+<div class='col-md-6'><label><% {out.write(localizeISText("account.user.list.spent.label","",null,null,null,null,null,null,null,null,null,null,null));} %></label></div>
+<div class='col-md-6 text-right'><% {String value = null;try{value=context.getFormattedValue(getObject("UserBudgetCalculator:SpentBudget:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {72}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %> (<% {String value = null;try{value=context.getFormattedValue(getObject("UserBudgetCalculator:SpentBudgetPercentage"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {72}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>%)</div>
+</div>
+<div class='row col-md-12'>
+<div class='col-md-6'><label><% {out.write(localizeISText("account.user.list.left.label","",null,null,null,null,null,null,null,null,null,null,null));} %></label></div>
+<div class='col-md-6 text-right'><% {String value = null;try{value=context.getFormattedValue(getObject("UserBudgetCalculator:RemainingBudget:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {76}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %> (<% {String value = null;try{value=context.getFormattedValue(getObject("UserBudgetCalculator:RemainingBudgetPercentage"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {76}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>%)</div>
+</div>
+">
+<div class="progress-bar <% _boolean_result=false;try {_boolean_result=((Boolean)(((( ((Number) getObject("UserBudgetCalculator:SpentBudgetPercentage")).doubleValue() >=((Number)(new Double(90.0))).doubleValue()) ? Boolean.TRUE : Boolean.FALSE)))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",79,e);}if (_boolean_result) { %> progress-bar-danger<% } else {_boolean_result=false;try {_boolean_result=((Boolean)(((( ((Number) getObject("UserBudgetCalculator:SpentBudgetPercentage")).doubleValue() >=((Number)(new Double(70.0))).doubleValue()) ? Boolean.TRUE : Boolean.FALSE)))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",79,e);}if (_boolean_result) { %> progress-bar-warning<% }} %>" role="progressbar" aria-valuenow="<% {String value = null;try{value=context.getFormattedValue(getObject("UserBudgetCalculator:SpentBudgetPercentage"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {79}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" aria-valuemin="0" aria-valuemax="100" style="width: <% {String value = null;try{value=context.getFormattedValue(getObject("UserBudgetCalculator:SpentBudgetPercentage"),null,"DecimalSeparator=.");}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {79}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>%;">
+<span class="progress-display"><% {String value = null;try{value=context.getFormattedValue(getObject("UserBudgetCalculator:SpentBudgetPercentage"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {80}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>%</span>
+</div>
+</div><% } %></dd><% } else { %><dd class="col-xs-8 col-sm-8 list-item">
+<p><% {out.write(localizeISText("account.budget.common.undefined","",null,null,null,null,null,null,null,null,null,null,null));} %></p>
+</dd><% } %></dl><% } else { %><div class="col-xs-8 list-item">
+<p><% {out.write(localizeISText("approval.details.threshold.unlimited","",null,null,null,null,null,null,null,null,null,null,null));} %></p>
+</div> 
+<% } %></div><% } %></div>
+<a href="<%=context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewUsers-Start",null)))),null)%>"><% {out.write(localizeISText("account.user.widget.view_all_users.link","",null,null,null,null,null,null,null,null,null,null,null));} %></a>
+</div><% printFooter(out); %>

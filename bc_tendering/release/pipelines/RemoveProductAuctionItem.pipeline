@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Auction-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="RemoveProductAuctionItem" type="extension">
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" visibility="Private"
+      name="GetAuctions" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameters name="Product" type="com.intershop.beehive.xcs.capi.product.Product"/>
+    <parameters name="Domains" type="java.util.Collection" optional="true"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Domains"
+      operator="has_elements">
+<!--@BendPoints 13,3-->
+    <nodeSuccessors name="decision_yes" next="GetAuctionsByItem0"/>
+    <nodeSuccessors name="decision_no" next="LoopNode0"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionsByItem0">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionsByItem.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="AuctionType" nullBinding="true"/>
+    <parameterBindings name="Item" objectPath="Product"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="Domains">
+<!--@BendPoints 12,5 12,11-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <entry key="Domain">
+<!--@BendPoints 11,6-->
+      <nodeSuccessors name="loop_entry_next" next="GetAuctionsByItem2"/>
+    </entry>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionsByItem2">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionsByItem.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector0"/>
+    <parameterBindings name="AuctionType" nullBinding="true"/>
+    <parameterBindings name="Domain" objectPath="DomainAuctions"/>
+    <parameterBindings name="Item" objectPath="Product"/>
+    <returnValueBindings name="Auctions" objectPath="DomainAuctions"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 10,9 10,5-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <parameterBindings name="InVector" objectPath="AuctionsCollection"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" objectPath="DomainAuctions"/>
+    <returnValueBindings name="Iterator" objectPath="Auctions"/>
+    <returnValueBindings name="OutVector" objectPath="AuctionsCollection"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" strict="true" name="Start"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <parameters name="Product" type="com.intershop.beehive.xcs.capi.product.Product"/>
+    <parameters name="Domains" type="java.util.Collection" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <startNode referencedName="RemoveProductAuctionItem-GetAuctions"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Auctions">
+<!--@BendPoints 8,5-->
+    <nodeSuccessors name="next" next="EndNode15"/>
+    <entry key="OneAuction">
+<!--@BendPoints 3,6-->
+      <nodeSuccessors name="loop_entry_next" next="Decision5"/>
+    </entry>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision5" conditionKey="OneAuction:State"
+      operator="lt" conditionValue="2">
+<!--@BendPoints 3,8-->
+    <nodeSuccessors name="decision_yes" next="GetAuctionItems1"/>
+<!--@BendPoints 9,7-->
+    <nodeSuccessors name="decision_no" next="JoinNode19"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionItems1">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionItems.xml"/>
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="LoopNode6"/>
+    <parameterBindings name="Auction" objectPath="OneAuction"/>
+    <parameterBindings name="ItemType" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode6" loop="AuctionItems">
+    <nodeSuccessors name="next" next="JoinNode19"/>
+    <entry key="OneAuctionItem">
+<!--@BendPoints 3,13 4,13-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode13"/>
+    </entry>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="Product:UUID"
+      operator="str_eq" conditionItem="OneAuctionItem:ItemID">
+<!--@BendPoints 7,13 7,14-->
+    <nodeSuccessors name="decision_yes" next="RemoveAuctionItem1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode20"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAuctionItem1">
+    <pipelet href="enfinity:/bc_tendering/pipelets/RemoveAuctionItem.xml"/>
+<!--@BendPoints 7,17-->
+    <nodeSuccessors name="next" next="JoinNode20"/>
+    <parameterBindings name="AuctionItem" objectPath="OneAuctionItem"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+<!--@BendPoints 2,17 2,11-->
+    <nodeSuccessors name="next" next="LoopNode6_Entry"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+<!--@BendPoints 9,18 1,18 1,5-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true"/>
+</pipeline:Pipeline>

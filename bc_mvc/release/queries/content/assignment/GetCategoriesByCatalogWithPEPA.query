@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query returns an iterator of all categories and subcategories that belong to the specified catalog and have pagelet entrypoint assignments in the specified repository domain">
+<parameters>
+	<parameter name="Catalog" type="com.intershop.component.mvc.capi.catalog.Catalog" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Categories" type="orm" class="com.intershop.beehive.xcs.internal.catalog.CatalogCategoryPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+		<sql-dialect name="Microsoft">
+				;With catalogCategoryCte(uuid) as
+					(
+					 select uuid from  catalogcategory cc where UUID = <template-variable value="Catalog:Root:UUID"/>
+					 union all
+					 select cc.uuid from  catalogcategory cc 
+						inner join catalogCategoryCte cte on cte.uuid=cc.PARENTCATEGORYID
+					)
+					select cc.UUID as UUID 
+					from catalogCategoryCte cc 
+					where exists (
+							select 1
+							from catalogcategory_pepa assignment
+							where assignment.CATEGORYID = cc.UUID
+									)
+		</sql-dialect>
+		<sql-dialect name="Oracle">
+								
+				SELECT cc.UUID as UUID
+				FROM 
+					catalogcategory cc
+				WHERE EXISTS
+				(
+					SELECT 1
+					FROM catalogcategory_pepa assignment
+					WHERE
+						assignment.CATEGORYID = cc.UUID
+				)
+				CONNECT BY PRIOR cc.UUID = cc.parentcategoryid
+				START WITH cc.UUID = <template-variable value="Catalog:Root:UUID"/>
+		</sql-dialect>
+
+</template>
+</query>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="@Deprecated since 7.10. Currently unused and will be removed in a future release.">
+    <parameters>
+        <parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+        <parameter name="Profile" type="com.intershop.beehive.core.capi.profile.Profile" optional="false"/>
+        <parameter name="OrderStateLiteral" type="java.lang.String" optional="true"/>   
+    </parameters>
+    <return-mappings>
+        <return-mapping name="Order" type="orm" class="com.intershop.beehive.bts.internal.orderprocess.fulfillment.OrderPO">
+            <return-attribute name="UUID"/>
+        </return-mapping>
+    </return-mappings>
+    <processor name="OracleSQL"/>
+    <template type="countedobjects">
+        SELECT uuid, creationdate, count(*) over() as "ROWCOUNT" 
+        FROM isorder io
+        <template-if condition="isDefined(OrderStateLiteral) AND lcase(OrderStateLiteral) EQ 'confirmed'">
+          JOIN isorder_av io_avc ON (io_avc.ownerid = io.uuid AND io_avc.name = 'OrderConfirmationStatus') 
+        </template-if>
+
+        WHERE 
+            io.userid = <template-variable value="Profile:ProfileID"/>
+            AND io.domainid = <template-variable value="Domain:DomainID"/>
+
+             <!-- order states, eg. {3,5,7} or state by literal -->
+             <template-call name="order/AdvancedOrderSearchOrderStates">
+                <call-parameter name="OrderStateLiteral" value="OrderStateLiteral"/>
+             </template-call>
+        ORDER BY creationdate ASC
+    </template>
+</query>
+

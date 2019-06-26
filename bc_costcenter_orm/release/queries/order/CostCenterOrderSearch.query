@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="OrderDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="Customer" type="com.intershop.component.customer.capi.CustomerBO" optional="false"/>
+	<parameter name="CostCenter" type="com.intershop.component.costcenter.capi.CostCenterBO" optional="true"/>
+	<parameter name="OrderCurrency" type="com.intershop.beehive.core.capi.currency.Currency" optional="true"/>
+	<parameter name="User" type="com.intershop.component.user.capi.UserBO" optional="true"/>
+	<parameter name="IncludedStatusCodes" type="java.util.Collection" optional="true" description="A set of order status codes detemining orders of what statuses will appear in the result set"/>
+    <parameter name="ExcludedStatusCodes" type="java.util.Collection" optional="true" description="A set of order status codes detemining orders of what statuses will not appear in the result set"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true" description="the attribute to sort the result set"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true" description="sort the result set in ascending or descending order"/>	
+	<parameter name="Limit" type="java.lang.Integer" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Count" type="rename">
+		<return-attribute name="count"/>
+	</return-mapping>
+	<return-mapping name="OrderBO" type="bo-orm" class="com.intershop.beehive.bts.internal.orderprocess.fulfillment.OrderPO" mapperclass="OrderPOToOrderBOMapper">
+		<return-attribute name="OrderUUID" />
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="count">
+	SELECT COUNT(*) AS count
+	FROM (
+		<template-call name="order/inc/BaseCostCenterOrderSearch">
+			<call-parameter name="OrderDomain" value="OrderDomain"/>
+			<call-parameter name="Customer" value="Customer"/>
+			<call-parameter name="CostCenter" value="CostCenter"/>
+			<call-parameter name="OrderCurrency" value="OrderCurrency"/>
+			<call-parameter name="IncludedStatusCodes" value="IncludedStatusCodes"/>
+			<call-parameter name="ExcludedStatusCodes" value="ExcludedStatusCodes"/>
+		</template-call>
+	) o
+</template>
+<template type="countedobjects">
+	SELECT o.uuid AS OrderUUID, COUNT(*) over() AS "rowcount", grandtotalgrosspricepcvalue AS GrandTotalGrossPricePCValue 
+	FROM (
+		<template-call name="order/inc/BaseCostCenterOrderSearch">
+			<call-parameter name="OrderDomain" value="OrderDomain"/>
+			<call-parameter name="Customer" value="Customer"/>
+			<call-parameter name="CostCenter" value="CostCenter"/>
+			<call-parameter name="OrderCurrency" value="OrderCurrency"/>
+			<call-parameter name="IncludedStatusCodes" value="IncludedStatusCodes"/>
+			<call-parameter name="ExcludedStatusCodes" value="ExcludedStatusCodes"/>
+		</template-call>
+	) o
+	ORDER BY 
+	<template-if condition="SortAttribute EQ &apos;OrderTotal&apos;">
+		o.grandtotalgrosspricepcvalue
+	<if-elseif condition="SortAttribute EQ &apos;PurchaserName&apos;"/>
+		o.buyername
+	<if-else/>
+		o.creationdate
+	</template-if>
+	<template-if condition="SortDirection EQ &apos;asc&apos;">
+		ASC
+	<if-else/>
+	 	DESC
+	</template-if>
+</template>
+<template type="objects">
+	<template-if condition="isDefined(Limit)">
+		SELECT * FROM
+		(
+	</template-if>
+	<sql-dialect name="Oracle">
+		SELECT o.uuid AS OrderUUID, grandtotalgrosspricepcvalue AS GrandTotalGrossPricePCValue
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		SELECT TOP 100 PERCENT o.uuid AS OrderUUID, grandtotalgrosspricepcvalue AS GrandTotalGrossPricePCValue
+		<template-if condition="isDefined(Limit)">
+			,ROW_NUMBER() OVER(ORDER BY uuid ASC) AS RowNum
+		</template-if>
+	</sql-dialect>
+		FROM (
+			<template-call name="order/inc/BaseCostCenterOrderSearch">
+				<call-parameter name="OrderDomain" value="OrderDomain"/>
+				<call-parameter name="Customer" value="Customer"/>
+				<call-parameter name="CostCenter" value="CostCenter"/>
+				<call-parameter name="OrderCurrency" value="OrderCurrency"/>
+				<call-parameter name="IncludedStatusCodes" value="IncludedStatusCodes"/>
+				<call-parameter name="ExcludedStatusCodes" value="ExcludedStatusCodes"/>
+			</template-call>
+		) o
+		ORDER BY 
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ &apos;OrderTotal&apos;)">
+			o.grandtotalgrosspricepcvalue
+		<if-elseif condition="isDefined(SortAttribute) AND (SortAttribute EQ &apos;PurchaserName&apos;)"/>
+			o.buyername		
+		<if-else/>
+			o.creationdate
+		</template-if>
+		<template-if condition="isDefined(SortDirection) AND (SortDirection EQ &apos;asc&apos;)">
+			ASC
+		<if-else/>
+			DESC
+		</template-if>
+		<template-if condition="isDefined(Limit)">
+			) a
+			WHERE ROWNUM &lt;= <template-variable value="Limit"/>
+		</template-if>	
+</template>
+</query>

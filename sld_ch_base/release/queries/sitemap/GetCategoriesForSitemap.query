@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Query returns the IDs of all categories, that are part of a product-to-category assignment (aka PCA) and meet the following criteria:
+                    - category belongs to the given domain
+                    - category is set online
+                    - category has at least one product assigned, that is set online.">
+    <parameters>
+        <parameter name="CatalogOwningDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+        <parameter name="AdvancedProductSearchParameters" type="java.util.Map" optional="false"/>
+        <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+        <parameter name="FilterProductAndServiceTypes" type="java.lang.String" optional="true" description="Filter all ProductTypes and ServiceTypes"/>
+        <parameter name="IncludeCategoriesWithoutProducts" type="java.lang.Boolean" optional="true" description="Includes also categories without products. Query is not based on product category assignment."/>
+    </parameters>
+    <return-mappings>
+        <return-mapping name="SitemapObjectContainer" type="provider" provider="CategorySitemapObjectContainerProvider">
+            <return-attribute name="UUID"/>
+        </return-mapping>
+    </return-mappings>
+    <processor name="OracleSQL">
+        <processor-preprocessing output="Sharing" input="CatalogOwningDomain" processing="ProductSharingHelper"/>
+    </processor>
+    <template type="objects">
+	  <template-if condition="NOT(isDefined(IncludeCategoriesWithoutProducts) AND (IncludeCategoriesWithoutProducts))">
+        SELECT 
+        	DISTINCT iepca.categoryid AS UUID
+        FROM 
+            ieproductcategoryassignment iepca 
+        JOIN 
+            catalogcategory cc 
+        ON 
+            iepca.categoryid = cc.uuid 
+            AND cc.onlineflag = 1
+        JOIN 
+            catalog cat 
+        ON 
+            cat.catalogdomainid = cc.domainid
+            AND cat.domainid = <template-variable value="CatalogOwningDomain:UUID"/>
+            <template-if condition="isDefined(FilterProductAndServiceTypes) AND lcase(FilterProductAndServiceTypes) EQ 'true'">
+                AND cat.id NOT IN ('ServiceTypes', 'ProductTypes')
+            </template-if>
+        JOIN
+            (
+            <template-call name="product/GetProductsByAdvancedSearch"><call-addall map="AdvancedProductSearchParameters"/></template-call>
+            ) p
+        ON
+            p.uuid = iepca.productid
+        WHERE
+        <template-if condition="Sharing:Enabled">
+            /* Sharing is enabled. */
+            (iepca.productdomainid IN (<template-loop alias="Domain" iterator="Sharing:Domains"><loop-statement><template-variable value="Domain:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+             <template-if condition="hasElements(Sharing:ProductSets)">
+                OR EXISTS (
+                    SELECT 1
+                    FROM
+                        productsetassignment psa
+                    JOIN
+                        productset ps ON (psa.productsetuuid=ps.uuid)
+                    WHERE
+                        iepca.productid=psa.productUUID
+                    AND
+                        iepca.productdomainid=ps.domainid
+                    AND
+                        psa.productsetuuid IN (<template-loop alias="ProductSet" iterator="Sharing:ProductSets"><loop-statement><template-variable value="ProductSet:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+                )
+             </template-if>)
+        <if-else/>
+	        /* Local assignments. */
+	        iepca.productdomainid = <template-variable value="CatalogOwningDomain:UUID"/>      
+		</template-if>
+   <if-else/>
+		SELECT DISTINCT cc.uuid AS UUID
+		FROM catalogcategory cc
+		 JOIN catalog cat ON cat.catalogdomainid = cc.domainid
+		 JOIN catalog_av catav ON cat.uuid = catav.ownerid
+		 JOIN catalogcategory_av ccav ON cc.uuid = ccav.ownerid
+		 WHERE cc.onlineflag = 1
+		  AND cat.typecode = 1
+		  AND cc.rootcategoryflag = 0
+		  AND cat.domainid = <template-variable value="CatalogOwningDomain:UUID"/>
+		    AND cc.uuid in (select ownerid from catalogcategory_av where cc.uuid=ownerid AND name = 'ShowInMenu' AND lower(stringvalue) = 'true' )
+		    AND (cc.uuid in (select ownerid from catalogcategory_av where cc.uuid=ownerid AND name = 'ExcludePathFromSearchIndex' AND intvalue = 0)
+		      OR cc.uuid not in (select ownerid from catalogcategory_av where cc.uuid=ownerid AND name = 'ExcludePathFromSearchIndex') )
+		UNION   
+		SELECT DISTINCT cc.uuid AS UUID
+		FROM catalogcategory cc
+		 JOIN catalog cat ON cat.catalogdomainid = cc.domainid
+		 JOIN catalog_av catav ON cat.uuid = catav.ownerid
+		 JOIN catalogcategory_av ccav ON cc.uuid = ccav.ownerid
+		 WHERE cc.onlineflag = 1
+		  AND cat.typecode = 1
+		  AND cc.rootcategoryflag = 1
+		  AND cat.domainid = <template-variable value="CatalogOwningDomain:UUID"/>
+		  AND cat.uuid in (select ownerid from catalog_av where cat.uuid=ownerid AND name = 'ShowInMenu' AND lower(stringvalue) = 'true' )
+		  AND (cat.uuid in (select ownerid from catalog_av where cat.uuid=ownerid AND name = 'ExcludePathFromSearchIndex' AND intvalue = 0)
+		    OR cat.uuid not in (select ownerid from catalog_av where cat.uuid=ownerid AND name = 'ExcludePathFromSearchIndex') )
+	</template-if>		
+    </template>
+</query>

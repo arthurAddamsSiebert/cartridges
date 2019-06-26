@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query
+    description="Query used by the PromotionCache to find files. 
+                 Just resolves a roughly filtered set of applicable Promotions that must be filtered further.">
+    <parameters>
+        <parameter name="CurrencyCode" type="java.lang.String" optional="false" />
+        <parameter name="Date" type="java.util.Date" optional="false" />
+        <parameter name="Application" type="com.intershop.beehive.core.capi.domain.Application" optional="false"
+            description="The Application these promotion should be bound to." />
+    </parameters>
+	<return-mappings>
+		<return-mapping name="Promotion" type="orm"
+			class="com.intershop.component.marketing.internal.rebate.PromotionPO">
+			<return-attribute name="PROMOTIONUUID" />
+		</return-mapping>
+	</return-mappings>
+    <processor name="JDBC"/>
+    <template type="objects">
+        select p.UUID as PROMOTIONUUID from 
+            promotion p
+        join Promotion_AA pa on p.UUID    = pa.PromotionID  AND p.domainid = pa.domainid
+        join rebate r on p.UUID    = r.PromotionUUID AND p.domainid = r.domainid
+        left join budgetperiod bp on p.budgetid = bp.budgetid
+        where 
+        p.CouponCodeRequiredFlag = 0
+        and 
+        (
+            p.enabledFlag = 1 -- we need enabled ones and ... =>
+            OR
+            <template-variable value="Date"/> &lt;= bp.exceededdate -- => ... and those that are only just exceeded
+        )
+        and r.ClassificationTypeCode IS NULL
+        and pa.AppID = <template-variable value="Application:UUID"/>
+        and p.DomainID = <template-variable value="Application:DomainID"/>
+        and <template-variable value="Date"/> &lt; p.EndDate -- excluding to resolve overlapping issues
+        and 
+        (
+            p.budgetid IS NULL
+            OR
+            <template-variable value="Date"/> &lt; bp.TODATE --if promotions use multiple budget periods
+        )
+        and 
+        (
+            r.CurrencyCode IS NULL
+            OR 
+            r.CurrencyCode= <template-variable value="CurrencyCode"/>
+        )
+    </template>
+</query>

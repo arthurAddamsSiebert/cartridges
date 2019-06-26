@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Returns all categories the given product is assigned to.
+It is aware of product sharing and of catalog sharing. For a derived product it returns also the categories of its base product if they belong to a catalog shared to the derived product&apos;s domain. In case of double assignments where the same category is assigned to the derived product as well as to the base product only the derived product&apos;s assignment is used. Thus, a category will never occur twice in the result.
+By default only explicitly assigned categories are returned (neither Implicit Product Binding nor Dynamic Product Assignment is taken into consideration). You can change this behavior by using parameter PCATableName.">
+<parameters>
+	<parameter name="Product" type="com.intershop.beehive.xcs.capi.product.Product" optional="false"/>
+	<parameter name="CatalogType" type="java.lang.Integer" optional="true" description="See com.intershop.component.mvc.capi.catalog.MVCatalogConstants.
+Commonly used type codes are:
+ - 1: Standard catalog
+ - 2: Classifiaction catalog
+ - 6: Auction catalog
+Keep in mind a shared catalog cannot be identified by this type code, instead, the proxy flag is used to mark it accordingly.
+In the database see column CATALOG.TYPECODE."/>
+	<parameter name="PCATableName" type="java.lang.String" optional="true" description="The name of the database table to get the product-category-assignments from.
+Possible values are e.g.:
+ - PRODUCTCATEGORYASSIGNMENT
+ - IEPRODUCTCATEGORYASSIGNMENT
+ - IPRODUCTCATEGORYASSIGNMENT
+If this paramenter is not present then PRODUCTCATEGORYASSIGNMENT is used."/>
+</parameters>
+<return-mappings>
+	<return-mapping name="CatalogCategory" type="orm" class="com.intershop.beehive.xcs.internal.catalog.CatalogCategoryPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="Sharing" input="Product:Domain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects" sqlDialect="Oracle">
+<template-comment>
+Notes for the "inline" hint:
+    The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+    of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+    not a good practice.
+Solved problems:
+    Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+    if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+    data were not subsequently deleted.
+</template-comment>
+	<template-if condition="Sharing:Enabled">
+		WITH c_pcas AS
+		(
+		    SELECT /*+ inline - to avoid massive not released temporary tablespace data */
+		       <template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+		          pca.categoryid
+		       <if-else/>
+		          pca.catalogcategoryid
+		        </template-if>
+		        AS catalogcategoryid, pca.position AS position
+		    FROM
+		        <template-if condition="isDefined(PCATableName)">
+					<template-variable value="PCATableName" processing="text" />
+				<if-else/>
+					productcategoryassignment
+				</template-if> pca
+		    JOIN 
+		        catalogcategory cc 
+		    ON 
+		        <template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+		           cc.uuid = pca.categoryid
+		        <if-else/>
+		           cc.uuid = pca.catalogcategoryid
+		        </template-if>
+		    JOIN 
+		        catalog c 
+		    ON 
+		        c.catalogdomainid = cc.domainid
+		    AND
+		        c.domainid = <template-variable value="Product:DomainID"/>
+		    WHERE
+		        pca.productid = <template-variable value="Product:UUID"/>
+		    AND
+				<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">		    
+					pca.productdomainid = <template-variable value="Product:DomainID"/>
+				<if-else/>
+					pca.domainid = <template-variable value="Product:DomainID"/>
+				</template-if>
+				<template-if condition="isDefined(CatalogType)">
+					AND 
+						c.typecode = <template-variable value="CatalogType"/>
+				</template-if>
+		)
+		SELECT DISTINCT
+		    	catalogcategoryid AS UUID, position
+		FROM c_pcas
+		UNION ALL
+		SELECT DISTINCT
+			<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">		    
+				mr_pca.categoryid AS UUID, mr_pca.position AS position 
+			<if-else/>
+				mr_pca.catalogcategoryid AS UUID, mr_pca.position AS position
+			</template-if>
+		FROM
+		    <template-if condition="isDefined(PCATableName)">
+				<template-variable value="PCATableName" processing="text" />
+			<if-else/>
+				productcategoryassignment
+			</template-if>
+			mr_pca
+		JOIN 
+		    catalogcategory cc 
+		ON 
+	        <template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+				cc.uuid = mr_pca.categoryid
+	        <if-else/>
+				cc.uuid = mr_pca.catalogcategoryid
+	        </template-if>
+		JOIN 
+		    catalog c 
+		ON 
+		    c.catalogdomainid = cc.domainid
+		AND
+		    c.domainid = <template-variable value="Product:DomainID"/>
+		WHERE
+			mr_pca.productid = <template-variable value="Product:UUID"/>
+			<template-if condition="isDefined(CatalogType)">
+				AND 
+					c.typecode = <template-variable value="CatalogType"/>
+			</template-if>
+		AND
+		(
+			<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+				mr_pca.productdomainid
+			<if-else/>
+				mr_pca.domainid
+			</template-if>
+			IN
+			(
+				<template-loop iterator="Sharing:Domains" alias="Domain">
+					<loop-statement>
+						<template-variable value="Domain:UUID"/>
+					</loop-statement>
+					<loop-separator>,</loop-separator>
+				</template-loop>
+			)
+			<template-if condition="hasElements(Sharing:ProductSets)">
+				OR
+				<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">		    			        
+					mr_pca.productdomainid 
+				<if-else/>
+			        mr_pca.domainid
+				</template-if>       
+				IN
+				(
+					SELECT ps.domainid
+					FROM
+						productsetassignment psa
+					JOIN
+						productset ps ON (ps.uuid = psa.productsetuuid)
+			        WHERE
+						psa.productUUID = <template-variable value="Product:UUID"/>
+				)
+			</template-if>
+		)
+		AND
+		    NOT EXISTS
+			(
+				SELECT 1
+		        FROM c_pcas		        
+				WHERE c_pcas.catalogcategoryid = 
+				<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+					mr_pca.categoryid
+		        <if-else/>
+					mr_pca.catalogcategoryid
+		        </template-if>
+		    )
+	<if-else/>
+		SELECT DISTINCT 
+			<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+				pca.categoryid
+			<if-else/> 
+				pca.catalogcategoryid
+			</template-if>
+			AS UUID, pca.position AS position
+		FROM
+		    <template-if condition="isDefined(PCATableName)">
+				<template-variable value="PCATableName" processing="text" />
+			<if-else/>
+				productcategoryassignment
+			</template-if>
+			pca
+		JOIN 
+		    catalogcategory cc 
+		ON 
+			cc.uuid = 
+	        <template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+				pca.categoryid
+	        <if-else/>
+		    	pca.catalogcategoryid
+	        </template-if>
+		JOIN 
+		    catalog c 
+		ON 
+		    c.catalogdomainid = cc.domainid
+		WHERE
+		    pca.productid = <template-variable value="Product:UUID"/>
+		AND
+		    <template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+				pca.productdomainid = <template-variable value="Product:DomainID"/>
+			<if-else/>
+				pca.domainid = <template-variable value="Product:DomainID"/>
+			</template-if>
+		<template-if condition="isDefined(CatalogType)">
+			AND 
+			    c.typecode = <template-variable value="CatalogType"/>
+		</template-if>
+	</template-if>
+</template>
+<template type="objects" sqlDialect="Microsoft">
+	<template-if condition="Sharing:Enabled">
+		SELECT DISTINCT
+		    	catalogcategoryid AS UUID, position
+		FROM 
+		(
+			SELECT /*+ inline - to avoid massive not released temporary tablespace data */
+		       <template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+		          pca.categoryid
+		       <if-else/>
+		          pca.catalogcategoryid
+		        </template-if>
+		        AS catalogcategoryid, pca.position AS position
+		    FROM
+		        <template-if condition="isDefined(PCATableName)">
+					<template-variable value="PCATableName" processing="text" />
+				<if-else/>
+					productcategoryassignment
+				</template-if> pca
+		    JOIN 
+		        catalogcategory cc 
+		    ON 
+		        <template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+		           cc.uuid = pca.categoryid
+		        <if-else/>
+		           cc.uuid = pca.catalogcategoryid
+		        </template-if>
+		    JOIN 
+		        catalog c 
+		    ON 
+		        c.catalogdomainid = cc.domainid
+		    AND
+		        c.domainid = <template-variable value="Product:DomainID"/>
+		    WHERE
+		        pca.productid = <template-variable value="Product:UUID"/>
+		    AND
+				<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">		    
+					pca.productdomainid = <template-variable value="Product:DomainID"/>
+				<if-else/>
+					pca.domainid = <template-variable value="Product:DomainID"/>
+				</template-if>
+				<template-if condition="isDefined(CatalogType)">
+					AND 
+						c.typecode = <template-variable value="CatalogType"/>
+				</template-if>
+		)c_pcas
+		UNION ALL
+		SELECT DISTINCT
+			<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">		    
+				mr_pca.categoryid AS UUID, mr_pca.position AS position 
+			<if-else/>
+				mr_pca.catalogcategoryid AS UUID, mr_pca.position AS position
+			</template-if>
+		FROM
+		    <template-if condition="isDefined(PCATableName)">
+				<template-variable value="PCATableName" processing="text" />
+			<if-else/>
+				productcategoryassignment
+			</template-if>
+			mr_pca
+		JOIN 
+		    catalogcategory cc 
+		ON 
+	        <template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+				cc.uuid = mr_pca.categoryid
+	        <if-else/>
+				cc.uuid = mr_pca.catalogcategoryid
+	        </template-if>
+		JOIN 
+		    catalog c 
+		ON 
+		    c.catalogdomainid = cc.domainid
+		AND
+		    c.domainid = <template-variable value="Product:DomainID"/>
+		WHERE
+			mr_pca.productid = <template-variable value="Product:UUID"/>
+			<template-if condition="isDefined(CatalogType)">
+				AND 
+					c.typecode = <template-variable value="CatalogType"/>
+			</template-if>
+		AND
+		(
+			<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+				mr_pca.productdomainid
+			<if-else/>
+				mr_pca.domainid
+			</template-if>
+			IN
+			(
+				<template-loop iterator="Sharing:Domains" alias="Domain">
+					<loop-statement>
+						<template-variable value="Domain:UUID"/>
+					</loop-statement>
+					<loop-separator>,</loop-separator>
+				</template-loop>
+			)
+			<template-if condition="hasElements(Sharing:ProductSets)">
+				OR
+				<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">		    			        
+					mr_pca.productdomainid 
+				<if-else/>
+			        mr_pca.domainid
+				</template-if>       
+				IN
+				(
+					SELECT ps.domainid
+					FROM
+						productsetassignment psa
+					JOIN
+						productset ps ON (ps.uuid = psa.productsetuuid)
+			        WHERE
+						psa.productUUID = <template-variable value="Product:UUID"/>
+				)
+			</template-if>
+		)
+		AND
+		    NOT EXISTS
+			(
+				SELECT 1
+		        FROM 
+				(
+					SELECT /*+ inline - to avoid massive not released temporary tablespace data */
+					   <template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+						  pca.categoryid
+					   <if-else/>
+						  pca.catalogcategoryid
+						</template-if>
+						AS catalogcategoryid, pca.position AS position
+					FROM
+						<template-if condition="isDefined(PCATableName)">
+							<template-variable value="PCATableName" processing="text" />
+						<if-else/>
+							productcategoryassignment
+						</template-if> pca
+					JOIN 
+						catalogcategory cc 
+					ON 
+						<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+						   cc.uuid = pca.categoryid
+						<if-else/>
+						   cc.uuid = pca.catalogcategoryid
+						</template-if>
+					JOIN 
+						catalog c 
+					ON 
+						c.catalogdomainid = cc.domainid
+					AND
+						c.domainid = <template-variable value="Product:DomainID"/>
+					WHERE
+						pca.productid = <template-variable value="Product:UUID"/>
+					AND
+						<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">		    
+							pca.productdomainid = <template-variable value="Product:DomainID"/>
+						<if-else/>
+							pca.domainid = <template-variable value="Product:DomainID"/>
+						</template-if>
+						<template-if condition="isDefined(CatalogType)">
+							AND 
+								c.typecode = <template-variable value="CatalogType"/>
+						</template-if>
+				)c_pcas		        
+				WHERE c_pcas.catalogcategoryid = 
+				<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+					mr_pca.categoryid
+		        <if-else/>
+					mr_pca.catalogcategoryid
+		        </template-if>
+		    )
+	<if-else/>
+		SELECT DISTINCT 
+			<template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+				pca.categoryid
+			<if-else/> 
+				pca.catalogcategoryid
+			</template-if>
+			AS UUID, pca.position AS position
+		FROM
+		    <template-if condition="isDefined(PCATableName)">
+				<template-variable value="PCATableName" processing="text" />
+			<if-else/>
+				productcategoryassignment
+			</template-if>
+			pca
+		JOIN 
+		    catalogcategory cc 
+		ON 
+			cc.uuid = 
+	        <template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+				pca.categoryid
+	        <if-else/>
+		    	pca.catalogcategoryid
+	        </template-if>
+		JOIN 
+		    catalog c 
+		ON 
+		    c.catalogdomainid = cc.domainid
+		WHERE
+		    pca.productid = <template-variable value="Product:UUID"/>
+		AND
+		    <template-if condition="isDefined(PCATableName) AND (ucase(PCATableName) NE 'PRODUCTCATEGORYASSIGNMENT')">
+				pca.productdomainid = <template-variable value="Product:DomainID"/>
+			<if-else/>
+				pca.domainid = <template-variable value="Product:DomainID"/>
+			</template-if>
+		<template-if condition="isDefined(CatalogType)">
+			AND 
+			    c.typecode = <template-variable value="CatalogType"/>
+		</template-if>
+	</template-if>
+</template>
+</query>

@@ -1,0 +1,626 @@
+<ISCONTENT type = "text/xml" templatemarker="false" charset="utf-8" SESSION="FALSE">
+<ISMODULE template = "inc/CustomAttributes" name = "CUSTOMATTRIBUTES" attribute = "attributes">
+<isinclude template="impex/Modules">
+
+<%@ page import = "com.intershop.beehive.xcs.capi.product.*,com.intershop.beehive.xcs.internal.product.*,com.intershop.beehive.xcs.capi.productvariation.*,com.intershop.beehive.xcs.capi.catalog.*,com.intershop.beehive.xcs.capi.price.*,java.util.Iterator,com.intershop.beehive.core.capi.domain.AttributeValue,com.intershop.beehive.core.capi.domain.AttributeDefinitionConstants,com.intershop.beehive.core.capi.impex.AttributeValueIterator,com.intershop.beehive.core.capi.jdbc.DatabaseDate,java.text.SimpleDateFormat,java.util.TimeZone,java.util.*" %>
+<%@ page import = "com.intershop.component.mvc.internal.syndication.OutboundProductImpl" %>
+<%@ page import = "com.intershop.beehive.core.capi.naming.NamingMgr" %>
+<%@ page import = "com.intershop.beehive.core.capi.domain.DomainMgr" %>
+<%@ page import = "com.intershop.beehive.core.capi.domain.Domain" %>
+<%@ page import = "com.intershop.beehive.xcs.capi.catalog.TypedProductCategoryAssignment" %>
+<%@ page import = "com.intershop.beehive.xcs.capi.catalog.TypedProductCategoryAssignmentMgr" %>
+<%@ page import = "com.intershop.component.image.internal.orm.ImageReference" %>
+<%@ page import = "com.intershop.component.mvc.internal.sharing.ProductCategorySharingHelper" %>
+
+<ISIF condition="#isDefined(product)#">
+
+    <ISIF condition = "#product:isOffer#">
+        <offer sku="<ISPRINT value = "#product:SKU#">">
+    <ISELSE>
+        <product sku="<ISPRINT value = "#product:SKU#">">
+    </ISIF>
+
+        <sku><ISPRINT value = "#product:SKU#"></sku>
+        <%
+        	boolean outboundProductIndicator = Boolean.parseBoolean((String)getObject("outboundproductflag"));
+       		Product product = (Product) getObject("product");
+            
+            if (!product.getTypeCodeNull())
+            {
+                //
+                //  Type code handling.
+                //
+
+                int sumTypeCode = ProductConstants.OFFER |
+                                  ProductConstants.ITEM |
+                                  ProductConstants.BUNDLE |
+                                  ProductConstants.BUNDLED |
+                                  ProductConstants.MASTER |
+                                  ProductConstants.MASTERED |
+                                  ProductConstants.OFFERED;
+
+                if (product.getTypeCode() > sumTypeCode || product.getTypeCode() < 1)
+                {
+                    out.print("<type-code>");
+                    out.print(product.getTypeCode());
+                    out.println("</type-code>");
+                }
+            }
+
+            //
+            //  Name, short/long description and custom attributes.
+            //
+
+            Iterator    attributes = product.createAttributeValuesIterator();
+            StringBuffer customAttributes = new StringBuffer(4096);
+            int          numAttributes    = 0;
+
+            while (attributes.hasNext())
+            {
+                AttributeValue attribute = (AttributeValue) attributes.next();
+
+                String attributeName = attribute.getName();
+
+                //  Ignore some attributes (or export elsewhere).
+
+                if (ProductConstants.SKU.equals(attributeName))
+                {
+                    continue;
+                }
+
+              //
+              //  Order required attributes.
+              //
+                if (ProductConstants.ORDER_REQUIRED_ATTRIBUTES.equals(attributeName))
+                {
+                    String orderRequiredAttributesStr = attribute.getStringValue();
+                    if (orderRequiredAttributesStr != null)
+                    {
+                       out.println("<order-required-attributes>");
+
+                       java.util.StringTokenizer orderRequiredAttributes = new java.util.StringTokenizer(orderRequiredAttributesStr, AttributeDefinitionConstants.MULTIPLE_ATTR_DELIMITER);
+
+                       while (orderRequiredAttributes.hasMoreTokens())
+                       {
+                          out.println("<order-required-attribute name=\"" + stringToXml(orderRequiredAttributes.nextToken()) + "\"/>");
+                       }
+                       out.println("</order-required-attributes>");
+                    }
+                }
+
+                String locale = attribute.getXMLLocaleID();
+
+                if (ProductConstants.NAME.equals(attributeName))
+                {
+                    out.print("<name xml:lang=\"" +locale+ "\">");
+                    out.print(stringToXml(attribute.getStringValue()));
+                    out.println("</name>");
+                }
+                else if (ProductConstants.SHORTDESCRIPTION.equals(attributeName))
+                {
+                    out.print("<short-description xml:lang=\"" +locale+ "\">");
+                    out.print(stringToXml(attribute.getStringValue()));
+                    out.println("</short-description>");
+                }
+                else if (ProductConstants.LONGDESCRIPTION.equals(attributeName))
+                {
+                    out.print("<long-description xml:lang=\"" +locale+ "\">");
+                    out.print(stringToXml(attribute.getStringValue()));
+                    out.println("</long-description>");
+                }
+                else
+                {
+                    //  Other custom attributes will be exported by included subtemplate.
+                }
+            }   // while attributes
+
+
+            //
+            // Other custom attributes
+            getPipelineDictionary().put("productCustomAttributes", new AttributeValueIterator(product.createCustomAttributesIterator(), product));
+
+            //
+            //  Category links.
+            //
+
+			// Gets only categories that belong to a catalog, whose owning domain is in the same Repository (the object not RepositoryDomain!) as the product:
+            Iterator<?> categoryLinks = new ProductCategorySharingHelper().getProductCategoryLinks(product).iterator();
+
+            TypedProductCategoryAssignmentMgr tpcaMgr = NamingMgr.getManager(TypedProductCategoryAssignmentMgr.class);
+            Iterator<? extends TypedProductCategoryAssignment> typedCategoryLinks = tpcaMgr.getTypedProductCategoryAssignments(product.getDomain(), product).iterator();
+
+            if ( categoryLinks.hasNext() || typedCategoryLinks.hasNext())
+            {
+                String defaultCategoryID = product.getDefaultCatalogCategoryID();
+
+                out.println("<category-links>");
+
+                while (categoryLinks.hasNext())
+                {
+                    CatalogCategory category;
+                    CatalogCategory assignedCategory = (CatalogCategory) categoryLinks.next();
+                    String homeCategoryID            = assignedCategory.getUUID();
+
+                    boolean online       = assignedCategory.isProductAssignmentOnline(product);
+                    boolean positionNull = assignedCategory.getProductPositionNull(product);
+
+                    int hotdeals = 0;
+                    if (assignedCategory.isHotDealsCategory())
+                    {
+                        hotdeals = 1;
+                        category = assignedCategory.getHotDealsOwner();
+                    }
+                    else
+                    {
+                        hotdeals = 0;
+                        category = assignedCategory;
+                    }
+
+                    String name  = category.getName();
+                    int isdefault = homeCategoryID.equals(defaultCategoryID) ? 1 : 0;
+
+                    out.print("<category-link name=\"");
+                    out.print(stringToXml(name));
+                    out.print("\" domain=\"");
+                    out.print(stringToXml(category.getDomain().getDomainName()));
+                    out.print("\" default = \"");
+                    out.print(isdefault);
+                    out.print("\" hotdeal = \"");
+                    out.print(hotdeals);
+
+                    if (online && positionNull)
+                    {
+                        out.println("\"/>");
+                    }
+                    else
+                    {
+                        out.println("\">");
+                        if (!positionNull)
+                        {
+                            out.println("<position>"+category.getProductPosition(product)+"</position>");
+                        }
+                        if (!online)
+                        {
+                            out.println("<online>0</online>");
+                        }
+                        out.println("</category-link>");
+                    }
+                }
+
+                while (typedCategoryLinks.hasNext())
+                {
+                    TypedProductCategoryAssignment tpca = typedCategoryLinks.next();
+
+		            boolean online       = tpca.isAssignmentOnline();
+		            boolean positionNull = tpca.getPositionNull();
+		            Domain domain = NamingMgr.getManager(DomainMgr.class).getDomainByUUID(tpca.getDomainID());
+		
+		            String name  = tpca.getCatalogCategory().getName();
+		            
+		            out.print("<typed-category-link name=\"");
+		            out.print(stringToXml(name));
+                    out.print("\" domain=\"");
+                    out.print(stringToXml(tpca.getCatalogCategory().getDomain().getDomainName()));
+		            out.print("\" type-code=\"");
+		            out.print(stringToXml(tpca.getTypeCode()));
+		
+		            if (online && positionNull)
+		            {
+		                out.println("\"/>");
+		            }
+		            else
+		            {
+		                out.println("\">");
+		                if (!positionNull)
+		                {
+		                    out.println("<position>"+tpca.getPosition()+"</position>");
+		                }
+		                if (!online)
+		                {
+		                    out.println("<online>0</online>");
+		                }
+		                out.println("</typed-category-link>");
+		            }
+                }
+
+                out.println("</category-links>");
+            }
+
+						//
+						// Images.
+						//
+						
+						String primaryImageView = product.getPrimaryViewID();
+						Iterator<ImageReference> imageReferences = product.createImageReferencesIterator();
+						if (imageReferences.hasNext() || null != primaryImageView)
+						{
+			          out.println("<images>");
+								if (null != primaryImageView)
+								{
+									  out.println("<primary-view image-view=\"" + primaryImageView + "\" />");
+								}
+								while (imageReferences.hasNext())
+								{
+									ImageReference imageReference = imageReferences.next();
+									out.print("<image-ref image-view=\"" + stringToXml(imageReference.getImageView().getID()) + "\" image-type=\"" + stringToXml(imageReference.getImageType().getID()) + "\"");
+									out.print(" image-base-name=\"" + stringToXml(imageReference.getImageBaseName()) + "\"");
+									if (imageReference.getImageWidth() != 0)
+									{
+										  out.print(" image-width=\"" + imageReference.getImageWidth() + "\"");
+									}
+									if (imageReference.getImageHeight()!= 0)
+									{
+										  out.print(" image-height=\"" + imageReference.getImageHeight() + "\"");
+									}
+									if (! imageReference.getDomain().equals(product.getDomain()))
+									{
+										  out.print(" domain=\"" + stringToXml(imageReference.getDomain().getDomainName()) + "\"");
+									}
+									out.println (" />");
+								}
+			          out.println("</images>");
+						}
+
+            //
+            //  List prices.
+            //
+
+            Iterator prices = product.createListPricesIterator();
+
+            if (prices.hasNext())
+            {
+                out.println("<product-list-prices>");
+
+                do
+                {
+                    ProductListPrice price = (ProductListPrice) prices.next();
+
+                    String      currency      = price.getCurrency();
+                    String      value         = price.getValue().toString();
+                    int         isNetPrice    = price.isNetPrice() ? 1 : 0;
+
+                    out.print("<product-list-price currency=\"");
+                    out.print(currency);
+                    out.print("\" net-price=\"");
+                    out.print(isNetPrice);
+                    out.print("\">");
+                    out.print(value);
+                    out.println("</product-list-price>");
+                }
+                while (prices.hasNext());
+
+                out.println("</product-list-prices>");
+            }
+
+            //
+            //  Cost prices.
+            //
+
+            prices = product.createCostPricesIterator();
+
+            if (prices.hasNext())
+            {
+                out.println("<product-cost-prices>");
+
+                do
+                {
+                    ProductCostPrice price = (ProductCostPrice) prices.next();
+
+                    String      currency      = price.getCurrency();
+                    String      value         = price.getValue().toString();
+                    int         isNetPrice    = price.isNetPrice() ? 1 : 0;
+
+                    out.print("<product-cost-price currency=\"");
+                    out.print(currency);
+                    out.print("\" net-price=\"");
+                    out.print(isNetPrice);
+                    out.print("\">");
+                    out.print(value);
+                    out.println("</product-cost-price>");
+                }
+                while (prices.hasNext());
+
+                out.println("</product-cost-prices>");
+            }
+
+            //
+            //  Product links.
+            //
+
+            Iterator productLinks = product.createOutgoingProductLinksIterator();
+
+            if (productLinks.hasNext())
+            {
+                out.println("<product-links>");
+
+                while (productLinks.hasNext())
+                {
+                    ProductLink productLink = (ProductLink) productLinks.next();
+
+                    CatalogCategory linkedCategory = productLink.getLinkedCatalogCategory();
+                    Product         linkedProduct  = productLink.getTargetProduct();
+                    String          linkType       = productLink.getTypeCode();
+
+                    if (linkedProduct != null)
+                    {
+                        String sku     = linkedProduct.getSKU();
+                        String lpDomain = linkedProduct.getDomain().getDomainName();
+
+                        out.println("<product-link sku = \"" + stringToXml(sku) + "\" domain = \"" + stringToXml(lpDomain) + "\">");
+
+                        out.println("<product-link-type name=\"" + linkType + "\"></product-link-type>");
+                        
+                        if (linkedCategory != null)
+                        {
+                            String name         = linkedCategory.getName();
+                            String lcDomain     = linkedCategory.getDomain().getDomainName();
+
+                            out.println("<product-link-category name = \"" + name + "\" domain = \"" + stringToXml(lcDomain) + "\" />");
+                        }
+
+                        if (productLink.getQuantity() != null )
+                        {
+			                out.println("<quantity>" + productLink.getQuantity().longValue() + "</quantity>");
+			            }
+			            
+			            if (!productLink.getPositionNull() )
+                        {
+			                out.println("<position>" + productLink.getPosition() + "</position>");
+			            }
+		                
+			            //
+			            //  unit, description and custom attributes.
+			            //
+			            Iterator productLinkAttributes = productLink.createAttributeValuesIterator();
+			
+			            while (productLinkAttributes.hasNext())
+			            {
+			                AttributeValue attribute = (AttributeValue) productLinkAttributes.next();
+			
+			                String attributeName = attribute.getName();
+			                String locale = attribute.getXMLLocaleID();
+
+			                if ("unit".equals(attributeName))
+			                {
+			                    out.print("<unit xml:lang=\"" +locale+ "\">");
+			                    out.print(stringToXml(attribute.getStringValue()));
+			                    out.println("</unit>");
+			                }
+                		}
+
+			
+						List productLinkOtherCustomAttributes  = new ArrayList();
+			            productLinkAttributes = productLink.createAttributeValuesIterator();
+			
+			            while (productLinkAttributes.hasNext())
+			            {
+			                AttributeValue attribute = (AttributeValue) productLinkAttributes.next();
+			
+			                String attributeName = attribute.getName();
+			                String locale = attribute.getXMLLocaleID();
+
+			                if ("description".equals(attributeName))
+			                {
+			                    out.print("<description xml:lang=\"" +locale+ "\">");
+			                    out.print(stringToXml(attribute.getStringValue()));
+			                    out.println("</description>");
+			                }
+			                else if ("unit".equals(attributeName))
+			                {
+			                	// unit has been done before to ensure correct sequence of 
+			                	// elements
+			                }
+			                else
+			                {
+			                    //  Other custom attributes will be exported by included subtemplate.
+			                    productLinkOtherCustomAttributes.add(attribute);
+			                }
+                		}
+                		                
+			            getPipelineDictionary().put("ProductLinkCustomAttributes", productLinkOtherCustomAttributes);
+                        %>
+                        <ISCUSTOMATTRIBUTES attributes="#ProductLinkCustomAttributes#">
+                        <%
+                    }
+
+                    out.println("</product-link>");
+                }
+
+
+                out.println("</product-links>");
+            }
+
+            //
+            //  Bundled products (if product is bundle).
+            //
+
+            if (product.isProductBundle() || (!product.getTypeCodeNull() && ((product.getTypeCode() & 128) == 128)))
+            {
+                Iterator assignments = product.createBundleAssignmentsIterator();
+
+                if (assignments.hasNext())
+                {
+                    out.println("<bundled-products>");
+
+                    while (assignments.hasNext())
+                    {
+                        BundledProduct assignment = (BundledProduct) assignments.next();
+                        Product    bundledProduct = assignment.getProduct();
+
+                        if (bundledProduct==null)
+                            continue;
+
+                        String sku     = bundledProduct.getSKU();
+                        String bDomain = bundledProduct.getDomain().getDomainName();
+
+                        out.println("<bundled-product sku = \"" + stringToXml(sku) + "\">");
+
+                        com.intershop.beehive.foundation.quantity.Quantity bundledQuantity = assignment.getQuantity();
+                        if (bundledQuantity != null)
+                        {
+                            String unit  = bundledQuantity.getUnit();
+                            double value = bundledQuantity.getValue().doubleValue();
+
+                            out.println("<bundled-quantity unit = \"" + unit + "\">" + value + "</bundled-quantity>");
+                        }
+
+                        if (!assignment.getPositionNull())
+                        {
+                            out.println("<position>" + assignment.getPosition() + "</position>");
+                        }
+
+                        if (!assignment.isOnline())
+                        {
+                            out.println("<online>0</online>");
+                        }
+
+
+                        out.println("</bundled-product>");
+                    }
+
+                    out.println("</bundled-products>");
+                }
+            }
+
+            //
+            //  Variations.
+            //
+
+            if (product.isProductMaster())
+            {
+                Iterator masteredIter       = product.createMasteredProductsIterator();
+                Iterator attributeIter      = product.createVariableVariationAttributesIterator();
+
+                ProductVariation defaultVariation = product.getDefaultProductVariation();
+                String defaultMasteredId = null;
+
+                if (defaultVariation != null)
+                {
+                    defaultMasteredId = defaultVariation.getProductID();
+                }
+
+                out.println("<variations>");
+                out.println("<mastered-products>");
+
+                while (masteredIter.hasNext())
+                {
+                    Product mastered = (Product) masteredIter.next();
+                    String  masteredUUID  = mastered.getUUID();
+                    String  masteredSKU   = mastered.getSKU();
+                    String masteredVariationPositionString = mastered.getProductVariationPositionNull() ? null : String.valueOf(mastered.getProductVariationPosition());
+                    String masteredDomain = mastered.getDomain().getDomainName();
+                    out.print("<mastered-product sku=\"" + stringToXml(masteredSKU) + "\" domain=\"" + stringToXml(masteredDomain) + 
+                    	"\" default=\"" + (masteredUUID.equals(defaultMasteredId) ? '1' : '0') + '"');
+                    if (masteredVariationPositionString != null) {
+                    	out.print(" productvariationposition = \"" + stringToXml(masteredVariationPositionString) + "\"");
+                    }
+                    out.println("/>");
+                }
+
+                out.println("</mastered-products>");
+          
+				if (attributeIter.hasNext())
+				{
+	                out.println("<variation-attributes>");
+	
+	                while (attributeIter.hasNext())
+	                {
+	                    VariableVariationAttribute attribute = (VariableVariationAttribute) attributeIter.next();
+	                    out.println("<variation-attribute name = \"" + stringToXml(attribute.getName()) + "\">");
+	
+						if (!attribute.getPositionNull())
+						{
+							out.println("<position>" + attribute.getPosition() + "</position>");
+						}
+						if (!attribute.getPresentationOptionNull())
+						{
+							out.println("<presentation-option>" + attribute.getPresentationOption() + "</presentation-option>");
+						}
+						if (!attribute.getPresentationProductAttributeNameNull())
+						{
+							out.println("<presentation-product-attribute-name>" + attribute.getPresentationProductAttributeName() + "</presentation-product-attribute-name>");
+						}
+	
+	                    Iterator avs = attribute.createAttributeValuesIterator();
+	
+	                    if (avs.hasNext())
+	                    {
+	                        getPipelineDictionary().put("variableAttCustomAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(avs, attribute));
+	                        %>
+	                        <ISCUSTOMATTRIBUTES attributes="#variableAttCustomAttributes#">
+	                        <%
+	                    }
+	
+	                    out.println("</variation-attribute>");
+	                }
+	
+	                out.println("</variation-attributes>");
+				}
+                out.println("</variations>");
+            }
+        %>
+        <ISIF condition = "#product:isOffer#">
+                <offered-product sku="<ISPRINT value="#product:OfferedProduct:SKU#">" domain="<ISPRINT value="#StringToXML(product:OfferedProduct:Domain:DomainName)#">"/>
+        </ISIF>
+        <ISIF condition = "#NOT product:TaxClassIDNull#"><tax-class id = "<ISPRINT value = "#product:TaxClassID#">"/></ISIF>
+        <ISIF condition = "#NOT product:ProductTypeIDNull#"><product-type name = "<ISPRINT value = "#product:ProductType:Name#">" domain = "<ISPRINT value = "#StringToXML(product:ProductType:Domain:DomainName)#">"/></ISIF>
+        <ISIF condition = "#NOT product:TemplateNull#"><template><ISPRINT value = "#product:Template#"></template></ISIF>
+
+		<% if(outboundProductIndicator) { 
+		       if(!((OutboundProductImpl)product).getOnlineNull()) { %>
+	        		<online><ISIF condition = "#product:isOnline#">1<ISELSE>0</ISIF></online>
+	 		<% } if(!((OutboundProductImpl)product).getAvailableNull()) { %>
+	        		<available><ISIF condition = "#product:isAvailable#">1<ISELSE>0</ISIF></available>
+		<% } } else { %>
+	        <online><ISIF condition = "#product:isOnline#">1<ISELSE>0</ISIF></online>
+	        <available><ISIF condition = "#product:isAvailable#">1<ISELSE>0</ISIF></available>
+		<% } %>
+
+		<ISIF condition = "#NOT product:AvailabilityStatusNull#"><availability-status><ISPRINT value = "#product:AvailabilityStatus#"></availability-status></ISIF>
+		
+	    <ISIF condition = "#NOT product:LastOrderDateNull#"><last-order-date><ISDateTime date="#product:LastOrderDate#"></last-order-date></ISIF>
+      	<ISIF condition = "#NOT product:EndOfLifeNull#"><end-of-life><ISDateTime date="#product:EndOfLife#"></end-of-life></ISIF>		
+		
+		<isif condition="#((product:isProductBundle) OR (product:isProductMaster)) AND (product:isDerivingDates)#">
+      	<derive-dates>1</derive-dates>
+      	</isif>
+		
+		<%
+			getPipelineDictionary().put("supplierName", product.getSupplierName());
+			getPipelineDictionary().put("supplierSKU", product.getSupplierSKU());
+		%>
+        <ISIF condition = "#isDefined(supplierName) OR isDefined(supplierSKU)#"><supplier>
+                    <ISIF condition = "#isDefined(supplierName)#"><supplier-name><ISPRINT value = "#supplierName#"></supplier-name></ISIF>
+                    <ISIF condition = "#isDefined(supplierSKU)#"><supplier-sku><ISPRINT value = "#supplierSKU#"></supplier-sku></ISIF>
+           </supplier></ISIF>
+           
+		<%
+			getPipelineDictionary().put("manufacturerName", product.getManufacturerName());
+			getPipelineDictionary().put("manufacturerSKU", product.getManufacturerSKU());
+		%>
+        <ISIF condition = "#isDefined(manufacturerName) OR isDefined(manufacturerSKU)#"><manufacturer>
+                    <ISIF condition = "#isDefined(manufacturerName)#"><manufacturer-name><ISPRINT value = "#manufacturerName#"></manufacturer-name></ISIF>
+                    <ISIF condition = "#isDefined(manufacturerSKU)#"><manufacturer-sku><ISPRINT value = "#manufacturerSKU#"></manufacturer-sku></ISIF>
+           </manufacturer></ISIF>
+        <ISIF condition = "#NOT product:UnitNull#"><quantity unit = "<ISPRINT value = "#product:Unit#">">
+                    <ISIF condition = "#NOT product:StepQuantityValueNull#"><step-quantity><% out.print(getObject("product:StepQuantityValue")); %></step-quantity></ISIF>
+                    <ISIF condition = "#NOT product:MinOrderQuantityValueNull#"><min-order-quantity><% out.print(getObject("product:MinOrderQuantityValue")); %></min-order-quantity></ISIF>
+                    <ISIF condition = "#NOT product:MaxOrderQuantityValueNull#"><max-order-quantity><% out.print(getObject("product:MaxOrderQuantityValue")); %></max-order-quantity></ISIF>
+                    <ISIF condition = "#product:isPriceQuantityAvailable#"><price-quantity><% out.print(getObject("product:PriceQuantityValue")); %></price-quantity><ISELSE><price-quantity>1</price-quantity></ISIF>
+            </quantity></ISIF>
+
+      	<ISIF condition = "#isDefined(product:ValidFrom)#"><valid-from><ISDateTime date="#product:ValidFrom#"></valid-from></ISIF>
+      	<ISIF condition = "#isDefined(product:ValidTo)#"><valid-to><ISDateTime date="#product:ValidTo#"></valid-to></ISIF>
+
+		<isinclude extensionpoint="ProductExportXMLExtensions"/>
+
+        <isset name="isProductCustomAttributes" value="true" scope="request">
+        <ISCUSTOMATTRIBUTES attributes="#productCustomAttributes#">
+        <isset name="isProductCustomAttributes" value="false" scope="request">
+
+    <ISIF condition = "#product:isOffer#">
+        </offer>
+    <ISELSE>
+        </product>
+    </ISIF>
+</ISIF>

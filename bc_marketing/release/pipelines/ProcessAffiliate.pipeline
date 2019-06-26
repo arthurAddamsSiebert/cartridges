@@ -1,0 +1,668 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Contains all the low level processing logic of the Affiliate sector.
+@Group Affiliate-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessAffiliate" overrideMode="Inherit" type="process">
+<!--Current{X} is only used here as 
+fallback for the delegate to 
+the new start node.
+They have to be passed 
+in manually!
+@Location 19,2-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text6"/>
+<!--@Deprecated since IS 7.3.1
+This is only a delegate.
+Use static BookOrderToAffiliate instead!
+@Location 15,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text5"/>
+<!--\- Account TypeCode for Affiliate Accounts = 50
+\- AccountTransaction TypeCode for Affiliate Accounts = 50
+
+for more TypeCodes, see knowledge base:
+"Typecodes used in Enfinity Suite 6"
+https://support.intershop.com/kb/index.php/Display/99A77
+@Location 12,2-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text4"/>
+<!--@Deprecated since IS 7.3.1
+This is only a delegate.
+Use the strict "UpdateAffiliateSession" instead!
+
+@Location 19,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text3"/>
+<!--An affiliate assignment is working exactly 
+the same ways as a CSRF attack.
+Though, this time it is a wanted manipulation 
+on first request and no 
+CSRF token can be  existing yet.
+@Location 24,2-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2"/>
+<!--@Deprecated since IS 7.3.1
+This is only a delegate.
+Use strict "GetProgramByUUID" instead!
+@Location 4,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--@Deprecated since IS 7.3.1
+This is only a delegate.
+Use the strict "GetProgramFromSession" instead!
+@Location 9,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@Since IS 7.3.1
+Turns the CurrentSession into an Affiliate Session, which also handles counting, and writes the UUIDs into the session dictionary.
+Uses Error, if the Session handling fails or the Affiliate assignment is not new (alsready assigned).
+@Location 27,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="AssignAffiliateToCurrentSession"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateAffiliateSession0" action="begin"/>
+    <parameters name="AffiliatePartner" type="com.intershop.component.marketing.capi.affiliate.AffiliatePartner"/>
+    <parameters name="AffiliateProgram" type="com.intershop.component.marketing.capi.affiliate.AffiliateProgram"
+        optional="true"/>
+<!--The affected Session.-->
+    <parameters name="Session" type="com.intershop.beehive.core.capi.request.Session"/>
+  </nodes>
+<!--@Location 27,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateAffiliateSession0">
+    <pipelet href="enfinity:/bc_marketing/pipelets/CreateAffiliateSession.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0" action="commit"/>
+<!--@BendPoints 53,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3" action="rollback"/>
+  </nodes>
+<!--Session input is only needed, when this is a new one.
+@Location 27,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="NewAffliatedSession"
+      operator="eq" conditionValue="1">
+    <nodeSuccessors name="decision_yes" next="ExchangeSessionObject0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 27,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject0">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="ProgramUUID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="ExchangeSessionObject1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode16"/>
+    <parameterBindings name="SaveObject" objectPath="AffiliateSession:ProgramUUID"/>
+  </nodes>
+<!--@Location 27,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject1">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="PartnerUUID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode17"/>
+    <parameterBindings name="SaveObject" objectPath="AffiliateSession:PartnerUUID"/>
+  </nodes>
+<!--@Location 27,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="" strict="true"/>
+<!--@Location 26,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 26,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="Error" strict="true"/>
+<!--@Location 26,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+    <nodeSuccessors name="next" next="JoinNode17"/>
+  </nodes>
+<!--@Location 26,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode16"/>
+  </nodes>
+<!--@Deprecated since IS 7.3.1
+This is only a delegate.
+Use the strict "UpdateAffiliateSession" instead!
+
+Description:
+Gets the Affiliate Session from the current Session and updates the assigned registered user with the current registered user.
+This is meant to be used, when the assigned user changes its login state to registered.
+@Location 18,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" name="BookLead" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 18,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Session">
+    <nodeSuccessors name="decision_yes" next="CallNode5"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper0"/>
+  </nodes>
+<!--@Location 18,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="EndNode15"/>
+    <parameterBindings name="Session" objectPath="CurrentSession"/>
+    <startNode referencedName="ProcessAffiliate-UpdateAffiliateSession"/>
+  </nodes>
+<!--@Location 18,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15"/>
+<!--@Location 19,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 39,4-->
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <parameterBindings name="InValue_1" objectPath="Session"/>
+    <returnValueBindings name="OutValue_1" objectPath="CurrentSession"/>
+  </nodes>
+<!--@Since IS 7.3.1
+Adds the order amount of the session to the assigned affiliate program and partner.
+@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" strict="true" name="BookOrderToAffiliate"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode12"/>
+<!--The used App context.-->
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--The Session to which the affiliate revenues should be booked.-->
+    <parameters name="TargetSession" type="com.intershop.beehive.core.capi.request.Session"/>
+<!--The processed Order.-->
+    <parameters name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode12">
+    <nodeSuccessors name="next" next="Pipelet35"/>
+<!--@BendPoints 27,3-->
+    <nodeSuccessors name="ERROR" next="JoinNode25"/>
+    <startNode referencedName="ProcessAffiliate-GetProgramFromSession"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet35">
+    <configurationValues name="DefaultTypeCode" value="50"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetAccountByOwner.xml"/>
+    <nodeSuccessors name="next" next="CreateAccountTransaction2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode25"/>
+    <parameterBindings name="Owner" objectPath="AffiliatePartner"/>
+    <parameterBindings name="TypeCode" nullBinding="true"/>
+    <returnValueBindings name="Account" objectPath="AffiliatePartnerAccount"/>
+  </nodes>
+<!--is TypeCode 50
+@Location 11,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateAccountTransaction2">
+    <configurationValues name="DefaultTypeCode" value="50"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/CreateAccountTransaction.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode26"/>
+    <parameterBindings name="Owner" objectPath="AffiliatePartnerAccount:Domain"/>
+    <parameterBindings name="TypeCode" nullBinding="true"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetOrderBO1"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Extension(&quot;Order&quot;):getOrderBORepository(Order)"/>
+    <returnValueBindings name="OutValue_1" objectPath="OrderBORepository"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderBO1">
+    <pipelet href="enfinity:/bc_order/pipelets/GetOrderBO.xml"/>
+    <nodeSuccessors name="next" next="UpdateAccountTransaction1"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateAccountTransaction1">
+    <configurationValues name="AmountUpdatePolicy" value="Default"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/UpdateAccountTransaction.xml"/>
+<!--@BendPoints 23,14-->
+    <nodeSuccessors name="next" next="Pipelet34"/>
+    <parameterBindings name="Amount" objectPath="OrderBO:ItemSubtotal"/>
+    <parameterBindings name="AmountCurrency" nullBinding="true"/>
+    <parameterBindings name="AmountValue" nullBinding="true"/>
+    <parameterBindings name="TimeStamp" nullBinding="true"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet34">
+    <pipelet href="enfinity:/bc_organization/pipelets/BindAccountTransaction.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode15"/>
+    <parameterBindings name="Account" objectPath="AffiliatePartnerAccount"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode15" conditionKey="AffiliateProgram">
+    <nodeSuccessors name="decision_yes" next="DecisionNode5"/>
+<!--@BendPoints 25,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode8"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="AffiliateProgram:isEnabled"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="DecisionNode6"/>
+    <nodeSuccessors name="decision_no" next="JoinNode8"/>
+  </nodes>
+<!--@Location 11,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="AffiliateProgram:isExpired"
+      operator="str_eq" conditionValue="false">
+    <nodeSuccessors name="decision_yes" next="GetAccountByOwner1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode9"/>
+  </nodes>
+<!--@Location 11,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAccountByOwner1">
+    <configurationValues name="DefaultTypeCode" value="50"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetAccountByOwner.xml"/>
+    <nodeSuccessors name="next" next="BindAccountTransaction1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode24"/>
+    <parameterBindings name="Owner" objectPath="AffiliateProgram"/>
+    <parameterBindings name="TypeCode" nullBinding="true"/>
+    <returnValueBindings name="Account" objectPath="AffiliateProgramAccount"/>
+  </nodes>
+<!--@Location 11,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="BindAccountTransaction1">
+    <pipelet href="enfinity:/bc_organization/pipelets/BindAccountTransaction.xml"/>
+    <nodeSuccessors name="next" next="JoinNode23"/>
+    <parameterBindings name="Account" objectPath="AffiliateProgramAccount"/>
+  </nodes>
+<!--@Location 11,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode23">
+    <nodeSuccessors name="next" next="UpdateCustomAttributes1"/>
+  </nodes>
+<!--@Location 11,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes1">
+    <configurationValues name="Attribute_1_Name" value="AffiliatePartnerAccountID"/>
+    <configurationValues name="Attribute_1_Type" value="String"/>
+    <configurationValues name="Attribute_2_Name" value="AffiliatePartnerTransactionID"/>
+    <configurationValues name="Attribute_2_Type" value="String"/>
+    <configurationValues name="Attribute_3_Name" value="AffiliateProgramAccountID"/>
+    <configurationValues name="Attribute_3_Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="JoinNode27"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="AffiliatePartnerAccount:UUID"/>
+    <parameterBindings name="Attribute_2_Value" objectPath="AccountTransaction:UUID"/>
+    <parameterBindings name="Attribute_3_Value" objectPath="AffiliateProgramAccount:UUID"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Order"/>
+  </nodes>
+<!--@Location 11,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode27">
+    <nodeSuccessors name="next" next="EndNode12"/>
+  </nodes>
+<!--@Location 11,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" strict="true"/>
+<!--@Location 12,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode24">
+<!--@BendPoints 25,27-->
+    <nodeSuccessors name="next" next="JoinNode23"/>
+  </nodes>
+<!--@Location 12,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="JoinNode24"/>
+  </nodes>
+<!--@Location 12,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode26">
+<!--@BendPoints 27,31-->
+    <nodeSuccessors name="next" next="JoinNode27"/>
+  </nodes>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode25">
+    <nodeSuccessors name="next" next="JoinNode26"/>
+  </nodes>
+<!--@Deprecated since IS 7.3.1
+This is only a delegate.
+Use static ProcessAffiliate\-BookOrderToAffiliate in bc_marketing instead!
+
+Description:
+Adds the order amount of the session to the assigned affiliate program and partner.
+Configuration sets TypeCode to 50.
+Other applications might need other TypeCodes.
+
+@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" name="BookRevenue" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode6"/>
+<!--The used App context-->
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="EndNode16"/>
+    <parameterBindings name="Domain" objectPath="CurrentDomain"/>
+    <startNode referencedName="ProcessAffiliate-BookOrderToAffiliate"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16"/>
+<!--@Since IS 7.3.1
+Resolves the given Affiliate Program or Partner and adds it to the CurrentSession. This also adds one to the count of affiliate users.
+Uses Error, if no UUID could be resolved or the Session handling fails or the affiliate was already assigned.
+@Location 23,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="DetermineAffiliate"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+<!--The UUID of the Affiliate Program to use-->
+    <parameters name="ProgramUUID" type="java.lang.String" optional="true"/>
+<!--The UUID of the Affiliate Partner to use.-->
+    <parameters name="PartnerUUID" type="java.lang.String" optional="true"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The affected Session.-->
+    <parameters name="Session" type="com.intershop.beehive.core.capi.request.Session"/>
+  </nodes>
+<!--@Location 23,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="StartSafeChangesBlock0"/>
+<!--@BendPoints 51,3-->
+    <nodeSuccessors name="ERROR" next="JoinNode0"/>
+    <startNode referencedName="ProcessAffiliate-GetProgramByUUID"/>
+  </nodes>
+<!--@Location 23,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="StartSafeChangesBlock0">
+    <pipelet href="enfinity:/core/pipelets/StartSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 23,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="EndSafeChangesBlock1"/>
+    <nodeSuccessors name="Error" next="EndSafeChangesBlock0"/>
+    <startNode referencedName="ProcessAffiliate-AssignAffiliateToCurrentSession"/>
+  </nodes>
+<!--@Location 23,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EndSafeChangesBlock1">
+    <pipelet href="enfinity:/core/pipelets/EndSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 23,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" strict="true"/>
+<!--@Location 24,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EndSafeChangesBlock0">
+    <pipelet href="enfinity:/core/pipelets/EndSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 25,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode8"/>
+  </nodes>
+<!--@Location 25,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="Error" strict="true"/>
+<!--@Deprecated since IS 7.3.1
+This is only a delegate.
+Use strict "GetProgramByUUID" instead!
+
+Description:
+Tries to resolve the provided Affiliate Program and Partner. The PartnerUUID is only a fallback.
+If successfull, the returned Partner object is guaranteed, the Program is optional.
+If the UUIDs could not be resolved, Error is used.
+@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" name="GetProgramByRequest"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode4"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="EndNode10"/>
+<!--@BendPoints 9,3-->
+    <nodeSuccessors name="ERROR" next="EndNode11"/>
+    <parameterBindings name="Domain" objectPath="CurrentDomain"/>
+    <startNode referencedName="ProcessAffiliate-GetProgramByUUID"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10"/>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" name="ERROR"/>
+<!--@Deprecated since IS 7.3.1
+This is only a delegate.
+Use the strict "GetProgramFromSession" instead!
+
+Description:
+Retrieves an already assigned Affiliate Program an Partner from the Current or Target Session.
+Uses Error, if Session handling fails or the found UUIDs from the Sessions could not be resolved.
+@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" name="GetProgramBySession"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode3"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="EndNode14"/>
+<!--@BendPoints 19,3-->
+    <nodeSuccessors name="ERROR" next="EndNode13"/>
+    <parameterBindings name="Domain" objectPath="CurrentDomain"/>
+    <startNode referencedName="ProcessAffiliate-GetProgramFromSession"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14"/>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" name="ERROR"/>
+<!--@Since IS 7.3.1
+Tries to resolve the provided Affiliate Program and Partner. The PartnerUUID is only a fallback.
+If successfull, the returned Partner object is guaranteed, the Program is optional.
+If the UUIDs could not be resolved, Error is used.
+@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetProgramByUUID"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameters name="ProgramUUID" type="java.lang.String" optional="true"/>
+    <parameters name="PartnerUUID" type="java.lang.String" optional="true"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ProgramUUID">
+    <nodeSuccessors name="decision_yes" next="Pipelet1"/>
+<!--@BendPoints 3,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/GetAffiliateProgramByUUID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="AffiliateProgramUUID" objectPath="ProgramUUID"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="AffiliateProgram:Domain:Site:DomainName"
+      operator="str_eq" conditionItem="Domain:DomainName">
+    <nodeSuccessors name="decision_yes" next="KeyMapper1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="InValue_1" objectPath="AffiliateProgram:AffiliatePartner"/>
+    <returnValueBindings name="OutValue_1" objectPath="AffiliatePartner"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+<!--The resolved Affiliate Partner object.-->
+    <returnValues name="AffiliatePartner" type="com.intershop.component.marketing.capi.affiliate.AffiliatePartner"/>
+<!--The resolved Affiliate program object.-->
+    <returnValues name="AffiliateProgram" type="com.intershop.component.marketing.capi.affiliate.AffiliateProgram"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="PartnerUUID">
+    <nodeSuccessors name="decision_yes" next="Pipelet2"/>
+<!--@BendPoints 5,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/bc_marketing/pipelets/GetAffiliatePartnerByUUID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="AffiliatePartnerUUID" objectPath="PartnerUUID"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="AffiliatePartner:Domain:Site:DomainName"
+      operator="str_eq" conditionItem="Domain:DomainName">
+<!--@BendPoints 3,15-->
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode18"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="ERROR" strict="true"/>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode18"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Since IS 7.3.1
+Retrieves an already assigned Affiliate Program an Partner from the Current or Target Session.
+Uses Error, if Session handling fails or the found UUIDs from the Sessions could not be resolved.
+@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="GetProgramFromSession"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ExchangeSessionObject4"/>
+    <parameters name="TargetSession" type="com.intershop.beehive.core.capi.request.Session"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject4">
+    <configurationValues name="ProcessMethod" value="Get Object from Session"/>
+    <configurationValues name="SessionObjectName" value="ProgramUUID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="ExchangeSessionObject5"/>
+<!--@BendPoints 15,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <returnValueBindings name="LoadObject" objectPath="ProgramUUID"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject5">
+    <configurationValues name="ProcessMethod" value="Get Object from Session"/>
+    <configurationValues name="SessionObjectName" value="PartnerUUID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <returnValueBindings name="LoadObject" objectPath="PartnerUUID"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <nodeSuccessors name="ERROR" next="JoinNode15"/>
+    <startNode referencedName="ProcessAffiliate-GetProgramByUUID"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+<!--The AffiliatePartner object found in the session.-->
+    <returnValues name="AffiliatePartner" type="com.intershop.component.marketing.capi.affiliate.AffiliatePartner"/>
+<!--The Affiliate Program object found in the session.-->
+    <returnValues name="AffiliateProgram" type="com.intershop.component.marketing.capi.affiliate.AffiliateProgram"
+        optional="true"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="ERROR" strict="true"/>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="JoinNode15"/>
+  </nodes>
+<!--Removed booked transaction bindings but not transaction.
+
+@Location 21,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="RemoveRevenue"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+<!--The order the transaction should be removed from.-->
+    <parameters name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"
+        optional="true"/>
+  </nodes>
+<!--@Location 21,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="Order:AffiliatePartnerAccountID">
+<!--@BendPoints 43,4-->
+    <nodeSuccessors name="decision_yes" next="GetAccountByUUID1"/>
+<!--@BendPoints 45,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode12"/>
+  </nodes>
+<!--@Location 21,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAccountByUUID1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetAccountByUUID.xml"/>
+<!--@BendPoints 43,6-->
+    <nodeSuccessors name="next" next="GetAccountTransactionByUUID1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="AccountUUID" objectPath="Order:AffiliatePartnerAccountID"/>
+  </nodes>
+<!--@Location 21,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAccountTransactionByUUID1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetAccountTransactionByUUID.xml"/>
+<!--@BendPoints 43,8-->
+    <nodeSuccessors name="next" next="UnbindAccountTransaction1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode13"/>
+    <parameterBindings name="AccountTransactionUUID" objectPath="Order:AffiliatePartnerTransactionID"/>
+  </nodes>
+<!--@Location 21,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UnbindAccountTransaction1">
+    <pipelet href="enfinity:/bc_organization/pipelets/UnbindAccountTransaction.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+  </nodes>
+<!--@Location 21,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="Order:AffiliateProgramAccountID">
+<!--@BendPoints 43,12-->
+    <nodeSuccessors name="decision_yes" next="GetAccountByUUID2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode11"/>
+  </nodes>
+<!--@Location 21,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAccountByUUID2">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetAccountByUUID.xml"/>
+<!--@BendPoints 43,14-->
+    <nodeSuccessors name="next" next="UnbindAccountTransaction2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode14"/>
+    <parameterBindings name="AccountUUID" objectPath="Order:AffiliateProgramAccountID"/>
+  </nodes>
+<!--@Location 21,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UnbindAccountTransaction2">
+    <pipelet href="enfinity:/bc_organization/pipelets/UnbindAccountTransaction.xml"/>
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 21,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 43,18-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 21,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true"/>
+<!--@Location 22,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+<!--@BendPoints 45,17-->
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 22,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+<!--@Location 22,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 22,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="JoinNode13"/>
+  </nodes>
+<!--@Since IS 7.3.1
+Gets the Affiliate Session from the current Session and updates the assigned registered user with the current registered user.
+This is meant to be used, when the assigned user changes its login state to registered.
+@Location 17,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="UpdateAffiliateSession"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetAffiliateSession0"/>
+<!--The affected Session.-->
+    <parameters name="Session" type="com.intershop.beehive.core.capi.request.Session"/>
+  </nodes>
+<!--@Location 17,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAffiliateSession0">
+    <pipelet href="enfinity:/bc_marketing/pipelets/GetAffiliateSession.xml"/>
+    <nodeSuccessors name="next" next="UpdateAffiliateSession1"/>
+<!--@BendPoints 36,3 36,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+  </nodes>
+<!--@Location 17,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateAffiliateSession1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/UpdateAffiliateSession.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="RegisteredUser" objectPath="CurrentUser"/>
+  </nodes>
+<!--@Location 17,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 17,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+</pipeline:Pipeline>

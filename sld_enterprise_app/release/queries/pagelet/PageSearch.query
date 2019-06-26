@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This pipelet searches pagelets for a domain with a specified name, type, public flag and pageflag.">
+<parameters>
+	<parameter name="PageSearchParameters" type="java.util.Map" optional="false" description="A Map containing the Pagelet Search parameters for the base subquery."/>
+	<parameter name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the pagelet belongs to."/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false" description="Search in context of the given locale."/>
+	<parameter name="AllLocales" type="java.util.Iterator" optional="false" description="All available locales."/>
+	<parameter name="SortedNames" type="java.util.Map" optional="true" description="A Map of pagelet qualified names sorted according to the display name of page components, localize in current locale."/>
+	<parameter name="SortBy" type="java.lang.String" optional="true" description="The column by which the result set should be sorted."/>
+	<parameter name="PublishedFromSinceDate" type="java.util.Date" optional="true"/>
+	<parameter name="PublishedFromTillDate" type="java.util.Date" optional="true"/>
+	<parameter name="PublishedToSinceDate" type="java.util.Date" optional="true"/>
+	<parameter name="PublishedToTillDate" type="java.util.Date" optional="true"/>
+	<parameter name="LastModifiedFrom" type="java.util.Date" optional="true"/>
+	<parameter name="LastModifiedTo" type="java.util.Date" optional="true"/>
+	<parameter name="WritePrefix" type="java.lang.String" optional="true" description="Will be delegated to the template 'BasePageletSearch' to decide if the 'ConfigurationParameterFilterPrefix' has to be included or not."/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Pagelet" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletPO" description="This is the found pagelet.">
+		<return-attribute name="PageletUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+    select page_variant.pageletuuid, page_variant.onlineflag
+    <template-if condition="isDefined(SortedNames)">
+         , page_variant.sorting
+    </template-if> 
+      from (<template-call name="pagelet/inc/BasePageletSearch">
+              <call-addall map="PageSearchParameters"/>
+              <call-parameter name="PublishedFromSinceDate" value="PublishedFromSinceDate"/>
+              <call-parameter name="PublishedFromTillDate" value="PublishedFromTillDate"/>
+              <call-parameter name="PublishedToSinceDate" value="PublishedToSinceDate"/>
+              <call-parameter name="PublishedToTillDate" value="PublishedToTillDate"/>
+              <call-parameter name="LastModifiedFrom" value="LastModifiedFrom"/>
+              <call-parameter name="LastModifiedTo" value="LastModifiedTo"/>
+              <call-parameter name="Repository" value="Repository"/>
+              <call-parameter name="Locale" value="Locale"/>
+              <call-parameter name="AllLocales" value="AllLocales"/>
+              <call-parameter name="SortedNames" value="SortedNames"/>
+              <call-parameter name="SortBy" value="SortBy"/>
+              <call-parameter name="WritePrefix" value="WritePrefix" />
+            </template-call>) page_variant
+     where 1 = 1
+     <template-if condition = "(not isDefined(PageSearchParameters:ProductPageIncludeAssignments) or PageSearchParameters:ProductPageIncludeAssignments eq 'all')
+                           and (not isDefined(PageSearchParameters:CategoryPageIncludeAssignments) or PageSearchParameters:CategoryPageIncludeAssignments eq 'all')
+                           and (not isDefined(PageSearchParameters:SystemPageAssignements) or PageSearchParameters:SystemPageAssignements eq 'all')
+                           and (not isDefined(PageSearchParameters:ContentPageAssignements) or PageSearchParameters:ContentPageAssignements eq 'all')
+                           and (   (isDefined(PageSearchParameters:AssignmentsVisibility) and PageSearchParameters:AssignmentsVisibility eq 'notPublished')
+                                or (isDefined(PageSearchParameters:AssignmentsVisibleFrom) and PageSearchParameters:AssignmentsVisibleFrom ne 'all')
+                                or (isDefined(PageSearchParameters:AssignmentsVisibleTo) and PageSearchParameters:AssignmentsVisibleTo ne 'all') )">
+       <!-- Assignments Visibility (Hidden) or Visible from Date/Visible to Date parameter(s) set, but without
+            filtering by specific assignments to Product Pages, Category Pages, System Pages or Content Pages.
+            So retrieve all Page Variants which are assigned to whatever and have at least 1 assignment with Visible
+            from/to Date corresponding to this/these parameter(s) -->
+       and exists (select 1
+                     from pageletentrypoint_pa entry_point_pa
+                    where entry_point_pa.pageletid = page_variant.pageletuuid
+                    <template-call name="pagelet/inc/PublishingFilter">
+                      <call-parameter name="TableAlias" value="'entry_point_pa'"/>
+                      <call-parameter name="WhereClause" value="false()"/>
+                      <call-parameter name="PublishingOption" value="PageSearchParameters:AssignmentsVisibility"/>
+                      <call-parameter name="PublishedFromOption" value="PageSearchParameters:AssignmentsVisibleFrom"/>
+                      <call-parameter name="PublishedToOption" value="PageSearchParameters:AssignmentsVisibleTo"/>
+                      <call-parameter name="PublishedFromSinceDate" value="PageSearchParameters:AssignmentsVisibleFromSinceDate"/>
+                      <call-parameter name="PublishedFromTillDate" value="PageSearchParameters:AssignmentsVisibleFromTillDate"/>
+                      <call-parameter name="PublishedToSinceDate" value="PageSearchParameters:AssignmentsVisibleToSinceDate"/>
+                      <call-parameter name="PublishedToTillDate" value="PageSearchParameters:AssignmentsVisibleToTillDate"/>
+                    </template-call>)
+    </template-if>
+    <template-call name="pagelet/inc/PageletContextObjectRelationsFilter">
+      <call-parameter name="PageletTableAlias" value="&apos;page_variant&apos;"/>
+      <call-parameter name="AssignmentTable" value="&apos;product_pepa&apos;"/>
+      <call-parameter name="AssignmentsSelection" value="PageSearchParameters:ProductPageIncludeAssignments"/>
+      <call-parameter name="ContentEntryPointDefinitionInclusion" value="PageSearchParameters:AssignedToProductPageIncludeType"/>
+      <call-parameter name="PageletSearchParameters" value="PageSearchParameters"/>
+    </template-call>
+    <template-call name="pagelet/inc/PageletContextObjectRelationsFilter">
+      <call-parameter name="PageletTableAlias" value="&apos;page_variant&apos;"/>
+      <call-parameter name="AssignmentTable" value="&apos;catalogcategory_pepa&apos;"/>
+      <call-parameter name="AssignmentsSelection" value="PageSearchParameters:CategoryPageIncludeAssignments"/>
+      <call-parameter name="ContentEntryPointDefinitionInclusion" value="PageSearchParameters:AssignedToCategoryPageIncludeType"/>
+      <call-parameter name="PageletSearchParameters" value="PageSearchParameters"/>
+    </template-call>
+    <template-call name="pagelet/inc/PageletSystemOrNonSystemPEPsFilter">
+      <call-parameter name="PageletTableAlias" value="&apos;page_variant&apos;"/>
+      <call-parameter name="SystemManaged" value="true()"/>
+      <call-parameter name="AssignmentsSelection" value="PageSearchParameters:SystemPageAssignements"/>
+      <call-parameter name="PageletEntryPointDefinitionQualifiedName" value="PageSearchParameters:AssignedToSystemPageType"/>
+      <call-parameter name="PageletSearchParameters" value="PageSearchParameters"/>
+    </template-call>
+    <template-call name="pagelet/inc/PageletSystemOrNonSystemPEPsFilter">
+      <call-parameter name="PageletTableAlias" value="&apos;page_variant&apos;"/>
+      <call-parameter name="SystemManaged" value="false()"/>
+      <call-parameter name="AssignmentsSelection" value="PageSearchParameters:ContentPageAssignements"/>
+      <call-parameter name="PageletEntryPointDefinitionQualifiedName" value="PageSearchParameters:AssignedToContentPageType"/>
+      <call-parameter name="PageletSearchParameters" value="PageSearchParameters"/>
+    </template-call>
+  </template>
+</query>

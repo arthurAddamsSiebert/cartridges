@@ -1,0 +1,108 @@
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<%@page import="java.util.ArrayList"%>
+<%@page import="java.util.Iterator"%>
+<%@page import="com.intershop.beehive.app.capi.AppContext"%>
+<%@page import="com.intershop.beehive.core.capi.pipeline.PipelineDictionary"%>
+<%@page import="com.intershop.beehive.core.capi.request.Session"%>
+<%@page import="com.intershop.beehive.core.capi.app.AppContextUtil"%>
+<%@page import="com.intershop.component.foundation.capi.application.Breadcrumb"%>
+<%@page import="com.intershop.component.foundation.capi.application.ApplicationState"%>
+<%@page import="com.intershop.component.application.capi.ApplicationBO"%>
+<%@page import="com.intershop.sellside.enterprise.capi.application.ApplicationBOApplicationSelectorExtension"%>
+<%
+	PipelineDictionary dict = getPipelineDictionary();
+
+	String link = (String)dict.get("link");
+	String text = (String)dict.get("text");
+	if (dict.get("text1")!=null)
+	{
+	    text = text + (String)dict.get("text1");
+	}
+	String id = (String)dict.get("id");
+	String start = (String)dict.get("start");
+	String wizard = (String)dict.get("wizard");
+	String removewizard = (String)dict.get("removewizard");
+	String listview = (String)dict.get("listview");
+
+	Breadcrumb breadcrumb = new Breadcrumb(id,link,text);
+
+	if ("true".equals(wizard))
+	{
+		breadcrumb.setIsWizard(true);
+	}
+	if ("true".equals(listview))
+	{
+		breadcrumb.setIsListView(true);
+	}
+
+	ApplicationState appState = (ApplicationState)dict.get("ApplicationState");
+	if (appState==null)
+	{
+		Session s=(Session)dict.get("CurrentSession");
+		appState = (ApplicationState)s.getObject("ApplicationState");
+
+		if (appState==null)
+		{
+			appState = new ApplicationState();
+            s.putObject("ApplicationState", appState);
+		}
+		dict.put("ApplicationState",appState);
+	}
+
+	if ("true".equals(removewizard))
+	{
+		Breadcrumb firstWizardPage = appState.getFirstWizardPage();
+
+		if(firstWizardPage != null)
+		{
+			appState.removeBreadcrumb(firstWizardPage);
+		}
+	}
+
+	if ("true".equals(start))
+	{
+		appState.addStartBreadcrumb(breadcrumb);
+	}
+	else
+	{
+		String removeid = (String)dict.get("removeid");
+		if (removeid != null)
+		{
+			appState.removeBreadcrumb(new Breadcrumb(removeid, null, null));
+		}
+		appState.addBreadcrumb(breadcrumb);
+	}
+
+	AppContext appContext = AppContextUtil.getCurrentAppContext();
+	ApplicationBO applicationBO = appContext.getVariable(ApplicationBO.CURRENT);
+	ApplicationBOApplicationSelectorExtension<?> ext = applicationBO.getExtension(ApplicationBOApplicationSelectorExtension.class);
+	if (ext != null)
+	{
+		dict.put("applicationName", ext.getDisplayName());
+		dict.put("applicationLevel", ext.getType());
+	}
+%>
+<isif condition="#(NOT isDefined(hide)) OR (hide NE 'true')#">
+	<table border="0" cellspacing="0" cellpadding="0" id="breadcrumb">
+		<tr>
+			<td class="breadcrumb">
+				<isif condition="#hasElements(ApplicationState:Breadcrumbs)#">
+					<isif condition="#isDefined(applicationName)#">
+						<isif condition="#'organization' EQ applicationLevel#">
+							<a href="<isprint value="#URL(Action('ViewApplication-DisplayWelcomePage'))#">" class="breadcrumb"><isprint value="#applicationName#"></a> &gt;&nbsp;
+						<iselse>
+							<a href="<isprint value="#URL(Action('ViewOverview-Channel'))#">" class="breadcrumb"><isprint value="#applicationName#"></a> &gt;&nbsp;
+						</isif>
+					</isif>
+					<isloop iterator="ApplicationState:Breadcrumbs" alias="Entry">
+						<isif condition="#hasNext(Entry)#">
+							<a href="<isprint value="#Entry:Link#">" class="breadcrumb"><isprint value="#Entry:Text#"></a> &gt;&nbsp;
+						<iselse>
+							&nbsp;<isprint value="#Entry:Text#">
+						</isif>
+					</isloop>
+				</isif>
+			</td>
+		</tr>
+	</table>
+</isif>

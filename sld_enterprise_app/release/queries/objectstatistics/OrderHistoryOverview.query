@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ObjectDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="DateWithTimeZone" type="java.util.Date" optional="false" description="The current date of the user including timezone."/>
+	<parameter name="Currency" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="lastDay" type="rename">
+		<return-attribute name="lastDay"/>
+	</return-mapping>
+	<return-mapping name="lastWeek" type="rename">
+		<return-attribute name="lastWeek"/>
+	</return-mapping>
+	<return-mapping name="lastQuarter" type="rename">
+		<return-attribute name="lastQuarter"/>
+	</return-mapping>
+	<return-mapping name="lastYear" type="rename">
+		<return-attribute name="lastYear"/>
+	</return-mapping>
+	<return-mapping name="lastDaySum" type="constructor" class="com.intershop.beehive.foundation.quantity.Money">
+		<return-attribute name="currencymnemonic"/>
+		<return-attribute name="lastDaySum"/>
+	</return-mapping>
+	<return-mapping name="lastWeekSum" type="constructor" class="com.intershop.beehive.foundation.quantity.Money">
+		<return-attribute name="currencymnemonic"/>
+		<return-attribute name="lastWeekSum"/>
+	</return-mapping>
+	<return-mapping name="lastQuarterSum" type="constructor" class="com.intershop.beehive.foundation.quantity.Money">
+		<return-attribute name="currencymnemonic"/>
+		<return-attribute name="lastQuarterSum"/>
+	</return-mapping>
+	<return-mapping name="lastYearSum" type="constructor" class="com.intershop.beehive.foundation.quantity.Money">
+		<return-attribute name="currencymnemonic"/>
+		<return-attribute name="lastYearSum"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-configuration name="readType.lastDaySum" value="BigDecimal"/>
+	<processor-configuration name="readType.lastWeekSum" value="BigDecimal"/>
+	<processor-configuration name="readType.lastQuarterSum" value="BigDecimal"/>
+	<processor-configuration name="readType.lastYearSum" value="BigDecimal"/>
+</processor>
+<template type="objects" sqlDialect="Oracle">
+	SELECT 
+	COUNT(CASE WHEN o.creationDate>=TRUNC(<template-variable value="DateWithTimeZone"/>) THEN &apos;lastDay&apos; END) lastDay,
+	COUNT(CASE WHEN o.creationDate&gt;<template-variable value="DateWithTimeZone"/>-7 THEN &apos;lastWeek&apos; END) lastWeek, 
+	COUNT(CASE WHEN o.creationDate&gt;<template-variable value="DateWithTimeZone"/>-92 THEN &apos;lastQuarter&apos; END) lastQuarter, 
+	COUNT(CASE WHEN o.creationDate&gt;<template-variable value="DateWithTimeZone"/>-365 THEN &apos;lastYear&apos; END) lastYear,
+	NVL(SUM(CASE WHEN o.creationDate>=TRUNC(<template-variable value="DateWithTimeZone"/>) THEN o.grandtotalnetpricepcvalue END), 0) lastDaySum,
+	NVL(SUM(CASE WHEN o.creationDate&gt;<template-variable value="DateWithTimeZone"/>-7 THEN o.grandtotalnetpricepcvalue END), 0) lastWeekSum,
+	NVL(SUM(CASE WHEN o.creationDate&gt;<template-variable value="DateWithTimeZone"/>-92 THEN o.grandtotalnetpricepcvalue END), 0) lastQuarterSum,
+	NVL(SUM(CASE WHEN o.creationDate&gt;<template-variable value="DateWithTimeZone"/>-365 THEN o.grandtotalnetpricepcvalue END), 0) lastYearSum,
+	<template-variable value="Currency"/> currencymnemonic
+	FROM isorder o
+	
+	WHERE 
+		(o.DomainID IN ( 
+		     
+		SELECT 
+			r.repositorydomainid as UUID
+	    FROM 
+	        repository r		     
+	    WHERE 
+	        r.DomainID = (SELECT domainid FROM repository WHERE
+	        	repositoryDomainID = <template-variable value="ObjectDomain:UUID"/>
+	        	AND TypeCode = 21 AND proxyflag = 0) 
+	        AND r.TypeCode &lt;&gt; 22 
+	        AND r.TypeCode &lt;&gt; 21 
+	        AND r.TypeCode &lt;&gt; 1		
+	    )
+	
+		OR
+		
+		o.DomainID = <template-variable value="ObjectDomain:UUID"/>
+		)
+
+	AND (o.status = 3 /*new*/ 
+        OR o.status = 8 /*in progress*/
+        OR o.status = 11 /*delivered*/)
+	<template-if condition="isdefined(Currency)">
+		AND o.purchaseCurrencyCode = <template-variable value="Currency"/>
+	</template-if>
+</template>
+<template type="objects" sqlDialect="Microsoft">
+	SELECT 
+	COUNT(CASE WHEN o.creationDate>=CONVERT(DATETIME, CONVERT(DATE, <template-variable value="DateWithTimeZone"/>)) THEN &apos;lastDay&apos; END) lastDay,
+	COUNT(CASE WHEN o.creationDate&gt;DATEADD(DD, -7,<template-variable value="DateWithTimeZone"/>) THEN &apos;lastWeek&apos; END) lastWeek, 
+	COUNT(CASE WHEN o.creationDate&gt;DATEADD(DD, -92,<template-variable value="DateWithTimeZone"/>) THEN &apos;lastQuarter&apos; END) lastQuarter, 
+	COUNT(CASE WHEN o.creationDate&gt;DATEADD(dd, -365, <template-variable value="DateWithTimeZone"/>) THEN &apos;lastYear&apos; END) lastYear,
+	ISNULL(SUM(CASE WHEN o.creationDate>=CONVERT(DATETIME, CONVERT(DATE, <template-variable value="DateWithTimeZone"/>)) THEN o.grandtotalnetpricepcvalue END), 0) lastDaySum,
+	ISNULL(SUM(CASE WHEN o.creationDate&gt;DATEADD(DD, -7, <template-variable value="DateWithTimeZone"/>) THEN o.grandtotalnetpricepcvalue END), 0) lastWeekSum,
+	ISNULL(SUM(CASE WHEN o.creationDate&gt;DATEADD(DD, -92, <template-variable value="DateWithTimeZone"/>) THEN o.grandtotalnetpricepcvalue END), 0) lastQuarterSum,
+	ISNULL(SUM(CASE WHEN o.creationDate&gt;DATEADD(DD, -365, <template-variable value="DateWithTimeZone"/>) THEN o.grandtotalnetpricepcvalue END), 0) lastYearSum,
+	<template-variable value="Currency"/> currencymnemonic
+	FROM isorder o
+	
+	WHERE 
+		(o.DomainID IN ( 
+		     
+		SELECT 
+			r.repositorydomainid as UUID
+	    FROM 
+	        repository r		     
+	    WHERE 
+	        r.DomainID = (SELECT TOP 1 domainid FROM repository WHERE
+	        	repositoryDomainID = <template-variable value="ObjectDomain:UUID"/>
+	        	AND TypeCode = 21 AND proxyflag = 0) 
+	        AND r.TypeCode &lt;&gt; 22 
+	        AND r.TypeCode &lt;&gt; 21 
+	        AND r.TypeCode &lt;&gt; 1		
+	    )
+	
+		OR
+		
+		o.DomainID = <template-variable value="ObjectDomain:UUID"/>
+		)
+
+	AND (o.status = 3 /*new*/ 
+        OR o.status = 8 /*in progress*/
+        OR o.status = 11 /*delivered*/)
+	<template-if condition="isdefined(Currency)">
+		AND o.purchaseCurrencyCode = <template-variable value="Currency"/>
+	</template-if>
+</template>
+</query>

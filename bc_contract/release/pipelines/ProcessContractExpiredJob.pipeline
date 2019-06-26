@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline sends emails for contracts which soon will expire.
+@Group Contract-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessContractExpiredJob" type="process">
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="ContractExpiredStatusCheck"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+    <parameters name="ChannelDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="ParameterName_01" value="Domain"/>
+    <configurationValues name="QueryName" value="contract/GetExpiredContractsByDomain"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="CheckForEmptyIterator2"/>
+<!--@BendPoints 17,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="ParameterValue_01" objectPath="ChannelDomain"/>
+    <returnValueBindings name="SearchResult" objectPath="ContractsExpiredIter"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyIterator2">
+    <pipelet href="enfinity:/core/pipelets/CheckForEmptyIterator.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+<!--@BendPoints 15,7-->
+    <nodeSuccessors name="pipelet_error" next="LogMessage8"/>
+    <parameterBindings name="FilledIterator" objectPath="ContractsExpiredIter"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationBOByID1"/>
+    <returnValueBindings name="ApplicationBO" objectPath="CurrentApplicationBO"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBOByID1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBOByID.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="ApplicationBORepository" objectPath="CurrentApplicationBO:Repository(&quot;ApplicationBORepository&quot;)"/>
+    <parameterBindings name="ApplicationID" objectPath="ChannelDomain:Site:DefaultApplication:UUID"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="ContractsExpiredIter">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <entry key="ContractsExpired">
+      <nodeSuccessors name="loop_entry_next" next="KeyMapper0"/>
+    </entry>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="ExecutePipeline1"/>
+    <parameterBindings name="InValue_1" objectPath="ContractsExpired"/>
+    <returnValueBindings name="OutValue_1" objectPath="ContractID"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline1">
+    <configurationValues name="PipelineName" value="ProcessContractExpiredJob"/>
+    <configurationValues name="PipelineStartNode" value="UpdateContractStatusAndRemovePriceList"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <nodeSuccessors name="pipelet_error" next="LogMessage7"/>
+    <parameterBindings name="App" nullBinding="true"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <parameterBindings name="CurrentDomain" objectPath="ApplicationBO:Site:Domain"/>
+    <parameterBindings name="CurrentUser" nullBinding="true"/>
+    <parameterBindings name="PipelineDomain" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainID" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainName" nullBinding="true"/>
+    <parameterBindings name="PipelineName" nullBinding="true"/>
+    <parameterBindings name="PipelineStartNode" nullBinding="true"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 11,21 11,13-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage7">
+    <configurationValues name="Level" value="Error"/>
+    <configurationValues name="Marker" value="ContractStatusJob"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 15,21-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="MessageParam0" objectPath="ChannelDomain:DomainName"/>
+    <parameterBindings name="MessageParam1" objectPath="ContractBO:ContractID"/>
+    <parameterBindings name="MessageText" constant="Contract Expired Job for Channel '{}' and Contract '{}' could not be executed. ExecutePipeline failed."/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true"/>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode15"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" name="Error" strict="true"/>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage8">
+    <configurationValues name="Level" value="Debug"/>
+    <configurationValues name="Marker" value="ContractStatusJob"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="MessageParam0" objectPath="ChannelDomain:DomainName"/>
+    <parameterBindings name="MessageText" constant="Contract Status Job - Query did not retrieve any expired contracts for channel '{}'. Nothing to do!"/>
+  </nodes>
+<!--@Location 13,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetContractChannelDomains"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery0"/>
+  </nodes>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery0">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="QueryName" value="contract/GetRepositoriesByContracts"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="CheckForEmptyIterator0"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode2"/>
+    <returnValueBindings name="SearchResult" objectPath="RepositoryDomains"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyIterator0">
+    <pipelet href="enfinity:/core/pipelets/CheckForEmptyIterator.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode0"/>
+    <parameterBindings name="FilledIterator" objectPath="RepositoryDomains"/>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="RepositoryDomains" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="NothingFound" strict="true"/>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="Error" strict="true"/>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="Start"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode2"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <nodeSuccessors name="Error" next="LogMessage3"/>
+    <nodeSuccessors name="NothingFound" next="LogMessage4"/>
+    <startNode referencedName="ProcessContractExpiredJob-GetContractChannelDomains"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="RepositoryDomains">
+    <nodeSuccessors name="next" next="LogMessage6"/>
+    <entry key="ChannelDomain">
+      <nodeSuccessors name="loop_entry_next" next="CallNode5"/>
+    </entry>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <nodeSuccessors name="Error" next="LogMessage0"/>
+    <startNode referencedName="ProcessContractExpiredJob-ContractExpiredStatusCheck"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 3,9-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage0">
+    <configurationValues name="Level" value="Error"/>
+    <configurationValues name="Marker" value="ContractStatusJob"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 3,13-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <parameterBindings name="MessageParam0" objectPath="ChannelDomain:DomainName"/>
+    <parameterBindings name="MessageParam1" objectPath="Contract:ContractID"/>
+    <parameterBindings name="MessageText" constant="Contract Status Job for Channel '{}' and Contract '{}' could not be executed."/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage6">
+    <configurationValues name="Level" value="Debug"/>
+    <configurationValues name="Marker" value="ContractStatusJob"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="MessageText" constant="Contract Contract Status - Checking contracts and unassigning price list - done!"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage3">
+    <configurationValues name="Level" value="Error"/>
+    <configurationValues name="Marker" value="ContractStatusJob"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <parameterBindings name="MessageText" constant="Contract Status Job - Query to retreive the channel domains for active contracts failed!"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="Error" strict="true"/>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage4">
+    <configurationValues name="Level" value="Debug"/>
+    <configurationValues name="Marker" value="ContractStatusJob"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 9,7-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="MessageText" constant="Contract Contract Status - Query did not retreive any channel domains for contract status. Nothing to do!"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" strict="true" name="UpdateContractStatusAndRemovePriceList"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+    <parameters name="ChannelDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="ContractID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode4"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="UpdateContractStatus0"/>
+<!--@BendPoints 23,7-->
+    <nodeSuccessors name="Error" next="LogMessage9"/>
+    <parameterBindings name="ContractBaseBORepository" objectPath="ApplicationBO:Repository(&quot;ContractBaseBORepository&quot;)"/>
+    <parameterBindings name="PriceListBORepository" objectPath="ApplicationBO:Repository(&quot;PriceListBORepository&quot;)"/>
+    <startNode referencedName="ProcessContract-UnassignPriceListFromCustomerIfExpiredOrCanceled"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateContractStatus0">
+    <configurationValues name="ContractStatus" value="Expired"/>
+    <pipelet href="enfinity:/bc_contract/pipelets/UpdateContractStatus.xml"/>
+    <nodeSuccessors name="next" next="LogMessage10"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage10">
+    <configurationValues name="Level" value="Debug"/>
+    <configurationValues name="Marker" value="ContractStatusJob"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="EndNode12"/>
+    <parameterBindings name="MessageParam0" objectPath="ChannelDomain:DomainName"/>
+    <parameterBindings name="MessageParam1" objectPath="ContractBO:ContractID"/>
+    <parameterBindings name="MessageParam4" objectPath="MailResult"/>
+    <parameterBindings name="MessageText" constant="Info: Contract Status for Channel '{}' and Contract '{}' was successfully set to 'expired'."/>
+  </nodes>
+<!--@Location 10,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" strict="true"/>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage9">
+    <configurationValues name="Level" value="Error"/>
+    <configurationValues name="Marker" value="ContractStatusJob"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="EndNode11"/>
+    <parameterBindings name="MessageParam0" objectPath="ChannelDomain:DomainName"/>
+    <parameterBindings name="MessageParam1" objectPath="ContractID"/>
+    <parameterBindings name="MessageText" constant="Contract Status Update Error: Contract could not be found for Channel '{}' and ContractID '{}'"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" name="Error" strict="true"/>
+</pipeline:Pipeline>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets entries for table PRICESCALEATBLE which remain from former shared product which was unshared.">
+<parameters>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="PriceScaleTable" type="orm" class="com.intershop.component.pricing.internal.scale.PriceScaleTablePO">
+        <return-attribute name="UUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+SELECT psc.UUID, count(*) over() AS "rowcount"  FROM
+    pricescaletable psc
+WHERE 
+    psc.UUID IN (
+                SELECT ps.pricescaletableuuid 
+                FROM pricescaletableassignment ps 
+                	 INNER JOIN product p ON ps.productuuid = p.uuid
+                WHERE NOT
+                            <template-call name="product/inc/AvailableProductsCondition">
+                                <call-parameter name="TableAlias" value="&quot;p&quot;" />
+                                <call-parameter name="ProductIdColumn" value="&quot;uuid&quot;"/>
+                                <call-parameter name="Sharing" value = "Sharing"/>
+                            </template-call>
+                       AND
+                            ps.domainid = <template-variable value="ProductDomain:UUID"/>
+                )
+</template>
+</query>

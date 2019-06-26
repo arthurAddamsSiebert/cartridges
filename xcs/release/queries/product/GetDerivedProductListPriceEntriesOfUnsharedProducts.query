@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Returns entries from table DERIVEDPRODUCTLISTPRICE which remain from former shared product which was unshared.">
+<parameters>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="DerivedProductListPrice" type="orm" class="com.intershop.beehive.xcs.internal.price.DerivedProductListPricePO">
+		<return-attribute name="PRODUCTID"/>
+		<return-attribute name="DOMAINID"/>
+		<return-attribute name="CURRENCY"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+SELECT dp.productid,
+       dp.domainid,
+       dp.currency,
+	   count(*) over() AS "rowcount" 
+FROM derivedproductlistprice dp
+	 INNER JOIN product p ON dp.productid = p.uuid
+WHERE NOT
+    <template-call name="product/inc/AvailableProductsCondition">
+        <call-parameter name="TableAlias" value="&quot;p&quot;" />
+        <call-parameter name="ProductIdColumn" value="&quot;uuid&quot;"/>
+        <call-parameter name="Sharing" value = "Sharing"/>
+    </template-call>
+AND
+    dp.domainid = <template-variable value="ProductDomain:UUID"/>
+</template>
+</query>

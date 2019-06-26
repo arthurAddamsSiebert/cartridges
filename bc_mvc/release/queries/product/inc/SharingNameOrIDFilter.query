@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductAlias" type="java.lang.String" optional="false"/>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+	<processor-preprocessing output="cNameOrID" input="NameOrID" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cNameOrIDInverse" input="NameOrID" processing="InverseSearchExpression2Contains"/>
+</processor>
+<template>
+<template-if condition="isDefined(NameOrID) AND NameOrID:NotEmpty">
+	<template-if condition="hasElements(NameOrID:ExclusionPhrases) AND NOT hasElements(NameOrID:NonExclusionPhrases)">
+	AND
+	    <template-variable value="ProductAlias" processing="text"/>.uuid IN
+	    (
+	        (<template-call name="product/inc/SharingInPathFilter">
+	            <call-parameter name="Name" value="'SKU'"/>
+	            <call-parameter name="Type" value="'string'"/>
+	            <call-parameter name="SearchString" value="cNameOrIDInverse"/>
+	            <call-parameter name="SearchExpression" value="NameOrID"/>
+	            <call-parameter name="ProductDomain" value="ProductDomain"/>
+	            <call-parameter name="NegativeComparison" value="'true'"/>
+	        </template-call>)
+	
+	        	INTERSECT
+	        
+	        (<template-call name="product/inc/SharingInPathFilter">
+	            <call-parameter name="Name" value="'name'"/>
+	            <call-parameter name="Type" value="'string'"/>
+	            <call-parameter name="SearchString" value="cNameOrIDInverse"/>
+	            <call-parameter name="SearchExpression" value="NameOrID:InvertedExpression"/>
+	            <call-parameter name="ProductDomain" value="ProductDomain"/>
+	            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+	            <call-parameter name="NegativeComparison" value="'true'"/>
+	        </template-call>)
+	    )
+	<if-else/>
+	AND
+	    <template-variable value="ProductAlias" processing="text"/>.uuid IN
+	    (
+	        <template-call name="product/inc/SharingInPathFilter">
+	            <call-parameter name="Name" value="'SKU'"/>
+	            <call-parameter name="Type" value="'string'"/>
+	            <call-parameter name="SearchString" value="cNameOrID"/>
+	            <call-parameter name="SearchExpression" value="NameOrID"/>
+	            <call-parameter name="ProductDomain" value="ProductDomain"/>
+	        </template-call>
+	
+        	UNION ALL
+	        
+	        <template-call name="product/inc/SharingInPathFilter">
+	            <call-parameter name="Name" value="'name'"/>
+	            <call-parameter name="Type" value="'string'"/>
+	            <call-parameter name="SearchString" value="cNameOrID"/>
+	            <call-parameter name="SearchExpression" value="NameOrID"/>
+	            <call-parameter name="ProductDomain" value="ProductDomain"/>
+	            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+	        </template-call>
+	    )
+	</template-if>
+</template-if>
+</template>
+</query>

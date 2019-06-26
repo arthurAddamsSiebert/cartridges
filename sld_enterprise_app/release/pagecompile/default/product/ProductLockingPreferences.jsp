@@ -1,0 +1,77 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><!-- Working Area -->
+<!-- Main Content -->
+<!-- Page Navigator --><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/PreferencesBreadcrumb", null, "5");} %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductLockingPreferences-Start",null))))),
+new TagParameter("text",localizeText(context.getFormattedValue("sld_enterprise_app.ProductLocking.text",null)))}, 6); %><!-- EO Page Navigator --><% URLPipelineAction action111 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductLockingPreferences-Update",null)))),null));String site111 = null;String serverGroup111 = null;String actionValue111 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductLockingPreferences-Update",null)))),null);if (site111 == null){  site111 = action111.getDomain();  if (site111 == null)  {      site111 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup111 == null){  serverGroup111 = action111.getServerGroup();  if (serverGroup111 == null)  {      serverGroup111 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductLockingPreferences-Update",null)))),null));out.print("\"");out.print(" name=\"");out.print("UpdateDomainPreferenceForm");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue111, site111, serverGroup111,true)); %><table border="0" cellspacing="0" cellpadding="0" width="100%">
+<tr>
+<td>
+<table cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr>
+<td class="table_title w e s n"><% {out.write(localizeISText("sld_enterprise_app.ProductLocking.table_title",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) getObject("Form:ProductLockTimeout:isInvalid")).booleanValue() && ((Boolean) (disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_PRODUCTS_PREFERENCES")))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",17,e);}if (_boolean_result) { %><tr>
+<td>
+<table border="0" cellpadding="4" cellspacing="0" width="100%" class="error_box w e s">
+<tr>
+<td class="error_icon e"><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+<td class="error" width="100%"><% {out.write(localizeISText("sld_enterprise_app.PleaseSpecifyAValidLockTimeoutOnlyPositiveIntegers.confirm",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table>
+</td>
+</tr><% } %><tr>
+<td class="table_title_description w e s"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_PRODUCTS_PREFERENCES"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",31,e);}if (_boolean_result) { %><% {out.write(localizeISText("sld_enterprise_app.ActivateOrDeactivateTheProductLockingIfActivatedDe.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } else { %><% {out.write(localizeISText("sld_enterprise_app.DefineProductLockingPreferences.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } %></td>
+</tr>
+<!--tr><td class="table_title_description w e s">Fields with a red asterisk (<span class="star">*</span>) are mandatory.</td></tr-->
+<tr>
+<td>
+<table cellpadding="0" cellspacing="0" border="0" width="100%" class = "w e">
+<tbody>
+<tr>
+<td class="input_radio" nowrap="nowrap"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_PRODUCTS_PREFERENCES"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",45,e);}if (_boolean_result) { %><% _boolean_result=false;try {_boolean_result=((Boolean)((( ((Number) getObject("Form:ProductLockActivated:Value")).doubleValue() ==((Number)(new Double(0))).doubleValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",46,e);}if (_boolean_result) { %><input type="radio" name="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>" id="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>_DeactivateProductHistory" value="0" checked="checked"/><% } else { %><input type="radio" name="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>" id="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>_DeactivateProductHistory" value="0"/><% } %><% } else { %><% _boolean_result=false;try {_boolean_result=((Boolean)((( ((Number) getObject("Form:ProductLockActivated:Value")).doubleValue() ==((Number)(new Double(0))).doubleValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",52,e);}if (_boolean_result) { %><input type="radio" name="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>" id="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>_DeactivateProductHistory" value="0" disabled="disabled" checked="checked"/><% } else { %><input type="radio" name="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>" id="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>_DeactivateProductHistory" value="0" disabled="disabled"/><% } %><% } %></td>
+<td class="label_radio_text" width="100%"><label class="label label_radio_text label_light" for="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>_DeactivateProductHistory"> <% {out.write(localizeISText("sld_enterprise_app.DeactivateProductLocking.label",null,null,null,null,null,null,null,null,null,null,null,null));} %></label></td>
+</tr>
+<tr>
+<td class="input_radio" nowrap="nowrap"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_PRODUCTS_PREFERENCES"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",63,e);}if (_boolean_result) { %><% _boolean_result=false;try {_boolean_result=((Boolean)((( ((Number) getObject("Form:ProductLockActivated:Value")).doubleValue() ==((Number)(new Double(1))).doubleValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",64,e);}if (_boolean_result) { %><input type="radio" name="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>" id="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>_ActivateProductHistory" value="1" checked="checked"/><% } else { %><input type="radio" name="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>" id="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>_ActivateProductHistory" value="1"/><% } %><% } else { %><% _boolean_result=false;try {_boolean_result=((Boolean)((( ((Number) getObject("Form:ProductLockActivated:Value")).doubleValue() ==((Number)(new Double(1))).doubleValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",70,e);}if (_boolean_result) { %><input type="radio" name="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>" id="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>_ActivateProductHistory" value="1" disabled="disabled" checked="checked"/><% } else { %><input type="radio" name="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>" id="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>_ActivateProductHistory" value="1" disabled="disabled"/><% } %><% } %></td>
+<td class="label_radio_text" width="100%"><label class="label label_radio_text label_light" for="<%=context.getFormattedValue(getObject("Form:ProductLockActivated:QualifiedName"),null)%>_ActivateProductHistory"> <% {out.write(localizeISText("sld_enterprise_app.ActivateProductLocking.label",null,null,null,null,null,null,null,null,null,null,null,null));} %></label></td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<table border="0" cellspacing="0" cellpadding="0" width="100%" class="w e s">
+<tr>
+<td class="label" nowrap="nowrap">
+<label class="label label_light" for="<% {String value = null;try{value=context.getFormattedValue(getObject("Form:JournalLifetime:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {88}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>_UpdateProductLockTimeout"> <% {out.write(localizeISText("sld_enterprise_app.ReleaseProductLockAfter.label",null,null,null,null,null,null,null,null,null,null,null,null));} %>:
+<% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_PRODUCTS_PREFERENCES"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",89,e);}if (_boolean_result) { %><input type="text" name="<%=context.getFormattedValue(getObject("Form:ProductLockTimeout:QualifiedName"),null)%>" id="<% {String value = null;try{value=context.getFormattedValue(getObject("Form:JournalLifetime:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {90}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>_UpdateProductLockTimeout" class="inputfield_en" size="6" value="<% {String value = null;try{value=context.getFormattedValue(getObject("Form:ProductLockTimeout:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {90}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/><% } else { %><input type="text" name="<%=context.getFormattedValue(getObject("Form:ProductLockTimeout:QualifiedName"),null)%>" id="<% {String value = null;try{value=context.getFormattedValue(getObject("Form:JournalLifetime:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {92}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>_UpdateProductLockTimeout" class="inputfield_en" size="6" value="<% {String value = null;try{value=context.getFormattedValue(getObject("Form:ProductLockTimeout:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {92}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" disabled="disabled"/><% } %><% {out.write(localizeISText("sld_enterprise_app.Minutes.inputfield_en",null,null,null,null,null,null,null,null,null,null,null,null));} %></label>
+</td>
+</tr>
+<tr>
+<td colspan="5">
+<img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="1" height="6" alt="" border="0"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_PRODUCTS_PREFERENCES"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",110,e);}if (_boolean_result) { %><table width="100%" border="0" cellspacing="0" cellpadding="0" class="w e s">
+<tr>
+<td align="right">
+<table cellpadding="0" cellspacing="4" border="0">
+<tr>
+<td class="button"><input type="submit" name="update" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("sld_enterprise_app.Apply.button",null)),null)%>" class="button"/></td>
+<td class="button"><input type="reset" name="reset" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("sld_enterprise_app.Reset.button",null)),null)%>" class="button"/></td>
+</tr>
+</table>
+</td>
+</tr>
+</table><% } %><% out.print("</form>"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/Back", null, "125");} %><!-- EO Main Content -->
+<!-- EO Working Area --><% printFooter(out); %>

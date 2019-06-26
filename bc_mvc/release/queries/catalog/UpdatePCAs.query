@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="targetRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="sourceRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="targetProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+</parameters>
+
+<processor name="JDBC">
+</processor>
+<template sqlDialect="Oracle">
+            update productcategoryassignment tpca
+            set tpca.position=
+                (select spca.position
+                from productcategoryassignment spca
+                join catalogcategory sc on (spca.catalogcategoryid=sc.uuid)
+                join catalogcategory tc on ((sc.name||'@'||<template-variable value="sourceRoot:Domain:DomainName"/>)=tc.name)
+                join product tp on (spca.productid=tp.offeredproductid)
+                where exists
+                        (select 1
+                        from catalogcategory scc
+                        where scc.uuid=sc.uuid
+                        start with scc.uuid=<template-variable value="sourceRoot:UUID"/>
+                        connect by prior scc.uuid=scc.parentcategoryid and scc.onlineflag=1)
+                    and sc.domainid=<template-variable value="sourceRoot:Domain:UUID"/>
+                    and tc.domainid=<template-variable value="targetRoot:Domain:UUID"/>
+                    and tp.domainid=<template-variable value="targetProductDomain:UUID"/>
+                    and tpca.catalogcategoryid=tc.uuid
+                    and tpca.productid=tp.uuid)
+            where exists
+                (select 1
+                from catalogcategory tc
+                where tc.uuid=tpca.catalogcategoryid
+                start with tc.uuid=<template-variable value="targetRoot:UUID"/>
+                connect by prior tc.uuid=tc.parentcategoryid and tc.onlineflag=1)
+</template>
+<template sqlDialect="Microsoft">
+with m(uuid) as (
+	select a.uuid from catalogcategory a
+	where a.uuid = <template-variable value="sourceRoot:UUID"/>
+	union all
+	select b.uuid from catalogcategory b, m
+	where m.uuid = b.parentcategoryid and b.onlineflag = 1
+),
+n(uuid) as (
+	select a.uuid from catalogcategory a
+	where a.uuid = <template-variable value="targetRoot:UUID"/>
+	union all
+	select b.uuid from catalogcategory b, n
+	where n.uuid = b.parentcategoryid and b.onlineflag = 1
+)
+update productcategoryassignment
+set position=
+    (select spca.position
+    from productcategoryassignment spca
+    join catalogcategory sc on (spca.catalogcategoryid=sc.uuid)
+    join catalogcategory tc on ((sc.name+'@'+<template-variable value="sourceRoot:Domain:DomainName"/>)=tc.name)
+    join product tp on (spca.productid=tp.offeredproductid)
+    where sc.uuid in (select uuid from m)
+        and sc.domainid=<template-variable value="sourceRoot:Domain:UUID"/>
+        and tc.domainid=<template-variable value="targetRoot:Domain:UUID"/>
+        and tp.domainid=<template-variable value="targetProductDomain:UUID"/>
+        and productcategoryassignment.catalogcategoryid=tc.uuid
+        and productcategoryassignment.productid=tp.uuid)
+where catalogcategoryid in (select uuid from n)
+</template>
+</query>

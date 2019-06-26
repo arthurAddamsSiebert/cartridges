@@ -1,0 +1,148 @@
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObjectPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/PersistentObjectPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/domain/ApplicationPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/job/JobConfiguration.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/locking/Process.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/job/JobConditionPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/locking/JobResourceAssignmentPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/internal/locking/ProcessPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+namespace com.intershop.beehive.core.internal.job
+{
+    /*
+     * This class represents the configuration of a job. A job is a system process that is running in the background without user interaction. The job execution is triggered by events that must fulfill a certain job condition. The configuration object holds all information that are necessary to
+     * execute a job.<p>
+     * 
+     * Note: The execution time is measured with seconds precision, because the database does not keep milliseconds for "datetime" attributes.
+     * 
+     * @see com.intershop.beehive.core.capi.job.JobMgr
+     * @see com.intershop.beehive.core.capi.job.JobCondition
+     */
+    orm class JobConfigurationPO extends ExtensibleObjectPO implements JobConfiguration table "JobConfiguration"
+    {
+ 
+        index(monitorID);
+
+        index(conditionID);
+
+        index(status);
+
+        /*
+         * This attribute contains the name of the job.
+         */
+        attribute name : string<256>;
+
+        /*
+         * This attribute contains a more detailed description of what the job is doing.
+         */
+        attribute description : string<4000>;
+
+        /*
+         * This attribute contains the name of the pipeline that has to be executed.
+         */
+        attribute pipelineName : string<256>;
+
+        /*
+         * This attribute contains the name of the start node of the pipeline that has to be executed.
+         */
+        attribute startNodeName : string<256>;
+
+        /*
+         * The name of the server that executes the job.
+         */
+        attribute serverName : string<256>;
+
+        /*
+         * Attribute holds the user login used to run the job process.
+         */
+        attribute login : string<256>;
+
+        /*
+         * Attribute holds the encrypted user password used to run the job process.
+         */
+        attribute encryptedPassword : string<256>;
+
+        /*
+         * This flag indicates whether the job is enabled to be executed or not.
+         */
+        attribute enabled : boolean;
+
+        /*
+         * This attribute contains the timestamp of the last time the job was executed.
+         */
+        attribute lastExecutionTime : datetime;
+
+        /*
+         * This attribute contains the duration of the last job execution.
+         */
+        attribute lastExecutionDuration : int;
+
+        /*
+         * This attribute contains the current execution state of the job.
+         */
+        attribute status : int = 0;
+
+        /*
+         * This attribute contains the ID of the job monitor that locks job execution in the database.
+         */
+        attribute monitorID : uuid;
+
+        /*
+         * This attribute contains the ID of the job condition instance.
+         */
+        attribute conditionID : uuid;
+
+        /*
+         * This attribute contains the ID of the application.
+         */
+        attribute applicationID : uuid searchable;
+
+        /*
+         * The host name of the server that executes the job.
+         */
+        attribute hostName : string<256>;
+
+        /*
+         * The installation id of the installation that executes the job.
+         */
+        attribute installationID : string<256>;
+
+        /*
+         * The data center IS_DATA_CENTER (multi data center configuration only) that executes the job.
+         */
+        attribute dataCenter : string<256>;
+
+        /*
+         * The server group that executes the job.
+         */
+        attribute serverGroup : string<256>;
+
+        attribute currentProcessID : uuid;
+
+        relation jobResourceAssignmentPOs : JobResourceAssignmentPO[0..n] inverse jobConfigurationPO delete propagate;
+
+        relation processPOs : ProcessPO[0..n] inverse jobConfigurationPO delete propagate;
+
+        /*
+         * This relation references the condition to check on job execution.
+         */
+        relation jobConditionPO : JobConditionPO[0..1] inverse jobConfigurationPO implements jobCondition delete propagate
+        {
+            foreign key(conditionID) -> (UUID);
+        }
+        
+        /*
+         * This relation references the application assigned to the job.
+         */
+        relation applicationPO : ApplicationPO[0..1] inverse jobConfigurationPO implements application
+        {
+            foreign key(applicationID) -> (UUID);
+        }
+
+        dependency currentProcess : Process handler "com.intershop.beehive.core.capi.locking.ProcessMgr"
+        {
+            foreign key(currentProcessID);
+        }
+    }
+}

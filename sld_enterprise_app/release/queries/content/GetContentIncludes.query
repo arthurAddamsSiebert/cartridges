@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ContentRepository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the pagelet belongs to."/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="ComponentEntryPoint" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletEntryPointPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+	SELECT UUID, COUNT(UUID) OVER() AS "ROWCOUNT" FROM ( 
+	    SELECT
+	    pep.UUID AS UUID,
+	    <template-if condition="isDefined(SortBy) AND SortBy EQ &apos;ID&apos;">
+		pep.ID AS SORTING
+		<if-elseif condition="isDefined(SortBy) AND SortBy EQ &apos;lastModified&apos;"/>
+		pep.lastmodified AS SORTING
+		<if-else/>
+		pepav.stringvalue AS SORTING
+	</template-if>
+	FROM 
+	    PageletEntryPoint pep
+		<template-if condition="NOT(isDefined(SortBy)) OR (isDefined(SortBy) AND SortBy EQ &apos;name&apos;)">
+			LEFT OUTER JOIN PageletEntryPoint_av pepav
+		         ON (pep.uuid = pepav.ownerid AND pepav.name = &apos;displayName&apos; 
+		             and pepav.localeid = <template-variable value="Locale:LocaleID"/>)
+		</template-if>
+	WHERE 
+	    pep.pageflag = 0
+	AND 
+		pep.dynamicflag = 0
+	AND 
+	    pep.domainid = <template-variable value="ContentRepository:RepositoryDomain:UUID"/>
+	<sql-dialect name="Oracle">    
+		ORDER BY SORTING
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			DESC NULLS FIRST
+		<if-else/>
+			ASC NULLS LAST
+		</template-if>
+	</sql-dialect>	
+	) a
+	<sql-dialect name="Microsoft">
+		ORDER BY
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			CASE
+				WHEN SORTING IS NULL THEN 0
+				ELSE 1
+			END, SORTING DESC
+		<if-else/>
+			CASE
+				WHEN SORTING IS NULL THEN 1
+				ELSE 0
+			END, SORTING ASC
+		</template-if>
+	</sql-dialect>
+</template>
+</query>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Base query for PageletEntryPoint searches.">
+<parameters>
+  <parameter name="SearchParameters" type="java.util.Map" optional="false"/>
+</parameters>
+<return-mappings>
+  <return-mapping name="PageletEntryPoint" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletEntryPointPO">
+    <return-attribute name="UUID"/>
+  </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">  
+  <template-call name="content/inc/prefix/ConfigurationParameterFilterPrefix">
+    <call-addall map="SearchParameters"/>
+  </template-call>          
+  select uuid, count(uuid) over() as "rowcount", sorting
+  from (
+	select distinct uuid, sorting
+	  from (<template-call name="content/inc/GetPageletEntryPointsByDynamicFlag">
+	          <call-addall map="SearchParameters"/>
+	          <call-parameter name="SystemManaged" value="true()"/>
+	        </template-call>
+	        union all
+	        <template-call name="content/inc/GetPageletEntryPointsByDynamicFlag">
+	          <call-addall map="SearchParameters"/>
+	          <call-parameter name="SystemManaged" value="false()"/>
+	        </template-call>) a_innerPagelets
+  ) b_outerPagelets
+  order by
+  <template-if condition="isDefined(SearchParameters:SortDirection) and ucase(pad(SearchParameters:SortDirection, 1)) EQ &apos;D&apos;">
+    CASE
+    	WHEN sorting IS NULL THEN 0
+    	ELSE 1
+    END, sorting DESC
+  <if-else/>
+    CASE
+    	WHEN sorting IS NULL THEN 1
+    	ELSE 0
+    END, sorting asc
+  </template-if>
+</template>
+</query>

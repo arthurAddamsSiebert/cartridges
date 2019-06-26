@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="SortBy" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="AttributeGroup" type="orm" class="com.intershop.component.foundation.internal.attributegroup.AttributeGroupPO">
+		<return-attribute name="UUID"/>
+	</return-mapping></return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+SELECT
+    uuid, COUNT(a.UUID) OVER() AS "ROWCOUNT",
+	<template-if condition="isDefined(SortBy) AND SortBy EQ 'id'">
+    	 a.id   AS SORTING
+    <if-elseif condition="isDefined(SortBy) AND SortBy EQ 'fixedflag'"/>
+    	 a.fixedflag AS SORTING
+    <if-else/>
+	    av.stringvalue AS SORTING
+    </template-if>
+FROM
+	attributegroup a
+	<template-if condition="NOT isDefined(SortBy) OR ((SortBy EQ 'name') OR (SortBy NE 'id') OR (SortBy NE 'fixedflag'))">
+		LEFT OUTER JOIN attributegroup_av av 
+		ON (a.uuid = av.ownerid AND av.name=&apos;displayName&apos; AND av.localeid = <template-variable value="LocaleInformation:LocaleID"/>)
+    </template-if>
+WHERE 
+	a.domainid = <template-variable value="Domain:UUID"/> 
+	<sql-dialect name="Oracle">
+		ORDER BY SORTING
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+			DESC NULLS FIRST
+			<if-else/>
+			ASC NULLS LAST
+		</template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		ORDER BY 
+		<template-if condition="isDefined(SortBy) AND SortBy EQ 'id'">
+			CASE WHEN a.id IS NULL THEN 1 ELSE 0 END
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+				DESC, a.id DESC
+				<if-else/>
+				ASC, a.id ASC
+			</template-if>
+		<if-elseif condition="isDefined(SortBy) AND SortBy EQ 'fixedflag'"/>
+			 CASE WHEN a.fixedflag IS NULL THEN 1 ELSE 0 END
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+				DESC, a.fixedflag DESC
+				<if-else/>
+				ASC, a.fixedflag ASC
+			</template-if>
+		<if-else/>
+			CASE WHEN av.stringvalue IS NULL THEN 1 ELSE 0 END
+			<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+				DESC, av.stringvalue DESC
+				<if-else/>
+				ASC, av.stringvalue ASC
+			</template-if>
+		</template-if>
+	</sql-dialect>
+</template>
+</query>

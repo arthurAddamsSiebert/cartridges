@@ -1,0 +1,1561 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--provides methods to access labels the label assignments and the labeled objects. 
+@Group Label-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessLabel" type="process">
+<!--Process pipelines for use with the ProcessBatchJob
+@Location 0,29-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1" height="1" width="2"/>
+<!--"private" private helpers used as subpipelines
+@Location 0,53-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode2" height="1" width="2"/>
+<!--assigns a label to the object. if no Label object is passed the label is determined from the LabelID
+@Location 1,21-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode15" strict="true" name="AssignLabel"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode14"/>
+<!--the label to assign to the object.-->
+    <parameters name="Label" type="java.lang.String" optional="true"/>
+<!--the label uuid.-->
+    <parameters name="LabelID" type="java.lang.String" optional="true"/>
+<!--the object to assign a label to.-->
+    <parameters name="Object" type="java.lang.Object" optional="true"/>
+  </nodes>
+<!--@Location 2,21-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="LabelID">
+    <nodeSuccessors name="decision_yes" next="GetLabel5"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 3,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabel5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabel.xml"/>
+    <nodeSuccessors name="next" next="AssignLabel2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+  </nodes>
+<!--@Location 5,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignLabel2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AssignLabel.xml"/>
+<!--@BendPoints 12,43-->
+    <nodeSuccessors name="next" next="EndNode24"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+  </nodes>
+<!--@Location 6,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode24" strict="true"/>
+<!--@Location 3,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode25"/>
+  </nodes>
+<!--@Location 6,22-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode25" name="Error"/>
+<!--@Location 1,38-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" name="BatchProcessAssign"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+<!--the label that will get assigned to the objects.-->
+    <parameters name="LabelID" type="java.lang.String" optional="true"/>
+<!--iterator of objects to label.-->
+    <parameters name="Objects" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 2,38-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <startNode referencedName="BatchProcessLog-PrepareLogger"/>
+  </nodes>
+<!--@Location 3,38-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+<!--@BendPoints 8,77-->
+    <nodeSuccessors name="next" next="LoopNode8" action="begin"/>
+    <parameterBindings name="CSVString" objectPath="LabelID"/>
+    <startNode referencedName="ProcessLabel-GetTokenIterator"/>
+    <returnValueBindings name="CSVIterator" objectPath="Labels"/>
+  </nodes>
+<!--@Location 4,38-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode8" loop="Objects">
+<!--@BendPoints 9,83-->
+    <nodeSuccessors name="next" next="CallNode12" action="commit"/>
+    <entry key="Object">
+      <nodeSuccessors name="loop_entry_next" next="ExtensionPointNode0"/>
+    </entry>
+  </nodes>
+<!--@Location 5,38-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode0" name="CheckObjectIsLockedByOtherUser"
+      strict="true">
+    <nodeSuccessors name="next" next="LoopNode7"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode24"/>
+    <parameters name="Object" type="java.lang.Object"/>
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"/>
+  </nodes>
+<!--@Location 6,38-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode7" loop="Labels">
+<!--@BendPoints 13,79-->
+    <nodeSuccessors name="next" next="JoinNode24"/>
+    <entry key="CurrentLabelID">
+<!--@BendPoints 14,77-->
+      <nodeSuccessors name="loop_entry_next" next="GetLabel1"/>
+    </entry>
+  </nodes>
+<!--@Location 7,38-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabel1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabel.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+<!--@BendPoints 15,79-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet10"/>
+    <parameterBindings name="LabelID" objectPath="CurrentLabelID"/>
+  </nodes>
+<!--@Location 8,38-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Object:Extension(&quot;PersistentObjectBOExtension&quot;)">
+    <nodeSuccessors name="decision_yes" next="KeyMapper0"/>
+    <nodeSuccessors name="decision_no" next="AssignLabel1"/>
+  </nodes>
+<!--@Location 8,37-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 19,75-->
+    <nodeSuccessors name="next" next="AssignLabel1"/>
+    <parameterBindings name="InValue_1" objectPath="Object:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <returnValueBindings name="OutValue_1" objectPath="Object"/>
+  </nodes>
+<!--@Location 9,38-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignLabel1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AssignLabel.xml"/>
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+  </nodes>
+<!--@Location 10,38-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 21,74 13,74-->
+    <nodeSuccessors name="next" next="LoopNode7_Entry"/>
+  </nodes>
+<!--@Location 8,39-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet10">
+    <configurationValues name="LogLevel" value="Error"/>
+    <configurationValues name="MessageKey" value="bc_foundation.label_labelNotFound"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateLogEntry.xml"/>
+<!--@BendPoints 19,79 21,79-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <parameterBindings name="Object0" objectPath="CurrentLabelID"/>
+  </nodes>
+<!--@Location 5,39-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode24">
+<!--@BendPoints 10,79 10,76 10,75 9,75-->
+    <nodeSuccessors name="next" next="LoopNode8_Entry"/>
+  </nodes>
+<!--@Location 6,41-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode12">
+    <nodeSuccessors name="next" next="EndNode13"/>
+    <startNode referencedName="BatchProcessLog-CleanLogger"/>
+  </nodes>
+<!--@Location 8,41-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13"/>
+<!--processes the label assignments and checks if the labeled object is still accessible. the label assignment is removed if the object does not exist anymore. The meta\-information f assigned types is updated. 
+@Location 1,49-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" strict="true" name="BatchProcessCleanUpLabelAssignments"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetLabel3"/>
+<!--the label assignment objects.-->
+    <parameters name="Objects" type="java.util.Iterator" optional="true"/>
+<!--a map that tracks the assigned types of labeled objects.-->
+    <parameters name="LabelAssignmentTypeMap" type="java.util.Map" optional="true"/>
+<!--the label uuid.-->
+    <parameters name="LabelID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,49-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabel3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabel.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode12"/>
+  </nodes>
+<!--@Location 3,49-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Objects">
+<!--@BendPoints 7,103-->
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <entry key="LabelAssignment">
+<!--@BendPoints 8,99-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode7"/>
+    </entry>
+  </nodes>
+<!--@Location 4,49-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="LabelAssignment:Object">
+<!--@BendPoints 10,99-->
+    <nodeSuccessors name="decision_yes" next="UpdateMapping1"/>
+<!--@BendPoints 9,101-->
+    <nodeSuccessors name="decision_no" next="RemoveLabelAssignment1"/>
+  </nodes>
+<!--@Location 5,49-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateMapping1">
+    <configurationValues name="Mode" value="Add"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateMapping.xml"/>
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="InMap" objectPath="LabelAssignmentTypeMap"/>
+    <parameterBindings name="Key" objectPath="LabelAssignment:Type"/>
+    <parameterBindings name="Value" objectPath="LabelAssignment:Type"/>
+    <returnValueBindings name="Keys" objectPath="TypeMapKeys"/>
+    <returnValueBindings name="OutMap" objectPath="LabelAssignmentTypeMap"/>
+  </nodes>
+<!--@Location 6,49-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+<!--@BendPoints 13,97 7,97-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 5,50-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveLabelAssignment1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveLabelAssignment.xml"/>
+<!--@BendPoints 13,101-->
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="LabelAssignmentUUID" nullBinding="true"/>
+  </nodes>
+<!--@Location 4,51-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="TypeMapKeys">
+    <nodeSuccessors name="decision_yes" next="UpdateCustomAttribute1"/>
+<!--@BendPoints 9,105-->
+    <nodeSuccessors name="decision_no" next="RemoveCustomAttribute1"/>
+  </nodes>
+<!--@Location 6,51-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttribute1">
+    <configurationValues name="DefaultAttributeName" value="AssignedTypes"/>
+    <configurationValues name="DefaultAttributeType" value="MultipleString"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttribute.xml"/>
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="AttributeValue" objectPath="TypeMapKeys"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Label"/>
+  </nodes>
+<!--@Location 7,51-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="EndNode11"/>
+  </nodes>
+<!--@Location 8,51-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" strict="true">
+    <returnValues name="LabelAssignmentTypeMap" type="java.util.Map" optional="true"/>
+  </nodes>
+<!--@Location 6,52-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 5,52-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveCustomAttribute1">
+    <configurationValues name="DefaultAttributeName" value="AssignedTypes"/>
+    <pipelet href="enfinity:/core/pipelets/RemoveCustomAttribute.xml"/>
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <parameterBindings name="AttributeName" nullBinding="true"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Label"/>
+    <parameterBindings name="LocaleInformation" nullBinding="true"/>
+  </nodes>
+<!--@Location 2,52-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" name="Error"/>
+<!--gets a pageable of label assignments or labeled objects based upon the JobConfiguration settings from a passed label id.
+@Location 1,54-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" strict="true" name="BatchProcessGetPageable"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetLabel4"/>
+<!--the labeled uuid.-->
+    <parameters name="LabelID" type="java.lang.String" optional="true"/>
+    <parameters name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration"
+        optional="true"/>
+  </nodes>
+<!--@Location 2,54-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabel4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabel.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+<!--@BendPoints 5,110-->
+    <nodeSuccessors name="pipelet_error" next="EndNode19"/>
+  </nodes>
+<!--@Location 4,54-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="JobConfiguration:ProcessLabeledObjects">
+<!--@BendPoints 10,109-->
+    <nodeSuccessors name="decision_yes" next="CallNode2"/>
+<!--@BendPoints 9,111-->
+    <nodeSuccessors name="decision_no" next="CallNode1"/>
+  </nodes>
+<!--@Location 5,54-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="JoinNode14"/>
+    <parameterBindings name="ObjectType" objectPath="JobConfiguration:ProcessObjectType"/>
+    <startNode referencedName="ProcessLabel-GetFilteredLabeledObjects"/>
+    <returnValueBindings name="FilteredLabelAssignments" objectPath="Objects"/>
+  </nodes>
+<!--@Location 6,54-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+    <nodeSuccessors name="next" next="EndNode18"/>
+  </nodes>
+<!--@Location 7,54-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode18" strict="true">
+    <returnValues name="Objects" type="com.intershop.beehive.core.capi.paging.PageableIterator"
+        optional="true"/>
+  </nodes>
+<!--@Location 5,55-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="JoinNode14"/>
+    <parameterBindings name="ObjectType" objectPath="JobConfiguration:ProcessObjectType"/>
+    <startNode referencedName="ProcessLabel-GetFilteredLabelAssignments"/>
+    <returnValueBindings name="FilteredLabelAssignments" objectPath="Objects"/>
+  </nodes>
+<!--@Location 2,55-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode19" name="Error"/>
+<!--@Location 1,35-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="BatchProcessInit"
+      callMode="Private">
+<!--@BendPoints 4,71-->
+    <nodeSuccessors name="next" next="ConcatenateStrings2"/>
+<!--the current job configuration.-->
+    <parameters name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration"
+        optional="true"/>
+<!--the label uuid.-->
+    <parameters name="LabelID" type="java.lang.Object" optional="true"/>
+  </nodes>
+<!--@Location 2,35-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings2">
+    <pipelet href="enfinity:/core/pipelets/ConcatenateStrings.xml"/>
+<!--@BendPoints 6,71-->
+    <nodeSuccessors name="next" next="CreateProcessFileLogAppender1"/>
+    <parameterBindings name="String0" objectPath="JobConfiguration:UUID"/>
+    <parameterBindings name="String1" constant="-BatchEntries.log"/>
+    <returnValueBindings name="Concatenated" objectPath="FileName"/>
+  </nodes>
+<!--@Location 3,35-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateProcessFileLogAppender1">
+    <configurationValues name="FileType" value="XML"/>
+    <configurationValues name="Level" value="Info"/>
+    <pipelet href="enfinity:/core/pipelets/CreateProcessFileLogAppender.xml"/>
+<!--@BendPoints 8,71-->
+    <nodeSuccessors name="next" next="CallNode9"/>
+    <parameterBindings name="LogFileDirectory" constant="batch/log"/>
+    <parameterBindings name="LogFileName" objectPath="FileName"/>
+    <parameterBindings name="LogFileUnit" objectPath="JobConfiguration:Domain"/>
+    <parameterBindings name="LogInformationHolder" objectPath="JobConfiguration:CurrentProcess"/>
+    <parameterBindings name="MaxLogFileSize" constant="(Integer)10000"/>
+    <parameterBindings name="ProcessID" objectPath="JobConfiguration:UUID"/>
+    <parameterBindings name="ProcessType" constant="Batch"/>
+  </nodes>
+<!--@Location 4,35-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="CallNode10"/>
+    <parameterBindings name="CSVString" objectPath="LabelID"/>
+    <startNode referencedName="ProcessLabel-GetTokenIterator"/>
+    <returnValueBindings name="CSVIterator" objectPath="LabelIDs"/>
+  </nodes>
+<!--@Location 5,35-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="Pipelet1"/>
+    <startNode referencedName="ProcessLabel-GetLabelNamesByID"/>
+  </nodes>
+<!--@Location 9,35-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="LogLevel" value="Info"/>
+    <configurationValues name="MessageKey" value="bc_foundation.label_startLabelProcess"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateLogEntry.xml"/>
+<!--@BendPoints 20,71-->
+    <nodeSuccessors name="next" next="EndNode14"/>
+    <parameterBindings name="Object1" objectPath="LabelNames"/>
+  </nodes>
+<!--@Location 10,35-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" strict="true">
+    <returnValues name="ProcessLogAppender" type="com.intershop.beehive.core.capi.log.ProcessAppender"/>
+  </nodes>
+<!--@Location 1,46-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" name="BatchProcessPost"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet9"/>
+    <parameters name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration"
+        optional="true"/>
+<!--The log scope all registered target should be removed for.-->
+    <parameters name="LogScope" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,46-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet9">
+    <configurationValues name="LogLevel" value="Info"/>
+    <configurationValues name="MessageKey" value="bc_foundation.label_endLabelProcess"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateLogEntry.xml"/>
+<!--@BendPoints 6,93-->
+    <nodeSuccessors name="next" next="DecisionNode26"/>
+    <parameterBindings name="Object0" nullBinding="true"/>
+    <parameterBindings name="Object1" objectPath="JobConfiguration:CurrentProcess:ProgressValue"/>
+    <parameterBindings name="Object2" objectPath="JobConfiguration:CurrentProcess:ProgressSize"/>
+  </nodes>
+<!--@Location 3,46-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode26" conditionKey="ProcessLogAppender">
+<!--@BendPoints 8,93-->
+    <nodeSuccessors name="decision_yes" next="CloseProcessLogAppender1"/>
+<!--@BendPoints 7,95 11,95-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 4,46-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CloseProcessLogAppender1">
+    <pipelet href="enfinity:/core/pipelets/CloseProcessLogAppender.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 5,46-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="End46"/>
+  </nodes>
+<!--@Location 6,46-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End46"/>
+<!--@Location 1,43-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="BatchProcessUnassign"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetLabel2"/>
+    <parameters name="LabelID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,43-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabel2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabel.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1" action="begin"/>
+<!--@BendPoints 5,89-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet11"/>
+  </nodes>
+<!--@Location 4,43-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Objects">
+    <nodeSuccessors name="next" next="JoinNode9" action="commit"/>
+    <entry key="Object">
+<!--@BendPoints 10,87-->
+      <nodeSuccessors name="loop_entry_next" next="UnassignLabel1"/>
+    </entry>
+  </nodes>
+<!--@Location 5,43-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UnassignLabel1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UnassignLabel.xml"/>
+<!--@BendPoints 12,87 12,86 9,86-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 4,44-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 6,44-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 3,44-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet11">
+    <configurationValues name="LogLevel" value="Error"/>
+    <configurationValues name="MessageKey" value="bc_foundation.label_labelNotFound"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateLogEntry.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="Object0" objectPath="LabelID"/>
+  </nodes>
+<!--@Location 0,72-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_hHuEMFnaEeiQytJxXrs-QQ" name="BatchProcessUnassignLabelsForProducts"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode_N31yIFneEeiQytJxXrs-QQ"/>
+<!--the label that will get assigned to the objects.-->
+    <parameters name="LabelID" type="java.lang.String" optional="true"/>
+<!--iterator of objects to label.-->
+    <parameters name="Objects" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 1,72-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_N31yIFneEeiQytJxXrs-QQ">
+    <nodeSuccessors name="next" next="CallNode_TSSBkFneEeiQytJxXrs-QQ"/>
+    <startNode referencedName="BatchProcessLog-PrepareLogger"/>
+  </nodes>
+<!--@Location 2,72-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_TSSBkFneEeiQytJxXrs-QQ">
+    <nodeSuccessors name="next" next="LoopNode_AhZDgFngEeiQytJxXrs-QQ"/>
+    <parameterBindings name="CSVString" objectPath="LabelID"/>
+    <startNode referencedName="ProcessLabel-GetTokenIterator"/>
+    <returnValueBindings name="CSVIterator" objectPath="Labels"/>
+  </nodes>
+<!--@Location 3,72-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode_AhZDgFngEeiQytJxXrs-QQ" loop="Objects">
+<!--@BendPoints 7,149-->
+    <nodeSuccessors name="next" next="CallNode_dmWSYFneEeiQytJxXrs-QQ"/>
+    <entry key="Object">
+      <nodeSuccessors name="loop_entry_next" next="ExtensionPointNode_WmLwYFngEeiQytJxXrs-QQ"/>
+    </entry>
+  </nodes>
+<!--@Location 4,72-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode_WmLwYFngEeiQytJxXrs-QQ"
+      name="CheckObjectIsLockedByOtherUser" strict="true">
+    <nodeSuccessors name="next" next="LoopNode_J0FhcFnhEeiQytJxXrs-QQ"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode_N8kZwFnhEeiQytJxXrs-QQ"/>
+    <parameters name="Object" type="java.lang.Object"/>
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"/>
+  </nodes>
+<!--@Location 5,72-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode_J0FhcFnhEeiQytJxXrs-QQ" loop="Labels">
+<!--@BendPoints 11,147-->
+    <nodeSuccessors name="next" next="JoinNode_N8kZwFnhEeiQytJxXrs-QQ"/>
+    <entry key="CurrentLabelID">
+      <nodeSuccessors name="loop_entry_next" next="GetLabel_cg4-0FnhEeiQytJxXrs-QQ"/>
+    </entry>
+  </nodes>
+<!--@Location 6,72-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabel_cg4-0FnhEeiQytJxXrs-QQ">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabel.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_FWu6AFpdEeiDkPn1b6mE6Q"/>
+<!--@BendPoints 13,147-->
+    <nodeSuccessors name="pipelet_error" next="CreateLogEntry_9q0-QFpcEeiDkPn1b6mE6Q"/>
+    <parameterBindings name="LabelID" objectPath="CurrentLabelID"/>
+  </nodes>
+<!--@Location 7,72-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_FWu6AFpdEeiDkPn1b6mE6Q"
+      conditionKey="Object:Extension(&quot;PersistentObjectBOExtension&quot;)">
+    <nodeSuccessors name="decision_yes" next="UnassignLabel_zlWeUFn0EeiDkPn1b6mE6Q"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper_FWrPoFpdEeiDkPn1b6mE6Q"/>
+  </nodes>
+<!--@Location 8,72-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UnassignLabel_zlWeUFn0EeiDkPn1b6mE6Q">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UnassignLabel.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_D-WVUFpeEeiDkPn1b6mE6Q"/>
+  </nodes>
+<!--@Location 9,72-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_D-WVUFpeEeiDkPn1b6mE6Q">
+<!--@BendPoints 19,142 11,142-->
+    <nodeSuccessors name="next" next="LoopNode_J0FhcFnhEeiQytJxXrs-QQ_Entry"/>
+  </nodes>
+<!--@Location 7,71-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper_FWrPoFpdEeiDkPn1b6mE6Q">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 17,143-->
+    <nodeSuccessors name="next" next="UnassignLabel_zlWeUFn0EeiDkPn1b6mE6Q"/>
+    <parameterBindings name="InValue_1" objectPath="Object:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <returnValueBindings name="OutValue_1" objectPath="Object"/>
+  </nodes>
+<!--@Location 8,73-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateLogEntry_9q0-QFpcEeiDkPn1b6mE6Q">
+    <configurationValues name="LogLevel" value="Error"/>
+    <configurationValues name="MessageKey" value="bc_foundation.label_labelNotFound"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateLogEntry.xml"/>
+<!--@BendPoints 19,147-->
+    <nodeSuccessors name="next" next="JoinNode_D-WVUFpeEeiDkPn1b6mE6Q"/>
+    <parameterBindings name="Object0" objectPath="CurrentLabelID"/>
+  </nodes>
+<!--@Location 4,73-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_N8kZwFnhEeiQytJxXrs-QQ">
+<!--@BendPoints 8,147 8,143 7,143-->
+    <nodeSuccessors name="next" next="LoopNode_AhZDgFngEeiQytJxXrs-QQ_Entry"/>
+  </nodes>
+<!--@Location 5,74-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_dmWSYFneEeiQytJxXrs-QQ">
+    <nodeSuccessors name="next" next="EndNode_rCymMFnaEeiQytJxXrs-QQ"/>
+    <startNode referencedName="BatchProcessLog-CleanLogger"/>
+  </nodes>
+<!--@Location 6,74-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_rCymMFnaEeiQytJxXrs-QQ"/>
+<!--creates a new label with the given LabelName and updates the label with the DisplayName and Description
+@Location 1,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode20" strict="true" name="Create"
+      callMode="Private">
+<!--@BendPoints 4,11-->
+    <nodeSuccessors name="next" next="CreateLabel1" action="begin"/>
+<!--the locale for localized attributes.-->
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"
+        optional="true"/>
+<!--the domain of the label.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--the decription of the label -->
+    <parameters name="LabelDescription" type="java.lang.String" optional="true"/>
+<!--the label display name.-->
+    <parameters name="LabelDisplayName" type="java.lang.String" optional="true"/>
+<!--the name of the label.-->
+    <parameters name="LabelName" type="java.lang.String" optional="true"/>
+<!--the user that creates the label-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User" optional="true"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateLabel1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateLabel.xml"/>
+<!--@BendPoints 6,11-->
+    <nodeSuccessors name="next" next="UpdateLabel2"/>
+<!--@BendPoints 5,13 8,13-->
+    <nodeSuccessors name="pipelet_error" next="EndNode35" action="rollback"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLabel2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateLabel.xml"/>
+<!--@BendPoints 8,11-->
+    <nodeSuccessors name="next" next="EndNode36" action="commit"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode36" strict="true">
+    <returnValues name="Label" type="com.intershop.component.foundation.capi.labeling.Label"
+        optional="true"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode35" name="Error" strict="true"/>
+<!--get a action template by its unique id.
+@Location 1,27-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="GetActionTemplateByUUID"
+      callMode="Private">
+<!--@BendPoints 4,55-->
+    <nodeSuccessors name="next" next="GetJobConfiguration1"/>
+<!--the action template id.-->
+    <parameters name="ActionTemplateUUID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetJobConfiguration1">
+    <pipelet href="enfinity:/core/pipelets/GetJobConfiguration.xml"/>
+<!--@BendPoints 8,55-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+<!--@BendPoints 5,57 8,57-->
+    <nodeSuccessors name="pipelet_error" next="EndNode6"/>
+    <parameterBindings name="JobUUID" objectPath="ActionTemplateUUID"/>
+    <returnValueBindings name="JobConfiguration" objectPath="ActionTemplate"/>
+  </nodes>
+<!--@Location 4,27-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+    <returnValues name="ActionTemplate" type="com.intershop.beehive.core.capi.domain.ExtensibleObject"
+        optional="true"/>
+  </nodes>
+<!--@Location 4,28-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="Error" strict="true"/>
+<!--gets the action templates for a specified domain name.
+@Location 1,25-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="GetActionTemplates"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetDomain1"/>
+    <parameters name="DomainName" type="java.lang.String" optional="true"/>
+<!--optional type code parameter to filter action templates for application specific actions.-->
+    <parameters name="TypeCode" type="java.lang.Integer" optional="true"/>
+<!--the currently assigned types of the label, the actions capable of processing such types are returned.-->
+    <parameters name="LabelAssignedTypes" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 2,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomain1">
+    <pipelet href="enfinity:/core/pipelets/GetDomain.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+    <parameterBindings name="StagingDomainName" objectPath="DomainName"/>
+    <returnValueBindings name="StagingDomain" objectPath="Domain"/>
+  </nodes>
+<!--@Location 3,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="Domain"/>
+    <configurationValues name="ParameterName_02" value="TypeCode"/>
+    <configurationValues name="ParameterName_03" value="LabelAssignedTypes"/>
+    <configurationValues name="QueryName" value="labeling/ActionTemplates"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="EndNode4"/>
+<!--@BendPoints 7,53-->
+    <nodeSuccessors name="pipelet_error" next="EndNode5"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Domain"/>
+    <parameterBindings name="ParameterValue_02" objectPath="TypeCode"/>
+    <parameterBindings name="ParameterValue_03" objectPath="LabelAssignedTypes"/>
+    <returnValueBindings name="SearchResult" objectPath="ActionTemplates"/>
+  </nodes>
+<!--@Location 6,25-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true">
+    <returnValues name="ActionTemplates" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 6,26-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="Error" strict="true"/>
+<!--gets the labels that are assigned to the object. returns also the assigned labels.
+@Location 1,18-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode23" strict="true" name="GetAssignedLabels"
+      callMode="Private">
+<!--@BendPoints 4,37-->
+    <nodeSuccessors name="next" next="GetLabelsByObject3"/>
+<!--the label domain to get labels for.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--the object to get the labels for.-->
+    <parameters name="Object" type="java.lang.Object"/>
+  </nodes>
+<!--@Location 2,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabelsByObject3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabelsByObject.xml"/>
+<!--@BendPoints 6,37-->
+    <nodeSuccessors name="next" next="GetLabels1"/>
+    <returnValueBindings name="Labels" objectPath="AssignedLabelsByObject"/>
+  </nodes>
+<!--@Location 3,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabels1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabels.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode28"/>
+  </nodes>
+<!--@Location 4,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode28" conditionKey="AssignedLabelsByObject"
+      operator="has_elements">
+<!--@BendPoints 10,37-->
+    <nodeSuccessors name="decision_yes" next="LoopNode12"/>
+<!--@BendPoints 9,38 8,38 8,39-->
+    <nodeSuccessors name="decision_no" next="KeyMapper5"/>
+  </nodes>
+<!--@Location 5,18-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode12" loop="AssignedLabelsByObject">
+<!--@BendPoints 11,38 16,38 16,37-->
+    <nodeSuccessors name="next" next="AddObjectToVector4"/>
+    <entry key="AssignedLabel">
+<!--@BendPoints 12,37-->
+      <nodeSuccessors name="loop_entry_next" next="AddEntryToMap4"/>
+    </entry>
+  </nodes>
+<!--@Location 6,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap4">
+    <pipelet href="enfinity:/core/pipelets/AddEntryToMap.xml"/>
+<!--@BendPoints 14,37 14,36 11,36-->
+    <nodeSuccessors name="next" next="LoopNode12_Entry"/>
+    <parameterBindings name="InMap" objectPath="AssignedLabelsMap"/>
+    <parameterBindings name="Key" objectPath="AssignedLabel:UUID"/>
+    <parameterBindings name="Value" objectPath="AssignedLabel"/>
+    <returnValueBindings name="Keys" nullBinding="true"/>
+    <returnValueBindings name="OutMap" objectPath="AssignedLabelsMap"/>
+  </nodes>
+<!--@Location 8,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector4">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="LoopNode11"/>
+    <parameterBindings name="InVector" objectPath="AssignedLabelVector"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="AssignedLabels"/>
+    <returnValueBindings name="OutVector" objectPath="AssignedLabelVector"/>
+  </nodes>
+<!--@Location 9,18-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode11" loop="Labels">
+<!--@BendPoints 19,39 26,39 26,37-->
+    <nodeSuccessors name="next" next="EndNode40"/>
+    <entry key="Label">
+<!--@BendPoints 20,37-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode29"/>
+    </entry>
+  </nodes>
+<!--@Location 10,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode29" conditionKey="AssignedLabelsMap:get(Label:UUID)">
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector3"/>
+<!--@BendPoints 21,38 25,38 25,35-->
+    <nodeSuccessors name="decision_no" next="JoinNode7"/>
+  </nodes>
+<!--@Location 11,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector3">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 24,37 24,36-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="InVector" objectPath="AssignedLabelVector"/>
+    <parameterBindings name="Object" objectPath="Label"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="AssignedLabels"/>
+    <returnValueBindings name="OutVector" objectPath="AssignedLabelVector"/>
+  </nodes>
+<!--@Location 11,17-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 22,35 19,35 19,36-->
+    <nodeSuccessors name="next" next="LoopNode11_Entry"/>
+  </nodes>
+<!--@Location 13,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode40" strict="true">
+    <returnValues name="AssignedLabels" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 4,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 10,39-->
+    <nodeSuccessors name="next" next="EndNode39"/>
+    <parameterBindings name="InValue_1" objectPath="AssignedLabelsByObject"/>
+    <returnValueBindings name="OutValue_1" objectPath="AssignedLabels"/>
+  </nodes>
+<!--@Location 5,19-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode39" strict="true">
+    <returnValues name="AssignedLabels" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 1,60-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode19" strict="true" name="GetAssignmentTables"
+      callMode="Private">
+<!--@BendPoints 4,121-->
+    <nodeSuccessors name="next" next="GetLabelAssignmentTypes1"/>
+    <parameters name="AssignedTypes" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 2,60-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabelAssignmentTypes1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabelAssignmentTypes.xml"/>
+    <nodeSuccessors name="next" next="LoopNode5"/>
+    <returnValueBindings name="LabelAssignmentTypes" nullBinding="true"/>
+  </nodes>
+<!--@Location 3,60-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode5" loop="AssignedTypes">
+<!--@BendPoints 7,123 12,123-->
+    <nodeSuccessors name="next" next="EndNode34"/>
+    <entry key="AssignedType">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode20"/>
+    </entry>
+  </nodes>
+<!--@Location 4,60-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode20" conditionKey="LabelAssignmentTypeMap:get(AssignedType)">
+    <nodeSuccessors name="decision_yes" next="AddEntryToMap2"/>
+<!--@BendPoints 9,122 10,122 10,120-->
+    <nodeSuccessors name="decision_no" next="JoinNode19"/>
+  </nodes>
+<!--@Location 5,60-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap2">
+    <pipelet href="enfinity:/core/pipelets/AddEntryToMap.xml"/>
+<!--@BendPoints 12,121 12,119-->
+    <nodeSuccessors name="next" next="JoinNode19"/>
+    <parameterBindings name="InMap" objectPath="LabelAssignmentTablesMap"/>
+    <parameterBindings name="Key" objectPath="LabelAssignmentTypeMap:get(AssignedType):ClassDescription:TableName"/>
+    <parameterBindings name="Value" objectPath="AssignedType"/>
+    <returnValueBindings name="Keys" objectPath="LabelAssignmentTables"/>
+    <returnValueBindings name="OutMap" objectPath="LabelAssignmentTablesMap"/>
+  </nodes>
+<!--@Location 4,59-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+<!--@BendPoints 7,119-->
+    <nodeSuccessors name="next" next="LoopNode5_Entry"/>
+  </nodes>
+<!--@Location 6,61-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode34" strict="true">
+    <returnValues name="LabelAssignmentTables" type="java.util.Iterator" optional="true"/>
+    <returnValues name="LabelAssignmentTablesMap" type="java.util.Map" optional="true"/>
+  </nodes>
+<!--@Location 1,63-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode18" strict="true" name="GetCSVStringFromIterator"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode6"/>
+<!--the iterator of values to concatenate to a csv string-->
+    <parameters name="CSVIterator" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 3,63-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode6" loop="CSVIterator">
+<!--@BendPoints 7,129-->
+    <nodeSuccessors name="next" next="EndNode31"/>
+    <entry key="String">
+<!--@BendPoints 8,127-->
+      <nodeSuccessors name="loop_entry_next" next="ConcatenateStrings1"/>
+    </entry>
+  </nodes>
+<!--@Location 4,63-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings1">
+    <pipelet href="enfinity:/core/pipelets/ConcatenateStrings.xml"/>
+<!--@BendPoints 10,127 10,126 7,126-->
+    <nodeSuccessors name="next" next="LoopNode6_Entry"/>
+    <parameterBindings name="String0" objectPath="CSVString"/>
+    <parameterBindings name="String1" objectPath="String"/>
+    <parameterBindings name="String2" constant=","/>
+    <returnValueBindings name="Concatenated" objectPath="CSVString"/>
+  </nodes>
+<!--@Location 4,64-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode31" strict="true">
+    <returnValues name="CSVString" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" strict="true" name="GetFilteredLabelAssignments"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+    <parameters name="Label" type="com.intershop.component.foundation.capi.labeling.Label"
+        optional="true"/>
+<!--the label assignment object type to filter-->
+    <parameters name="ObjectType" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="ObjectType">
+    <nodeSuccessors name="decision_yes" next="CallNode5"/>
+<!--@BendPoints 5,25 6,25-->
+    <nodeSuccessors name="decision_no" next="CallNode4"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <parameterBindings name="CSVString" objectPath="ObjectType"/>
+    <startNode referencedName="ProcessLabel-GetTokenIterator"/>
+    <returnValueBindings name="CSVIterator" objectPath="ObjectTypeIterator"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="DecisionNode17"/>
+    <parameterBindings name="AssignedTypes" objectPath="ObjectTypeIterator"/>
+    <startNode referencedName="ProcessLabel-GetAssignmentTables"/>
+  </nodes>
+<!--@Location 5,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode17" conditionKey="LabelAssignmentTables">
+    <nodeSuccessors name="decision_yes" next="DecisionNode19"/>
+<!--@BendPoints 11,25-->
+    <nodeSuccessors name="decision_no" next="JoinNode13"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode19" conditionKey="LabelAssignmentTables"
+      operator="has_elements">
+<!--@BendPoints 16,23-->
+    <nodeSuccessors name="decision_yes" next="ExecutePageableQuery2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode13"/>
+  </nodes>
+<!--@Location 8,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery2">
+    <configurationValues name="DefaultPageSize" value="0"/>
+    <configurationValues name="ParameterName_01" value="Label"/>
+    <configurationValues name="ParameterName_02" value="LabelAssignmentTables"/>
+    <configurationValues name="QueryName" value="labeling/LabelAssignments"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+<!--@BendPoints 18,23-->
+    <nodeSuccessors name="next" next="EndNode16"/>
+<!--@BendPoints 17,25 18,25-->
+    <nodeSuccessors name="pipelet_error" next="EndNode33"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Label"/>
+    <parameterBindings name="ParameterValue_02" objectPath="LabelAssignmentTables"/>
+    <parameterBindings name="Parameters" nullBinding="true"/>
+    <returnValueBindings name="SearchResult" objectPath="FilteredLabelAssignments"/>
+  </nodes>
+<!--@Location 9,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" strict="true">
+    <returnValues name="FilteredLabelAssignments" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 9,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode33" name="Error" strict="true"/>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+<!--@BendPoints 14,25-->
+    <nodeSuccessors name="next" next="EndNode17"/>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" name="InvalidFilter" strict="true"/>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 8,25-->
+    <nodeSuccessors name="next" next="EndNode32"/>
+    <startNode referencedName="ProcessLabel-GetLabelAssignments"/>
+    <returnValueBindings name="LabelAssignments" objectPath="FilteredLabelAssignments"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode32" strict="true">
+    <returnValues name="FilteredLabelAssignments" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode12" strict="true" name="GetFilteredLabeledObjects"
+      callMode="Private">
+<!--@BendPoints 4,27-->
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameters name="Label" type="com.intershop.component.foundation.capi.labeling.Label"
+        optional="true"/>
+    <parameters name="ObjectType" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="KeyMapper3"/>
+    <startNode referencedName="ProcessLabel-GetFilteredLabelAssignments"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode21"/>
+    <parameterBindings name="InValue_1" objectPath="Label:LabeledObjects(FilteredLabelAssignments)"/>
+    <returnValueBindings name="OutValue_1" objectPath="FilteredLabeledObjects"/>
+  </nodes>
+<!--@Location 5,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode21" strict="true">
+    <returnValues name="FilteredLabeledObjects" type="com.intershop.beehive.core.capi.paging.PageableIterator"
+        optional="true"/>
+    <returnValues name="FilteredLabelAssignments" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--gets all assignments of the passed label. 
+@Location 1,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode17" strict="true" name="GetLabelAssignments"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode16"/>
+    <parameters name="Label" type="com.intershop.component.foundation.capi.labeling.Label"
+        optional="true"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode16" conditionKey="Label:AssignedTypes"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="CallNode6"/>
+<!--@BendPoints 5,19-->
+    <nodeSuccessors name="decision_no" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="ExecutePageableQuery1"/>
+    <parameterBindings name="AssignedTypes" objectPath="Label:AssignedTypes"/>
+    <startNode referencedName="ProcessLabel-GetAssignmentTables"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery1">
+    <configurationValues name="DefaultPageSize" value="0"/>
+    <configurationValues name="ParameterName_01" value="Label"/>
+    <configurationValues name="ParameterName_02" value="LabelAssignmentTables"/>
+    <configurationValues name="QueryName" value="labeling/LabelAssignments"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+<!--@BendPoints 10,15-->
+    <nodeSuccessors name="next" next="EndNode28"/>
+<!--@BendPoints 9,17 10,17-->
+    <nodeSuccessors name="pipelet_error" next="EndNode29"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Label"/>
+    <parameterBindings name="ParameterValue_02" objectPath="LabelAssignmentTables"/>
+    <parameterBindings name="Parameters" nullBinding="true"/>
+    <returnValueBindings name="SearchResult" objectPath="LabelAssignments"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode28" strict="true">
+    <returnValues name="LabelAssignments" type="com.intershop.beehive.core.internal.search.MappingPageable"
+        optional="true"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode29" name="Error"/>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 8,19-->
+    <nodeSuccessors name="next" next="CreatePageableFromIterator3"/>
+    <parameterBindings name="InValue_1" objectPath="Label:LabelAssignments"/>
+    <returnValueBindings name="OutValue_1" objectPath="LabelAssignments"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePageableFromIterator3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableFromIterator.xml"/>
+<!--@BendPoints 10,19-->
+    <nodeSuccessors name="next" next="EndNode30"/>
+    <parameterBindings name="Iterator" objectPath="LabelAssignments"/>
+    <returnValueBindings name="Pageable" objectPath="LabelAssignments"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode30" name="Empty" strict="true">
+    <returnValues name="LabelAssignments" type="com.intershop.beehive.core.capi.paging.PageableIterator"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,66-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode21" strict="true" name="GetLabelNamesByID"
+      callMode="Private">
+<!--@BendPoints 4,133-->
+    <nodeSuccessors name="next" next="LoopNode9"/>
+    <parameters name="LabelIDs" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 2,66-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode9" loop="LabelIDs">
+<!--@BendPoints 5,134-->
+    <nodeSuccessors name="next" next="EndNode38"/>
+    <entry key="LabelID">
+<!--@BendPoints 6,133-->
+      <nodeSuccessors name="loop_entry_next" next="GetLabel8"/>
+    </entry>
+  </nodes>
+<!--@Location 3,66-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabel8">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabel.xml"/>
+    <nodeSuccessors name="next" next="ConcatenateStrings3"/>
+<!--@BendPoints 7,135 11,135-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+  </nodes>
+<!--@Location 4,66-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings3">
+    <pipelet href="enfinity:/core/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="String0" objectPath="LabelNames"/>
+    <parameterBindings name="String1" objectPath="Label:Name"/>
+    <parameterBindings name="String2" constant=" "/>
+    <returnValueBindings name="Concatenated" objectPath="LabelNames"/>
+  </nodes>
+<!--@Location 5,66-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 12,133 12,132 5,132-->
+    <nodeSuccessors name="next" next="LoopNode9_Entry"/>
+  </nodes>
+<!--@Location 2,67-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode38" strict="true">
+    <returnValues name="LabelNames" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetLabelsByDomain"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode18"/>
+<!--the label domain to get labels for.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--sort the result by this attribute 'DisplayName' or 'UserName' default sort is by label ID-->
+    <parameters name="SortAttribute" type="java.lang.String" optional="true"/>
+<!--the sort order for sorting values are 'asc' or 'desc' default is 'asc'-->
+    <parameters name="SortOrder" type="java.lang.String" optional="true"/>
+<!--Collection of labels to be excluded from the search.-->
+    <parameters name="ExcludeLabels" type="java.util.Collection" optional="true"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode18" conditionKey="SortAttribute">
+<!--@BendPoints 6,5 6,2 7,2-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode21"/>
+<!--@BendPoints 5,8 12,8-->
+    <nodeSuccessors name="decision_no" next="JoinNode20"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode21" conditionKey="SortAttribute"
+      operator="str_eq" conditionValue="DisplayName">
+<!--@BendPoints 7,4-->
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue1"/>
+<!--@BendPoints 8,3 8,2 9,2-->
+    <nodeSuccessors name="decision_no" next="DecisionNode22"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="SortByDisplayName"/>
+    <configurationValues name="Value" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 7,7 11,7-->
+    <nodeSuccessors name="next" next="JoinNode20"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+    <nodeSuccessors name="next" next="DecisionNode24"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode24" conditionKey="SortOrder">
+<!--@BendPoints 16,3 16,2 17,2-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode25"/>
+<!--@BendPoints 15,7-->
+    <nodeSuccessors name="decision_no" next="JoinNode22"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode25" conditionKey="SortOrder"
+      operator="str_eq" conditionValue="asc">
+    <nodeSuccessors name="decision_yes" next="JoinNode22"/>
+<!--@BendPoints 18,3 18,2 19,2-->
+    <nodeSuccessors name="decision_no" next="DecisionNode23"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode22">
+    <nodeSuccessors name="next" next="JoinNode23"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode23">
+<!--@BendPoints 22,7-->
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode21">
+    <nodeSuccessors name="next" next="AddMultipleEntriesToMap0"/>
+  </nodes>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddMultipleEntriesToMap0">
+    <configurationValues name="Mode" value="OverwriteValue"/>
+    <pipelet href="enfinity:/core/pipelets/AddMultipleEntriesToMap.xml"/>
+    <nodeSuccessors name="next" next="AddMultipleEntriesToMap1"/>
+    <parameterBindings name="InMap" nullBinding="true"/>
+    <parameterBindings name="IteratorOfKeys" nullBinding="true"/>
+    <parameterBindings name="Key1" constant="Domain"/>
+    <parameterBindings name="Key2" constant="SortOrder"/>
+    <parameterBindings name="Key3" constant="SortByDisplayName"/>
+    <parameterBindings name="Key4" constant="SortByUserName"/>
+    <parameterBindings name="Key5" constant="LocaleId"/>
+    <parameterBindings name="Value1" objectPath="Domain"/>
+    <parameterBindings name="Value2" objectPath="SortOrder"/>
+    <parameterBindings name="Value3" objectPath="SortByDisplayName"/>
+    <parameterBindings name="Value4" objectPath="SortByUserName"/>
+    <parameterBindings name="Value5" objectPath="CurrentSession:Locale:LocaleID"/>
+    <returnValueBindings name="OutMap" objectPath="Parameters"/>
+  </nodes>
+<!--@Location 13,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddMultipleEntriesToMap1">
+    <configurationValues name="Mode" value="OverwriteValue"/>
+    <pipelet href="enfinity:/core/pipelets/AddMultipleEntriesToMap.xml"/>
+    <nodeSuccessors name="next" next="ExecutePageableQuery3"/>
+    <parameterBindings name="InMap" objectPath="Parameters"/>
+    <parameterBindings name="Key1" constant="ExcludeLabels"/>
+    <parameterBindings name="Value1" objectPath="ExcludeLabels"/>
+    <returnValueBindings name="OutMap" objectPath="Parameters"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery3">
+    <configurationValues name="DefaultPageSize" value="0"/>
+    <configurationValues name="QueryName" value="labeling/LabelsByDomain"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+<!--@BendPoints 30,3-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+<!--@BendPoints 29,5 30,5-->
+    <nodeSuccessors name="pipelet_error" next="EndNode37"/>
+    <parameterBindings name="ParameterValue_01" nullBinding="true"/>
+    <parameterBindings name="ParameterValue_02" nullBinding="true"/>
+    <parameterBindings name="ParameterValue_03" nullBinding="true"/>
+    <parameterBindings name="ParameterValue_04" nullBinding="true"/>
+    <parameterBindings name="ParameterValue_05" nullBinding="true"/>
+    <returnValueBindings name="SearchResult" objectPath="Labels"/>
+  </nodes>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="Labels" type="com.intershop.beehive.core.capi.paging.PageableIterator"
+        optional="true"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode37" name="Error" strict="true"/>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode23" conditionKey="SortOrder"
+      operator="str_eq" conditionValue="desc">
+    <nodeSuccessors name="decision_yes" next="JoinNode23"/>
+<!--@BendPoints 20,3-->
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue3"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue3">
+    <configurationValues name="Name" value="SortOrder"/>
+    <configurationValues name="Value" value="asc"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode22" conditionKey="SortAttribute"
+      operator="str_eq" conditionValue="UserName">
+<!--@BendPoints 9,4-->
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode20"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="SortByUserName"/>
+    <configurationValues name="Value" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 9,6 11,6-->
+    <nodeSuccessors name="next" next="JoinNode20"/>
+  </nodes>
+<!--gets the object from a label assignment and puts it as the object into the dictionary replacing the original label assignment object.
+@Location 1,30-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="GetNextObject"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+<!--the label assignment-->
+    <parameters name="Object" type="com.intershop.component.foundation.capi.labeling.LabelAssignment"
+        optional="true"/>
+<!--optional type of the labeled object. If the label assignment is not of this type the object is skipped.-->
+    <parameters name="ObjectType" type="java.lang.String" optional="true"/>
+<!--an optional log scope to log messages.-->
+    <parameters name="LogScope" type="com.intershop.beehive.core.capi.log.LogScope"
+        optional="true"/>
+<!--defines if the passed object is a label assignment. -->
+    <parameters name="ProcessLabelAssignments" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,30-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="ProcessLabelAssignments">
+    <nodeSuccessors name="decision_yes" next="DecisionNode3"/>
+<!--@BendPoints 5,65 6,65-->
+    <nodeSuccessors name="decision_no" next="EndNode10"/>
+  </nodes>
+<!--@Location 4,30-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="Object:Object">
+<!--@BendPoints 10,61-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode1"/>
+<!--@BendPoints 9,65 10,65-->
+    <nodeSuccessors name="decision_no" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 5,30-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ObjectType">
+<!--@BendPoints 14,61-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode2"/>
+<!--@BendPoints 11,62 17,62-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 7,30-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Object:Type"
+      operator="str_eq" conditionItem="ObjectType">
+    <nodeSuccessors name="decision_yes" next="JoinNode4"/>
+<!--@BendPoints 15,63 16,63-->
+    <nodeSuccessors name="decision_no" next="DecisionNode6"/>
+  </nodes>
+<!--@Location 8,30-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 18,61-->
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+  </nodes>
+<!--@Location 9,30-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 20,61-->
+    <nodeSuccessors name="next" next="EndNode8"/>
+    <parameterBindings name="InValue_1" objectPath="Object:Object"/>
+    <returnValueBindings name="OutValue_1" objectPath="Object"/>
+  </nodes>
+<!--@Location 10,30-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" strict="true">
+    <returnValues name="Object" type="com.intershop.beehive.core.capi.domain.PersistentObject"
+        optional="true"/>
+  </nodes>
+<!--@Location 8,31-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="LogScope">
+<!--@BendPoints 18,63-->
+    <nodeSuccessors name="decision_yes" next="Pipelet3"/>
+<!--@BendPoints 17,64 21,64-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 9,31-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="LogLevel" value="Info"/>
+    <configurationValues name="MessageKey" value="bc_foundation.label_ObjectNotRequiredType"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateLogEntry.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="Object0" objectPath="Object:Name"/>
+    <parameterBindings name="Object1" objectPath="Object:ID"/>
+    <parameterBindings name="Object2" objectPath="Object:Type"/>
+    <parameterBindings name="Object3" objectPath="ObjectType"/>
+  </nodes>
+<!--@Location 10,31-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 22,63-->
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 11,31-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="NoTypeMatch" strict="true"/>
+<!--@Location 5,32-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="LogScope">
+<!--@BendPoints 12,65-->
+    <nodeSuccessors name="decision_yes" next="Pipelet2"/>
+<!--@BendPoints 11,66 15,66-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 6,32-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="LogLevel" value="Info"/>
+    <configurationValues name="MessageKey" value="bc_foundation.label_ObjectDoesNotExist"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateLogEntry.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="Object0" objectPath="Object:ID"/>
+    <parameterBindings name="Object1" objectPath="Object:Type"/>
+  </nodes>
+<!--@Location 7,32-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 16,65-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 8,32-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="NoObject" strict="true"/>
+<!--@Location 3,32-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10">
+    <returnValues name="Object" type="java.lang.Object" optional="true"/>
+  </nodes>
+<!--@Location 1,57-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode13" strict="true" name="GetTokenIterator"
+      callMode="Private">
+<!--@BendPoints 4,115-->
+    <nodeSuccessors name="next" next="Pipelet4"/>
+    <parameters name="CSVString" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,57-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="Mode" value="First Occurrence"/>
+    <configurationValues name="Separator" value=","/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStringSplitter.xml"/>
+    <nodeSuccessors name="next" next="JoinNode15"/>
+  </nodes>
+<!--@Location 3,57-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+<!--@BendPoints 8,115 8,114 9,114-->
+    <nodeSuccessors name="next" next="DecisionNode11"/>
+  </nodes>
+<!--@Location 4,57-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="CSVString"
+      operator="str_empty">
+<!--@BendPoints 9,117-->
+    <nodeSuccessors name="decision_yes" next="EndNode20"/>
+<!--@BendPoints 10,115-->
+    <nodeSuccessors name="decision_no" next="Pipelet5"/>
+  </nodes>
+<!--@Location 6,58-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode20" strict="true">
+    <returnValues name="CSVIterator" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 5,57-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 12,115-->
+    <nodeSuccessors name="next" next="Pipelet6"/>
+    <parameterBindings name="InValue_1" objectPath="Splitter:Begin(CSVString)"/>
+    <returnValueBindings name="OutValue_1" objectPath="Token"/>
+  </nodes>
+<!--@Location 6,57-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 14,115-->
+    <nodeSuccessors name="next" next="Pipelet7"/>
+    <parameterBindings name="InValue_1" objectPath="Splitter:End(CSVString)"/>
+    <returnValueBindings name="OutValue_1" objectPath="CSVString"/>
+  </nodes>
+<!--@Location 7,57-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet7">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 18,115 18,113 7,113-->
+    <nodeSuccessors name="next" next="JoinNode15"/>
+    <parameterBindings name="InVector" objectPath="CSVVector"/>
+    <parameterBindings name="Object" objectPath="Token"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="CSVIterator"/>
+    <returnValueBindings name="OutVector" objectPath="CSVVector"/>
+  </nodes>
+<!--gets the labels that are not assigned to the object. returns also the assigned labels.
+@Location 1,15-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode14" strict="true" name="GetUnassignedLabels"
+      callMode="Private">
+<!--@BendPoints 4,31-->
+    <nodeSuccessors name="next" next="GetLabelsByObject1"/>
+<!--the label domain to get labels for.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--the object to get the labels for.-->
+    <parameters name="Object" type="java.lang.Object" optional="true"/>
+  </nodes>
+<!--@Location 2,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabelsByObject1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabelsByObject.xml"/>
+<!--@BendPoints 6,31-->
+    <nodeSuccessors name="next" next="GetLabels2"/>
+    <returnValueBindings name="Labels" objectPath="AssignedLabels"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabels2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabels.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode12"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="AssignedLabels"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="LoopNode3"/>
+<!--@BendPoints 9,32 8,32 8,33-->
+    <nodeSuccessors name="decision_no" next="KeyMapper4"/>
+  </nodes>
+<!--@Location 5,15-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="AssignedLabels">
+<!--@BendPoints 11,32 16,32 16,31-->
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+    <entry key="AssignedLabel">
+<!--@BendPoints 12,31-->
+      <nodeSuccessors name="loop_entry_next" next="AddEntryToMap1"/>
+    </entry>
+  </nodes>
+<!--@Location 6,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap1">
+    <pipelet href="enfinity:/core/pipelets/AddEntryToMap.xml"/>
+<!--@BendPoints 14,31 14,30 11,30-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+    <parameterBindings name="InMap" objectPath="AssignedLabelsMap"/>
+    <parameterBindings name="Key" objectPath="AssignedLabel:UUID"/>
+    <parameterBindings name="Value" objectPath="AssignedLabel"/>
+    <returnValueBindings name="Keys" nullBinding="true"/>
+    <returnValueBindings name="OutMap" objectPath="AssignedLabelsMap"/>
+  </nodes>
+<!--@Location 8,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 18,31-->
+    <nodeSuccessors name="next" next="LoopNode4"/>
+    <parameterBindings name="InVector" objectPath="UnassignedLabelVector"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="UnassignedLabels"/>
+    <returnValueBindings name="OutVector" objectPath="UnassignedLabelVector"/>
+  </nodes>
+<!--@Location 9,15-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode4" loop="Labels">
+<!--@BendPoints 19,33 26,33 26,31-->
+    <nodeSuccessors name="next" next="EndNode23"/>
+    <entry key="Label">
+<!--@BendPoints 20,31-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode13"/>
+    </entry>
+  </nodes>
+<!--@Location 10,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="AssignedLabelsMap:get(Label:UUID)"
+      operator="undef">
+<!--@BendPoints 22,31-->
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector2"/>
+<!--@BendPoints 21,32 25,32 25,29-->
+    <nodeSuccessors name="decision_no" next="JoinNode16"/>
+  </nodes>
+<!--@Location 11,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 24,31 24,30-->
+    <nodeSuccessors name="next" next="JoinNode16"/>
+    <parameterBindings name="InVector" objectPath="UnassignedLabelVector"/>
+    <parameterBindings name="Object" objectPath="Label"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="UnassignedLabels"/>
+    <returnValueBindings name="OutVector" objectPath="UnassignedLabelVector"/>
+  </nodes>
+<!--@Location 11,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+<!--@BendPoints 19,29-->
+    <nodeSuccessors name="next" next="LoopNode4_Entry"/>
+  </nodes>
+<!--@Location 13,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode23" strict="true">
+    <returnValues name="AssignedLabels" type="java.util.Iterator" optional="true"/>
+    <returnValues name="UnassignedLabels" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 10,33-->
+    <nodeSuccessors name="next" next="EndNode22"/>
+    <parameterBindings name="InValue_1" objectPath="Labels"/>
+    <returnValueBindings name="OutValue_1" objectPath="UnassignedLabels"/>
+  </nodes>
+<!--@Location 5,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode22" strict="true">
+    <returnValues name="AssignedLabels" type="java.util.Iterator" optional="true"/>
+    <returnValues name="UnassignedLabels" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 1,69-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode22" strict="true" name="UnassignAllLabels"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetLabelsByObject2"/>
+    <parameters name="Object" type="java.lang.Object"/>
+  </nodes>
+<!--@Location 2,69-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabelsByObject2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabelsByObject.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode27"/>
+    <returnValueBindings name="Labels" objectPath="AssignedLabels"/>
+  </nodes>
+<!--@Location 3,69-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode27" conditionKey="AssignedLabels"
+      operator="has_elements">
+<!--@BendPoints 8,139-->
+    <nodeSuccessors name="decision_yes" next="LoopNode10"/>
+<!--@BendPoints 7,141-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 4,69-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode10" loop="AssignedLabels">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <entry key="Label">
+<!--@BendPoints 10,139-->
+      <nodeSuccessors name="loop_entry_next" next="CallNode11"/>
+    </entry>
+  </nodes>
+<!--@Location 5,69-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+<!--@BendPoints 12,139 12,137 9,137-->
+    <nodeSuccessors name="next" next="LoopNode10_Entry"/>
+    <parameterBindings name="LabelID" nullBinding="true"/>
+    <startNode referencedName="ProcessLabel-UnassignLabel"/>
+  </nodes>
+<!--@Location 4,70-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode15"/>
+  </nodes>
+<!--@Location 5,70-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true"/>
+<!--unassigns a label from the object. if no Label object is passed the label is determined from the LabelID
+@Location 1,23-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode16" strict="true" name="UnassignLabel"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode15"/>
+    <parameters name="Label" type="com.intershop.component.foundation.capi.labeling.Label"
+        optional="true"/>
+    <parameters name="LabelID" type="java.lang.String" optional="true"/>
+    <parameters name="Object" type="java.lang.Object" optional="true"/>
+  </nodes>
+<!--@Location 2,23-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode15" conditionKey="Label"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="GetLabel6"/>
+<!--@BendPoints 5,49 8,49-->
+    <nodeSuccessors name="decision_no" next="JoinNode18"/>
+  </nodes>
+<!--@Location 3,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLabel6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLabel.xml"/>
+    <nodeSuccessors name="next" next="JoinNode18"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode17"/>
+  </nodes>
+<!--@Location 4,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+    <nodeSuccessors name="next" next="UnassignLabel2"/>
+  </nodes>
+<!--@Location 5,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UnassignLabel2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UnassignLabel.xml"/>
+    <nodeSuccessors name="next" next="EndNode26"/>
+  </nodes>
+<!--@Location 6,23-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode26" strict="true"/>
+<!--@Location 3,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+    <nodeSuccessors name="next" next="EndNode27"/>
+  </nodes>
+<!--@Location 6,24-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode27" name="Error"/>
+</pipeline:Pipeline>

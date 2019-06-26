@@ -1,0 +1,832 @@
+import edl;
+
+extension util::OracleUtil;
+
+/*
+ * Common Helper Methods
+ */
+ 
+String getQualifiedName(EDLNamedElement edlElement):
+    edlElement.getQualifiedName();
+ 
+EDLModel getModel(EDLNamedElement edlElement):
+    JAVA com.intershop.enfinity.studio.emf.edl.util.EDLUtils.getModel(com.intershop.enfinity.studio.emf.edl.EDLElement);
+
+EDLType getEDLType(EDLModel model, String qualifiedName):
+    JAVA com.intershop.enfinity.studio.emf.edl.util.EDLUtils.ensureType(com.intershop.enfinity.studio.emf.edl.EDLModel, java.lang.String);
+
+EDLType getEDLType(EDLModel model, String qualifiedName, String edlImport):
+    JAVA com.intershop.enfinity.studio.emf.edl.util.EDLUtils.ensureType(com.intershop.enfinity.studio.emf.edl.EDLModel, java.lang.String, java.lang.String);
+
+/* does not work because its very slow
+Void setOrigin(Object o, Object parent):
+    JAVA com.intershop.enfinity.studio.mda.edl.util.EDLUtils.setTempParent(com.intershop.enfinity.studio.mda.edl.EDLElement, com.intershop.enfinity.studio.mda.edl.EDLElement);
+*/
+
+// workaround for extremely slow JAVA extension implementation of oAW :-(
+// collect everything in a list first, then do a single extension call for all at once
+Void setOrigin(Object o, Object parent):
+    getOrigins().add({o, parent});
+
+cached List getOrigins():
+    JAVA com.intershop.enfinity.studio.emf.edl.util.EDLUtils.getOrigins();
+
+Object getOrigin(Object o):
+    let i = getOrigins().select(x | ((List) x).get(0) == o) :
+        i.size > 0 ? ((List) i.get(0)).get(1) : null;
+
+Void setOrigins(List origins):
+    JAVA com.intershop.enfinity.studio.emf.edl.util.EDLUtils.setOrigins(java.util.List);
+
+String getGeneratorName():
+    GLOBALVAR generatorName;
+
+String getProjectName():
+    GLOBALVAR projectName;
+
+String addString(List[String] values, String s):
+    values.add(s) ->
+    "";
+
+String addImport(List[String] imports, String s):
+    imports.addAll(s.getGenericTypeNames()) ->
+    "";
+    
+String maximumLength(String s, int l):
+	s.length > l? s.subString(0, l): s;
+
+String threeDigitCounter(int i):
+	i < 10? "00" + i: (i < 100? "0" + i: i);
+
+
+Void println(Object o):
+    JAVA com.intershop.enfinity.studio.mda.generator.liberty.OAWUtil.println(java.lang.Object);
+
+String unescape(String name):
+    name.startsWith("^") ? name.subString(1, name.length) : name;
+
+List[String] getGenericTypeNames(String s):
+    s.split("<|>|,").trim();
+    
+String getShortName(String className):
+    className.contains("<") ?
+        className.split("<").getShortName().toString("<") :
+        (className.contains(",") ?
+            className.split(",").getShortName().toString(", ") :
+            (className.contains(".") ? className.split("\\.").last() : className));
+
+Boolean isPrimitive(String className):
+    !className.contains(".");
+
+String getArrayDimension(List[String] dimension):
+    dimension.size == 0 ? "" : "[]" + getArrayDimension(dimension.withoutFirst());
+
+Boolean isValidJavaIdentifier(String name):
+    name.matches("[a-zA-Z_0-9]+");
+
+Boolean isValidXMLIdentifier(String name):
+    name.matches("[a-zA-Z\\-_:0-9]+");
+
+/*
+ * EDL Helper Methods
+ */
+
+String getClassName(EDLPrimitiveType p):
+    switch (p.name.unescape())
+    {
+        case "BigDecimal"   : "java.math.BigDecimal"
+        case "blob"         : "byte[]"
+        case "Date"         : "java.util.Date"
+        case "datetime"     : "java.util.Date"
+        case "decimal"      : "java.math.BigDecimal"
+        case "integer"      : "int"
+        case "money"        : "com.intershop.beehive.foundation.quantity.Money"
+        case "oid"          : "byte[]"
+        case "ProductRef"   : "com.intershop.beehive.xcs.common.ProductRef"
+        case "quantity"     : "com.intershop.beehive.foundation.quantity.Quantity"
+        case "rate"         : "com.intershop.beehive.foundation.quantity.ExchangeRate"
+        case "Serializable" : "java.io.Serializable"
+        case "string"       : "java.lang.String"
+        case "text"         : "java.lang.String"
+        case "time"         : "java.util.Date"
+        case "uuid"         : "java.lang.String"
+        default             : p.name.unescape()
+    };
+
+String getClassName(EDLNamespaceType n):
+    n.getPackageName() + "." + n.name.unescape();
+
+String getClassName(EDLExternalType t):
+    t.type;
+
+// workaround for "dangling" transformed objects:
+// return package name of the origin instead
+String getPackageName(EDLNamespaceType t):
+    t.eContainer == null ? ((EDLNamespaceType) t.getOrigin()).getPackageName()
+        : ((EDLNamespace) t.eContainer).getPackageName();
+
+String getPackageName(EDLNamespace ns):
+    ns.eContainer.metaType == EDLNamespace ? ((EDLNamespace) ns.eContainer).getPackageName() + "." + getPackageName(ns.name) : getPackageName(ns.name);
+
+String getPackageName(String ns):
+    ns.split("\\.").unescape().toString(".");
+
+String getValue(EDLLiteral l):
+    null;
+
+String getValue(EDLStringLiteral s):
+    "\"" + s.value + "\"";
+
+String getValue(EDLFloatLiteral f):
+    f.value.toString();
+
+String getValue(EDLIntLiteral i):
+    i.value.toString();
+
+String getValue(EDLBooleanLiteral b):
+    b.value.toString();
+
+String getValue(EDLNullLiteral n):
+    "null";
+
+
+String getPlainValue(EDLLiteral l):
+    null;
+
+String getPlainValue(EDLStringLiteral s):
+    s.value;
+
+String getPlainValue(EDLFloatLiteral f):
+    f.value.toString();
+
+String getPlainValue(EDLIntLiteral i):
+    i.value.toString();
+
+String getPlainValue(EDLBooleanLiteral b):
+    b.value.toString();
+
+String getPlainValue(EDLNullLiteral n):
+    "null";
+
+/*
+ * ORM Helper Methods
+ */
+
+String getClassName(EDLORMType t):
+    t.getPackageName() + "." + t.name.unescape();
+
+String getClassName(EDLORMAttributeType t):
+    null;
+
+String getClassName(EDLORMRelationType t):
+    null;
+
+String getClassName(EDLORMDependencyType t):
+    null;
+
+List[EDLORMType] getAllSuperClasses(EDLORMType t):
+    t.superClass != null ? {t.superClass}.union(t.superClass.getAllSuperClasses()) : {};
+
+List[EDLORMAttribute] getAllPrimaryKeyAttributes(EDLORMType t):
+    t.superClass != null ? t.superClass.getAllPrimaryKeyAttributes() :
+    (t.primaryKey != null ? t.primaryKey.primaryKeyAttributes : {});  
+
+EDLORMPrimaryKey getActivePrimaryKey(EDLORMType t):
+	t.superClass != null? t.superClass.getActivePrimaryKey(): 
+	t.primaryKey;
+
+List[EDLORMAttribute] getAllAlternateKeyAttributes(EDLORMType t):
+    t.alternateKey != null ? t.alternateKey.attributes :
+    (t.superClass != null ? t.superClass.getAllAlternateKeyAttributes() : {});
+
+List[EDLORMAttribute] getAllAlternateKeyNonPrimitiveAttributes(EDLORMType t):
+    t.alternateKey != null ? t.alternateKey.attributes.select(a|!isPrimitiveAttributeType(a)) :
+    (t.superClass != null ? t.superClass.getAllAlternateKeyAttributes() : {});
+
+List[EDLORMAttribute] getAttributes(EDLORMType t):
+    t.members.typeSelect(EDLORMAttribute);
+
+List[EDLORMMember] getAllMembers(EDLORMType t):
+    t.superClass != null ? t.superClass.getAllMembers().union(t.members) : t.members;
+
+List[EDLORMAttribute] getAllAttributes(EDLORMType t):
+    t.getAllMembers().typeSelect(EDLORMAttribute);
+
+List[EDLORMDependency] getDependencies(EDLORMType t):
+    t.members.typeSelect(EDLORMDependency);
+
+List[EDLORMDependency] getAllDependencies(EDLORMType t):
+    t.getAllMembers().typeSelect(EDLORMDependency);
+
+List[EDLORMRelation] getRelations(EDLORMType t):
+    t.members.typeSelect(EDLORMRelation);
+
+List[EDLORMRelation] getAllRelations(EDLORMType t):
+    t.getAllMembers().typeSelect(EDLORMRelation);
+
+List[EDLORMIndex] getAllIndexes(EDLORMType t):
+    t.superClass != null ? t.superClass.getAllIndexes().union(t.indexes) : t.indexes;
+
+Boolean isSubClass(EDLORMType t, String superClassName):
+    t.superClass == null ? false :
+    (t.superClass.getClassName() == superClassName ? true : t.superClass.isSubClass(superClassName));
+
+Boolean isSubClass(EDLORMType t, EDLORMType super):
+    isSubClass2(t, super, {});
+
+Boolean isSubClass2(EDLORMType t, EDLORMType super, Collection[EDLORMType] checked):
+    t.superClass == null ? false :
+        (
+            t.superClass == super ? true :
+            (
+                checked.contains(super) ? false : 
+                isSubClass2(t.superClass, super, checked.add(t))
+            )
+        ); 
+
+// TODO check inherited interfaces from interfaces too!
+Boolean isImplementor(EDLORMType t, String interfaceName):
+    t.interfaces.exists(i | (i.getClassName() == interfaceName) || i.isImplementor(interfaceName)) ? true :
+    (t.superClass != null ? t.superClass.isImplementor(interfaceName) : false);
+
+// TODO check inherited interfaces from interfaces too!
+List[EDLCAPIInterface] getAllCAPIInterfaces(EDLORMType t):
+    t.superClass != null ? t.interfaces.typeSelect(EDLCAPIInterface).union(t.superClass.getAllCAPIInterfaces()) :
+         t.interfaces.typeSelect(EDLCAPIInterface);
+
+// primary keys first, then remainings
+List[EDLORMAttribute] getAllMandatoryAttributes(EDLORMType t):
+    t.getAllAttributes().select(a | a.isPrimaryKey()).union(
+    t.getAllAttributes().select(a | a.isRequired()).union(
+    t.getAllAttributes().select(a | a.modifiers.contains(EDLORMAttributeModifier::readonly)))).reject(
+                a | a.isLocalized() || a.isMapped() || 
+                t.getAllMandatoryRelations().select(r | r.foreignKey != null).foreignKey.sourceAttributes.contains(a));
+
+Boolean isAbstract(EDLORMType t):
+    t.modifiers.contains(EDLORMTypeModifier::abstract);
+
+Boolean isLocalized(EDLORMAttribute a):
+    a.modifiers.contains(EDLORMAttributeModifier::localized);
+
+Boolean isMapped(EDLORMAttribute a):
+    a.modifiers.contains(EDLORMAttributeModifier::mapped);
+
+Boolean isRequired(EDLORMAttribute a):
+    a.modifiers.contains(EDLORMAttributeModifier::required);
+
+Boolean isReadOnly(EDLORMAttribute a):
+    a.modifiers.contains(EDLORMAttributeModifier::readonly);
+
+Boolean isSearchable(EDLORMAttribute a):
+    a.modifiers.contains(EDLORMAttributeModifier::searchable);
+
+Boolean isLazy(EDLORMAttribute a):
+    a.modifiers.contains(EDLORMAttributeModifier::lazy);
+
+Boolean isPrimaryKey(EDLORMAttribute a):
+    ((EDLORMType) a.eContainer).getAllPrimaryKeyAttributes().contains(a);
+
+Boolean isPrimaryKey(EDLORMRelation r):
+    r.foreignKey != null && r.foreignKey.sourceAttributes.select(a | a.isPrimaryKey()).size > 0;
+
+Boolean isPrimaryKey(EDLORMDependency d):
+    d.foreignKeyAttribute != null && d.foreignKeyAttribute.isPrimaryKey();
+
+Boolean isRequired(EDLORMDependency d):
+    d.foreignKeyAttribute != null && d.foreignKeyAttribute.isRequired();
+
+Boolean isReadOnly(EDLORMDependency d):
+    d.foreignKeyAttribute != null && d.foreignKeyAttribute.isReadOnly();
+
+Boolean isForeignKey(EDLORMAttribute a):
+    ((EDLORMType) a.eContainer).getAllForeignKeyAttributes().contains(a);
+
+Boolean isForeignKeyFromDependency(EDLORMAttribute a):
+	((EDLORMType) a.eContainer).getAllForeignKeyAttributesFromDependency().contains(a);
+
+Boolean isAlternativeKey(EDLORMAttribute a):
+    ((EDLORMType) a.eContainer).semanticKey != null &&
+    ((EDLORMType) a.eContainer).semanticKey.semanticKeyAttributes.contains(a);
+
+Boolean needsSearchableIndex(EDLORMAttribute a):
+	a.modifiers.contains(EDLORMAttributeModifier::searchable) &&
+	!a.hasExplicitIndex() && 
+	!a.isForeignKey() && 
+	!a.isForeignKeyFromDependency() && !a.isAlternativeKey() &&
+	!((EDLORMType) a.eContainer).indexes.indexAttributes.contains(a);
+	
+Boolean hasExplicitIndex(EDLORMAttribute a):
+    !((EDLORMType) a.eContainer).indexes.select(i | i.indexAttributes.size == 1 && i.indexAttributes.contains(a)).isEmpty;	
+	
+List[EDLORMAttribute] getAllForeignKeyAttributes(EDLORMType t):
+    t.getAllRelations().select(r | r.foreignKey != null).foreignKey.sourceAttributes;
+
+List[EDLORMAttribute] getAllForeignKeyAttributesFromDependency(EDLORMType t):
+    t.getAllDependencies().foreignKeyAttribute;
+
+List[EDLORMRelation] getAllMandatoryRelations(EDLORMType t):
+    t.getAllRelations().select(r | r.cardinality == EDLORMRelationCardinality::oneToOne);
+
+List[EDLORMAttribute] getPrimaryKeyAttributes(EDLORMType t):
+    t.getAllAttributes().select(a | a.isPrimaryKey());
+
+String getColumnName(EDLORMAttribute a):
+    a.columnName == null ? a.name.unescape().toUpperCase() : a.columnName.toUpperCase();
+
+String getJDBCType(EDLORMAttribute a):
+    a.columnType == null ? getJDBCType2(a, a.type) : a.columnType;
+
+String getJDBCType2(EDLORMAttribute a, EDLORMAttributeType t):
+    null;
+
+String getJDBCType2(EDLORMAttribute a, EDLPrimitiveType t):
+    switch (t.name.unescape())
+    {
+        case "boolean"      : "BOOLEAN"
+        case "byte"         : "TINYINT"
+        case "char"         : "CHAR"
+        case "short"        : "SMALLINT"
+        case "int"          : "INTEGER"
+        case "integer"      : "INTEGER"
+        case "long"         : "BIGINT"
+        case "float"        : "FLOAT"
+        case "double"       : "DOUBLE"
+        case "decimal"      : "DECIMAL"
+        case "date"         : "TIMESTAMP"
+        case "time"         : "TIMESTAMP"
+        case "timestamp"    : "TIMESTAMP"
+        case "datetime"     : "TIMESTAMP"
+        case "string"       : "VARCHAR(" + a.length + ")"
+        case "uuid"         : "VARCHAR(28)"        
+        case "blob"         : "BLOB"
+        case "clob"         : "CLOB"
+        case "text"         : "CLOB"
+        case "Serializable" : "BLOB"
+        default             : null
+    };
+
+String getJDBCType2(EDLORMAttribute a, EDLExternalType t):
+    switch (t.getClassName())
+    {
+        case "byte[]"               : "BLOB"
+        case "boolean"              : "BOOLEAN"
+        case "byte"                 : "TINYINT"
+        case "char"                 : "CHAR"
+        case "short"                : "SMALLINT"
+        case "int"                  : "INTEGER"
+        case "java.lang.Integer"    : "INTEGER"
+        case "java.lang.Long"       : "BIGINT"
+        case "java.lang.Float"      : "FLOAT"
+        case "java.lang.Double"     : "DOUBLE"
+        case "long"                 : "BIGINT"
+        case "float"                : "FLOAT"
+        case "double"               : "DOUBLE"
+        case "java.math.BigDecimal" : "DECIMAL"
+        case "java.math.BigInteger" : "DECIMAL"
+        case "java.util.Date"       : "TIMESTAMP"
+        case "char[]"               : "VARCHAR(" + a.length + ")"
+        case "java.lang.String"     : "VARCHAR(" + a.length + ")"
+        case "java.io.Serializable" : "BLOB"
+        case "java.util.TimeZone"   : "VARCHAR(50)"
+        case "java.util.Locale"     : "VARCHAR(10)"
+        default                     : null
+    };
+
+String getTableName(EDLORMType t):
+    t.tableName == null ? (t.name.unescape().toUpperCase().getTableName2()) : t.tableName.toUpperCase();
+
+String getTableName2(String t):
+    t.endsWith("PO") ? t.subString(0, t.length - 2).getTableName3() : t.getTableName3();
+
+String getTableName3(String t):
+    t.isOracleKeyword() ? "IS" + t : t;
+
+/*
+ * CAPI Helper Methods
+ */
+
+String getClassName(EDLCAPIJavaType c):
+    null;
+
+String getClassName(EDLCAPIInterface c):
+    c.getPackageName() + "." + c.name.unescape();
+
+String getClassName(EDLCAPIRelationType t):
+    null;
+
+String getClassName(EDLCAPIConstantType c):
+    null;
+
+String getClassName(EDLCAPIAttributeType c):
+    null;
+
+String getClassName(EDLCAPIOperationType c):
+    null;
+
+String getClassName(EDLCAPIExceptionType c):
+    null;
+
+String getClassName(EDLCAPIClassSuperType c):
+    null;
+
+String getClassName(EDLCAPIClass c):
+    c.getPackageName() + "." + c.name.unescape();
+
+String getClassName(EDLCAPIType t):
+    null;
+
+Boolean isImplementor(EDLCAPIJavaType t, String interfaceName):
+    null;
+
+Boolean isImplementor(EDLCAPIInterface i, String interfaceName):
+    i.superClasses.exists(s | (s.getClassName() == interfaceName) || s.isImplementor(interfaceName));
+
+Boolean isImplementor(EDLCAPIInterface i, EDLCAPIInterface super):
+    isImplementor2(i, super, {});
+
+Boolean isImplementor2(EDLCAPIInterface i, EDLCAPIInterface super, Collection[EDLCAPIInterface] checked):
+    i.superClasses.typeSelect(EDLCAPIInterface).size == 0 ? false :
+        (
+            i.superClasses.exists(s | s == super) ? true :
+            (
+                checked.contains(super) ? false :
+                i.superClasses.typeSelect(EDLCAPIInterface).exists(s | isImplementor2(s, super, checked.add(i)))
+            )
+        );
+
+Boolean isSubClass(EDLCAPIClass t, EDLCAPIClass super):
+    isSubClass2(t, super, {});
+
+Boolean isSubClass2(EDLCAPIClass t, EDLCAPIClass super, Collection[EDLCAPIClass] checked):
+    t.superClass == null ? false :
+        (
+            t.superClass == super ? true :
+            (
+                checked.contains(super) || (t.superClass.metaType != EDLCAPIClass) ? false : 
+                isSubClass2(((EDLCAPIClass) t.superClass), super, checked.add(t))
+            )
+        ); 
+
+List[EDLCAPIConstant] getConstants(EDLCAPIType c):
+    c.members.typeSelect(EDLCAPIConstant);
+
+List[EDLCAPIOperation] getOperations(EDLCAPIType c):
+    c.members.typeSelect(EDLCAPIOperation);
+
+List[EDLCAPIMember] getAllMembers(EDLCAPIClass c):
+    (c.superClass != null) && (c.superClass.metaType == EDLCAPIClass) ?
+        ((EDLCAPIClass) c.superClass).getAllMembers().union(c.members) : c.members;
+
+List[EDLCAPIClassAttribute] getAttributes(EDLCAPIClass c):
+    c.members.typeSelect(EDLCAPIClassAttribute);
+
+List[EDLCAPIAttribute] getAttributes(EDLCAPIInterface c):
+    c.members.typeSelect(EDLCAPIAttribute);
+
+List[EDLCAPIRelation] getRelations(EDLCAPIType c):
+    c.members.typeSelect(EDLCAPIRelation);
+
+Boolean isSubInterface(EDLCAPIInterface i, String superName):
+    i.superClasses.getClassName().exists(s | s == superName) ||
+    i.superClasses.typeSelect(EDLCAPIInterface).exists(i | i.isSubInterface(superName));
+
+Boolean isSubClass(EDLCAPIClass c, String superName):
+    c.superClass == null ? false : (c.superClass.getClassName() == superName ?
+        true : (c.superClass.metaType == EDLCAPIClass && ((EDLCAPIClass) c.superClass).isSubClass(superName)));
+
+/*
+ * RAPI Helper Methods
+ */
+
+String getClassName(EDLRAPIJavaType c):
+    null;
+
+String getClassName(EDLRAPIOperationType c):
+    null;
+
+String getClassName(EDLRAPIExceptionType c):
+    null;
+
+String getClassName(EDLRAPIType t):
+    t.getPackageName() + "." + t.name.unescape();
+
+String getServiceInterfaceName(String className):
+    className.endsWith("Impl") ? className.subString(0, className.length - 4) : className;
+    
+String getServiceClassName(String className):
+    className.endsWith("Impl") ? className : className + "Impl";
+
+List[EDLRAPIMember] getAllMembers(EDLRAPIType t):
+    t.members.union(t.superClasses.typeSelect(EDLRAPIType).getAllMembers());
+
+List[EDLRAPIOperation] getOperations(EDLRAPIType t):
+    t.members.typeSelect(EDLRAPIOperation);
+
+List[EDLRAPIOperation] getAllOperations(EDLRAPIType t):
+    t.getAllMembers().typeSelect(EDLRAPIOperation);
+
+Boolean isSubClass(EDLRAPIType t, EDLRAPIType super):
+    isSubClass2(t, super, {});
+
+Boolean isSubClass2(EDLRAPIType t, EDLRAPIType super, Collection[EDLRAPIType] checked):
+    t.superClasses.size == 0 ? false :
+        (
+            t.superClasses.exists(s | s == super) ? true :
+            (
+                checked.contains(super) ? false :
+                t.superClasses.typeSelect(EDLRAPIType).exists(s | isSubClass2(s, super, checked.add(t)))
+            )
+        );
+
+Boolean isValidParameterType(EDLRAPIOperationType t):
+    switch (t.getClassName())
+    {
+        case "java.lang.Boolean"    : true
+        case "java.lang.Byte"       : true
+        case "java.lang.Character"  : true
+        case "java.lang.Double"     : true
+        case "java.lang.Float"      : true
+        case "java.lang.Integer"    : true
+        case "java.lang.Long"       : true
+        case "java.lang.Short"      : true
+        case "java.lang.String"     : true
+        case "boolean"              : true
+        case "byte"                 : true
+        case "char"                 : true
+        case "double"               : true
+        case "float"                : true
+        case "int"                  : true
+        case "long"                 : true
+        case "short"                : true
+        case "java.math.BigDecimal" : true
+        case "java.util.Date"       : true
+        case "java.util.Hashtable"  : true
+        case "java.util.Vector"     : true
+        case "com.intershop.beehive.foundation.quantity.Money"              : true
+        case "com.intershop.beehive.foundation.quantity.Quantity"           : true
+        case "com.intershop.beehive.foundation.quantity.ExchangeRate"       : true
+        case "com.intershop.beehive.core.rapi.util.DObjectCollection"       : true
+        case "com.intershop.beehive.core.rapi.util.DObjectPageableSet"      : true
+        case "com.intershop.beehive.core.rapi.util.DObjectRefCollection"    : true
+        case "com.intershop.beehive.core.rapi.util.DObjectRefSet"           : true
+        case "com.intershop.beehive.core.rapi.util.DObjectSet"              : true
+        default    : false
+    };
+
+        
+/*
+ * XML Helper Methods
+ */
+String getClassName(EDLXMLType t):
+    t.getPackageName() + "." + t.name.unescape();
+
+String getClassName(EDLXMLAttributeType t):
+    null;
+
+List[EDLXMLAttribute] getAttributes(EDLXMLType t):
+    t.members.typeSelect(EDLXMLAttribute);
+
+List[EDLXMLAttribute] getAllAttributes(EDLXMLType t):
+    t.getAllMembers().typeSelect(EDLXMLAttribute);
+
+List[EDLXMLMember] getAllMembers(EDLXMLType t):
+    t.superClass != null ? t.superClass.getAllMembers().union(t.members) : t.members;
+
+List[EDLXMLContainment] getContainments(EDLXMLType t):
+    t.members.typeSelect(EDLXMLContainment);
+
+List[EDLXMLContainment] getAllContainments(EDLXMLType t):
+    t.getAllMembers().typeSelect(EDLXMLContainment);
+
+Boolean isSubClass(EDLXMLType x, String superName):
+    x.superClass == null ? false : (x.superClass.getClassName() == superName ?
+        true : (x.superClass.metaType == EDLXMLType && ((EDLXMLType) x.superClass).isSubClass(superName)));
+
+Boolean isSubClass(EDLXMLType t, EDLXMLType super):
+    isSubClass2(t, super, {});
+
+Boolean isSubClass2(EDLXMLType t, EDLXMLType super, Collection[EDLXMLType] checked):
+    t.superClass == null ? false :
+        (
+            t.superClass == super ? true :
+            (
+                checked.contains(super) ? false : 
+                isSubClass2(t.superClass, super, checked.add(t))
+            )
+        ); 
+
+String getXMLName(EDLXMLMember a):
+    a.xmlName == null ? a.name.unescape() : a.xmlName;
+
+String getXMLName(EDLXMLType t):
+    t.xmlName == null ? t.name.unescape() : t.xmlName;
+    
+String getXMLNameFallback(EDLXMLContainment c):
+    c.xmlName == null ? (c.type.xmlName == null ? c.name.unescape() : c.type.xmlName) : c.xmlName;
+
+Boolean hasAnnotation(EDLCommentedElement e, String annotation):
+	null != e.comment && e.comment.contains(annotation);
+
+/*
+Boolean hasAnnotationValue(EDLCommentedElement e, String annotation):
+    hasAnnotation(e, annotation) && -1 != e.comment.indexOf('(', e.comment.indexOf(annotation, 0)) && -1 != e.comment.indexOf(')', e.comment.indexOf(annotation, 0)); 
+*/
+
+Boolean hasAnnotationValue(EDLCommentedElement e, String annotation):
+     hasAnnotation(e, annotation) && e.comment.contains(annotation + "(") && e.comment.split(annotation + "\\(").last().contains(")"); 
+
+/*
+String getAnnotationValue(EDLCommentedElement e, String annotation):
+	hasAnnotationValue(e, annotation) ? e.comment.subString(e.comment.indexOf('(', e.comment.indexOf(annotation)), e.comment.indexOf(')', e.comment.indexOf(annotation))): null;
+*/
+
+String getAnnotationValue(EDLCommentedElement e, String annotation):
+	hasAnnotationValue(e, annotation) ? e.comment.split(annotation + "\\(").last().split("\\)").first().trim(): null;
+
+
+int indexOf_(String s, String t):
+	1;
+
+
+
+Boolean isValidDValueAttributeType(EDLXMLAttributeType t):
+    switch (t.getClassName())
+    {
+        case "boolean"          : true
+        case "byte"             : true
+        case "short"            : true
+        case "int"              : true
+        case "long"             : true
+        case "float"            : true
+        case "double"           : true
+        case "char"             : true
+        case "java.lang.String" : true
+        case "java.util.Date"   : true
+        default : false
+    };
+
+Boolean isPrimitiveAttributeType(EDLORMAttribute t):
+    switch (t.type.getClassName())
+    {
+        case "boolean"          : true
+        case "byte"             : true
+        case "short"            : true
+        case "int"              : true
+        case "long"             : true
+        case "float"            : true
+        case "double"           : true
+        case "char"             : true
+        default : false
+    };
+
+Boolean isReservedAttributeName(EDLORMAttribute t):
+    switch (t.name)
+    {
+        case "loaded"            : true
+        case "locked"            : true
+        case "new"               : true
+        case "int"               : true
+        case "changed"           : true
+        case "invalid"           : true
+        case "removed"           : true
+        default : false
+    };
+
+Boolean isValidDObjectAttributeTypeElement(EDLXMLAttributeType t):
+    switch (t.getClassName())
+    {
+        case "short"                : true
+        case "int"                  : true
+        case "long"                 : true
+        case "byte"                 : true
+        case "char"                 : true
+        case "double"               : true
+        case "float"                : true
+        case "boolean"              : true
+        case "java.lang.Boolean"    : true
+        case "java.lang.Byte"       : true
+        case "java.lang.Character"  : true
+        case "java.lang.Double"     : true
+        case "java.lang.Float"      : true
+        case "java.lang.Integer"    : true
+        case "java.lang.Long"       : true
+        case "java.lang.Short"      : true
+        case "java.lang.String"     : true
+        case "java.util.Date"       : true
+        case "java.util.Vector"     : true
+        case "java.util.Hashtable"  : true
+        case "java.math.BigDecimal" : true
+        case "com.intershop.beehive.foundation.quantity.Money"              : true
+        case "com.intershop.beehive.foundation.quantity.Quantity"           : true
+        case "com.intershop.beehive.foundation.quantity.ExchangeRate"       : true
+        case "com.intershop.beehive.core.rapi.util.DObjectCollection"       : true
+        case "com.intershop.beehive.core.rapi.util.DObjectSet"              : true
+        case "com.intershop.beehive.core.rapi.util.DObjectRefCollection"    : true
+        case "com.intershop.beehive.core.rapi.util.DObjectRefSet"           : true
+        default : false
+    };
+
+Boolean isValidDObjectAttributeTypeAttribute(EDLXMLAttributeType t):
+    switch (t.getClassName())
+    {
+        case "short"                : true
+        case "int"                  : true
+        case "long"                 : true
+        case "byte"                 : true
+        case "char"                 : true
+        case "double"               : true
+        case "float"                : true
+        case "boolean"              : true
+        case "java.lang.Boolean"    : true
+        case "java.lang.Byte"       : true
+        case "java.lang.Character"  : true
+        case "java.lang.Double"     : true
+        case "java.lang.Float"      : true
+        case "java.lang.Integer"    : true
+        case "java.lang.Long"       : true
+        case "java.lang.Short"      : true
+        case "java.lang.String"     : true
+        case "java.util.Date"       : true
+        case "java.math.BigDecimal" : true
+        default : false
+    };
+
+Boolean isValidDObjectAttributeTypeText(EDLXMLAttributeType t):
+    switch (t.getClassName())
+    {
+        case "short"                : true
+        case "int"                  : true
+        case "long"                 : true
+        case "byte"                 : true
+        case "char"                 : true
+        case "double"               : true
+        case "float"                : true
+        case "boolean"              : true
+        case "java.lang.Boolean"    : true
+        case "java.lang.Byte"       : true
+        case "java.lang.Character"  : true
+        case "java.lang.Double"     : true
+        case "java.lang.Float"      : true
+        case "java.lang.Integer"    : true
+        case "java.lang.Long"       : true
+        case "java.lang.Short"      : true
+        case "java.lang.String"     : true
+        case "java.util.Date"       : true
+        case "java.math.BigDecimal" : true
+        default : false
+    };
+
+Boolean isValidAttributeType(String type):
+    switch (type)
+    {
+        case "boolean"              : true
+        case "byte"                 : true
+        case "byte[]"               : true
+        case "char"                 : true
+        case "char[]"               : true
+        case "short"                : true
+        case "int"                  : true
+        case "long"                 : true
+        case "float"                : true
+        case "double"               : true
+        case "java.lang.Byte"       : true
+        case "java.lang.Character"  : true
+        case "java.lang.Short"      : true
+        case "java.lang.Integer"    : true
+        case "java.lang.Long"       : true
+        case "java.lang.Float"      : true
+        case "java.lang.Double"     : true
+        case "java.lang.String"     : true
+        case "java.math.BigDecimal" : true
+        case "java.util.Date"       : true
+        case "java.util.Locale"     : true
+        case "java.util.TimeZone"   : true
+        case "java.sql.Blob"        : true
+        case "java.sql.Clob"        : true
+        case "java.io.Serializable" : true
+        case "com.intershop.beehive.foundation.quantity.ExchangeRate"   : true
+        case "com.intershop.beehive.foundation.quantity.Money"          : true
+        case "com.intershop.beehive.foundation.quantity.Quantity"       : true
+        case "com.intershop.beehive.core.capi.user.User"                : true
+        case "com.intershop.beehive.xcs.common.ProductRef"              : true
+        default                     : false
+    };
+
+Boolean isValidEOAttributeType(String type):
+    switch (type)
+    {
+        case "boolean"              : true
+        case "int"                  : true
+        case "long"                 : true
+        case "double"               : true
+        case "datetime"             : true
+        case "text"                 : true
+        case "java.lang.Boolean"    : true
+        case "java.lang.Integer"    : true
+        case "java.lang.Long"       : true
+        case "java.lang.Double"     : true
+        case "java.lang.String"     : true
+        case "java.math.BigDecimal" : true
+        case "java.util.Date"       : true
+        default                     : false
+    };

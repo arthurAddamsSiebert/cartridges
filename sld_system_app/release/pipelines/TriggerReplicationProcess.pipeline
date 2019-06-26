@@ -1,0 +1,654 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Process pipeline to execute a replication process.
+@Group Replication-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="TriggerReplicationProcess" type="process">
+<!--Wait until staging process
+has been finished.
+@Location 18,2-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1" width="1"/>
+<!--Determine the name of
+sites, whose pagecache
+have to be cleared after 
+the replication process.
+@Location 4,9-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode2" width="1"/>
+<!--Get all ReplicationProcesses being:
+\- of type 'Replication' or 'ReplicationPublication'
+\- in state 'WAITING'
+\- having an attribute 'ScheduledAt'
+@Location 9,2-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode4"/>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="CreateAndStart" callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper5"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 13,4-->
+    <nodeSuccessors name="next" next="GetCurrentDate4"/>
+    <parameterBindings name="InValue_2" objectPath="ReplicationProcess:TargetSystem"/>
+    <parameterBindings name="InValue_3" objectPath="ReplicationProcess"/>
+    <returnValueBindings name="OutValue_2" objectPath="TargetSystemName"/>
+    <returnValueBindings name="OutValue_3" objectPath="OldReplicationProcess"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+<!--@BendPoints 13,6-->
+    <nodeSuccessors name="next" next="CreateReplicationProcess1" action="begin"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateReplicationProcess1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateReplicationProcess.xml"/>
+<!--@BendPoints 13,8-->
+    <nodeSuccessors name="next" next="UpdateReplicationProcess3"/>
+<!--@BendPoints 17,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4" action="rollback"/>
+    <parameterBindings name="Domain" objectPath="OldReplicationProcess:Domain"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateReplicationProcess3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationProcess.xml"/>
+    <nodeSuccessors name="next" next="UpdateCustomAttributes0"/>
+    <parameterBindings name="Description" objectPath="OldReplicationProcess:Description"/>
+    <parameterBindings name="EndTime" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="ProcessID" objectPath="OldReplicationProcess:ProcessID"/>
+    <parameterBindings name="PublicationScheduleTime" objectPath="OldReplicationProcess:PublicationScheduleDate"/>
+    <parameterBindings name="ScheduleTime" nullBinding="true"/>
+    <parameterBindings name="StartTime" nullBinding="true"/>
+    <parameterBindings name="State" constant="WAITING"/>
+    <parameterBindings name="TargetCluster" objectPath="OldReplicationProcess:TargetCluster"/>
+    <parameterBindings name="TargetSystem" objectPath="OldReplicationProcess:TargetSystem"/>
+    <parameterBindings name="Type" objectPath="StagingProcessMode"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes0">
+    <configurationValues name="Attribute_1_Name" value="UserLockingConflictPolicy"/>
+    <configurationValues name="Attribute_1_Type" value="String"/>
+    <configurationValues name="Attribute_2_Name" value="SystemLockingConflictPolicy"/>
+    <configurationValues name="Attribute_2_Type" value="String"/>
+    <configurationValues name="Attribute_3_Name" value="CorrelatedLockingEnabled"/>
+    <configurationValues name="Attribute_3_Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="OldReplicationProcess:UserLockingConflictPolicy"/>
+    <parameterBindings name="Attribute_2_Value" objectPath="OldReplicationProcess:SystemLockingConflictPolicy"/>
+    <parameterBindings name="Attribute_3_Value" objectPath="OldReplicationProcess:CorrelatedLockingEnabled"/>
+    <parameterBindings name="ExtensibleObject" objectPath="ReplicationProcess"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="OldReplicationProcess:ReplicationTasks">
+<!--@BendPoints 15,13-->
+    <nodeSuccessors name="next" next="UpdateReplicationProcess4" action="savepoint"/>
+    <entry key="ReplicationTask">
+<!--@BendPoints 13,14-->
+      <nodeSuccessors name="loop_entry_next" next="AddReplicationTaskToReplicationProcess1"/>
+    </entry>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddReplicationTaskToReplicationProcess1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddReplicationTaskToReplicationProcess.xml"/>
+<!--@BendPoints 13,16 12,16 12,13-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateReplicationProcess4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationProcess.xml"/>
+    <nodeSuccessors name="next" next="UpdateReplicationProcess5"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="EndTime" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="ProcessID" nullBinding="true"/>
+    <parameterBindings name="ScheduleTime" nullBinding="true"/>
+    <parameterBindings name="StartTime" objectPath="CurrentDate"/>
+    <parameterBindings name="State" constant="RUNNING"/>
+    <parameterBindings name="TargetSystem" nullBinding="true"/>
+    <parameterBindings name="Type" nullBinding="true"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateReplicationProcess5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationProcess.xml"/>
+    <nodeSuccessors name="next" next="ExecutePipeline1" action="commit"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="EndTime" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="ProcessID" nullBinding="true"/>
+    <parameterBindings name="PublicationScheduleTime" nullBinding="true"/>
+    <parameterBindings name="ReplicationProcess" objectPath="OldReplicationProcess"/>
+    <parameterBindings name="ScheduleTime" nullBinding="true"/>
+    <parameterBindings name="StartTime" nullBinding="true"/>
+    <parameterBindings name="State" nullBinding="true"/>
+    <parameterBindings name="TargetSystem" nullBinding="true"/>
+    <parameterBindings name="Type" nullBinding="true"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline1">
+    <configurationValues name="Asynchronous" value="true"/>
+    <configurationValues name="PipelineDomainName" value="CurrentDomain"/>
+    <configurationValues name="PipelineName" value="TriggerReplicationProcess"/>
+    <configurationValues name="PipelineStartNode" value="Trigger"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4"/>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 8,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="error"/>
+<!--@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start7" name="Error" callMode="Private">
+<!--@BendPoints 29,2-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 29,4-->
+    <nodeSuccessors name="next" next="Call11"/>
+    <startNode referencedName="TriggerStagingProcess-Error"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call11">
+<!--@BendPoints 29,6-->
+    <nodeSuccessors name="next" next="End9"/>
+    <startNode referencedName="TriggerReplicationProcess-SetState"/>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End9"/>
+<!--@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start6" strict="true" name="Schedule"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetCurrentDate2"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="AddEntryToMap1"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+<!--@BendPoints 23,6-->
+    <nodeSuccessors name="next" next="ExecutePageableQuery1"/>
+    <parameterBindings name="Key" constant="CurrentDate"/>
+    <parameterBindings name="Value" objectPath="CurrentDate"/>
+    <returnValueBindings name="OutMap" objectPath="Parameters"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery1">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="DefaultPageSize" value="10"/>
+    <configurationValues name="QueryName" value="replication/GetAllReplicationProcesses"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+<!--@BendPoints 23,8-->
+    <nodeSuccessors name="next" next="CreateIteratorFromPageable1"/>
+<!--@BendPoints 26,7-->
+    <nodeSuccessors name="pipelet_error" next="EndNode8"/>
+    <returnValueBindings name="SearchResult" objectPath="Processes"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromPageable1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromPageable.xml"/>
+<!--@BendPoints 23,10-->
+    <nodeSuccessors name="next" next="Loop1"/>
+    <parameterBindings name="PageableIterator" objectPath="Processes"/>
+    <returnValueBindings name="ResettableIterator" objectPath="Processes"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="Processes">
+<!--@BendPoints 27,11 27,12-->
+    <nodeSuccessors name="next" next="GetTargetClusters1"/>
+    <entry key="Process">
+<!--@BendPoints 23,12-->
+      <nodeSuccessors name="loop_entry_next" next="GetReplicationProcessByUUID1"/>
+    </entry>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetReplicationProcessByUUID1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetReplicationProcessByUUID.xml"/>
+<!--@BendPoints 23,14-->
+    <nodeSuccessors name="next" next="Call10"/>
+<!--@BendPoints 25,13 25,19-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="UUID" objectPath="Process:UUID"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call10">
+    <nodeSuccessors name="next" next="Join10"/>
+    <nodeSuccessors name="error" next="SetProcessChainResult0"/>
+    <startNode referencedName="TriggerReplicationProcess-Start"/>
+  </nodes>
+<!--@Location 10,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join10">
+<!--@BendPoints 21,11 22,11-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetProcessChainResult0">
+    <configurationValues name="Status" value="Error"/>
+    <pipelet href="enfinity:/core/pipelets/SetProcessChainResult.xml"/>
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 21,19-->
+    <nodeSuccessors name="next" next="Join10"/>
+  </nodes>
+<!--@Location 13,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetTargetClusters1">
+    <pipelet href="enfinity:/core/pipelets/GetTargetClusters.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+  </nodes>
+<!--@Location 13,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="TargetClusters">
+<!--@BendPoints 30,15-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+    <entry key="TargetCluster">
+<!--@BendPoints 27,16-->
+      <nodeSuccessors name="loop_entry_next" next="GetCurrentReplicationProcess1"/>
+    </entry>
+  </nodes>
+<!--@Location 13,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentReplicationProcess1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentReplicationProcess.xml"/>
+<!--@BendPoints 27,18-->
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+<!--@BendPoints 29,17-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode13"/>
+    <parameterBindings name="TargetSystemName" objectPath="TargetSystem:Name"/>
+  </nodes>
+<!--@Location 13,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="ReplicationProcess:Type"
+      operator="str_eq" conditionValue="Replication">
+<!--@BendPoints 27,20-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode9"/>
+    <nodeSuccessors name="decision_no" next="JoinNode13"/>
+  </nodes>
+<!--@Location 13,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="ReplicationProcess:State"
+      operator="str_eq" conditionValue="COMPLETED">
+<!--@BendPoints 27,22-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode13"/>
+    <nodeSuccessors name="decision_no" next="JoinNode12"/>
+  </nodes>
+<!--@Location 13,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="ReplicationProcess:PublicationScheduleDate">
+<!--@BendPoints 27,24-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode10"/>
+    <nodeSuccessors name="decision_no" next="JoinNode14"/>
+  </nodes>
+<!--@Location 13,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="ReplicationProcess:PublicationScheduleDate:Time"
+      operator="lt" conditionItem="CurrentDate:Time">
+<!--@BendPoints 27,26-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode12"/>
+    <nodeSuccessors name="decision_no" next="JoinNode11"/>
+  </nodes>
+<!--@Location 13,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="ReplicationProcess:ReplicationTasksState"
+      operator="str_eq" conditionValue="TRANSFERED">
+<!--@BendPoints 27,28-->
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode10"/>
+  </nodes>
+<!--@Location 13,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="StagingProcessMode"/>
+    <configurationValues name="Value" value="Publication"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 27,30-->
+    <nodeSuccessors name="next" next="Call1"/>
+  </nodes>
+<!--@Location 13,15-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <startNode referencedName="TriggerReplicationProcess-CreateAndStart"/>
+  </nodes>
+<!--@Location 13,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+<!--@BendPoints 26,33 26,15-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 14,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 29,33-->
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 14,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 14,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 14,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+<!--@Location 14,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--@Location 15,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true">
+    <returnValues name="ProcessChainResult" type="java.lang.Integer" optional="true"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="ERROR" strict="true"/>
+<!--@Location 16,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="SetState" callMode="Private">
+<!--@BendPoints 33,2-->
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 16,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="StagingProcess"
+      operator="undef">
+<!--@BendPoints 33,4-->
+    <nodeSuccessors name="decision_yes" next="GetCurrentDate1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 16,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+<!--@BendPoints 33,6-->
+    <nodeSuccessors name="next" next="UpdateReplicationProcess1"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateReplicationProcess1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationProcess.xml"/>
+<!--@BendPoints 33,10-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="EndTime" objectPath="CurrentDate"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="ProcessID" nullBinding="true"/>
+    <parameterBindings name="ScheduleTime" nullBinding="true"/>
+    <parameterBindings name="StartTime" nullBinding="true"/>
+    <parameterBindings name="State" constant="FAILED"/>
+    <parameterBindings name="TargetSystem" nullBinding="true"/>
+    <parameterBindings name="Type" nullBinding="true"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 17,1-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 35,4-->
+    <nodeSuccessors name="next" next="Pipelet1"/>
+  </nodes>
+<!--@Location 17,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/core/pipelets/GetStagingProcess.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="StagingProcessID" objectPath="StagingProcess:UUID"/>
+  </nodes>
+<!--@Location 17,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="StagingProcess:EndDate">
+    <nodeSuccessors name="decision_yes" next="Pipelet3"/>
+    <nodeSuccessors name="decision_no" next="Pipelet2"/>
+  </nodes>
+<!--@Location 17,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <pipelet href="enfinity:/core/pipelets/UpdateReplicationProcessState.xml"/>
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 17,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 18,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="MillisecondsToWait" value="10000"/>
+    <pipelet href="enfinity:/core/pipelets/Wait.xml"/>
+<!--@BendPoints 39,7 39,3-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" strict="true" name="Start"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+<!--The replication process to start.-->
+    <parameters name="ReplicationProcess" type="com.intershop.beehive.core.capi.replication.ReplicationProcess"
+        optional="true"/>
+    <parameters name="Synchronously" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="GetCurrentDate3"/>
+    <parameterBindings name="InValue_1" objectPath="ReplicationProcess:Type"/>
+    <parameterBindings name="InValue_2" objectPath="ReplicationProcess:TargetSystem"/>
+    <returnValueBindings name="OutValue_1" objectPath="StagingProcessMode"/>
+    <returnValueBindings name="OutValue_2" objectPath="TargetSystemName"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="UpdateReplicationProcess2"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateReplicationProcess2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationProcess.xml"/>
+<!--@BendPoints 3,8-->
+    <nodeSuccessors name="next" next="DecisionNode11"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="ProcessID" nullBinding="true"/>
+    <parameterBindings name="ScheduleTime" nullBinding="true"/>
+    <parameterBindings name="StartTime" objectPath="CurrentDate"/>
+    <parameterBindings name="State" constant="RUNNING"/>
+    <parameterBindings name="TargetSystem" nullBinding="true"/>
+    <parameterBindings name="Type" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="Synchronously"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="decision_yes" next="CallNode2"/>
+<!--@BendPoints 5,9 5,10-->
+    <nodeSuccessors name="decision_no" next="ExecutePipeline2"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <nodeSuccessors name="error" next="JoinNode3"/>
+    <startNode referencedName="TriggerReplicationProcess-Trigger"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 3,14-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+    <returnValues name="ReplicationProcess" type="com.intershop.beehive.core.capi.replication.ReplicationProcess"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="error" strict="true">
+    <returnValues name="ReplicationProcess" type="com.intershop.beehive.core.capi.replication.ReplicationProcess"/>
+  </nodes>
+<!--@displayNearNode@Create the according staging
+process asynchronously,
+because the creation of
+process takes a lot of time.
+@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline2">
+    <configurationValues name="Asynchronous" value="true"/>
+    <configurationValues name="PipelineDomainName" value="CurrentDomain"/>
+    <configurationValues name="PipelineName" value="TriggerReplicationProcess"/>
+    <configurationValues name="PipelineStartNode" value="Trigger"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+<!--@BendPoints 5,13-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+  </nodes>
+<!--@Location 20,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="StartReplicationProcessById"
+      callMode="Private">
+<!--@BendPoints 41,2-->
+    <nodeSuccessors name="next" next="CallNode3"/>
+<!--The id of the replication process-->
+    <parameters name="ReplicationProcessID" type="java.lang.String" optional="true"/>
+    <parameters name="CorrelatedLockingEnabled" type="java.lang.String" optional="true"/>
+    <parameters name="UserLockingConflictPolicy" type="java.lang.String" optional="true"/>
+    <parameters name="SystemLockingConflictPolicy" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 20,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+<!--@BendPoints 41,4-->
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <startNode referencedName="ProcessReplicationProcess-CreateFromConfiguration"/>
+    <returnValueBindings name="ReplicationProcess" objectPath="PredefinedReplicationProcess"/>
+  </nodes>
+<!--@Location 20,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 41,6-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+    <parameterBindings name="ReplicationProcess" objectPath="PredefinedReplicationProcess"/>
+    <parameterBindings name="Synchronously" constant="true"/>
+    <startNode referencedName="TriggerReplicationProcess-Start"/>
+  </nodes>
+<!--@Location 20,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true"/>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="Trigger"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Loop2" action="begin"/>
+<!--The replication process to update.-->
+    <parameters name="ReplicationProcess" type="com.intershop.beehive.core.capi.replication.ReplicationProcess"/>
+    <parameters name="Synchronously" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="ReplicationProcess:ReplicationTasks">
+    <nodeSuccessors name="next" next="KeyMapper4" action="commit"/>
+    <entry key="ReplicationTask">
+<!--@BendPoints 3,20-->
+      <nodeSuccessors name="loop_entry_next" next="CreateStringSplitter1"/>
+    </entry>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStringSplitter1">
+    <configurationValues name="Mode" value="First Occurrence"/>
+    <configurationValues name="Separator" value="-"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStringSplitter.xml"/>
+    <nodeSuccessors name="next" next="GetDomain1"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomain1">
+    <pipelet href="enfinity:/core/pipelets/GetDomain.xml"/>
+    <nodeSuccessors name="next" next="ExecutePipeline3"/>
+    <parameterBindings name="StagingDomainName" objectPath="Splitter:Begin(ReplicationTask:Domain:DomainName)"/>
+    <returnValueBindings name="StagingDomain" objectPath="ReplicationTaskOrganizationDomain"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline3">
+    <configurationValues name="Asynchronous" value="false"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+<!--@BendPoints 3,26-->
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+<!--@BendPoints 5,25 5,29-->
+    <nodeSuccessors name="pipelet_error" next="Call17"/>
+    <parameterBindings name="PipelineDomain" objectPath="ReplicationTaskOrganizationDomain:Site"/>
+    <parameterBindings name="PipelineName" constant="ProcessReplicationTask"/>
+    <parameterBindings name="PipelineStartNode" constant="Assign"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 3,28 2,28 2,19-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+    <parameterBindings name="InVector" objectPath="Sites"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" objectPath="ReplicationTask:PageCacheSiteNames"/>
+    <returnValueBindings name="Iterator" objectPath="SiteNames"/>
+    <returnValueBindings name="OutVector" objectPath="Sites"/>
+  </nodes>
+<!--@Location 5,14-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call17">
+    <nodeSuccessors name="next" next="End11"/>
+    <startNode referencedName="TriggerReplicationProcess-SetState"/>
+  </nodes>
+<!--@Location 5,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End11" strict="true"/>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GrantStagingDatabasePrivsToTargetCluster1"/>
+    <parameterBindings name="InValue_1" objectPath="ReplicationProcess"/>
+    <parameterBindings name="InValue_2" objectPath="ReplicationProcess"/>
+    <parameterBindings name="InValue_3" objectPath="ReplicationProcess:Type"/>
+    <parameterBindings name="InValue_4" objectPath="ReplicationProcess:TargetCluster"/>
+    <returnValueBindings name="OutValue_1" objectPath="StagingContentProvider"/>
+    <returnValueBindings name="OutValue_2" objectPath="ErrorHandler"/>
+    <returnValueBindings name="OutValue_3" objectPath="StagingProcessMode"/>
+    <returnValueBindings name="OutValue_4" objectPath="TargetCluster"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GrantStagingDatabasePrivsToTargetCluster1">
+    <pipelet href="enfinity:/core/pipelets/GrantStagingDatabasePrivsToTargetCluster.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="StagingProcessMode"
+      operator="str_eq" conditionValue="Publication">
+    <nodeSuccessors name="decision_yes" next="Call18"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode6"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call18">
+<!--@BendPoints 11,23-->
+    <nodeSuccessors name="next" next="JoinNode5"/>
+<!--@BendPoints 13,25-->
+    <nodeSuccessors name="error" next="JoinNode2"/>
+    <startNode referencedName="TriggerPublicationProcess-Start"/>
+  </nodes>
+<!--@Location 5,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 5,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="Call17"/>
+  </nodes>
+<!--@Location 6,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 6,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 6,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="error" strict="true"/>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="StagingProcessMode"
+      operator="str_eq" conditionValue="Undo">
+    <nodeSuccessors name="decision_yes" next="Call14"/>
+<!--@BendPoints 7,27-->
+    <nodeSuccessors name="decision_no" next="Call16"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call14">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <nodeSuccessors name="error" next="JoinNode2"/>
+    <startNode referencedName="TriggerUndoProcess-Start"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call16">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <nodeSuccessors name="error" next="JoinNode0"/>
+    <startNode referencedName="TriggerStagingProcess-Start"/>
+  </nodes>
+</pipeline:Pipeline>

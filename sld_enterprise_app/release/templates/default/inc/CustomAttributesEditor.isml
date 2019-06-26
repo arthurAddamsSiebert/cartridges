@@ -1,0 +1,433 @@
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<!--- Module for extensible object attributes --->
+<!--- 'CustomAttributesIterator' holds the custom attributes to be managed --->
+<!--- 'FormName' holds the name of the form this module is embedded in --->
+<!--- 'LocalizableFlag' set to true to enable localization of attributes --->
+<!--- 'HideLocaleSelection' set to true to hide the locale selection box, only evaluated if LocalizableFlag=true --->
+<!--- 'Title' an alternative title to display in the header area of this editor --->
+<!--- 'ReadOnly' set to true to hide create, update, and delete functionality --->
+<!--- 'Disabled' set to true to disable create, update, and delete functionality --->
+<!--- For attribute deletion, the clipboard is used to show selected attributes during confirmation. --->
+<!--- Form actions: --->
+<!--- ManageCA: to display the attribute editor. DOES NOT keep any previous selections. --->
+<!--- UpdateCA: to update the attributes after attribute data have been changed --->
+<!--- CreateCA: to create a new custom attribute --->
+<!--- ConfirmDeleteCA: to display a delete confirmation (keep selection) --->
+<!--- CancelDeleteCA: to cancel the deletion of a set of custom attributes - re-displays the attribute editor --->
+<!--- DeleteCA: to delete a selected set of custom attributes --->
+
+<%@page import="com.intershop.beehive.core.capi.domain.AttributeValueUtil"%>
+<%@page import="com.intershop.beehive.core.capi.domain.AttributeValue"%>
+
+
+<isif condition="#isdefined(localizableflag) AND NOT (isdefined(hidelocaleselection))#">
+	<table border="0" cellpadding="4" cellspacing="0" width="100%" class="infobox_locale w e s">
+		<tr>
+			<td nowrap="nowrap" class="label_select"><label class="label label_select label_light" for="LocaleId"><istext key="PlaceholderDefinitionTabGeneral.SelectLanguage.label" encoding="off"/>:</label></td>
+			<td>
+				<select name="LocaleId" id="LocaleId" class="select inputfield_en">
+					<isloop iterator="Locales" alias="Locales">
+						<option value="<isprint value="#Locales:LocaleID#">" <isif condition="#Locales:LocaleID EQ Locale:LocaleID#">selected="selected"</isif>><isprint value="#Locales:getDisplayName(CurrentSession:Locale)#">&nbsp;</option>
+					</isloop>
+				</select>
+			</td>
+			<td width="100%">
+				<table border="0" cellspacing="0" cellpadding="0">
+					<tr>
+						<td class="button">
+							<input type="submit" name="ManageCA" value="#localizeText('NewProductSet.Apply.input1')#" class="button"/>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+</isif>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td class="table_title2 aldi"><isif condition="#isdefined(title)#"><isprint value="#title#"><iselse><istext key="OrganizationSearchIndexAttributeEditor.NewAttribute.text" encoding="off"/></isif></td>
+	</tr>
+
+	<isif condition="#isDefined(ConfirmDeleteCA) AND (Clipboard:ObjectUUIDsCount > 0)#">
+		<tr>
+			<td>
+				<table border="0" cellspacing="0" cellpadding="4" width="100%" class="confirm_box w e s">
+					<tr>
+						<td class="e"><img src="#WebRoot()#/images/confirmation.gif" width="16" height="15" alt="" border="0"/></td>
+						<td class="confirm" width="100%"><istext key="CustomAttributesEditor.AreYouSureYouWantToDeleteTheseAttributes.error" encoding="off"/></td>
+						<td align="right">
+							<table border="0" cellspacing="0" cellpadding="0">
+								<tr>
+									<td class="button">
+										<input type="submit" name="DeleteCA" value="#localizeText('SelectCategory.OK.button')#" class="button"/>
+									</td>
+									<td><img src="#WebRoot()#/images/space.gif" alt="" width="4" height="1"/></td>
+									<td class="button">
+										<input type="submit" name="CancelDeleteCA" value="#localizeText('PageletEntryPointSetParent.Cancel.button')#" class="button"/>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</isif>
+	<isif condition="#isDefined(ErrorCode)#">
+		<tr>
+			<td>
+				<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box w e s">
+					<tr>
+						<td class="error_icon top e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+						<td class="error top" width="100%">
+							<isif condition="#isDefined(UpdateCA)#">
+								<isif condition="#hasElements(ErrorCollection)#">
+									<istext key="CustomAttributesEditor.PleaseProvideAValidAttributeValue.error_update" encoding="off"/>
+									<isloop iterator="ErrorCollection" alias="err" counter="counter">
+										<isprint value="#err#"/>
+										<isif condition="#(counter < ErrorCollection:Size)#">,</isif>
+									</isloop>
+								</isif>
+							<iselse>
+								<isif condition="#ErrorCode EQ 'ParseError'#">
+									<istext key="CustomAttributesEditor.TheAttributeValueCouldNotBeParsed.error" encoding="off"/>
+								<iselseif condition="#(ErrorCode EQ 'MinLimitExceeded') OR (ErrorCode EQ 'MaxLimitExceeded')#">
+									<istext key="CustomAttributesEditor.TheAttributeValueExceedsTheSupportedLimit.error" encoding="off"/>
+								<iselseif condition="#(ErrorCode EQ 'InvalidAttributeName')#">
+									<istext key="CustomAttributesEditor.PleaseProvideAValidAttributeName.error" encoding="off"/>
+								<iselseif condition="#(ErrorCode EQ 'NotUniqueAttributeName')#">
+									<istext key="CustomAttributesEditor.AttributeNameIsAlreadyInUseOrReserved.error" encoding="off"/>
+								<iselseif condition="#(ErrorCode EQ 'InvalidAttributeValue')#">
+									<istext key="CustomAttributesEditor.PleaseProvideAValidAttributeValue.error" encoding="off"/>
+								<iselseif condition="#(ErrorCode EQ 'IncompatibleAttributeTypeForVariations')#">
+									<istext key="CustomAttributesEditor.IncompatibleAttributeTypeForVariations.error" encoding="off"/>
+								<iselse>
+									<istext key="CustomAttributesEditor.UnknownError.error" encoding="off"/>
+								</isif>
+							</isif>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</isif>
+	<isif condition="#isDefined(ConfirmDeleteCA) AND (Clipboard:ObjectUUIDsCount == 0)#">
+		<tr>
+			<td>
+				<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box w e s">
+					<tr>
+						<td class="error_icon top e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+						<td class="error top" width="100%">
+							<istext key="CustomAttributesEditor.YouHaveNotSelectedAnyAttributeToBeDeleted.error" encoding="off"/>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</isif>
+	<tr>
+		<td class="table_title_description w e s">
+			<istext key="CustomAttributesEditor.ForTheDataTypes.table_title_description" parameter0="#encodeValue(CurrentRequest:Locale:DefaultRegionalSettings:inputDatePatternUserHint)#" parameter1="#encodeValue(CurrentRequest:Locale:DefaultRegionalSettings:inputTimePatternUserHint)#" encoding="off"/>
+		</td>
+	</tr>
+</table>
+<isif condition="#(NOT isdefined(readonly)) OR (readonly NE 'true')#">
+	<table border="0" cellpadding="4" cellspacing="0" width="100%" class="infobox w e s">
+		<tr>
+			<td nowrap="nowrap" class="label"><label class="label label_light" for="NewAttributeName"><istext key="PageletTabProperties.Name.label" encoding="off"/>:</label></td>
+			<td>
+				<input type="text" name="NewAttributeName" id="NewAttributeName" maxlength="256" size="25"
+					onkeypress="if (event.keyCode==13) { $('[name=CreateCA]').click(); }" 
+					<isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA)#">value="<isprint value="#NewAttributeName#">"</isif> class="inputfield_en"
+					<isif condition="#isdefined(disabled) AND (disabled EQ 'true')#">readonly="readonly"</isif>/>
+			</td>
+			<td nowrap="nowrap" class="label"><label class="label label_light label_horizontal_align" for="NewAttributeType"><istext key="sld_enterprise_app.DataType.label" encoding="off"/>:</label></td>
+			<td>
+				<select name="NewAttributeType" id="NewAttributeType" class="select inputfield_en" <isif condition="#isdefined(disabled) AND (disabled EQ 'true')#">disabled="disabled"</isif>>
+					<option value="String" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'String')#">selected="selected"</isif> ><istext key="VariationTypeExportSelectVariationTypes.String.table_detail" encoding="off"/></option>
+					<option value="Integer" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'Integer')#">selected="selected"</isif>  ><istext key="VariationTypeExportSelectVariationTypes.Integer.table_detail" encoding="off"/></option>
+					<option value="Double" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'Double')#">selected="selected"</isif> ><istext key="VariationTypeExportSelectVariationTypes.Double.table_detail" encoding="off"/></option>
+					<option value="Decimal" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'Decimal')#">selected="selected"</isif> ><istext key="sld_enterprise_app.Decimal.option" encoding="off"/></option>
+					<option value="Date" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'Date')#">selected="selected"</isif> ><istext key="sld_enterprise_app.Date.option" encoding="off"/></option>
+					<option value="Long" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'Long')#">selected="selected"</isif> ><istext key="sld_enterprise_app.Long.table_detail" encoding="off"/></option>
+					<option value="Boolean" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'Boolean')#">selected="selected"</isif> ><istext key="sld_enterprise_app.Boolean.option" encoding="off"/></option>
+					<option value="Money" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'Money')#">selected="selected"</isif> ><istext key="sld_enterprise_app.Money.option" encoding="off"/></option>
+					<option value="Quantity" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'Quantity')#">selected="selected"</isif> ><istext key="sld_enterprise_app.Quantity.option" encoding="off"/></option>
+					<option value="Text" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'Text')#">selected="selected"</isif> ><istext key="sld_enterprise_app.Text.option" encoding="off"/></option>
+					<option value="MultipleString" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'MultipleString')#">selected="selected"</isif> ><istext key="sld_enterprise_app.MultipleString.table_detail" encoding="off"/></option>
+					<option value="MultipleInteger" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'MultipleInteger')#">selected="selected"</isif>  ><istext key="sld_enterprise_app.MultipleInteger.input" encoding="off"/></option>
+					<option value="MultipleDouble" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'MultipleDouble')#">selected="selected"</isif> ><istext key="sld_enterprise_app.MultipleDouble.table_detail" encoding="off"/></option>
+					<option value="MultipleLong" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'MultipleLong')#">selected="selected"</isif> ><istext key="sld_enterprise_app.MultipleLong.table_detail" encoding="off"/></option>
+					<option value="MultipleBoolean" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'MultipleBoolean')#">selected="selected"</isif> ><istext key="sld_enterprise_app.MultipleBoolean.table_detail" encoding="off"/></option>
+					<option value="MultipleDate" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'MultipleDate')#">selected="selected"</isif> ><istext key="sld_enterprise_app.MultipleDate.table_detail" encoding="off"/></option>
+					<option value="MultipleDecimal" <isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND (NewAttributeType EQ 'MultipleDecimal')#">selected="selected"</isif> ><istext key="sld_enterprise_app.MultipleDecimal.option" encoding="off"/></option>
+				</select>
+			</td>
+			<td nowrap="nowrap" class="label"><label class="label label_light label_horizontal_align" for="NewAttributeValue"><istext key="PageletSearchMask.Value.label" encoding="off"/>:</label></td>
+			<td>
+				<input type="text" name="NewAttributeValue" id="NewAttributeValue" maxlength="4000" size="25" 
+					onkeypress="if (event.keyCode==13) { $('[name=CreateCA]').click(); }" 
+					<isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA)#">value="<isprint value="#NewAttributeValue#">"</isif> class="inputfield_en" 
+					<isif condition="#isdefined(disabled) AND (disabled EQ 'true')#">readonly="readonly"</isif>/>
+			</td>
+			<isif condition="#isdefined(localizableflag)#">
+				<td nowrap="nowrap" class="label_checkbox"><label class="label label_checkbox label_light label_horizontal_align" for="NewAttributeLocalized"><istext key="CustomAttributesEditor.Localizable.label" encoding="off"/>:</label></td>
+				<td class="input_checkbox">
+					<input type="checkbox" name="NewAttributeLocalized" id="NewAttributeLocalized" value="true"  
+						onkeypress="if (event.keyCode==13) { $('[name=CreateCA]').click(); }" 
+						<isif condition="#isdefined(ErrorCode) AND isdefined(CreateCA) AND isdefined(NewAttributeLocalized)#">checked="checked"</isif>
+					 	<isif condition="#isdefined(disabled) AND (disabled EQ 'true')#">disabled="disabled"</isif>/>
+				</td>
+			</isif>
+			<td class="button">
+				<input type="submit" name="CreateCA" value="#localizeText('ContentProcessingSelectLabel.Add.button')#" class="button" <isif condition="#isdefined(disabled) AND (disabled EQ 'true')#">disabled="disabled"</isif>/>
+			</td>
+			<td class="w100">&nbsp;</td>
+		</tr>
+	</table>
+</isif>
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="w e">
+	<isif condition="#hasElements(customattributesiterator)#">
+		<tr>
+			<isif condition="#(NOT isdefined(readonly)) OR (readonly NE 'true')#">
+				<td class="table_header s e center" nowrap="nowrap" width="80">
+					<div id="A">
+						<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+							<tr>
+								<td nowrap="nowrap">
+									<isif condition="#(NOT isdefined(disabled)) OR (disabled NE 'true')#">
+										<a href="javascript:selectAll('<isprint value="#formname#">','SelectedObjectUUID','A','B');" class="tableheader"><istext key="AssignProductLinksActionSelectTargetProducts.SelectAll.link" encoding="off"/></a>
+									<iselse>
+										<istext key="AssignProductLinksActionSelectTargetProducts.SelectAll.link" encoding="off"/>
+									</isif>
+								</td>
+							</tr>
+						</table>
+					</div>
+					<div id="B" style="display:none">
+						<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+							<tr>
+								<td nowrap="nowrap">
+									<isif condition="#(NOT isdefined(disabled)) OR (disabled NE 'true')#">
+										<a href="javascript:selectAll('<isprint value="#formname#">','SelectedObjectUUID','A','B');" class="tableheader"><istext key="AssignProductLinksActionSelectTargetProducts.ClearAll.link" encoding="off"/></a>
+									<iselse>
+										<istext key="AssignProductLinksActionSelectTargetProducts.ClearAll.link" encoding="off"/>
+									</isif>
+								</td>
+							</tr>
+						</table>
+					</div>
+				</td>
+			</isif>
+			<td class="table_header e s left" nowrap="nowrap" ><istext key="AssignProductLinksActionSelectTargetProducts.Name.table_header" encoding="off"/></td>
+			<td class="table_header e s left" nowrap="nowrap"><istext key="OrganizationSearchIndexAttributeSelectSource.DataType.table_header" encoding="off"/></td>
+			<td class="table_header s left" nowrap="nowrap"><istext key="SearchQueryEditor.Value.label" encoding="off"/></td>
+			<isif condition="#isdefined(localizableflag)#">
+				<td class="table_header w s left center" nowrap="nowrap"><istext key="ConfigurationParameterUIRow.Localizable.title" encoding="off"/></td>
+			</isif>
+		</tr>
+		<isloop iterator="customattributesiterator" alias="av">
+			<isif condition="#isdefined(av)#">
+				<!--- determine the AttributeValue --->
+				<isif	 condition="#av:Type==3#">
+					<isset name="AttributeValue" value="#av:StringValue#" scope="request">
+					<isset name="AttributeTypeDisplayName" value="String" scope="request">
+					<isset name="AttributeTypeName" value="String" scope="request">
+				<iselseif condition="#av:Type==1#">
+					<isset name="AttributeValue" value="#av:IntValue#" scope="request">
+					<isset name="AttributeTypeDisplayName" value="Integer" scope="request">
+					<isset name="AttributeTypeName" value="Integer" scope="request">
+				<iselseif condition="#av:Type==2#">
+					<isset name="AttributeValue" value="#av:DoubleValue#" scope="request">
+					<isset name="AttributeTypeDisplayName" value="Double" scope="request">
+					<isset name="AttributeTypeName" value="Double" scope="request">
+				<iselseif condition="#av:Type==8#">
+					<isset name="AttributeValue" value="#av:LongValue#" scope="request">
+					<isset name="AttributeTypeDisplayName" value="Long" scope="request">
+					<isset name="AttributeTypeName" value="Long" scope="request">
+				<iselseif condition="#av:Type==9#">
+					<isset name="AttributeValue" value="#av:BooleanValue#" scope="request">
+					<isset name="AttributeTypeDisplayName" value="Boolean" scope="request">
+					<isset name="AttributeTypeName" value="Boolean" scope="request">
+				<iselseif condition="#av:Type==10#">
+					<% getPipelineDictionary().put("AttributeValue", getFormattedValue(getObject("av:DateValue"), 5)); %>
+					<isset name="AttributeTypeDisplayName" value="Date" scope="request">
+					<isset name="AttributeTypeName" value="Date" scope="request">
+				<iselseif condition="#av:Type==11#">
+					<isset name="AttributeValue" value="#av:DecimalValue#" scope="request">
+					<isset name="AttributeTypeDisplayName" value="Decimal" scope="request">
+					<isset name="AttributeTypeName" value="Decimal" scope="request">
+				<iselseif condition="#av:Type==12#">
+					<% getPipelineDictionary().put("AttributeValue", getFormattedValue(getObject("av:MoneyValue"), 0) + " " + getFormattedValue(getObject("av:MoneyValue:CurrencyMnemonic"), null)); %>
+					<isset name="AttributeTypeDisplayName" value="Money" scope="request">
+					<isset name="AttributeTypeName" value="Money" scope="request">
+				<iselseif condition="#(av:Type==13) AND (isDefined(av:QuantityValue:Unit) AND (av:QuantityValue:Unit NE ''))#">
+					<isset name="AttributeValue" value="#av:QuantityValue:Value.' '.av:QuantityValue:Unit#" scope="request">
+					<isset name="AttributeTypeDisplayName" value="Quantity" scope="request">
+					<isset name="AttributeTypeName" value="Quantity" scope="request">
+				<iselseif condition="#(av:Type==13) AND NOT (isDefined(av:QuantityValue:Unit) AND (av:QuantityValue:Unit NE ''))#">
+					<isset name="AttributeValue" value="#av:QuantityValue:Value#" scope="request">
+					<isset name="AttributeTypeDisplayName" value="Quantity" scope="request">
+					<isset name="AttributeTypeName" value="Quantity" scope="request">
+				<iselseif condition="#av:Type==14#">
+					<isset name="AttributeValue" value="#av:TextValue#" scope="request">
+					<isset name="AttributeTypeDisplayName" value="Text" scope="request">
+					<isset name="AttributeTypeName" value="Text" scope="request">
+				<iselseif condition="#av:Type==17#">
+					<%
+						StringBuffer attributeValue = new StringBuffer();
+						java.util.Iterator iter = (java.util.Iterator)getObject("av:Object");
+						while (iter.hasNext())
+						{
+							attributeValue.append(getFormattedValue(iter.next(), 5));
+							if (iter.hasNext())
+							{
+								attributeValue.append("|");
+							}
+						}
+						getPipelineDictionary().put("AttributeValue", attributeValue.toString());
+					%>
+					<isset name="AttributeTypeDisplayName" value="Multiple Date" scope="request">
+					<isset name="AttributeTypeName" value="MultipleDate" scope="request">
+				<iselseif condition="#(av:Type==6) or (av:Type==5) or (av:Type==4) or (av:Type==15) or (av:Type==16) or (av:Type==18)#">
+					<%
+						StringBuffer attributeValue = new StringBuffer();
+						java.util.Iterator iter = (java.util.Iterator)getObject("av:Object");
+						while (iter.hasNext())
+						{
+							attributeValue.append(getFormattedValue(iter.next(), null));
+							if (iter.hasNext())
+							{
+								attributeValue.append("|");
+							}
+						}
+						getPipelineDictionary().put("AttributeValue", attributeValue.toString());
+					%>
+					<isif	 condition="#av:Type==6#">
+						<isset name="AttributeTypeDisplayName" value="Multiple String" scope="request">
+						<isset name="AttributeTypeName" value="MultipleString" scope="request">
+					<iselseif condition="#av:Type==4#">
+						<isset name="AttributeTypeDisplayName" value="Multiple Integer" scope="request">
+						<isset name="AttributeTypeName" value="MultipleInteger" scope="request">
+					<iselseif condition="#av:Type==5#">
+						<isset name="AttributeTypeDisplayName" value="Multiple Double" scope="request">
+						<isset name="AttributeTypeName" value="MultipleDouble" scope="request">
+					<iselseif condition="#av:Type==15#">
+						<isset name="AttributeTypeDisplayName" value="Multiple Long" scope="request">
+						<isset name="AttributeTypeName" value="MultipleLong" scope="request">
+					<iselseif condition="#av:Type==16#">
+						<isset name="AttributeTypeDisplayName" value="Multiple Boolean" scope="request">
+						<isset name="AttributeTypeName" value="MultipleBoolean" scope="request">
+					<iselseif condition="#av:Type==18#">
+						<isset name="AttributeTypeDisplayName" value="Multiple Decimal" scope="request">
+						<isset name="AttributeTypeName" value="MultipleDecimal" scope="request">
+					</isif>
+				</isif>
+				
+			 	<isset name="DisableBaseProductCA" value="false" scope="request">
+				<isif condition="#isDefined(Product) AND Product:DerivedProduct#">
+					<isif condition="#isdefined(Product:BaseProduct:Attribute(av:Name))#">
+						<isset name="DisableBaseProductCA" value="true" scope="request">
+					</isif> 
+				</isif>	
+
+			<tr>
+				<isif condition="#(NOT isdefined(readonly)) OR (readonly NE 'true')#">
+					<td class="table_detail2 e s center" width="75">
+						<isif condition="#Clipboard:contains(av:Name)#">
+							<isif condition="#(NOT isdefined(disabled)) OR (disabled NE 'true')#">
+								<input type="checkbox" name="SelectedObjectUUID" value="<isprint value="#av:Name#">" checked="checked"/>
+							<iselse>
+								<input type="checkbox" name="SelectedObjectUUID" value="<isprint value="#av:Name#">" checked="checked" disabled="disabled"/>
+							</isif>
+						<iselse>
+							<isif condition="#((isdefined(disabled)) AND (disabled EQ 'true')) OR (DisableBaseProductCA EQ 'true')#">
+								<input type="checkbox" name="SelectedObjectUUID" value="<isprint value="#av:Name#">" disabled="disabled"/>
+							<iselse>
+								<input type="checkbox" name="SelectedObjectUUID" value="<isprint value="#av:Name#">"/>
+							</isif>
+						</isif>
+					</td>
+				</isif>
+				<td class="table_detail2 e s left" nowrap="nowrap" valign="middle"><isprint value="#av:Name#">
+					<isif condition="#isdefined(ErrorMap:get(av:Name))#">
+						<img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/>
+					</isif>
+					<input type="hidden" name="ObjectUUID" value="<isprint value="#av:Name#">"/>
+					<input type="hidden" name="AttributeName" value="<isprint value="#av:Name#">"/>
+				</td>
+				<td class="table_detail2 e s left" nowrap="nowrap" width="150" valign="middle">
+					<isprint value="#AttributeTypeDisplayName#">
+					<input type="hidden" name="<isprint value="#av:Name#">_AttributeType" value="<isprint value="#AttributeTypeName#">" />
+				</td>
+				<td class="table_detail2 s left" >
+					<isif condition="#(av:LocaleID EQ Locale:LocaleID) OR NOT(av:isLocalized)#">
+						<isif condition="#isdefined(readonly) AND (readonly EQ 'true')#">
+							<input type="text" name="<isprint value="#av:Name#">_NewAttributeValue" maxlength="4000" size="56" value="<isprint value="#AttributeValue#">" class="inputfield_en" disabled="disabled"/>
+						<iselseif condition="#isdefined(disabled) AND (disabled EQ 'true')#">
+							<input type="text" name="<isprint value="#av:Name#">_NewAttributeValue" maxlength="4000" size="56" value="<isprint value="#AttributeValue#">" class="inputfield_en" readonly="readonly"/>
+						<iselse>
+							<input type="text" onkeypress="if (event.keyCode==13) { $('[name=UpdateCA]').click(); }" name="<isprint value="#av:Name#">_NewAttributeValue" maxlength="4000" size="56" value="<isprint value="#AttributeValue#">" class="inputfield_en"/>
+						</isif>
+					<iselse>
+						<isif condition="#isdefined(readonly) AND (readonly EQ 'true')#">
+							<input type="text" name="<isprint value="#av:Name#">_NewAttributeValue" maxlength="4000" size="56" class="inputfield_en" disabled="disabled"/>
+						<iselseif condition="#isdefined(disabled) AND (disabled EQ 'true')#">
+							<input type="text" name="<isprint value="#av:Name#">_NewAttributeValue" maxlength="4000" size="56" class="inputfield_en" readonly="readonly"/>
+						<iselse>
+							<input type="text" onkeypress="if (event.keyCode==13) { $('[name=UpdateCA]').click(); }"  name="<isprint value="#av:Name#">_NewAttributeValue" maxlength="4000" size="56" class="inputfield_en"/>
+						</isif>
+					</isif>
+				</td>
+
+				<isif condition="#isdefined(localizableflag)#">
+					<td class="table_detail2 w s center" width="80" >
+						<input type="checkbox" name="<isprint value="#av:Name#">_AttributeLocalizedflag" value="true" class="inputfield_en" <isif condition="#av:isLocalized#">checked="checked"</isif> disabled="disabled"/>
+						<input type="hidden" name="<isprint value="#av:Name#">_AttributeLocalized" value="<isprint value="#av:isLocalized#">"/>
+					</td>
+				</isif>
+			</tr>
+			</isif>
+		</isloop>
+	<iselse>
+		<tr>
+			<td class="table_detail s">
+				<istext key="CustomAttributesEditor.ThereAreNoCustomAttributesDefined.table_detail" encoding="off"/><br/>
+				<isif condition="#(NOT isdefined(readonly)) OR (readonly NE 'true')#">
+					<istext key="CustomAttributesEditor.CreateAttributesUsingTheEntryFields.table_detail" encoding="off"/>
+				</isif>
+			</td>
+		</tr>
+	</isif>
+</table>
+<isif condition="#(NOT isdefined(readonly)) OR (readonly NE 'true')#">
+	<isif condition="#hasElements(customattributesiterator)#">
+		<table border="0" cellspacing="0" cellpadding="0" width="100%" class="w e s">
+			<tr>
+				<td align="right" width="100%">
+					<table border="0" cellspacing="4" cellpadding="0">
+						<tr>
+							<td class="button">
+								<isif condition="#(NOT isdefined(disabled)) OR (disabled NE 'true')#">
+									<input class="button" type="submit" name="UpdateCA" value="#localizeText('NewProductSet.Apply.input1')#"/>
+								<iselse>
+									<input class="button" type="submit" name="UpdateCA" value="#localizeText('NewProductSet.Apply.input1')#" disabled="disabled"/>
+								</isif>
+							</td>
+							<td class="button">
+								<isif condition="#(NOT isdefined(disabled)) OR (disabled NE 'true')#">
+									<input class="button" type="submit" name="ConfirmDeleteCA" value="#localizeText('TemplateSearchButtons.Delete.button')#"/>
+								<iselse>
+									<input class="button" type="submit" name="ConfirmDeleteCA" value="#localizeText('TemplateSearchButtons.Delete.button')#" disabled="disabled"/>
+								</isif>
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>
+	</isif>
+</isif>

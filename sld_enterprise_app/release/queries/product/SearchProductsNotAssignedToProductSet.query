@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet" optional="true"/>
+	<parameter name="AdvancedProductSearchParameters" type="java.util.Map" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Product" type="provider" provider="ProductViewProvider">
+		<return-attribute name="UUID"/>
+		<return-attribute name="DOMAINID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	SELECT
+	    p.uuid as UUID,
+	    <template-variable value="ProductDomain:UUID"/> AS DOMAINID,
+	    COUNT(p.UUID) OVER() AS "ROWCOUNT",
+	    sorting
+	FROM
+	(
+	<template-call name="product/GetProductsByAdvancedSearch"><call-addall map="AdvancedProductSearchParameters"/><call-parameter name="ProductDomain" value="ProductDomain"/><call-parameter name="LocaleInformation" value="LocaleInformation"/></template-call>
+	) p
+	<template-comment>
+		(Un)fortunately we do not support sharing chains, e.g. 
+		sharing from channel A to channel B and then from B to C. 
+		But if we show non-local products the UI will look like
+		sharing chains are supported. @see IS-7572. Thus we fiter
+		the shared products and show only locals...
+	</template-comment>
+	INNER JOIN product locp ON (locp.uuid = p.uuid and locp.domainid = <template-variable value="ProductDomain:UUID"/>)
+	WHERE 
+	NOT EXISTS (
+	SELECT 
+	1 
+	FROM 
+	productsetassignment psa
+	WHERE 
+	psa.productsetuuid = <template-variable value="ProductSet:UUID"/> AND
+	psa.productuuid = p.uuid
+	)
+	<sql-dialect name="Oracle">
+		ORDER BY SORTING
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			    DESC NULLS FIRST
+			    <if-else/>
+			    ASC NULLS LAST
+		</template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		ORDER BY 
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">			    
+			    CASE
+			    	WHEN sorting IS NULL THEN 0
+			    	ELSE 1
+			    END, sorting DESC
+			    <if-else/>			    
+			    CASE
+			    	WHEN sorting IS NULL THEN 1
+			    	ELSE 0			    
+			    END, sorting ASC
+		</template-if>
+	</sql-dialect>
+</template>
+</query>

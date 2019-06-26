@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="CatalogCategoryUUID" type="java.lang.String" optional="false"/>	
+	<parameter name="LocaleID" type="java.lang.String" optional="true"/>	
+	<parameter name="CatalogCategoryAttributeNames" type="java.util.Iterator" optional="true"/>	
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="objects" sqlDialect="Oracle">
+    SELECT uuid,name,onlineflag 
+    <template-if condition="isDefined(LocaleID)">
+        ,
+		(SELECT stringvalue FROM catalogcategory_av cav
+		 WHERE cav.ownerid = c.uuid AND
+		       cav.name = 'displayName' AND
+		       cav.localeid = <template-variable value="LocaleID"/>
+		) AS displayName
+		<template-if condition="hasLoopElements(CatalogCategoryAttributeNames)">
+		,
+		</template-if>
+		<template-loop alias="AttributeName" iterator="CatalogCategoryAttributeNames">
+		<loop-statement>
+		(SELECT stringvalue FROM catalogcategory_av cav
+		 WHERE cav.ownerid = c.uuid AND
+		       cav.name = <template-variable value="AttributeName" /> AND 
+		       cav.localeid = <template-variable value="LocaleID"/>
+		) AS <template-variable value="AttributeName" processing="text"/>
+		</loop-statement>
+		<loop-separator>,</loop-separator>
+		</template-loop>
+	</template-if>
+    FROM catalogCategory c
+    START WITH c.uuid = <template-variable value="CatalogCategoryUUID"/> CONNECT BY PRIOR c.parentcategoryid = c.uuid 
+</template>
+<template type="objects" sqlDialect="Microsoft">
+    WITH ABC(uuid, name, onlineflag) AS
+	(
+	   SELECT uuid,name,onlineflag
+		FROM catalogCategory c
+		WHERE c.uuid = <template-variable value="CatalogCategoryUUID"/>
+		UNION ALL
+		SELECT c.uuid,c.name,c.onlineflag
+		FROM catalogCategory c INNER JOIN abc on c.PARENTCATEGORYID = abc.uuid
+	)
+	SELECT uuid, name, onlineflag
+		<template-if condition="isDefined(LocaleID)">
+			,
+			(SELECT stringvalue FROM catalogcategory_av cav
+			 WHERE cav.ownerid = c.uuid AND
+				   cav.name = 'displayName' AND
+				   cav.localeid = <template-variable value="LocaleID"/>
+			) AS displayName
+			<template-if condition="hasLoopElements(CatalogCategoryAttributeNames)">
+			,
+			</template-if>
+			<template-loop alias="AttributeName" iterator="CatalogCategoryAttributeNames">
+			<loop-statement>
+			(SELECT stringvalue FROM catalogcategory_av cav
+			 WHERE cav.ownerid = c.uuid AND
+				   cav.name = <template-variable value="AttributeName" /> AND 
+				   cav.localeid = <template-variable value="LocaleID"/>
+			) AS <template-variable value="AttributeName" processing="text"/>
+			</loop-statement>
+			<loop-separator>,</loop-separator>
+			</template-loop>
+		</template-if>
+	 FROM ABC c
+</template>
+</query>

@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Calculates the input calculation target (i.e. a Basket or an Order) or iterator of calculation targets
+
+Assumptions made:
+The recalculation is performed in a number of steps:
+\- the single base prices of the products are ascertained 
+\- exchange rates set
+\- product discounts assigned, 
+\- shipping base prices ascertained
+\- tax for product and service line items calculated
+\- lineitems are assigned to groups
+\- totals for each group calculated
+\- grand total prices calculated-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCartCalculation" type="process">
+<!--Get discounts which have the same currency
+as current "CurrentSession:CurrencyCode"
+@Location 15,28-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode8" width="2"/>
+<!--ToDo: remove the obselete stuff when the new calculation process is finished!
+@Location 4,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode9"/>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use Pipeline ProcessBasketCalculation instead.
+@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CheckPayments"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <parameters name="BasketBO" type="com.intershop.component.basket.capi.BasketBO"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <startNode referencedName="ProcessPayment-GetPaymentsFromBasket"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="PaymentBOs">
+<!--@BendPoints 15,7-->
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <entry key="PaymentBO">
+      <nodeSuccessors name="loop_entry_next" next="IsPaymentServiceApplicable0_Input"/>
+    </entry>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="IsPaymentServiceApplicable0">
+    <pipelet href="enfinity:/bc_payment/pipelets/com.intershop.component.payment.pipelet.IsPaymentServiceApplicable.pipelinenode"/>
+    <inConnectors name="Input">
+      <parameterBindings name="PaymentServiceBO" objectPath="PaymentBO:PaymentServiceBO"/>
+    </inConnectors>
+    <outConnectors name="applicable">
+      <nodeSuccessors name="applicable" next="JoinNode3"/>
+    </outConnectors>
+    <outConnectors name="notApplicable">
+      <nodeSuccessors name="notApplicable" next="AddObjectToCollection1"/>
+    </outConnectors>
+    <outConnectors name="restricted">
+      <nodeSuccessors name="restricted" next="AddObjectToCollection1"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 11,7-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection1">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="InCollection" objectPath="PaymentBOsToRemove"/>
+    <parameterBindings name="InObject" objectPath="PaymentBO"/>
+    <returnValueBindings name="OutCollection" objectPath="PaymentBOsToRemove"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="PaymentBOsToRemove">
+<!--@BendPoints 17,13-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <entry key="PaymentBO">
+      <nodeSuccessors name="loop_entry_next" next="CallNode10"/>
+    </entry>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+<!--@BendPoints 15,16 13,16-->
+    <nodeSuccessors name="Error" next="JoinNode5"/>
+    <startNode referencedName="ProcessPayment-RemovePayment"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 13,13-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true"/>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use Pipeline ProcessBasketCalculation instead.
+@Location 21,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" strict="true" name="HideBonusPointBuyingItems"
+      callMode="Private">
+<!--@BendPoints 43,2-->
+    <nodeSuccessors name="next" next="Pipelet56"/>
+    <parameters name="CurrentBasket" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+  </nodes>
+<!--@Location 21,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet56">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="LoopNode11"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="BonusPointBuyingItemValues"/>
+  </nodes>
+<!--@Location 21,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode11" loop="CurrentBasket:ProductLineItems">
+<!--@BendPoints 44,5-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <entry key="ProductLineItem">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode14"/>
+    </entry>
+  </nodes>
+<!--@Location 21,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="ProductLineItem:MergeGroup"
+      operator="eq" conditionValue="1">
+    <nodeSuccessors name="decision_yes" next="UpdateDictionary1"/>
+<!--@BendPoints 44,7 44,15-->
+    <nodeSuccessors name="decision_no" next="JoinNode19"/>
+  </nodes>
+<!--@Location 21,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary1">
+    <configurationValues name="Name_01" value="UUID"/>
+    <configurationValues name="Name_02" value="Quantity"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+<!--@BendPoints 43,10-->
+    <nodeSuccessors name="next" next="Pipelet57"/>
+    <parameterBindings name="InDictionary" nullBinding="true"/>
+    <parameterBindings name="Value_01" objectPath="ProductLineItem:UUID"/>
+    <parameterBindings name="Value_02" objectPath="ProductLineItem:Quantity"/>
+    <returnValueBindings name="OutDictionary" objectPath="Value"/>
+  </nodes>
+<!--@Location 21,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet57">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 43,12-->
+    <nodeSuccessors name="next" next="UpdateProductLineItemQuantity1"/>
+    <parameterBindings name="InVector" objectPath="BonusPointBuyingItemValues"/>
+    <parameterBindings name="Object" objectPath="Value"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="BonusPointBuyingItemValues"/>
+  </nodes>
+<!--@Location 21,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductLineItemQuantity1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateProductLineItemQuantity.xml"/>
+    <nodeSuccessors name="next" next="JoinNode19"/>
+    <parameterBindings name="ProductLineItem" objectPath="ProductLineItem"/>
+    <parameterBindings name="Quantity" objectPath="ProductLineItem:Quantity:ZeroQuantity(ProductLineItem:Quantity:Unit)"/>
+  </nodes>
+<!--@Location 21,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+<!--@BendPoints 43,16 42,16 42,5-->
+    <nodeSuccessors name="next" next="LoopNode11_Entry"/>
+  </nodes>
+<!--@Location 22,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true">
+    <returnValues name="BonusPointBuyingItemValues" type="java.util.Vector"/>
+  </nodes>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use Pipeline ProcessBasketCalculation instead.
+@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="PrepareCalculationContextData"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode30"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"/>
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.LineItemCtnr"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode30">
+    <nodeSuccessors name="next" next="GetUserGroupType0"/>
+    <parameterBindings name="CurrentOrganization" objectPath="Organization"/>
+    <startNode referencedName="ProcessUserGroups-GetCurrentUserUserGroups"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserGroupType0">
+    <pipelet href="enfinity:/core/pipelets/GetUserGroupType.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToCollection0"/>
+    <parameterBindings name="UserGroupTypeName" constant="UNKNOWN"/>
+    <returnValueBindings name="UserGroupType" objectPath="UnknownUserGroupType"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection0">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="CallNode32"/>
+    <parameterBindings name="InCollection" objectPath="CurrentUserUserGroupsByType:get(UnknownUserGroupType)"/>
+    <parameterBindings name="InObject" nullBinding="true"/>
+    <returnValueBindings name="OutCollection" nullBinding="true"/>
+    <returnValueBindings name="OutIterator" objectPath="UserGroupsForPaymentLookup"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode32">
+<!--@BendPoints 9,12-->
+    <nodeSuccessors name="next" next="UpdateDictionary3"/>
+    <parameterBindings name="CurrencyMnemonic" objectPath="CalculationTarget:PurchaseCurrencyCode"/>
+    <parameterBindings name="CurrentApplication" objectPath="CurrentAppContext:Variables:Application"/>
+    <parameterBindings name="CurrentUserUserGroups" objectPath="UserGroupsForPaymentLookup"/>
+    <parameterBindings name="Organization" objectPath="Organization"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="ProcessPayment-GetActivePaymentMethods"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary3">
+    <configurationValues name="Name_01" value="UserGroupKeys"/>
+    <configurationValues name="Name_02" value="PaymentConfigurations"/>
+    <configurationValues name="Name_03" value="UserGroups"/>
+    <configurationValues name="Name_04" value="CurrencyCode"/>
+    <configurationValues name="Name_05" value="UserGroupsByType"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameterBindings name="Value_01" objectPath="CurrentUserUserGroupKeys"/>
+    <parameterBindings name="Value_02" objectPath="ActivePaymentConfigurations"/>
+    <parameterBindings name="Value_03" objectPath="CurrentUserUserGroups"/>
+    <parameterBindings name="Value_04" objectPath="CurrentSession:Currency:Mnemonic"/>
+    <parameterBindings name="Value_05" objectPath="CurrentUserUserGroupsByType"/>
+    <returnValueBindings name="OutDictionary" objectPath="Context"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="ExtensionPointNode2"/>
+    <parameterBindings name="LineItemCtnr" objectPath="Cart"/>
+    <startNode referencedName="ProcessCartCalculation-PreparePromotionCalculationData"/>
+  </nodes>
+<!--Extension Point in case aditional data needs to be added to the Context.
+@Location 4,8-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode2" name="PrepareCalculationContextData">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="Context" type="java.util.Map&lt;K,V>"/>
+  </nodes>
+<!--@padss
+@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use Pipeline ProcessBasketCalculation instead.
+@Location 1,28-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode17" strict="true" name="PreparePromotionCalculationData"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <parameters name="Context" type="java.util.Map"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"
+        optional="true"/>
+    <parameters name="LineItemCtnr" type="com.intershop.beehive.bts.capi.orderprocess.LineItemCtnr"/>
+    <parameters name="CurrentSession" type="com.intershop.beehive.core.capi.request.Session"/>
+  </nodes>
+<!--@Location 1,29-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="UpdateDictionary2"/>
+    <parameterBindings name="PromotionDomain" objectPath="Organization:OwningDomain"/>
+    <startNode referencedName="ProcessPromotion-GetEvaluationDate"/>
+    <returnValueBindings name="PromotionEvaluationDate" objectPath="ValidationDate"/>
+  </nodes>
+<!--@Location 1,30-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary2">
+    <configurationValues name="Name_01" value="CurrentDate"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameterBindings name="InDictionary" objectPath="Context"/>
+    <parameterBindings name="Value_01" objectPath="ValidationDate"/>
+    <returnValueBindings name="OutDictionary" objectPath="Context"/>
+  </nodes>
+<!--@Location 1,31-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="DecisionNode12"/>
+    <startNode referencedName="ProcessBasketPromotion-PreparePromotionCalculationDataForPreviewMode"/>
+  </nodes>
+<!--@Location 1,32-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="CurrentAppContext">
+    <nodeSuccessors name="decision_yes" next="KeyMapper11"/>
+<!--@BendPoints 5,65-->
+    <nodeSuccessors name="decision_no" next="KeyMapper12"/>
+  </nodes>
+<!--@Location 1,33-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper11">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode33"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentAppContext:Variables:Application:UUID"/>
+    <returnValueBindings name="OutValue_1" objectPath="AppID"/>
+  </nodes>
+<!--@Location 1,34-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode33">
+    <nodeSuccessors name="next" next="GetRepositoryByRepositoryDomain1"/>
+  </nodes>
+<!--@Location 1,35-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper13"/>
+<!--@BendPoints 5,71 5,75-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode30"/>
+    <parameterBindings name="RepositoryDomain" objectPath="Organization:OwningDomain"/>
+    <returnValueBindings name="Repository" objectPath="CurrentProductRepository"/>
+  </nodes>
+<!--@Location 1,36-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper13">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode30"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentProductRepository:Domain"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProductRepositoryDomain"/>
+  </nodes>
+<!--@Location 1,37-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode30">
+    <nodeSuccessors name="next" next="CreatePromotionCodeMappingForCalculation2"/>
+  </nodes>
+<!--@Location 1,38-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePromotionCodeMappingForCalculation2">
+    <pipelet href="enfinity:/bc_marketing/pipelets/CreatePromotionCodeMappingForCalculation.xml"/>
+    <nodeSuccessors name="next" next="ExtensionPointNode0"/>
+  </nodes>
+<!--@Location 1,39-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode0" name="PrepareCustomPromotionParameters"
+      strict="true">
+    <nodeSuccessors name="next" next="UpdateDictionary4"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 1,40-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary4">
+    <configurationValues name="Name_02" value="PromotionDomainID"/>
+    <configurationValues name="Name_03" value="CustomPromotionParameters"/>
+    <configurationValues name="Name_05" value="AppID"/>
+    <configurationValues name="Name_06" value="ProductRepositoryDomain"/>
+    <configurationValues name="Name_07" value="PromotionCodeMapping"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <parameterBindings name="InDictionary" objectPath="Context"/>
+    <parameterBindings name="Value_02" objectPath="Organization:OwningDomain:UUID"/>
+    <parameterBindings name="Value_03" objectPath="Parameters"/>
+    <parameterBindings name="Value_05" objectPath="AppID"/>
+    <parameterBindings name="Value_06" objectPath="ProductRepositoryDomain"/>
+    <parameterBindings name="Value_07" objectPath="PromotionCodeMapping"/>
+    <returnValueBindings name="OutDictionary" objectPath="Context"/>
+  </nodes>
+<!--@Location 1,41-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+    <returnValues name="Context" type="java.util.Map"/>
+  </nodes>
+<!--@displayNearNode@This is only for fallback reasons, 
+if no CurrentAppContext is given, 
+this should never happen...
+@Location 2,33-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper12">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 5,69-->
+    <nodeSuccessors name="next" next="JoinNode33"/>
+    <parameterBindings name="InValue_1" constant=""/>
+    <returnValueBindings name="OutValue_1" objectPath="AppID"/>
+  </nodes>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use Pipeline ProcessBasketCalculation instead.
+@Location 18,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" name="ResetShippingItems"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetZeroMoney1"/>
+  </nodes>
+<!--@Location 18,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetZeroMoney1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetZeroMoney.xml"/>
+    <nodeSuccessors name="next" next="LoopNode10"/>
+    <parameterBindings name="CurrencyCode" objectPath="CurrentRequest:CurrencyCode"/>
+  </nodes>
+<!--@Location 18,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode10" loop="CurrentBasket:ServiceLineItems">
+    <nodeSuccessors name="next" next="EndNode11"/>
+    <entry key="ServiceLineItem">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode7"/>
+    </entry>
+  </nodes>
+<!--@Location 18,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="Coupon:CurrentAmount:CurrencyMnemonic"
+      operator="str_eq" conditionItem="CurrentSession:CurrencyCode" conditionValue="Shipping">
+    <nodeSuccessors name="decision_yes" next="Pipelet52"/>
+<!--@BendPoints 38,9 38,13-->
+    <nodeSuccessors name="decision_no" next="JoinNode10"/>
+  </nodes>
+<!--@Location 18,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet52">
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateServiceLineItem.xml"/>
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <parameterBindings name="BasePricePC" objectPath="ZeroMoney"/>
+    <parameterBindings name="GrossPricePC" objectPath="ZeroMoney"/>
+    <parameterBindings name="NetPricePC" objectPath="ZeroMoney"/>
+    <parameterBindings name="ServiceLineItem" objectPath="ServiceLineItem"/>
+    <parameterBindings name="TaxPC" objectPath="ZeroMoney"/>
+  </nodes>
+<!--@Location 18,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 37,14 36,14 36,7-->
+    <nodeSuccessors name="next" next="LoopNode10_Entry"/>
+  </nodes>
+<!--@Location 19,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11"/>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use Pipeline ProcessBasketCalculation instead.
+@Location 24,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode12" strict="true" name="RestoreBonusPointBuyingItems"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetZeroMoney3"/>
+    <parameters name="CurrentBasket" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+    <parameters name="BonusPointBuyingItemValues" type="java.util.Vector"/>
+  </nodes>
+<!--@Location 24,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetZeroMoney3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetZeroMoney.xml"/>
+    <nodeSuccessors name="next" next="LoopNode12"/>
+    <parameterBindings name="CurrencyCode" objectPath="CurrentBasket:getPurchaseCurrencyCode"/>
+  </nodes>
+<!--@Location 24,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode12" loop="BonusPointBuyingItemValues">
+<!--@BendPoints 50,5-->
+    <nodeSuccessors name="next" next="EndNode13"/>
+    <entry key="Value">
+      <nodeSuccessors name="loop_entry_next" next="Pipelet58"/>
+    </entry>
+  </nodes>
+<!--@Location 24,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet58">
+    <pipelet href="enfinity:/bc_requisition/pipelets/GetLineItemByUUID.xml"/>
+    <nodeSuccessors name="next" next="UpdateProductLineItemQuantity2"/>
+    <parameterBindings name="LineItemUUID" objectPath="Value:get(&quot;UUID&quot;)"/>
+    <returnValueBindings name="LineItem" objectPath="ProductLineItem"/>
+  </nodes>
+<!--@Location 24,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductLineItemQuantity2">
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateProductLineItemQuantity.xml"/>
+<!--@BendPoints 49,10-->
+    <nodeSuccessors name="next" next="ApplyFixedPriceOnProduct2"/>
+    <parameterBindings name="ProductLineItem" objectPath="ProductLineItem"/>
+    <parameterBindings name="Quantity" objectPath="Value:get(&quot;Quantity&quot;)"/>
+  </nodes>
+<!--@Location 24,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ApplyFixedPriceOnProduct2">
+    <pipelet href="enfinity:/bc_marketing/pipelets/ApplyFixedPriceOnProduct.xml"/>
+<!--@BendPoints 49,12 48,12 48,5-->
+    <nodeSuccessors name="next" next="LoopNode12_Entry"/>
+    <parameterBindings name="DiscountValue" objectPath="ZeroMoney"/>
+    <parameterBindings name="ProductLineItem" objectPath="ProductLineItem"/>
+  </nodes>
+<!--@Location 25,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" strict="true"/>
+<!--@padss
+@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use Pipeline ProcessBasketCalculation instead.
+@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode16" strict="true" name="Start"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="PriceType" type="java.lang.String"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"/>
+    <parameters name="BasketBO" type="com.intershop.component.basket.capi.BasketBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Cart:CalculationInvalid"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="com.intershop.beehive.core.internal.pipeline.node.IsDBInitMode0_Input"/>
+    <nodeSuccessors name="decision_no" next="EndNode1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="com.intershop.beehive.core.internal.pipeline.node.IsDBInitMode0">
+    <pipelet href="enfinity:/core/pipelets/com.intershop.beehive.core.internal.pipeline.node.IsDBInitMode.pipelinenode"/>
+    <inConnectors name="Input"/>
+    <outConnectors name="yes">
+<!--@BendPoints 5,7-->
+      <nodeSuccessors next="JoinNode0"/>
+    </outConnectors>
+    <outConnectors name="no">
+      <nodeSuccessors next="TryLock0"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 5,11-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="BasketBO">
+    <nodeSuccessors name="decision_yes" next="JoinNode4"/>
+    <nodeSuccessors name="decision_no" next="GetApplicationBO0"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="SetPurchaseCurrency0"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetPurchaseCurrency0">
+    <pipelet href="enfinity:/bc_basket/pipelets/SetPurchaseCurrency.xml"/>
+    <nodeSuccessors name="next" next="ExtensionPointNode1"/>
+    <parameterBindings name="PurchaseCurrencyMnemonic" objectPath="CurrentRequest:Currency:Mnemonic"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode1" name="GetRuleSet">
+    <nodeSuccessors name="next" next="CallNode6"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="CalculateLineItemCtnrRuleBased1"/>
+    <startNode referencedName="This:PrepareCalculationContextData"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateLineItemCtnrRuleBased1">
+    <pipelet href="enfinity:/bts/pipelets/CalculateLineItemCtnrRuleBased.xml"/>
+    <nodeSuccessors name="next" next="CreateCalculatedProductLineItems1"/>
+    <parameterBindings name="CalculationContext" objectPath="Context"/>
+    <parameterBindings name="CalculationRuleSetName" objectPath="RuleSetName"/>
+    <parameterBindings name="CalculationTarget" objectPath="Cart"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateCalculatedProductLineItems1">
+    <pipelet href="enfinity:/bts/pipelets/CreateCalculatedProductLineItems.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameterBindings name="CalculationTarget" objectPath="Cart"/>
+    <returnValueBindings name="ComputedProductLineItems" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="CurrentSession:getObject(&quot;T_ABTestMode&quot;)"
+      operator="str_eq" conditionValue="Enabled">
+    <nodeSuccessors name="decision_yes" next="CallNode3"/>
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="Cart" objectPath="Cart"/>
+    <startNode referencedName="ProcessABTesting-LogPromotionAppliedToBasketEvents"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 3,32-->
+    <nodeSuccessors name="next" next="LoopNode14"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode14" loop="NewComputedProductLineItems">
+<!--@BendPoints 5,33-->
+    <nodeSuccessors name="next" next="SetDefaultShippingMethod1"/>
+    <entry key="CPLI">
+<!--@BendPoints 3,34-->
+      <nodeSuccessors name="loop_entry_next" next="AddObjectToVector2"/>
+    </entry>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 3,36-->
+    <nodeSuccessors name="next" next="CallNode31"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" objectPath="CPLI:ProductLineItem"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="NewProductLineItem"/>
+    <returnValueBindings name="OutVector" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode31">
+<!--@BendPoints 3,38 2,38 2,33-->
+    <nodeSuccessors name="next" next="LoopNode14_Entry"/>
+    <parameterBindings name="NewProductLineItems" objectPath="NewProductLineItem"/>
+    <startNode referencedName="ProcessCart-InitializeNewProductLineItems"/>
+  </nodes>
+<!--@Location 2,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDefaultShippingMethod1">
+    <pipelet href="enfinity:/bc_shipping/pipelets/SetDefaultShippingMethod.xml"/>
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+  </nodes>
+<!--@Location 2,18-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="CallNode11"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+    <startNode referencedName="ProcessBasketInvalidation-InvalidateBasket"/>
+  </nodes>
+<!--@Location 2,19-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <startNode referencedName="This:CheckPayments"/>
+  </nodes>
+<!--@Location 2,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode9"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+    <parameterBindings name="BasketBORepository" objectPath="ApplicationBO:Extension(&quot;Basket&quot;):getBasketBORepository(Cart)"/>
+    <startNode referencedName="ProcessCart-GetCurrentCartBO"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="TryLock0">
+    <configurationValues name="Timeout" value="-1"/>
+    <pipelet href="enfinity:/core/pipelets/TryLock.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="LockObject" objectPath="Cart"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@deprecated
+Deprecated since 7.8.0.0, will be removed in one of the next releases. Use Pipeline ProcessBasketCalculation instead.
+@Location 16,28-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode14" strict="true" name="Start__"
+      callMode="Private">
+<!--@BendPoints 33,58-->
+    <nodeSuccessors name="next" next="GetRebatesByClassificationTypeCode2"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 16,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRebatesByClassificationTypeCode2">
+    <pipelet href="enfinity:/bc_marketing/pipelets/GetRebatesByClassificationTypeCode.xml"/>
+<!--@BendPoints 33,60-->
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+    <parameterBindings name="ClassificationTypeCode" constant="(Integer)160"/>
+    <parameterBindings name="Domain" objectPath="CurrentOrganization:OwningDomain"/>
+    <returnValueBindings name="Rebates" objectPath="AbandonedBasketRebate"/>
+  </nodes>
+<!--@Location 16,30-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 33,62-->
+    <nodeSuccessors name="next" next="LoopNode15"/>
+    <returnValueBindings name="Iterator" objectPath="AbandonedBasketRebates"/>
+    <returnValueBindings name="OutVector" objectPath="AbandonedBasketRebatesVector"/>
+  </nodes>
+<!--@Location 16,31-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode15" loop="AbandonedBasketRebate">
+<!--@BendPoints 34,63-->
+    <nodeSuccessors name="next" next="EndNode15"/>
+    <entry key="AbandonedRebate">
+<!--@BendPoints 33,64-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode18"/>
+    </entry>
+  </nodes>
+<!--@Location 16,32-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode18" conditionKey="Coupon:isCurrentAmountNull"
+      operator="str_eq" conditionItem="CurrentSession:CurrencyCode" conditionValue="false">
+<!--@BendPoints 33,66-->
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector3"/>
+<!--@BendPoints 34,65 34,69-->
+    <nodeSuccessors name="decision_no" next="JoinNode26"/>
+  </nodes>
+<!--@Location 16,33-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector3">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode26"/>
+    <parameterBindings name="InVector" objectPath="AbandonedBasketRebatesVector"/>
+    <parameterBindings name="Object" objectPath="AbandonedRebate"/>
+    <returnValueBindings name="Iterator" objectPath="AbandonedBasketRebates"/>
+    <returnValueBindings name="OutVector" objectPath="AbandonedBasketRebatesVector"/>
+  </nodes>
+<!--@Location 16,34-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode26">
+<!--@BendPoints 32,69 32,63-->
+    <nodeSuccessors name="next" next="LoopNode15_Entry"/>
+  </nodes>
+<!--@Location 17,31-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true">
+    <returnValues name="AbandonedBasketRebates" type="java.util.Iterator"/>
+  </nodes>
+</pipeline:Pipeline>

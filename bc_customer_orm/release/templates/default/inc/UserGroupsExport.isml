@@ -1,0 +1,49 @@
+<iscontent type = "text/xml" templatemarker="false" charset="UTF-8" SESSION="FALSE">
+<%@page import="com.intershop.beehive.core.capi.app.AppContextUtil,
+				com.intershop.beehive.app.capi.AppContext,
+				com.intershop.component.repository.capi.BusinessObjectRepositoryContext,
+				com.intershop.component.customer.capi.RepositoryBOCustomerSegmentExtension,
+				com.intershop.component.customer.capi.CustomerSegmentBORepository,
+				com.intershop.beehive.core.capi.user.UserGroup" %>
+
+<!--- This template is overridden in order to export only those of the provided UserGroups which are not CustomerSegments for users of Company Customers --->
+<isif condition="#CustomerBO:CustomerType:CustomerTypeID EQ 'PRIVATE' #">
+	<isif condition="#hasLoopElements(UserGroups)#">
+		<user-groups>
+			<isloop iterator="UserGroups" alias="UserGroup">
+				<user-group id="#stringToXml(UserGroup:ID)#"<isif condition="#isDefined(ExportDomainRefs)#"> domain="#stringToXml(UserGroup:Domain:DomainName)#"</isif>/>
+			</isloop>
+		</user-groups>
+	</isif>
+<iselse/>
+	<isif condition="#hasLoopElements(UserGroups)#">
+		<% 
+			AppContext appContext = AppContextUtil.getCurrentAppContext();
+			BusinessObjectRepositoryContext businessObjectRepositorycontext = appContext.getVariable(BusinessObjectRepositoryContext.CURRENT);
+			CustomerSegmentBORepository customerSegmentBORepository = businessObjectRepositorycontext.getRepository(RepositoryBOCustomerSegmentExtension.EXTENSION_ID);
+			
+			boolean containerElementPrinted = false;
+		%>
+		
+		<isloop iterator="UserGroups" alias="UserGroup">
+		<%
+			UserGroup userGroup = (UserGroup) getObject("UserGroup");
+			if (customerSegmentBORepository.getCustomerSegmentBOByID(userGroup.getID()) == null)
+			{ // user group which is not a customer segment - then export it
+				if (!containerElementPrinted)
+				{
+					containerElementPrinted = true;
+					%><user-groups><%
+				}
+				%><user-group id="#stringToXml(UserGroup:ID)#"<isif condition="#isDefined(ExportDomainRefs)#"> domain="#stringToXml(UserGroup:Domain:DomainName)#"</isif>/><%
+			}
+		%>
+		</isloop>
+		<%
+			if (containerElementPrinted)
+			{
+				%></user-groups><%
+			}
+		%>
+	</isif>
+</isif>

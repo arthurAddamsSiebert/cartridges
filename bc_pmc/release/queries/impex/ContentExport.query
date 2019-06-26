@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<query>
+	<parameters>
+		<parameter name="ContentRepositoryDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+		<parameter name="PageletModelRepository" type="com.intershop.component.pmc.capi.model.PageletModelRepository" optional="false"/>
+		<parameter name="IncludeSystemPages" type="java.lang.Boolean" optional="true"/>
+	</parameters>
+	<return-mappings>
+		<return-mapping name="ContentEntries" type="constructor" 
+			class="com.intershop.component.pmc.internal.impex.query.PageletExportResultMapper">
+			<return-attribute name="UUID" />
+			<return-attribute name="TYPE" />
+		</return-mapping>
+	</return-mappings>
+	<processor name="OracleSQL">
+    	<processor-preprocessing output="SharingHelper" input="ContentRepositoryDomain" processing="ContentSharingHelper"/>
+	</processor>
+	<template type="countedobjects">
+		SELECT UUID, TYPE, count(*) over() as "rowcount" FROM
+		(
+			SELECT UUID, TYPE FROM
+			(
+				SELECT p.uuid AS UUID, 'pagelet' AS TYPE, p.resourceSetId AS resourceSetId
+				FROM pagelet p
+				WHERE p.domainid IN (
+					<template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain">
+						<loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+	        			<loop-separator>,</loop-separator>
+	    			</template-loop>)
+			UNION ALL
+				SELECT pep1.uuid AS UUID, 'pageletentrypoint' AS TYPE, pep1.resourceSetId AS resourceSetId
+				FROM pageletentrypoint pep1
+				WHERE pep1.domainid IN (
+					<template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain">
+						<loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+	        			<loop-separator>,</loop-separator>
+	    			</template-loop>)
+	    		AND pep1.dynamicflag=1
+    	<template-if condition="not(isDefined(IncludeSystemPages))or(IncludeSystemPages) ">
+	    	UNION ALL
+				SELECT pep2.uuid AS UUID, 'pageletentrypoint' AS TYPE, pep2.resourceSetId AS resourceSetId
+				FROM pageletentrypoint pep2
+				WHERE pep2.domainid=<template-variable value="ContentRepositoryDomain:UUID"/>
+	    		AND pep2.dynamicflag=0
+    	</template-if>
+	    	UNION ALL
+	    	   SELECT vc.uuid AS UUID, 'viewcontext' AS TYPE, vc.resourceSetId AS resourceSetId
+	    	   FROM viewcontext vc
+	    	   WHERE vc.domainid=<template-variable value="ContentRepositoryDomain:UUID"/>
+	    	) a
+	    	WHERE resourceSetId IN (
+                    <template-loop iterator="PageletModelRepository:ResourceSetIds" alias="SetId">
+                        <loop-statement><template-variable value="SetId"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>)
+		) a
+	</template>
+</query>

@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Generates the server selection include.
+@Group Monitor-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ViewServerSelection">
+  <registry xsi:type="pipeline:PipelineRegistry" href="enfinity:/smc/pipelines"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="Start">
+    <nodeSuccessors name="next" next="Pipelet1"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/monitor/pipelets/DetermineServerRegistrations.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="SelectDateRange">
+<!--@BendPoints 1,8-->
+    <nodeSuccessors name="decision_yes" next="CallNode3"/>
+<!--@BendPoints 2,5 2,12 1,12-->
+    <nodeSuccessors name="decision_no" next="InteractionNode1"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+<!--@BendPoints 1,12-->
+    <nodeSuccessors name="next" next="InteractionNode1"/>
+    <startNode referencedName="ViewServerSelection-ValidateDateRange"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode1">
+    <template referencedName="monitor/inc/monitor_server_selection"/>
+  </nodes>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="ValidateDate">
+<!--@BendPoints 5,2-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameters name="Day" type="java.lang.String" optional="true"/>
+<!--An optional pattern.-->
+    <parameters name="Time" type="java.lang.String" optional="true"/>
+    <parameters name="DefaultDaysBeforeToday" type="java.lang.Integer"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Day">
+<!--@BendPoints 5,4-->
+    <nodeSuccessors name="decision_yes" next="VerifyDate1"/>
+<!--@BendPoints 9,3 9,4-->
+    <nodeSuccessors name="decision_no" next="GetCurrentDate1"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDate.xml"/>
+    <nodeSuccessors name="next" next="Pipelet30"/>
+<!--@BendPoints 7,5 7,8-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet14"/>
+    <parameterBindings name="DatePattern" objectPath="CurrentSession:Locale:DefaultRegionalSettings:inputTimePattern"/>
+    <parameterBindings name="DateString" objectPath="Time"/>
+    <returnValueBindings name="ErrorCode" objectPath="Time_ErrorCode"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet30">
+    <pipelet href="enfinity:/core/pipelets/ConcatenateStrings.xml"/>
+<!--@BendPoints 5,8-->
+    <nodeSuccessors name="next" next="VerifyDate2"/>
+    <parameterBindings name="String0" objectPath="Day"/>
+    <parameterBindings name="String1" constant=" "/>
+    <parameterBindings name="String2" objectPath="Time"/>
+    <returnValueBindings name="Concatenated" objectPath="DayAndTime"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyDate2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDate.xml"/>
+<!--@BendPoints 5,10-->
+    <nodeSuccessors name="next" next="Pipelet5"/>
+<!--@BendPoints 6,9 6,8 7,8-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet14"/>
+    <parameterBindings name="DatePattern" objectPath="CurrentSession:Locale:DefaultRegionalSettings:inputDatePattern"/>
+    <parameterBindings name="DateString" objectPath="DayAndTime"/>
+    <returnValueBindings name="Date" objectPath="Date"/>
+    <returnValueBindings name="ErrorCode" objectPath="Day_ErrorCode"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <pipelet href="enfinity:/core/pipelets/GetLongFromDate.xml"/>
+<!--@BendPoints 5,12-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <parameterBindings name="DateObject" objectPath="Date"/>
+    <returnValueBindings name="StringObject" objectPath="TimeStamp"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+<!--The date object created from DateString-->
+    <returnValues name="TimeStamp" type="java.lang.String" optional="true"/>
+<!--The error code. Only set if the pipelet returns with the error exit.-->
+    <returnValues name="ErrorCode" type="java.lang.String" optional="true"/>
+<!--The date object created from DateString-->
+    <returnValues name="Date" type="java.util.Date" optional="true"/>
+    <returnValues name="Time_ErrorCode" type="java.lang.String" optional="true"/>
+    <returnValues name="Day_ErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet14">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="DateFormatError"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 7,12 5,12-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <pipelet href="enfinity:/core/pipelets/GetCurrentDate.xml"/>
+<!--@BendPoints 9,6-->
+    <nodeSuccessors name="next" next="CalculateDate1"/>
+    <returnValueBindings name="CurrentDate" objectPath="Date"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDate1">
+    <configurationValues name="CalculationMethod" value="Subtract"/>
+    <pipelet href="enfinity:/core/pipelets/CalculateDate.xml"/>
+<!--@BendPoints 9,10 5,10-->
+    <nodeSuccessors name="next" next="Pipelet5"/>
+    <parameterBindings name="Date" objectPath="Date"/>
+    <parameterBindings name="Days" objectPath="DefaultDaysBeforeToday"/>
+    <returnValueBindings name="CalculatedDate" objectPath="Date"/>
+  </nodes>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="ValidateDateRange">
+<!--@BendPoints 13,2-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameters name="EndTimeStamp" type="java.lang.String" optional="true"/>
+    <parameters name="StartTimeStamp" type="java.lang.String" optional="true"/>
+    <parameters name="Start_Day" type="java.lang.String" optional="true"/>
+    <parameters name="End_Day" type="java.lang.String" optional="true"/>
+    <parameters name="Start_Time" type="java.lang.String" optional="true"/>
+    <parameters name="End_Time" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameterBindings name="Day" objectPath="Start_Day"/>
+    <parameterBindings name="DefaultDaysBeforeToday" constant="(Integer)7"/>
+    <parameterBindings name="Time" objectPath="Start_Time"/>
+    <startNode referencedName="ViewServerSelection-ValidateDate"/>
+    <returnValueBindings name="Date" objectPath="StartDate"/>
+    <returnValueBindings name="Day_ErrorCode" objectPath="StartDay_ErrorCode"/>
+    <returnValueBindings name="ErrorCode" objectPath="ErrorCode"/>
+    <returnValueBindings name="TimeStamp" objectPath="StartTimeStamp"/>
+    <returnValueBindings name="Time_ErrorCode" objectPath="StartTime_ErrorCode"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameterBindings name="Day" objectPath="End_Day"/>
+    <parameterBindings name="DefaultDaysBeforeToday" constant="(Integer)0"/>
+    <parameterBindings name="Time" objectPath="End_Time"/>
+    <startNode referencedName="ViewServerSelection-ValidateDate"/>
+    <returnValueBindings name="Date" objectPath="EndDate"/>
+    <returnValueBindings name="Day_ErrorCode" objectPath="EndDay_ErrorCode"/>
+    <returnValueBindings name="ErrorCode" objectPath="ErrorCode"/>
+    <returnValueBindings name="TimeStamp" objectPath="EndTimeStamp"/>
+    <returnValueBindings name="Time_ErrorCode" objectPath="EndTime_ErrorCode"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="StartDate">
+<!--@BendPoints 13,8-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode4"/>
+<!--@BendPoints 15,7 15,16-->
+    <nodeSuccessors name="decision_no" next="EndNode2"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="EndDate">
+    <nodeSuccessors name="decision_yes" next="CalculateDate3"/>
+<!--@BendPoints 15,9 15,16-->
+    <nodeSuccessors name="decision_no" next="EndNode2"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDate3">
+    <configurationValues name="CalculationMethod" value="Add"/>
+    <configurationValues name="DefaultMinutes" value="30"/>
+    <pipelet href="enfinity:/core/pipelets/CalculateDate.xml"/>
+<!--@BendPoints 13,12-->
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+    <parameterBindings name="Date" objectPath="StartDate"/>
+    <returnValueBindings name="CalculatedDate" objectPath="MinimumEndDate"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="MinimumEndDate:Time"
+      operator="gt" conditionItem="EndDate:Time">
+<!--@BendPoints 13,14-->
+    <nodeSuccessors name="decision_yes" next="Pipelet2"/>
+<!--@BendPoints 15,13 15,16-->
+    <nodeSuccessors name="decision_no" next="EndNode2"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="InvalidTimePeriod"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 13,16 15,16-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="ErrorCode" type="java.lang.String" optional="true"/>
+    <returnValues name="EndTimeStamp" type="java.lang.String" optional="true"/>
+    <returnValues name="StartTimeStamp" type="java.lang.String" optional="true"/>
+    <returnValues name="StartDate" type="java.util.Date" optional="true"/>
+    <returnValues name="EndDate" type="java.util.Date" optional="true"/>
+    <returnValues name="StartTime_ErrorCode" type="java.lang.String" optional="true"/>
+    <returnValues name="EndTime_ErrorCode" type="java.lang.String" optional="true"/>
+    <returnValues name="StartDay_ErrorCode" type="java.lang.String" optional="true"/>
+    <returnValues name="EndDay_ErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+</pipeline:Pipeline>

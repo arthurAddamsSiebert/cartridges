@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group GiftCard-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessPrepareGiftCardBackOfficeView" type="process">
+<!--Only gift card that id disabled
+or fully redeemed can be deleted. 
+Set dictionary parameter
+'allowDelete' if gift card can be removed.
+@Location 8,5-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1" width="2"/>
+<!--Initialize GiftCardCode used in 
+bread crumbs with gift card 
+number
+@Location 7,8-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode2"/>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="CreateDetailsForm"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateForm2"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateForm2">
+    <configurationValues name="FormName" value="GiftCardDetailsForm"/>
+    <configurationValues name="FormResource" value="GiftCardDetailsForm"/>
+    <pipelet href="enfinity:/core/pipelets/CreateForm.xml"/>
+<!--@BendPoints 13,4-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <returnValueBindings name="Form" objectPath="GiftCardDetailsForm"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4"/>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="PrepareBackOfficeDetailsView"
+      callMode="Private">
+<!--@BendPoints 11,2-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="GetGiftCardByID1"/>
+    <startNode referencedName="ProcessPrepareGiftCardBackOfficeView-CreateDetailsForm"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetGiftCardByID1">
+    <pipelet href="enfinity:/bc_giftcard/pipelets/PrepareBackOfficeDetailsView.xml"/>
+<!--@BendPoints 11,6-->
+    <nodeSuccessors name="next" next="SetFormParameterValue1"/>
+    <parameterBindings name="Domain" objectPath="CurrentChannel:RepositoryDomain"/>
+    <parameterBindings name="GiftCardId" objectPath="GiftCardID"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetFormParameterValue1">
+    <pipelet href="enfinity:/core/pipelets/SetFormParameterValue.xml"/>
+<!--@BendPoints 11,8-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="FormParameter" objectPath="GiftCardDetailsForm:GiftCard_Enabled"/>
+    <parameterBindings name="Value" objectPath="GiftCard:Enabled"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="GiftCard:Enabled"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 11,10-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode2"/>
+<!--@BendPoints 15,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="GiftCard:Status"
+      operator="str_neq" conditionValue="REDEEMED">
+    <nodeSuccessors name="decision_yes" next="JoinNode1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <parameterBindings name="InValue_1" objectPath="GiftCard:Number"/>
+    <returnValueBindings name="OutValue_1" objectPath="GiftCardCode"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3"/>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 15,12-->
+    <nodeSuccessors name="next" next="SetDictionaryValue1"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="allowDelete"/>
+    <configurationValues name="Value" value="allowDelete"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 15,15-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="ProcessSearch" callMode="Private">
+    <nodeSuccessors name="next" next="CreateForm1"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateForm1">
+    <configurationValues name="FormName" value="GiftCardSearchForm"/>
+    <configurationValues name="FormResource" value="GiftCardSearchForm"/>
+    <pipelet href="enfinity:/core/pipelets/CreateForm.xml"/>
+    <nodeSuccessors name="next" next="ValidateForm1"/>
+    <returnValueBindings name="Form" objectPath="GiftCardSearchForm"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ValidateForm1">
+    <pipelet href="enfinity:/core/pipelets/ValidateForm.xml"/>
+    <nodeSuccessors name="next" next="VerifySearchTerm1"/>
+<!--@BendPoints 7,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="Form" objectPath="GiftCardSearchForm"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifySearchTerm1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifySearchTerm.xml"/>
+    <nodeSuccessors name="next" next="VerifySearchTerm2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="UserSearchTerm" objectPath="GiftCardSearchForm:Code:Value"/>
+    <returnValueBindings name="ErrorCode" objectPath="CodeError"/>
+    <returnValueBindings name="SearchExpression" objectPath="CodeSearchExpression"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifySearchTerm2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifySearchTerm.xml"/>
+    <nodeSuccessors name="next" next="VerifySearchTerm3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="UserSearchTerm" objectPath="GiftCardSearchForm:Order_Number:Value"/>
+    <returnValueBindings name="ErrorCode" objectPath="OrderNumberError"/>
+    <returnValueBindings name="SearchExpression" objectPath="OrderNumberSearchExpression"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifySearchTerm3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifySearchTerm.xml"/>
+    <nodeSuccessors name="next" next="VerifySearchTerm4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="UserSearchTerm" objectPath="GiftCardSearchForm:Consumer_First_Name:Value"/>
+    <returnValueBindings name="ErrorCode" objectPath="ConsumerFirstNameError"/>
+    <returnValueBindings name="SearchExpression" objectPath="ConsumerFirstNameSearchExpression"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifySearchTerm4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifySearchTerm.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+    <parameterBindings name="UserSearchTerm" objectPath="GiftCardSearchForm:Consumer_Last_Name:Value"/>
+    <returnValueBindings name="ErrorCode" objectPath="ConsumerLastNameError"/>
+    <returnValueBindings name="SearchExpression" objectPath="ConsumerLastNameSearchExpression"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 5,16-->
+    <nodeSuccessors name="next" next="UpdateDictionary1"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary1">
+    <configurationValues name="Name_01" value="CodeSearchExpression"/>
+    <configurationValues name="Name_02" value="Domain"/>
+    <configurationValues name="Name_03" value="Status"/>
+    <configurationValues name="Name_04" value="GiftCardDomain"/>
+    <configurationValues name="Name_06" value="ConsumerFirstNameSearchExpression"/>
+    <configurationValues name="Name_07" value="ConsumerLastNameSearchExpression"/>
+    <configurationValues name="Name_08" value="OrderNumberSearchExpression"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="UpdateDictionary2"/>
+    <parameterBindings name="InDictionary" objectPath="QuerySearchParameters"/>
+    <parameterBindings name="Value_01" objectPath="CodeSearchExpression"/>
+    <parameterBindings name="Value_02" objectPath="Domain"/>
+    <parameterBindings name="Value_03" objectPath="GiftCardSearchForm:Status:Value"/>
+    <parameterBindings name="Value_04" objectPath="ConsumerOrganization:Domain"/>
+    <parameterBindings name="Value_06" objectPath="ConsumerFirstNameSearchExpression"/>
+    <parameterBindings name="Value_07" objectPath="ConsumerLastNameSearchExpression"/>
+    <parameterBindings name="Value_08" objectPath="OrderNumberSearchExpression"/>
+    <returnValueBindings name="OutDictionary" objectPath="QuerySearchParameters"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary2">
+    <configurationValues name="Name_01" value="SortByCode"/>
+    <configurationValues name="Name_02" value="SortByTemplate"/>
+    <configurationValues name="Name_03" value="SortByCreated"/>
+    <configurationValues name="Name_04" value="SortByEnabled"/>
+    <configurationValues name="Name_05" value="SortByStatus"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="UpdateDictionary3"/>
+    <parameterBindings name="InDictionary" objectPath="QuerySearchParameters"/>
+    <parameterBindings name="Value_01" objectPath="SortByCode"/>
+    <parameterBindings name="Value_02" objectPath="SortByTemplate"/>
+    <parameterBindings name="Value_03" objectPath="SortByCreated"/>
+    <parameterBindings name="Value_04" objectPath="SortByEnabled"/>
+    <parameterBindings name="Value_05" objectPath="SortByStatus"/>
+    <returnValueBindings name="OutDictionary" objectPath="QuerySearchParameters"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary3">
+    <configurationValues name="Name_01" value="Type"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="GetGiftCards2"/>
+    <parameterBindings name="InDictionary" objectPath="QuerySearchParameters"/>
+    <parameterBindings name="Value_01" objectPath="GiftCardSearchForm:Type:Value"/>
+    <returnValueBindings name="OutDictionary" objectPath="QuerySearchParameters"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetGiftCards2">
+    <pipelet href="enfinity:/bc_giftcard/pipelets/PrepareBackOfficeListView.xml"/>
+<!--@BendPoints 5,24-->
+    <nodeSuccessors name="next" next="CreatePageableFromCollection2"/>
+<!--@BendPoints 6,23 6,27-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="Domain" objectPath="Domain"/>
+    <parameterBindings name="GiftCardServiceID" objectPath="GiftCardService:ServiceID"/>
+    <parameterBindings name="SearchParameters" objectPath="QuerySearchParameters"/>
+    <returnValueBindings name="GiftCards" objectPath="GiftCardsResult"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePageableFromCollection2">
+    <configurationValues name="Pagesize" value="10"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableFromCollection.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="Collection" objectPath="GiftCardsResult"/>
+    <returnValueBindings name="Pageable" objectPath="GiftCards"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 5,28-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 7,15-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+</pipeline:Pipeline>

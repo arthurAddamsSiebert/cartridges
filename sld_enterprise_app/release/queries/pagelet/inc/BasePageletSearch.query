@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This pipelet searches pagelets for a domain with a specified name, type, public flag and pageflag.">
+<parameters>
+	<parameter name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the pagelet belongs to."/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false" description="Search in context of the given locale."/>
+	<parameter name="AllLocales" type="java.util.Iterator" optional="false" description="All available locales."/>
+	<parameter name="PageFlag" type="java.lang.String" optional="false" description="This flag defines, if the query should search for pagelets where PAGEFLAG = 1 (true/false)."/>
+	<parameter name="Name" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="This is the display name of the pagelet."/>
+	<parameter name="PageletID" type="java.lang.String" optional="true" description="This is the ID attribute of the pagelet."/>
+	<parameter name="PageletTypes" type="java.util.Iterator" optional="true" description="An iterator of pagelet definitions."/>
+	<parameter name="ApplicationType" type="com.intershop.beehive.core.capi.domain.ApplicationType" optional="true" description="The application type the pagelets need to be valid for."/>
+	<parameter name="LabelID" type="java.lang.String" optional="true" description="The UUID of Label used to filter components by their PageletLabelAssignment."/>
+	<parameter name="LastModifiedFrom" type="java.util.Date" optional="true"/>
+	<parameter name="LastModifiedTo" type="java.util.Date" optional="true"/>
+	<parameter name="ConfigParamType" type="java.lang.String" optional="true"/>
+	<parameter name="ConfigParamValueExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="AuthorFirstName" type="java.lang.String" optional="true"/>
+	<parameter name="AuthorLastName" type="java.lang.String" optional="true"/>
+	<parameter name="Publishing" type="java.lang.String" optional="true"/>
+	<parameter name="PublishedFrom" type="java.lang.String" optional="true"/>
+	<parameter name="PublishedTo" type="java.lang.String" optional="true"/>
+	<parameter name="PublishedFromSinceDate" type="java.util.Date" optional="true"/>
+	<parameter name="PublishedFromTillDate" type="java.util.Date" optional="true"/>
+	<parameter name="PublishedToSinceDate" type="java.util.Date" optional="true"/>
+	<parameter name="PublishedToTillDate" type="java.util.Date" optional="true"/>
+	<parameter name="AssignmentsVisibility" type="java.lang.String" optional="true"/>
+	<parameter name="SearchForEmptySlots" type="java.lang.String" optional="true" description="Defines if the query should search for pagelets with empty slots."/>
+	<parameter name="EmptySlotsFromDate" type="java.util.Date" optional="true"/>
+	<parameter name="EmptySlotsToDate" type="java.util.Date" optional="true"/>
+	<parameter name="MandatorySlotsOnly" type="java.lang.String" optional="true" description="Defines if the query should search for pagelets with mandatory slots."/>
+	<parameter name="SharingSearchType" type="java.lang.String" optional="true"/>
+	<parameter name="SharedRepositoryDomainID" type="java.lang.String" optional="true" description="If 'true' or empty, the template 'ConfigurationParameterFilterPrefix' will be included, else not."/>
+
+	<parameter name="SortedNames" type="java.util.Map" optional="true" description="A Map of pagelet qualified names sorted according to the display name of page components, localize in current locale."/>
+	<parameter name="SortBy" type="java.lang.String" optional="true" description="The column by which the result set should be sorted."/>
+	<parameter name="WritePrefix" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Pagelet" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletPO" description="This is the found pagelet.">
+		<return-attribute name="PageletUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="cName" input="Name" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cConfigParamValue" input="ConfigParamValueExpression" processing="SearchExpression2Contains"/>
+</processor>
+<template type="objects">
+	<template-if condition="(NOT isDefined(WritePrefix)) OR (WritePrefix EQ 'true')">
+		<template-call name="content/inc/prefix/ConfigurationParameterFilterPrefix">
+			<call-parameter name="AllLocales" value="AllLocales"/>
+	          <call-parameter name="ConfigParamValueExpression" value="ConfigParamValueExpression"/>
+		</template-call>
+	</template-if>
+	select p.UUID as pageletuuid, p.onlineflag as onlineflag
+	     <template-if condition="isDefined(SortedNames)">
+	       ,
+	       <template-call name="pagelet/inc/PageletsSorting">
+	         <call-parameter name="TableAlias" value="&apos;p&apos;"/>
+	         <call-parameter name="AVTableAlias" value="&apos;pav&apos;"/>
+	         <call-parameter name="UserTableAlias" value="&apos;profile&apos;"/>
+	         <call-parameter name="SortBy" value="SortBy"/>
+	         <call-parameter name="SortedNames" value="SortedNames"/>
+	       </template-call> as sorting
+	     </template-if> 
+	  from pagelet p
+	  left outer join pagelet_av pav
+	    on (    p.uuid = pav.ownerid and pav.name = &apos;displayName&apos; 
+	        and pav.localeid = <template-variable value="Locale:LocaleID"/>)
+	<template-if condition="isDefined(LabelID) and LabelID ne &apos;all&apos;">
+	  join pageletlabelassignment p_label_assign
+	    on (    p.uuid = p_label_assign.pageletuuid
+	        and p_label_assign.labeluuid = <template-variable value="LabelID"/>)
+	</template-if>
+	<template-if condition="(isDefined(ConfigParamType) and ConfigParamType ne 'all') or isDefined(ConfigParamValueExpression) and ConfigParamValueExpression:NotEmpty">
+	  join (<template-call name="content/inc/ConfigurationParameterFilter">
+	          <call-parameter name="AllLocales" value="AllLocales"/>
+	          <call-parameter name="ConfigParamType" value="ConfigParamType"/>
+	          <call-parameter name="ConfigParamValue" value="cConfigParamValue"/>
+	        </template-call>) param_found
+	    on (p.uuid = param_found.configurationparameterctnrid)
+	</template-if>
+	<template-if condition="(isDefined(SortBy) and (SortBy eq &apos;author&apos;))            
+	                         or (isDefined(AuthorFirstName) and AuthorFirstName ne &apos;&apos;)            
+	                         or (isDefined(AuthorLastName) and AuthorLastName ne &apos;&apos;)">
+	  join basicprofile profile
+	    on (    p.authorid = profile.uuid
+	      <template-if condition="isDefined(AuthorFirstName) and AuthorFirstName ne &apos;&apos;">
+	        and upper(profile.firstname) = upper(<template-variable value="AuthorFirstName"/>)
+	      </template-if>
+	      <template-if condition="isDefined(AuthorLastName) and AuthorLastName ne &apos;&apos;">
+	        and upper(profile.lastname) = upper(<template-variable value="AuthorLastName"/>)
+	      </template-if>
+	       )
+	</template-if>
+	  where (p.domainid in (
+	  <template-call name="pagelet/inc/ContentRepositories">
+	    <call-parameter name="Repository" value="Repository"/>
+	    <call-parameter name="SharingSearchType" value="SharingSearchType"/>
+	    <call-parameter name="SharedRepositoryDomainID" value="SharedRepositoryDomainID"/>
+	  </template-call>))
+	  <template-if condition="PageFlag EQ &apos;true&apos;">
+	    and p.PageFlag = 1
+	  <if-else/>
+	    and p.PageFlag = 0
+	  </template-if>
+	  <template-if condition="TemplateFlag eq &apos;true&apos;">
+	    and p.TemplateFlag = 1
+	  <if-else/>
+	    and p.TemplateFlag = 0
+	  </template-if>
+	  <template-if condition="&apos;unassigned&apos; eq AssignmentsVisibility">
+	    and not exists (
+	        select 1
+	          from pageletentrypoint_pa pep_pa
+	         where pep_pa.pageletid = p.uuid)
+	  </template-if>
+	  <template-if condition="isDefined(PageletID) and (PageletID ne &apos;&apos;)">
+	    and upper(p.id) = upper(<template-variable value="PageletID"/>)
+	  </template-if>
+	  <template-if condition="isDefined(Name) and Name:NotEmpty">
+	    <sql-dialect name="Oracle">and (contains(pav.stringvalue, <template-variable value="cName"/>) &gt; 0)</sql-dialect>
+	    <sql-dialect name="Microsoft">and contains(pav.stringvalue, <template-variable value="cName"/>)</sql-dialect>
+	  </template-if>
+	  <template-if condition="isDefined(LastModifiedFrom)">
+	    and p.lastmodified &gt; <template-variable value="LastModifiedFrom"/>
+	  </template-if>
+	  <template-if condition="isDefined(LastModifiedTo)">
+	    and p.lastmodified &lt; <template-variable value="LastModifiedTo"/>
+	  </template-if>
+
+	  <template-if condition="isDefined(SearchForEmptySlots) and (SearchForEmptySlots eq 'true')">
+	    and exists (
+	        select 1
+	          from slot s 
+	               left outer join slotpageletassignment spa 
+	                 on (s.uuid = spa.parentslotid) 
+	         where p.uuid = s.parentpageletid
+	           and (     spa.uuid is null <!-- there is a slot but no subpagelet is assigned to it -->
+	                <template-if condition="isDefined(EmptySlotsFromDate)">
+	                  or spa.validto &lt; <template-variable value="EmptySlotsFromDate"/>
+	                </template-if>
+	                <template-if condition="isDefined(EmptySlotsToDate)">
+	                  or <template-variable value="EmptySlotsToDate"/> &lt; spa.validfrom  
+	                </template-if>
+	                <template-if condition="not (isDefined(EmptySlotsFromDate) or isDefined(EmptySlotsToDate))">
+	                  or spa.validto &lt; sysdate
+	                  or sysdate &lt; spa.validfrom
+	                </template-if>
+	               )
+	      ) 
+	    <template-if condition="isDefined(MandatorySlotsOnly) and MandatorySlotsOnly eq &apos;true&apos;">
+	      and exists (select 1 from slot s where s.parentpageletid = p.uuid and s.optionalflag = 0)
+	    </template-if>
+	  </template-if>	
+
+	  <template-call name="pagelet/inc/PublishingFilter">
+	    <call-parameter name="TableAlias" value="&apos;p&apos;"/>
+	    <call-parameter name="WhereClause" value="false()"/>
+	    <call-parameter name="PublishingOption" value="Publishing"/>
+	    <call-parameter name="PublishedFromOption" value="PublishedFrom"/>
+	    <call-parameter name="PublishedToOption" value="PublishedTo"/>
+	    <call-parameter name="PublishedFromSinceDate" value="PublishedFromSinceDate"/>
+	    <call-parameter name="PublishedFromTillDate" value="PublishedFromTillDate"/>
+	    <call-parameter name="PublishedToSinceDate" value="PublishedToSinceDate"/>
+	    <call-parameter name="PublishedToTillDate" value="PublishedToTillDate"/>
+	  </template-call>
+
+      <template-if condition="isDefined(PageletTypes)">
+    	<template-if condition="hasElements(PageletTypes)">
+    	  and p.definitionqualifiedname in (
+    	  <template-loop iterator="PageletTypes" alias="PageletType">
+    	    <loop-statement><template-variable value="PageletType:QualifiedName"/></loop-statement>
+    	    <loop-separator>,</loop-separator>
+    	  </template-loop>)	
+        <if-else/>
+          and 1 = 2 
+        </template-if>
+      </template-if>
+      
+      <template-if condition="isDefined(ApplicationType)">
+        <template-if condition="hasElements(ApplicationType:CartridgeNamesList)">
+          and p.resourcesetid in (
+          <template-loop iterator="ApplicationType:CartridgeNamesList" alias="ResourceSetId">
+            <loop-statement><template-variable value="ResourceSetId"/></loop-statement>
+            <loop-separator>,</loop-separator>
+          </template-loop>) 
+        <if-else/>
+          and 1 = 2 
+        </template-if>
+      </template-if>    
+
+</template>
+</query>

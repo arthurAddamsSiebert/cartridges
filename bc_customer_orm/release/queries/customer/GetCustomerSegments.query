@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Retrieves CustomerSegmentBO instances which belong to a specified domain.">
+<parameters>
+  <parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+  <parameter name="SortByName" type="java.lang.String" optional="true"/>
+  <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<return-mappings>
+  <return-mapping name="CustomerSegmentBO" type="bo-orm" class="com.intershop.component.foundation.internal.usergroup.ConsumerGroupPO" mapperclass="ConsumerGroupPOToCustomerSegmentBOMapper">
+    <return-attribute name="uuid"/>
+  </return-mapping>
+</return-mappings>
+<processor name="OracleSQL" />
+<template type="countedobjects">
+         select cg.uuid as uuid, COUNT(cg.id) OVER() as "rowcount", ugi_av.stringvalue AS sorting
+           from consumergroup cg
+           join usergroupinformation ugi on (cg.id = ugi.usergroupid AND cg.domainid = ugi.domainid)
+left outer join usergroupinformation_av ugi_av on (ugi.uuid = ugi_av.ownerid and ugi_av.name = &apos;name&apos; and ugi_av.localeid = <template-variable value="LocaleInformation:LocaleID"/>)
+          where cg.domainid = <template-variable value="Domain:DomainID"/>
+            and cg.usergroupownedflag = 1
+            and (    (upper(cg.id) like &apos;CG_%&apos;)
+                  or (upper(cg.id) like &apos;IG_%&apos;)
+                )
+	<sql-dialect name="Oracle">
+          order by sorting
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+          order by CASE WHEN ugi_av.stringvalue IS NULL THEN 0 ELSE 1 END
+	</sql-dialect>
+		
+    <template-if condition="isDefined(SortByName)">
+        <template-if condition="ucase(pad(SortByName,1)) EQ 'D'">
+		<sql-dialect name="Microsoft">
+				 DESC, ugi_av.stringvalue DESC 
+		</sql-dialect>
+		<sql-dialect name="Oracle">
+			 desc nulls last
+		</sql-dialect>
+		
+           
+        <if-else/>
+			<sql-dialect name="Microsoft">
+			DESC, ugi_av.stringvalue ASC
+			</sql-dialect>
+		<sql-dialect name="Oracle">
+			asc nulls last
+		</sql-dialect>
+           
+        </template-if>
+    <if-else/>
+		<sql-dialect name="Microsoft">
+				DESC, ugi_av.stringvalue ASC 
+		</sql-dialect>
+		<sql-dialect name="Oracle">
+			asc nulls last
+		</sql-dialect>
+           
+    </template-if>
+</template>
+</query>

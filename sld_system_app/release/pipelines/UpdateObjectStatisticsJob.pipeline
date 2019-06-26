@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Job-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="UpdateObjectStatisticsJob" type="job">
+<!--Loop all orgs and 
+call processing pipeline.
+@Location 0,11-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode2"/>
+<!--Loop all channels and 
+call processing pipeline 
+based on typecode.
+@Location 0,4-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="Start" callMode="Private">
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="TypeCodes"/>
+    <configurationValues name="QueryName" value="channel/GetChannelsByTypeCode"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="ParameterValue_01" constant="32 42 52"/>
+    <returnValueBindings name="SearchResult" objectPath="Channels"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Channels">
+<!--@BendPoints 4,7 6,7 6,14 3,14-->
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+    <entry key="CurrentChannel">
+      <nodeSuccessors name="loop_entry_next" next="ConcatenateStrings1"/>
+    </entry>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings1">
+    <configurationValues name="DefaultString0" value="UpdateObjectStatistics_"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="ExecutePipeline1"/>
+    <parameterBindings name="String1" objectPath="CurrentChannel:TypeCode"/>
+    <returnValueBindings name="Concatenated" objectPath="PipelineName"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline1">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelineStartNode" value="ProcessChannel"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 4,11 4,13-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="PipelineDomain" objectPath="CurrentChannel:OwningDomain:Site"/>
+    <parameterBindings name="PipelineDomainID" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainName" nullBinding="true"/>
+    <parameterBindings name="PipelineName" objectPath="PipelineName"/>
+    <parameterBindings name="PipelineStartNode" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 2,13 2,7-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector2"/>
+    <parameterBindings name="Object" constant="20"/>
+    <returnValueBindings name="OutVector" objectPath="TypeCodes"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery2"/>
+    <parameterBindings name="InVector" objectPath="TypeCodes"/>
+    <parameterBindings name="Object" constant="30"/>
+    <returnValueBindings name="OutVector" objectPath="TypeCodes"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery2">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="TypeCodes"/>
+    <configurationValues name="QueryName" value="organization/GetOrganizationsByTypeCode"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 3,20-->
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <parameterBindings name="ParameterValue_01" objectPath="TypeCodes"/>
+    <returnValueBindings name="SearchResult" objectPath="Organizations"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Organizations">
+<!--@BendPoints 4,21-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <entry key="CurrentOrganization">
+<!--@BendPoints 3,22-->
+      <nodeSuccessors name="loop_entry_next" next="ExecutePipeline2"/>
+    </entry>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline2">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelineName" value="UpdateObjectStatistics"/>
+    <configurationValues name="PipelineStartNode" value="ProcessMaster"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+<!--@BendPoints 4,23 4,25-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="PipelineDomain" objectPath="CurrentOrganization:OrganizationDomain:Site"/>
+    <parameterBindings name="PipelineDomainID" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainName" nullBinding="true"/>
+    <parameterBindings name="PipelineName" nullBinding="true"/>
+    <parameterBindings name="PipelineStartNode" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 3,26 2,26 2,21-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+</pipeline:Pipeline>

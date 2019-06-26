@@ -1,0 +1,1 @@
+Stores; Resource for store related Tables.; Database;ZL8KAM7O9XIAAAFOdNZItFNP

@@ -1,0 +1,118 @@
+<!---[Comment]--->
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<isform action="#URL(Action('ViewChannelProductStatistics-Dispatch'))#" method="post" name="aform">
+<table border="0" cellspacing="0" cellpadding="0" width="100%">
+	<tr>
+		<td class="table_title aldi"><istext key="product.validation.completeness.heading"/></td>
+	</tr>
+	<tr>
+	     <isif condition="#NOT isDefined(Process)#">
+	     	<td class="table_title_description w e s">
+	       		<istext key="product.validation.completeness.jobstatus.notexecuted"/>.	   
+	     <iselse>	       
+	        <isif condition="#((Process:Status==1) OR (Process:Status==0)) AND (Process:ExtendedStatus==1)#">
+	        	<td class="w e s">
+					<table border="0" cellspacing="0" cellpadding="4" width="100%" class="">
+						<tr>
+							<td class="information e"><img src="#WebRoot()#/images/confirmation_info.gif" width="16" height="15" alt="" border="0"/></td>
+							<td class="information" width="100%">
+								<istext key="product.validation.completeness.jobstatus.isrunning"/>&nbsp;<isif condition="#isDefined(Process:CurrentProcess)#"><istext key="product.validation.completeness.jobstatus.progress" parameter0="#Process:CurrentProcess:ProgressValue#" parameter1="#Process:CurrentProcess:ProgressSize#"/></isif>
+							</td>
+						</tr>
+					</table>
+	        <iselse>	         
+	          <isif condition="#(Process:Status==0)#">
+	          	<td class="table_title_description w e s">
+	          		<input type="hidden" id="validationJobIsComplete" value="true" />
+	            	<istext key="product.validation.completeness.jobstatus.hasexecuted"/>&nbsp;<isprint value="#Process:LastExecutionTime#" style="DATE_SHORT">,&nbsp;<isprint value="#Process:LastExecutionTime#" style="DATE_TIME">.	  
+	          </isif>	            
+	        </isif>	         	   
+	      </isif>  	    
+	    </td>
+	</tr>
+</table>
+<table class="infobox s e w" width="100%" cellspacing="0" cellpadding="0">	
+	<tr>
+		<td colspan="2">
+			<label class="label label_light"> 
+				<istext encoding="off" key="product.validation.completeness.subheading" parameter0="#encodeValue(ActiveValidationRulesNumber)#"/>
+				&nbsp;<a class="selection_link" href="#URL(Action('ViewProductValidationRuleList-Start'), Parameter('ChannelID',ChannelID))#">
+					<istext key="product.validation.completeness.configure.link"/>
+				</a> 	       	       
+			</label>	  
+		</td> 
+	</tr>
+	<tr>
+		<td>
+			<table class="infobox" cellspacing="0" cellpadding="0">
+				<tr>
+				<td>
+					<label class="label label_light" for="productset" ><istext key="product.validation.completeness.label"/></label>
+				</td>
+				<td align="left">
+					<isset name="ProductValidationAssortmentConfigurationBOs" value="#ProductValidationAssortmentConfigurationBORepository:AllProductValidationAssortmentConfigurationBOs#" scope="request"/>
+				    <select id="ProductValidationOverviewForm_ProductAssortmentName" name="ProductValidationOverviewForm_ProductAssortmentName" class="rule_configuration_input select inputfield_en" style="width: 260px;">
+					    <isloop iterator="ProductValidationAssortmentConfigurationBOs" alias="ProductValidationAssortmentConfigurationBO">
+					    	<option <isif condition="#(ProductValidationOverviewForm:ProductAssortmentName:Value EQ ProductValidationAssortmentConfigurationBO:ID) OR (ProductValidationOverviewForm_ProductAssortmentName EQ ProductValidationAssortmentConfigurationBO:ID) #">selected="selected"</isif> value='#getValue(ProductValidationAssortmentConfigurationBO:ID)#'><isprint value="#ProductValidationAssortmentConfigurationBO:Name#"/></option>
+					    </isloop>
+				    </select>
+					&nbsp;<a class="selection_link" href="#URL(Action('ViewProductValidationAssortmentList-List'))#"><istext key="product.validation.completeness.configure.productassortments.link"/></a>
+				</td>
+				<tr>
+			</table>
+		</td>		
+		<td align="right">
+			<table>
+				<tr>
+					<td class="button">
+						<input class="button" name="runjob" value="<istext key="product.validation.completeness.run.button"/>" type="submit" <isif condition="#NOT isDefined(CurrentChannelPermissionMap:SLD_MANAGE_PRODUCTS) OR (NOT(isDefined(ProductValidationAssortmentConfigurationBOs) AND hasLoopElements(ProductValidationAssortmentConfigurationBOs))) OR (((Process:Status==1) OR (Process:Status==0)) AND (Process:ExtendedStatus==1)) OR (ActiveValidationRulesNumber == 0) OR (AllProductsLocked EQ 'true')#">disabled </isif>>
+					</td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+</table>
+
+<script language="javascript" type="text/javascript">
+	$(document).ready(function() {
+		
+		// binds change callback function for product assortment selection box
+		$('#ProductValidationOverviewForm_ProductAssortmentName').bind('change', function(ev) {
+			var value = $(this).val();
+			var params = '?ProductValidationOverviewForm_ProductAssortmentName=' + value;
+			
+			var progressIndicatorHTML = $('<table width="100%" cellspacing="0" cellpadding="0" border="0">' +
+											'<tr>' +
+												'<td align="center" width="100%">' +
+													'<img src="#WebRoot()#/images/ajax-loader-small.gif" alt="Loading..." width="32" height="32" />' +
+												'</td>' +
+										    '</tr>' +
+										 '</table>');
+			var resultCtnr = $('#ProductValidationResultCtnr');
+			$(resultCtnr).html(progressIndicatorHTML);
+			
+			$(resultCtnr).load("#URL(Action('ViewChannelProductStatistics-GetProductStatistics'))#" + params, 
+				function(responseText, responseStatus, req){
+			    	if (responseStatus == "error") {
+			    	    var serverConnectionProblemHTML = $('<table cellspacing="0" cellpadding="4" border="0" class="error_box">' +
+																'<tr>' +
+																	'<td><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>' +
+																	'<td class="product_validation_error" width="100%">' +
+																		'<istext key="product.validation.completeness.server.connection.problem"/>' +
+																	'</td>' +
+															    '</tr>' +
+															'</table>');
+			    	    $(resultCtnr).html(serverConnectionProblemHTML);
+			        }
+				}
+			);
+		});
+	});	
+</script>
+
+
+<div id="ProductValidationResultCtnr">
+	<isinclude template="objectstatistics/inc/ChannelProductValidationStatisticsInc.isml"/>
+</div>
+</isform>

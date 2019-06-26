@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<processor name="OracleSQL">
+</processor>
+<template type="count" sqlDialect="Oracle"> <template-comment>In line 61 is a reference to the table basicprofile, without any other reference to the rest of the query. Maybe, the whole query does not work and can be removed!</template-comment>
+SELECT COUNT(DISTINCT uuid) as count
+FROM
+  (SELECT uuid
+  FROM basicprofile b,
+    usergroupuserassignment uga
+  WHERE b.uuid                                  =uga.userid
+  AND (uga.usergroupid, uga.usergroupdomainid) IN
+    (SELECT ug.parentusergroupid,
+      ug.parentusergroupdomainid
+    FROM usergroupassignment ug
+      CONNECT BY prior ug.childusergroupid=ug.parentusergroupid
+    AND prior ug.childusergroupdomainid   =ug.parentusergroupdomainid
+      START WITH
+      (
+        ug.parentusergroupid,
+        ug.parentusergroupdomainid
+      )
+      IN
+      (SELECT usergroupid,
+        usergroupdomainid
+      FROM domain_ra dra,
+        rolepermissionassignment rpa
+      WHERE rpa.permissionid='LOGIN_BACKOFFICE'
+      AND rpa.grantedflag   =1
+      AND dra.roleid        =rpa.roleid
+      )
+    )
+  UNION
+  SELECT uuid
+  FROM basicprofile b,
+    usergroupassignment uga
+  WHERE uga.parentusergroupid    ='Everyone'
+  AND uga.parentusergroupdomainid=b.domainid
+  AND b.domainid                IN
+    (SELECT ug.parentusergroupdomainid
+    FROM usergroupassignment ug
+      CONNECT BY prior ug.childusergroupid=ug.parentusergroupid
+    AND prior ug.childusergroupdomainid   =ug.parentusergroupdomainid
+      START WITH
+      (
+        ug.parentusergroupid,
+        ug.parentusergroupdomainid
+      )
+      IN
+      (SELECT usergroupid,
+        usergroupdomainid
+      FROM domain_ra dra,
+        rolepermissionassignment rpa
+      WHERE rpa.permissionid='LOGIN_BACKOFFICE'
+      AND rpa.grantedflag   =1
+      AND dra.roleid        =rpa.roleid
+      )
+    )
+  UNION
+  SELECT uuid
+  FROM basicprofile,
+    usergroupassignment uga
+  WHERE uga.parentusergroupid                               ='Everyone'
+  AND uga.parentusergroupdomainid                           ='system'
+  AND (uga.parentusergroupid, uga.parentusergroupdomainid) IN
+    (SELECT ug.parentusergroupid,
+      ug.parentusergroupdomainid
+    FROM usergroupassignment ug
+      CONNECT BY prior ug.childusergroupid=ug.parentusergroupid
+    AND prior ug.childusergroupdomainid   =ug.parentusergroupdomainid
+      START WITH
+      (
+        ug.parentusergroupid,
+        ug.parentusergroupdomainid
+      )
+      IN
+      (SELECT usergroupid,
+        usergroupdomainid
+      FROM domain_ra dra,
+        rolepermissionassignment rpa
+      WHERE rpa.permissionid='LOGIN_BACKOFFICE'
+      AND rpa.grantedflag   =1
+      AND dra.roleid        =rpa.roleid
+      )
+    )
+  )
+</template>
+<template type="count" sqlDialect="Microsoft">
+<template-comment>This form of the query should be database-independent.</template-comment>
+WITH m(parentusergroupid, parentusergroupdomainid, childusergroupid, childusergroupdomainid) as (
+  SELECT ug.parentusergroupid,ug.parentusergroupdomainid, ug.childusergroupid, ug.childusergroupdomainid
+  FROM usergroupassignment ug, domain_ra dra, rolepermissionassignment rpa 
+  WHERE ug.parentusergroupid  = dra.usergroupid
+  AND ug.parentusergroupdomainid = dra.usergroupdomainid
+  AND dra.roleid = rpa.roleid
+  AND rpa.permissionid = 'LOGIN_BACKOFFICE'
+  AND rpa.grantedflag = 1
+  UNION ALL 
+  SELECT ug2.parentusergroupid, ug2.parentusergroupdomainid, ug2.childusergroupid, ug2.childusergroupdomainid
+  FROM usergroupassignment ug2, m  
+  WHERE ug2.parentusergroupid  = m.childusergroupid
+  AND ug2.parentusergroupdomainid = m.childusergroupdomainid    
+)
+SELECT COUNT(uuid) as count
+FROM
+  (SELECT uuid
+  FROM basicprofile b,
+    usergroupuserassignment uga
+  WHERE b.uuid = uga.userid
+  AND EXISTS (select parentusergroupid, parentusergroupdomainid from m where m.parentusergroupid = uga.usergroupid and m.parentusergroupdomainid = uga.usergroupdomainid)
+  UNION
+  SELECT uuid
+  FROM basicprofile b,
+    usergroupassignment uga
+  WHERE uga.parentusergroupid ='Everyone'
+  AND uga.parentusergroupdomainid=b.domainid
+  AND b.domainid IN (SELECT parentusergroupdomainid from m)
+  UNION
+  SELECT uuid
+  FROM basicprofile,
+    usergroupassignment uga
+  WHERE uga.parentusergroupid = 'Everyone'
+  AND uga.parentusergroupdomainid = 'system'
+  AND EXISTS (select parentusergroupid, parentusergroupdomainid from m where m.parentusergroupid = uga.parentusergroupid and m.parentusergroupdomainid = uga.parentusergroupdomainid)
+  ) a 
+</template>
+</query>

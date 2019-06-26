@@ -1,0 +1,571 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Handles the whole user interaction involved in an BMEcat catalog import. The pipeline basically implements a multi\-step wizard guiding the user through the import process. To start the import process, the pipeline ControlBMEcatImport is used.
+@Group ImportExport-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ViewBMEcatImport_32" type="view">
+<!--Used in general as dispatch pipeline
+@Location 16,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="CreateCatalog">
+    <nodeSuccessors name="next" next="GetWebForm1"/>
+  </nodes>
+<!--@Location 16,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetWebForm1">
+    <configurationValues name="webform-id" value="CreateCatalogForm"/>
+    <pipelet href="enfinity:/core/pipelets/GetWebForm.xml"/>
+    <nodeSuccessors name="next" next="UpdateWebForm1"/>
+<!--@BendPoints 34,3 34,4 32,4 32,3-->
+    <nodeSuccessors name="pipelet_error" next="Join6"/>
+    <parameterBindings name="WebForm" objectPath="CreateCatalogForm"/>
+    <returnValueBindings name="WebForm" objectPath="CreateCatalogForm"/>
+  </nodes>
+<!--@Location 16,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateWebForm1">
+    <configurationValues name="mode" value="update"/>
+    <configurationValues name="webform-id" value="CreateCatalogForm"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateWebForm.xml"/>
+    <nodeSuccessors name="next" next="ValidateWebForm1"/>
+    <parameterBindings name="WebForm" objectPath="CreateCatalogForm"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ValidateWebForm1">
+    <pipelet href="enfinity:/core/pipelets/ValidateWebForm.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+<!--@BendPoints 34,7 34,8 32,8 32,7-->
+    <nodeSuccessors name="pipelet_error" next="Join5"/>
+    <parameterBindings name="WebForm" objectPath="CreateCatalogForm"/>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetLocale1"/>
+    <parameterBindings name="InValue_1" objectPath="CreateCatalogForm_CatalogID"/>
+    <parameterBindings name="InValue_2" objectPath="CreateCatalogForm_CatalogID"/>
+    <parameterBindings name="InValue_3" objectPath="CreateCatalogForm_CatalogID"/>
+    <parameterBindings name="InValue_4" objectPath="ChannelRepository:Domain"/>
+    <returnValueBindings name="OutValue_1" objectPath="Id"/>
+    <returnValueBindings name="OutValue_2" objectPath="DisplayName"/>
+    <returnValueBindings name="OutValue_3" objectPath="Description"/>
+    <returnValueBindings name="OutValue_4" objectPath="CatalogOrganizationDomain"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue1"/>
+  </nodes>
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="CustomCatalogType"/>
+    <configurationValues name="Value" value="Private"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Call4"/>
+  </nodes>
+<!--@Location 16,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call4">
+<!--@BendPoints 33,16 30,16 30,7-->
+    <nodeSuccessors name="next" next="Join5"/>
+    <startNode referencedName="ProcessCatalog-CreateCatalog"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 15,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="GetJobConfiguration2"/>
+    <parameterBindings name="CatalogOwningDomain" objectPath="CurrentChannel:RepositoryDomain"/>
+    <startNode referencedName="ProcessChannelCatalog-GetSortedStandardAndSharedCatalogs"/>
+    <returnValueBindings name="StandardCatalogs" objectPath="Catalogs"/>
+  </nodes>
+<!--@Location 15,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetJobConfiguration2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetJobConfiguration.xml"/>
+    <nodeSuccessors name="next" next="Pipelet10"/>
+<!--@BendPoints 33,19-->
+    <nodeSuccessors name="pipelet_error" next="Jump4"/>
+    <parameterBindings name="JobUUID" objectPath="JobConfigurationUUID"/>
+  </nodes>
+<!--@Location 15,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet10">
+    <configurationValues name="SelectedMenuItem" value="ChannelImportExport"/>
+    <configurationValues name="WorkingTemplate" value="impex/BMEcatImportSelectCatalog_32"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode1"/>
+  </nodes>
+<!--@Location 15,11-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode1">
+    <template referencedName="application/ApplicationFrame"/>
+  </nodes>
+<!--@Location 16,11-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump4">
+    <startNode referencedName="Error-Start"/>
+  </nodes>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+    <nodeSuccessors name="next" next="CreateWebForm2"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateWebForm2">
+    <configurationValues name="param.1.name" value="CatalogID"/>
+    <configurationValues name="param.1.required" value="true"/>
+    <configurationValues name="param.1.rule" value="^[a-zA-Z0-9\-\_]+$"/>
+    <configurationValues name="webform-id" value="CreateCatalogForm"/>
+    <pipelet href="enfinity:/core/pipelets/CreateWebForm.xml"/>
+    <nodeSuccessors name="next" next="Join5"/>
+    <returnValueBindings name="WebForm" objectPath="CreateCatalogForm"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="Dispatch">
+    <nodeSuccessors name="next" next="Pipelet9"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet9">
+    <configurationValues name="OutValue_0" value="ViewBMEcatImport_32-SelectFile"/>
+    <configurationValues name="OutValue_1" value="ViewBMEcatImport_32-Paging"/>
+    <configurationValues name="OutValue_2" value="ViewBMEcatImport_32-ValidateFile"/>
+    <configurationValues name="OutValue_3" value="ViewBMEcatImport_32-ValidateFileRefresh"/>
+    <configurationValues name="OutValue_4" value="ViewBMEcatImport_32-SelectCatalog"/>
+    <configurationValues name="OutValue_5" value="ViewBMEcatImport_32-CreateCatalog"/>
+    <configurationValues name="OutValue_6" value="ViewBMEcatImport_32-Import"/>
+    <configurationValues name="PagingPipeline" value="ViewBMEcatImport_32-Paging"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/DispatchFormAction.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+<!--@BendPoints 5,3 5,4-->
+    <nodeSuccessors name="pipelet_error" next="DispatchFormActionByBreadcrumb1"/>
+    <parameterBindings name="Key_0" objectPath="SelectFile"/>
+    <parameterBindings name="Key_1" objectPath="Paging"/>
+    <parameterBindings name="Key_2" objectPath="ValidateFile"/>
+    <parameterBindings name="Key_3" objectPath="ValidateFileRefresh"/>
+    <parameterBindings name="Key_4" objectPath="SelectCatalog"/>
+    <parameterBindings name="Key_5" objectPath="CreateCatalog"/>
+    <parameterBindings name="Key_6" objectPath="Import"/>
+    <returnValueBindings name="SelectionKey" objectPath="JumpTarget"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="JumpNode2"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode2">
+    <startNode referencedName="SecureJump-Start"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DispatchFormActionByBreadcrumb1">
+    <configurationValues name="SplitMode" value="PipelineAndParameter"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/DispatchFormActionByBreadcrumb.xml"/>
+<!--@BendPoints 5,7-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+<!--@BendPoints 7,5-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue2"/>
+    <parameterBindings name="Key_0" objectPath="Cancel"/>
+    <parameterBindings name="OutValue_0" objectPath="ApplicationState:ExitFromWizard"/>
+    <returnValueBindings name="SelectionKey" objectPath="JumpTarget"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="JumpTarget"/>
+    <configurationValues name="Value" value="ViewCatalogImpex_32-Status"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 7,9-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--Used, if an error occurs during uploading the file
+@Location 19,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="Import">
+    <nodeSuccessors name="next" next="Decision1"/>
+  </nodes>
+<!--@Location 19,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="SelectedCatalogName">
+    <nodeSuccessors name="decision_yes" next="KeyMapper5"/>
+    <nodeSuccessors name="decision_no" next="Jump2"/>
+  </nodes>
+<!--@Location 19,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <configurationValues name="ValueType" value="Form Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper4"/>
+    <parameterBindings name="InValue_1" objectPath="SelectedCatalogName"/>
+    <parameterBindings name="InValue_2" objectPath="ChannelRepository:Domain:DomainName"/>
+    <parameterBindings name="InValue_3" constant="BMEcatImport_Configuration-Start"/>
+    <returnValueBindings name="OutValue_1" objectPath="CatalogDomainName"/>
+    <returnValueBindings name="OutValue_2" objectPath="RepositoryDomainName"/>
+    <returnValueBindings name="OutValue_3" objectPath="BMEcatImportConfigurationPipeline"/>
+  </nodes>
+<!--@Location 19,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 39,8-->
+    <nodeSuccessors name="next" next="KeyMapper6"/>
+    <parameterBindings name="InValue_1" objectPath="ChannelRepository:Domain"/>
+    <parameterBindings name="InValue_2" objectPath="ChannelRepository:Domain"/>
+    <parameterBindings name="InValue_3" objectPath="CurrentApplication"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProcessOwningDomain"/>
+    <returnValueBindings name="OutValue_2" objectPath="ProcessExecutionDomain"/>
+    <returnValueBindings name="OutValue_3" objectPath="Application"/>
+  </nodes>
+<!--@Location 19,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper6">
+    <configurationValues name="ValueType" value="Form Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 39,10-->
+    <nodeSuccessors name="next" next="Call2"/>
+    <parameterBindings name="InValue_1" constant="ProcessBMEcatImport"/>
+    <parameterBindings name="InValue_2" constant="Import"/>
+    <parameterBindings name="InValue_3" constant="ProcessCatalogImpex"/>
+    <parameterBindings name="InValue_4" objectPath="ChannelRepository:RepositoryDomain:UUID"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProcessPipelineName"/>
+    <returnValueBindings name="OutValue_2" objectPath="ProcessPipelineStartNode"/>
+    <returnValueBindings name="OutValue_3" objectPath="JobName"/>
+    <returnValueBindings name="OutValue_4" objectPath="CategoryAssignmentDomainUUID"/>
+  </nodes>
+<!--@Location 19,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+<!--@BendPoints 39,12-->
+    <nodeSuccessors name="next" next="Jump3"/>
+    <startNode referencedName="ProcessImpexJob-Create"/>
+  </nodes>
+<!--@Location 19,6-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump3">
+    <startNode referencedName="ViewCatalogImpex_32-Status"/>
+  </nodes>
+<!--@Location 20,1-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump2">
+    <startNode referencedName="ViewBMEcatImport_32-SelectCatalog"/>
+  </nodes>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="Paging">
+    <nodeSuccessors name="next" next="GetWebForm2"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetWebForm2">
+    <configurationValues name="webform-id" value="SelectFileForm"/>
+    <pipelet href="enfinity:/core/pipelets/GetWebForm.xml"/>
+    <nodeSuccessors name="next" next="UpdateWebForm2"/>
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+    <parameterBindings name="WebForm" objectPath="SelectFileForm"/>
+    <returnValueBindings name="WebForm" objectPath="SelectFileForm"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateWebForm2">
+    <configurationValues name="mode" value="replace"/>
+    <configurationValues name="webform-id" value="SelectFileForm"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateWebForm.xml"/>
+    <nodeSuccessors name="next" next="Pipelet1"/>
+    <parameterBindings name="WebForm" objectPath="SelectFileForm"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="DefaultPageLocatorName" value="BMEcatImportFilesPageLocator"/>
+    <configurationValues name="RestorePageLocatorDictionary" value="True"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPageLocator.xml"/>
+    <nodeSuccessors name="next" next="Pipelet5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPageable.xml"/>
+<!--@BendPoints 9,17-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="PageableID" objectPath="PageLocator:PageableID"/>
+    <returnValueBindings name="Pageable" objectPath="Files"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="PageNumber">
+    <nodeSuccessors name="decision_yes" next="Pipelet13"/>
+<!--@BendPoints 13,19-->
+    <nodeSuccessors name="decision_no" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 5,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet13">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyInteger.xml"/>
+    <nodeSuccessors name="next" next="Pipelet7"/>
+<!--@BendPoints 12,21 12,25-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="LocalizedString" objectPath="PageNumber"/>
+    <returnValueBindings name="IntegerObject" objectPath="PageNumber"/>
+  </nodes>
+<!--@Location 5,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet7">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetPage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="Pageable" objectPath="Files"/>
+  </nodes>
+<!--@Location 5,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 5,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="Pipelet8"/>
+  </nodes>
+<!--@Location 5,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet8">
+    <configurationValues name="DefaultHandlerPipeline" value="ViewBMEcatImport_32-Paging"/>
+    <configurationValues name="DefaultPageLocatorName" value="BMEcatImportFilesPageLocator"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetPageLocator.xml"/>
+    <nodeSuccessors name="next" next="Pipelet6"/>
+    <parameterBindings name="Pageable" objectPath="Files"/>
+  </nodes>
+<!--@Location 5,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <configurationValues name="SelectedMenuItem" value="ChannelImportExport"/>
+    <configurationValues name="WorkingTemplate" value="impex/BMEcatImportSelectFile_32"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode4"/>
+  </nodes>
+<!--@Location 5,16-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode4">
+    <template referencedName="application/ApplicationFrame"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="PageLocator">
+    <nodeSuccessors name="decision_yes" next="Pipelet4"/>
+<!--@BendPoints 14,21 14,25-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetPage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="PageNumber" objectPath="PageLocator:PageNumber"/>
+    <parameterBindings name="Pageable" objectPath="Files"/>
+  </nodes>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 13,27-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="Pipelet12"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet12">
+    <configurationValues name="DefaultDirectoryPath" value="src/catalog"/>
+    <configurationValues name="IncludeParentDirectories" value="false"/>
+    <configurationValues name="UnitDirectory" value="IMPEX_DIR"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/BrowseDirectory.xml"/>
+    <nodeSuccessors name="next" next="Pipelet3"/>
+<!--@BendPoints 13,13-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet14"/>
+    <parameterBindings name="UnitDomain" objectPath="ChannelRepository:Domain"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="PageableName" value="Files"/>
+    <configurationValues name="Pagesize" value="10"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableFromIterator.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="Iterator" objectPath="Directory:Files"/>
+    <returnValueBindings name="Pageable" objectPath="Files"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet14">
+    <configurationValues name="SelectedMenuItem" value="ChannelImportExport"/>
+    <configurationValues name="WorkingTemplate" value="impex/BMEcatImportSelectFile_32"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode5"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode5">
+    <template referencedName="application/ApplicationFrame"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="CreateWebForm1"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateWebForm1">
+    <configurationValues name="param.1.name" value="SelectedFile"/>
+    <configurationValues name="param.1.required" value="true"/>
+    <configurationValues name="webform-id" value="SelectFileForm"/>
+    <pipelet href="enfinity:/core/pipelets/CreateWebForm.xml"/>
+    <nodeSuccessors name="next" next="Join7"/>
+    <returnValueBindings name="WebForm" objectPath="SelectFileForm"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--Shows the upload page
+@Location 15,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="SelectCatalog">
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="SelectFile">
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="ValidateFile">
+    <nodeSuccessors name="next" next="GetWebForm3"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetWebForm3">
+    <configurationValues name="webform-id" value="SelectFileForm"/>
+    <pipelet href="enfinity:/core/pipelets/GetWebForm.xml"/>
+    <nodeSuccessors name="next" next="UpdateWebForm3"/>
+<!--@BendPoints 18,3 18,4 12,4 12,3-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+    <parameterBindings name="WebForm" objectPath="SelectFileForm"/>
+    <returnValueBindings name="WebForm" objectPath="SelectFileForm"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateWebForm3">
+    <configurationValues name="mode" value="update"/>
+    <configurationValues name="webform-id" value="SelectFileForm"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateWebForm.xml"/>
+    <nodeSuccessors name="next" next="ValidateWebForm2"/>
+    <parameterBindings name="WebForm" objectPath="SelectFileForm"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ValidateWebForm2">
+    <pipelet href="enfinity:/core/pipelets/ValidateWebForm.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+<!--@BendPoints 18,7 18,8 12,8 12,7-->
+    <nodeSuccessors name="pipelet_error" next="Join7"/>
+    <parameterBindings name="WebForm" objectPath="SelectFileForm"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper3"/>
+    <parameterBindings name="InValue_1" objectPath="ChannelRepository:Domain"/>
+    <parameterBindings name="InValue_2" objectPath="ChannelRepository:Domain"/>
+    <parameterBindings name="InValue_3" objectPath="CurrentApplication"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProcessOwningDomain"/>
+    <returnValueBindings name="OutValue_2" objectPath="ProcessExecutionDomain"/>
+    <returnValueBindings name="OutValue_3" objectPath="Application"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <configurationValues name="ValueType" value="Form Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 17,12-->
+    <nodeSuccessors name="next" next="KeyMapper7"/>
+    <parameterBindings name="InValue_1" objectPath="SelectFileForm_SelectedFile"/>
+    <returnValueBindings name="OutValue_1" objectPath="SelectedFile"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper7">
+    <configurationValues name="ValueType" value="Form Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 17,14-->
+    <nodeSuccessors name="next" next="Call5"/>
+    <parameterBindings name="InValue_1" constant="ProcessBMEcatImport"/>
+    <parameterBindings name="InValue_2" constant="Validate"/>
+    <parameterBindings name="InValue_3" constant="ProcessCatalogImpex"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProcessPipelineName"/>
+    <returnValueBindings name="OutValue_2" objectPath="ProcessPipelineStartNode"/>
+    <returnValueBindings name="OutValue_3" objectPath="JobName"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call5">
+    <nodeSuccessors name="next" next="Pipelet2"/>
+<!--@BendPoints 19,16-->
+    <nodeSuccessors name="Error" next="Jump6"/>
+    <startNode referencedName="ProcessImpexJob-Create"/>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="SelectedMenuItem" value="ChannelImportExport"/>
+    <configurationValues name="WorkingTemplate" value="impex/BMEcatImportValidateFile_32"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode3"/>
+  </nodes>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode3">
+    <template referencedName="application/ApplicationFrame"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump6">
+    <startNode referencedName="Error-Start"/>
+  </nodes>
+<!--@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="ValidateFileRefresh">
+    <nodeSuccessors name="next" next="Decision3"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="JobConfiguration"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="GetJobConfiguration1"/>
+<!--@BendPoints 24,3 24,7-->
+    <nodeSuccessors name="decision_no" next="Join8"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetJobConfiguration1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetJobConfiguration.xml"/>
+    <nodeSuccessors name="next" next="Join8"/>
+<!--@BendPoints 27,5-->
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+    <parameterBindings name="JobUUID" objectPath="JobConfigurationUUID"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join8">
+    <nodeSuccessors name="next" next="Decision2"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="JobConfiguration:Status"
+      operator="neq" conditionValue="1">
+    <nodeSuccessors name="decision_yes" next="Decision4"/>
+<!--@BendPoints 25,9-->
+    <nodeSuccessors name="decision_no" next="Join9"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision4" conditionKey="JobConfiguration:LastExecutionTime:Time"
+      operator="gt" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="Call1"/>
+    <nodeSuccessors name="decision_no" next="Join9"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+<!--@BendPoints 22,17-->
+    <nodeSuccessors name="next" next="Join3"/>
+<!--@BendPoints 23,15-->
+    <nodeSuccessors name="Error" next="Join2"/>
+    <startNode referencedName="ProcessImpexJob-GetLogContent"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+    <nodeSuccessors name="next" next="Pipelet11"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet11">
+    <configurationValues name="SelectedMenuItem" value="ChannelImportExport"/>
+    <configurationValues name="WorkingTemplate" value="impex/BMEcatImportValidateFile_32"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode2"/>
+  </nodes>
+<!--@Location 11,10-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode2">
+    <template referencedName="application/ApplicationFrame"/>
+  </nodes>
+<!--@Location 13,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="Jump5"/>
+  </nodes>
+<!--@Location 13,10-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump5">
+    <startNode referencedName="Error-Start"/>
+  </nodes>
+<!--@Location 12,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join9">
+<!--@BendPoints 25,16 23,16-->
+    <nodeSuccessors name="next" next="Join3"/>
+  </nodes>
+</pipeline:Pipeline>

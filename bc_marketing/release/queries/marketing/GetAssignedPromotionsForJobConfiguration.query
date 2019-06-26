@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Search promotions for export">
+<parameters>
+	<parameter name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration" optional="false"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="SortByColumn" type="java.lang.String" optional="true" processing="column(SortBy, names('pav1.stringvalue', 'p.StartDate:StartDate', 'p.EndDate:EndDate', 'p.EnabledFlag:Status', '(SELECT ract.actiondescriptorid FROM rebate reb LEFT OUTER JOIN rebateaction ract ON (ract.rebateid = reb.uuid) WHERE reb.promotionuuid = p.uuid AND reb.position = 0 ):Type','p.Rank:Rank','(case when pav2.datevalue is null then p.lastmodified else pav2.datevalue end):Edited'))"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="StaticAssignmentsEnabled" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Promotion" type="orm" class="com.intershop.component.marketing.internal.rebate.PromotionPO">
+		<return-attribute name="PROMOTIONUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	SELECT p.uuid as PROMOTIONUUID, COUNT(*) over() AS "ROWCOUNT"
+	    FROM promotion p 
+		<template-if condition="NOT isDefined(SortBy) OR SortBy EQ &apos;PromotionName&apos;">
+	 		LEFT OUTER JOIN promotion_av pav1 ON (
+	 			pav1.ownerid = p.uuid
+				and pav1.name = &apos;displayName&apos;
+				and pav1.localeid = <template-variable value="Locale:LocaleID"/>			
+			)
+		</template-if>	
+		<template-if condition="SortBy EQ &apos;Edited&apos;">
+		    LEFT OUTER JOIN promotion_av pav2  ON (pav2.ownerid = p.uuid and pav2.name=&apos;EditedDate&apos;)
+		</template-if>
+		WHERE    
+     		p.domainid=<template-variable value="Domain:UUID"/>
+			<template-if condition="isDefined(JobConfiguration:StaticAssignments) AND NOT(isDefined(StaticAssignmentsEnabled))"> 
+				<sql-dialect name="Oracle">and instr(<template-variable value="JobConfiguration:StaticAssignments"/>, p.uuid) &gt; 0</sql-dialect>
+				<sql-dialect name="Microsoft">and charIndex(p.uuid, <template-variable value="JobConfiguration:StaticAssignments"/>)  &gt; 0</sql-dialect>
+			</template-if>	    	
+	    <template-variable value="orderBy(SortByColumn, direction(SortDirection), if(isAscending(SortDirection), nullsFirst(), nullsLast()))" processing="text"/>
+</template>
+</query>

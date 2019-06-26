@@ -1,0 +1,249 @@
+<!--- TEMPLATENAME: PrintCondition.isml --->
+<iscontent type="text/html" charset="UTF-8" compact="true"/>
+
+<%@page import="com.intershop.beehive.core.capi.domain.Domain"%>
+<%@page import="com.intershop.beehive.core.capi.localization.LocaleInformation"%>
+<%@page import="com.intershop.beehive.core.capi.request.Session"%>
+<%@page import="com.intershop.beehive.core.capi.request.Request"%>
+<%@page import="com.intershop.component.foundation.capi.condition.Condition"%>
+<%@page import="java.util.Map"%>
+
+
+<!--- 			
+API:			Name				  		Type	  					Required
+				-----------------------------------------------------------------
+Input:			conditioncontext			Map<String, Object>			no
+				condition					Condition					yes
+				EditCondition				Condition					no
+				ConditionTargetID			String						no
+				ConditionTypesMap			Map<String, String>			yes
+				ConditionDescriptorRegistry	ConditionDescriptorRegistry	yes
+--->
+
+
+<%	
+	// Restore default dictionary values
+	Request currentRequest = Request.getCurrent();
+	Session currentSession = currentRequest.getSession();
+	LocaleInformation locale = currentRequest.getLocale();
+	Domain domain = currentRequest.getRequestSite();
+	
+	getPipelineDictionary().put("CurrentSession", currentSession);
+	getPipelineDictionary().put("CurrentRequest", currentRequest);
+	getPipelineDictionary().put("CurrentDomain", domain);
+	getPipelineDictionary().put("CurrentLocale", locale);
+%>
+
+
+<isset scope="request" name="ConditionDescriptorRegistry" value="#conditiondescriptorregistry#"/>
+<isset scope="request" name="ConditionOperators" value="#conditionoperators#"/>
+<isset scope="request" name="ConditionDescriptors" value="#conditiondescriptors#"/>
+<isset scope="request" name="ConditionTypesMap" value="#conditiontypesmap#"/>
+<isset scope="request" name="EditCondition" value="#editcondition#"/>
+<isset scope="request" name="NewConditionForm" value="#newconditionform#"/>
+<isset scope="request" name="ConditionForm" value="#conditionform#"/>
+<isset scope="request" name="TypeConditionDescriptors" value="#typeconditiondescriptors#"/>
+<isset scope="request" name="ConditionClipboard" value="#conditionclipboard#"/>
+<isset scope="request" name="TargetConditionID" value="#targetconditionid#"/>
+<isset scope="request" name="ConditionTypes" value="#conditiontypes#"/>
+<isset scope="request" name="EditConditionTypeGroup" value="#editconditiontypegroup#"/>
+<isset scope="request" name="ContextObject" value="#contextobject#"/>
+<isset scope="request" name="DispatchPipeline" value="#dispatchpipeline#"/>
+<isset scope="request" name="ContextObjectIDName" value="#contextobjectidname#"/>
+<isset scope="request" name="ContextObjectID" value="#contextobjectid#"/>
+<isset scope="request" name="ChannelDomain" value="#channeldomain#"/>
+
+<isif condition="#isDefined(EditCondition) and (EditCondition:UUID eq condition:UUID)#">
+	<% getPipelineDictionary().put("ThisEditMode", true); %>
+<iselse/>
+	<% getPipelineDictionary().put("ThisEditMode", false); %>
+</isif>
+
+<!--- Prevent display of type group if not configured --->
+<isif condition="#isDefined(EditConditionTypeGroup) and (EditConditionTypeGroup:UUID eq condition:UUID) and not condition:Operator and not ConditionDescriptorRegistry:TypeGroupingEnabled(condition)#">
+	<% getPipelineDictionary().remove("EditConditionTypeGroup"); %>
+</isif>
+
+<isif condition="#(ThisEditMode and ConditionDescriptorRegistry:TypeGroupingEnabled(condition)) or isDefined(EditConditionTypeGroup) and (EditConditionTypeGroup:UUID eq condition:UUID)#">
+	<% getPipelineDictionary().put("ThisEditGroupMode", true); %>
+<iselse/>
+	<% getPipelineDictionary().put("ThisEditGroupMode", false); %>
+</isif>
+
+<isif condition="#condition:GroupingOperator#">
+	<% getPipelineDictionary().put("DrawNewBox", true); %>
+<iselse/>
+	<% getPipelineDictionary().put("DrawNewBox", false); %>
+</isif>
+
+<isif condition="#(not condition:isOperator) or (condition:isOperator and DrawNewBox) or (condition:TypeGroupOperator)#">
+	
+	<table cellpadding="0" cellspacing="4" border="0" width="100%">
+		<tr>
+			<!--- Set ConditionDescriptor --->
+			<isset scope="request" name="ThisConditionDescriptor" value="#ConditionDescriptorRegistry:Descriptor(condition:ConditionDescriptorID)#"/>
+			<isset scope="request" name="Condition" value="#condition#"/>
+				 
+			<!--- 1. column: Operator select box --->
+			<td class="right top" width="75">
+				<isif condition="#not isDefined(condition:DisplayOperator)#">
+					<img src="#WebRoot()#/images/space.gif" width="75" height="15" alt="" border="0"/>
+				<iselse/>
+					<img src="#WebRoot()#/images/space.gif" width="75" height="1" alt="" border="0"/>
+					<!--- Every condition knows its display operator --->
+					<isif condition="#isDefined(NewConditionForm) or isDefined(EditCondition) or (isDefined(readonly) AND (readonly EQ 'true'))#">
+						<isselect name="#'Operator_'.condition:UUID#"
+							iterator="ConditionOperators"
+							condition="#(ConditionOperators:ID eq condition:DisplayOperator:ConditionDescriptorID)#"
+							value="#ConditionOperators:ID#"
+							description="#ConditionOperators:Name#"
+							disabled="true"
+							class="inputfield_en"
+						/>
+					<iselse/>
+						<isselect name="#'Operator_'.condition:UUID#"
+							iterator="ConditionOperators"
+							condition="#(ConditionOperators:ID eq condition:DisplayOperator:ConditionDescriptorID)#"
+							value="#ConditionOperators:ID#"
+							description="#ConditionOperators:Name#"
+							class="inputfield_en"
+						/>
+					</isif>
+					
+				</isif>
+			</td>
+			
+			<!--- 2. column: Contains condition --->
+			<td class="aldi" width="100%">
+				<table cellpadding="0" cellspacing="6" class="" width="100%">
+					<tr>
+						<td class="" width="100%">
+							<isif condition="#condition:isOperator and DrawNewBox#">
+								<isloop iterator="condition:SortedSubConditions" alias="SubCondition">
+									
+									<!--- Call recursive --->
+									<ISPrintCondition condition="#SubCondition#"
+										conditiondescriptorregistry="#ConditionDescriptorRegistry#"
+										conditionoperators="#ConditionOperators#"
+										conditiondescriptors="#ConditionDescriptors#"
+										conditiontypesmap="#ConditionTypesMap#"
+										editcondition="#EditCondition#"
+										newconditionform="#NewConditionForm#"
+										conditionform="#ConditionForm#"
+										typeconditiondescriptors="#TypeConditionDescriptors#"
+										conditionclipboard="#ConditionClipboard#"
+										targetconditionid="#TargetConditionID#"
+										conditiontypes="#ConditionTypes#"
+										editconditiontypegroup="#EditConditionTypeGroup#"
+										contextobject="#ContextObject#"
+										dispatchpipeline="#DispatchPipeline#"
+										contextobjectidname="#ContextObjectIDName#"
+										contextobjectid="#ContextObjectID#"
+										channeldomain="#ChannelDomain#"	
+										parametername1="#parametername1#"
+										parametervalue1="#parametervalue1#"
+										parametername2="#parametername2#"
+										parametervalue2="#parametervalue2#"
+										parametername3="#parametername3#"
+										parametervalue3="#parametervalue3#"
+										parametername4="#parametername4#"
+										parametervalue4="#parametervalue4#"
+										parametername5="#parametername5#"
+										parametervalue5="#parametervalue5#"
+										readonly="#isDefined(readonly) AND (readonly EQ 'true')#"
+									>
+									
+								</isloop>
+								
+							<!--- if condition is not an opeator --->
+							<iselseif condition="#not condition:isOperator or condition:TypeGroupOperator#"/> 
+								<!---
+									Check if we need to display 'type group' template
+										a) condition is type group
+									or	b) EditCondition is defined and condition:UUID eq EditCondition:UUID ( = ThisEditMode)
+									or	c) EditConditionTypeGroup is defined (will be type group condition itself or 'normal' condition) ( = ThisEditGroupMode)
+										
+									Otherwise: only display condition  
+								---> 
+								<isif condition="#condition:TypeGroupOperator or  ThisEditGroupMode or (ThisEditMode and ConditionDescriptorRegistry:TypeGroupingEnabled(condition))#">
+									<isset scope="request" name="ThisGroup" value="#condition#"/>
+									<isinclude template="conditioneditor/ConditionTypeGroup"/>
+								<iselse/>
+									<isset scope="request" name="ThisCondition" value="#condition#"/>
+									<isinclude template="conditioneditor/Condition"/>
+								</isif>
+							</isif>
+						</td>
+						<!--- Select box --->
+						<td class="right top <isif condition="#condition:Operator and not condition:TypeGroupOperator#">ruleBar</isif>">
+							<isif condition="#isDefined(readonly) AND (readonly EQ 'true')#">
+								&nbsp;
+							<iselse>
+								<input type="checkbox" name="SelectedCondition_<isprint value="#condition:UUID#">"
+									<isif condition="#isDefined(ConditionClipboard:ObjectUUID(condition:UUID))#">checked="checked"</isif>
+								/>
+							</isif>
+						</td>
+					</tr>
+				</table>
+			
+			</td>
+			
+		</tr>
+		
+		<!---  User tries to create a new condition currently --->
+		<isif condition="#isDefined(NewConditionForm) and (TargetConditionID eq condition:UUID) and not isDefined(EditConditionTypeGroup)#">
+			<tr>
+				<td class="right top" width="75"><img src="#WebRoot()#/images/space.gif" width="55" height="15" alt="" border="0"/></td>
+				<td>
+					<table cellpadding="0" cellspacing="0" border="0" width="100%" class="aldi editbox">
+						<tr><td class="editbox"><isinclude template="conditioneditor/NewCondition"/></td></tr>
+					</table>
+				</td>
+				<td class="right top">&nbsp;</td>
+			</tr>
+		</isif>
+		
+	</table>
+
+</isif>
+
+<!--- append next sub conditions --->
+<isif condition="#condition:isOperator and not DrawNewBox and not condition:TypeGroupOperator#">
+	<isloop iterator="condition:SortedSubConditions" alias="SubCondition">
+		<!--- Call recursive --->
+		<ISPrintCondition condition="#SubCondition#"
+			conditiondescriptorregistry="#ConditionDescriptorRegistry#"
+			conditionoperators="#ConditionOperators#"
+			conditiondescriptors="#ConditionDescriptors#"
+			conditiontypesmap="#ConditionTypesMap#"
+			editcondition="#EditCondition#"
+			newconditionform="#NewConditionForm#"
+			conditionform="#ConditionForm#"
+			typeconditiondescriptors="#TypeConditionDescriptors#"
+			conditionclipboard="#ConditionClipboard#"
+			targetconditionid="#TargetConditionID#"
+			conditiontypes="#ConditionTypes#"
+			editconditiontypegroup="#EditConditionTypeGroup#"
+			contextobject="#ContextObject#"
+			dispatchpipeline="#DispatchPipeline#"
+			contextobjectidname="#ContextObjectIDName#"
+			contextobjectid="#ContextObjectID#"
+			channeldomain="#ChannelDomain#"	
+			parametername1="#parametername1#"
+			parametervalue1="#parametervalue1#"
+			parametername2="#parametername2#"
+			parametervalue2="#parametervalue2#"
+			parametername3="#parametername3#"
+			parametervalue3="#parametervalue3#"
+			parametername4="#parametername4#"
+			parametervalue4="#parametervalue4#"
+			parametername5="#parametername5#"
+			parametervalue5="#parametervalue5#"
+			readonly="#isDefined(readonly) AND (readonly EQ 'true')#"
+		>
+	</isloop>
+</isif>
+
+
+<!-- EOF PrintCondition:  <isprint value="#condition:ConditionDescriptorID#"/> (<isprint value="#condition:UUID#"/>) -->

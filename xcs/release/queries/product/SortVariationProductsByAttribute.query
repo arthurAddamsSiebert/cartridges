@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+  <parameters>
+    <parameter name="Product" type="com.intershop.beehive.xcs.capi.product.Product" optional="false"/>
+    <parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+    <parameter name="SortAttributeType" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttributeLocalizedFlag" type="java.lang.Integer" optional="true"/>
+  </parameters>
+  <return-mappings>
+    <return-mapping name="Product" type="provider" class="ProductViewProvider">
+      <return-attribute name="UUID"/>
+      <return-attribute name="DOMAINID"/>
+    </return-mapping>
+  </return-mappings>
+  <processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="Product:Domain" processing="ProductSharingHelper"/>
+  </processor>
+  <template type="countedobjects">
+    SELECT p.uuid AS UUID,
+           <template-variable value="Product:DomainID"/> AS DOMAINID,
+           count(*) over() as "ROWCOUNT",
+        <template-if condition="isDefined(SortAttribute) AND (SortAttribute NE 'position')">
+          <template-call name="product/inc/ProductSorting">
+            <call-parameter name="ProductAlias" value="&apos;p&apos;"/>
+            <call-parameter name="SortAttribute" value="SortAttribute"/>
+            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+            <call-parameter name="SortAttributeType" value="SortAttributeType"/>
+            <call-parameter name="SortAttributeLocalizedFlag" value="SortAttributeLocalizedFlag"/>
+          </template-call> AS SORTING
+        <if-else/>
+          p.PRODUCTVARIATIONPOSITION AS SORTING
+        </template-if>
+      FROM product p,
+           productvariation pv
+     WHERE p.uuid = pv.productid
+       AND pv.productmasterid = <template-variable value="Product:UUID"/>
+       AND <template-call name="product/inc/AvailableProductsCondition">
+             <call-parameter name="TableAlias" value="&quot;p&quot;"/>
+             <call-parameter name="ProductIdColumn" value="&quot;uuid&quot;"/>
+             <call-parameter name="Sharing" value="Sharing"/>
+           </template-call>
+		 ORDER BY SORTING
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			   DESC
+		<if-else/>
+			   ASC
+		</template-if>
+		NULLS LAST
+  </template>
+</query>

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query obtains the validity period of the given price scale table for priority lookup. The given price scale table must be the one that applies for the given date, otherwise the query will not return valid results. The returned validity period is not just the start and end date of the given price scale table&apos;s accordant attribtues but a calculation/comparison of dates taking also other price scale tables into account. The applying price scale table might be obtained using the pricelist/GetApplyingPriceListPriceScaleTable query for a certain date.">
+<parameters>
+    <parameter name="PriceListUUID" type="java.lang.String" optional="false"/>
+    <parameter name="ProductUUID" type="java.lang.String" optional="false"/>
+    <parameter name="CurrencyCode" type="java.lang.String" optional="false"/>
+    <parameter name="Date" type="java.util.Date" optional="false"/>
+    <parameter name="PriceScaleTableUUID" type="java.lang.String" optional="false"/>
+    <parameter name="LookupStrategy" type="java.lang.String" optional="false"/>
+    <parameter name="DomainID" type="java.lang.String" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+    <processor-configuration name="readType.ValidityPeriodStartDate" value="Timestamp.GMT"/>
+    <processor-configuration name="readType.ValidityPeriodEndDate" value="Timestamp.GMT"/>
+</processor>
+<template type="objects">
+    SELECT
+        (
+        SELECT
+            max(validFrom) AS ValidityPeriodStartDate
+        FROM
+            (
+            SELECT
+              pstFrom.validFrom AS validFrom
+            FROM
+              PriceScaleTable pstFrom
+              JOIN PriceScaleTableAssignment psta ON (psta.pricescaletableuuid = pstFrom.uuid)
+              JOIN PriceList plFrom ON (plFrom.uuid = psta.pricelistuuid)
+              JOIN PriceList plGiven ON (plGiven.uuid = <template-variable value="PriceListUUID"/>)
+              JOIN PriceScaleTable pstGiven ON (pstGiven.uuid = <template-variable value="PriceScaleTableUUID"/>)
+            WHERE
+              <template-if condition="isDefined(DomainID) AND DomainID NE '')">
+                pstFrom.domainId = <template-variable value="DomainID"/> AND
+              </template-if>
+              <template-if condition="LookupStrategy EQ &apos;Priority&apos;">
+                plFrom.priority &lt;= plGiven.priority AND
+              </template-if>    
+              plFrom.uuid != plGiven.uuid
+              AND plFrom.enabledflag = 1
+              AND plFrom.priceType = plGiven.priceType
+              AND psta.productuuid = <template-variable value="ProductUUID"/>
+              AND pstFrom.currencycode = <template-variable value="CurrencyCode"/>
+              AND pstFrom.uuid != pstGiven.uuid
+              AND COALESCE(pstFrom.validFrom, <sql-dialect name="Oracle">to_date(&apos;5373484&apos;, &apos;J&apos;)</sql-dialect><sql-dialect name="Microsoft">CONVERT(DATETIME, '9999-12-31', 121)</sql-dialect>) &lt;= <template-variable value="Date"/>
+            UNION
+            SELECT
+              pstFrom.validTo AS validFrom
+            FROM
+              PriceScaleTable pstFrom
+              JOIN PriceScaleTableAssignment psta ON (psta.pricescaletableuuid = pstFrom.uuid)
+              JOIN PriceList plFrom ON (plFrom.uuid = psta.pricelistuuid)
+              JOIN PriceList plGiven ON (plGiven.uuid = <template-variable value="PriceListUUID"/>)
+              JOIN PriceScaleTable pstGiven ON (pstGiven.uuid = <template-variable value="PriceScaleTableUUID"/>)
+            WHERE
+              <template-if condition="isDefined(DomainID) AND DomainID NE '')">
+                pstFrom.domainId = <template-variable value="DomainID"/> AND
+              </template-if>
+              <template-if condition="LookupStrategy EQ &apos;Priority&apos;">
+                plFrom.priority &lt;= plGiven.priority AND
+              </template-if>
+              plFrom.uuid != plGiven.uuid
+              AND plFrom.enabledflag = 1
+              AND plFrom.priceType = plGiven.priceType
+              AND psta.productuuid = <template-variable value="ProductUUID"/>
+              AND pstFrom.currencycode = <template-variable value="CurrencyCode"/>
+              AND pstFrom.uuid != pstGiven.uuid
+              AND COALESCE(pstFrom.validTo, <sql-dialect name="Oracle">to_date(&apos;5373484&apos;, &apos;J&apos;)</sql-dialect><sql-dialect name="Microsoft">CONVERT(DATETIME, '9999-12-31', 121)</sql-dialect>) &lt;= <template-variable value="Date"/>
+            ) a
+        ) AS ValidityPeriodStartDate
+        ,
+        (
+        SELECT
+            min(validTo) AS ValidityPeriodEndDate
+        FROM
+            (
+            SELECT
+              pstTo.validFrom AS validTo
+            FROM
+              PriceScaleTable pstTo
+              JOIN PriceScaleTableAssignment psta ON (psta.pricescaletableuuid = pstTo.uuid)
+              JOIN PriceList plTo ON (plTo.uuid = psta.pricelistuuid)
+              JOIN PriceList plGiven ON (plGiven.uuid = <template-variable value="PriceListUUID"/>)
+              JOIN PriceScaleTable pstGiven ON (pstGiven.uuid = <template-variable value="PriceScaleTableUUID"/>)
+            WHERE
+              <template-if condition="isDefined(DomainID) AND DomainID NE '')">
+                pstTo.domainId = <template-variable value="DomainID"/> AND
+              </template-if>
+              <template-if condition="LookupStrategy EQ &apos;Priority&apos;">
+                plTo.priority &lt;= plGiven.priority AND
+              </template-if>    
+              plTo.uuid != plGiven.uuid
+              AND plTo.enabledflag = 1
+              AND plTo.priceType = plGiven.priceType
+              AND psta.productuuid = <template-variable value="ProductUUID"/>
+              AND pstTo.currencycode = <template-variable value="CurrencyCode"/>
+              AND pstTo.uuid != pstGiven.uuid
+              AND COALESCE(pstTo.validFrom, <sql-dialect name="Oracle">to_date(&apos;5373484&apos;, &apos;J&apos;)</sql-dialect><sql-dialect name="Microsoft">CONVERT(DATETIME, '9999-12-31', 121)</sql-dialect>) &gt;= <template-variable value="Date"/>
+            UNION
+            SELECT
+              pstTo.validTo AS validTo
+            FROM
+              PriceScaleTable pstTo
+              JOIN PriceScaleTableAssignment psta ON (psta.pricescaletableuuid = pstTo.uuid)
+              JOIN PriceList plTo ON (plTo.uuid = psta.pricelistuuid)
+              JOIN PriceList plGiven ON (plGiven.uuid = <template-variable value="PriceListUUID"/>)
+              JOIN PriceScaleTable pstGiven ON (pstGiven.uuid = <template-variable value="PriceScaleTableUUID"/>)
+            WHERE
+              <template-if condition="isDefined(DomainID) AND DomainID NE '')">
+                pstTo.domainId = <template-variable value="DomainID"/> AND
+              </template-if>
+              <template-if condition="LookupStrategy EQ &apos;Priority&apos;">
+                plTo.priority &lt;= plGiven.priority AND
+              </template-if>    
+              plTo.uuid != plGiven.uuid
+              AND plTo.enabledflag = 1
+              AND plTo.priceType = plGiven.priceType
+              AND psta.productuuid = <template-variable value="ProductUUID"/>
+              AND pstTo.currencycode = <template-variable value="CurrencyCode"/>
+              AND pstTo.uuid != pstGiven.uuid
+              AND COALESCE(pstTo.validTo, <sql-dialect name="Oracle">to_date(&apos;5373484&apos;, &apos;J&apos;)</sql-dialect><sql-dialect name="Microsoft">CONVERT(DATETIME, '9999-12-31', 121)</sql-dialect>) &gt;= <template-variable value="Date"/>
+            ) b
+        ) AS ValidityPeriodEndDate
+    <sql-dialect name="Oracle">    
+	    FROM
+	        dual
+    </sql-dialect>
+</template>
+</query>

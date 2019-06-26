@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="UserDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	
+	<parameter name="SimpleSearchExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+
+	<parameter name="FirstNameExpression"         type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="LastNameExpression"          type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="BusinessPartnerNoExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="LoginExpression"             type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="Disabled"					  				type="java.lang.Boolean" optional="true"/>
+	<parameter name="SortByLastName" type="java.lang.String" optional="true"/>
+	<parameter name="SortByFirstName" type="java.lang.String" optional="true"/>
+	<parameter name="SortByLogin" type="java.lang.String" optional="true"/>
+	<parameter name="AccessRoleID"   type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="User" type="orm" class="com.intershop.beehive.core.internal.profile.BasicProfilePO">
+		<return-attribute name="UserUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+ 	SELECT u.UUID as UserUUID, COUNT(*) over() AS "rowcount" 
+	FROM basicprofile u
+	<template-if condition="isDefined(Disabled) OR hasElements(LoginExpression:Phrases) OR isDefined(SortByLogin)">
+		, basiccredentials c
+	</template-if>
+ 	<template-if condition="isDefined(AccessRoleID) AND (AccessRoleID NE 'All')">
+		, usergroupuserassignment uua
+	</template-if>
+	WHERE u.DomainID=<template-variable value="UserDomain:UUID"/>
+		AND (u.typeCode=0 OR u.typeCode IS NULL)
+		<template-if condition="isDefined(SortByLogin)">
+		AND c.basicProfileID=u.uuid
+		</template-if>
+  	<template-if condition="isDefined(AccessRoleID) AND (AccessRoleID NE 'All')">
+		AND uua.userid=u.uuid
+		AND uua.usergroupid = <template-variable value="AccessRoleID" />
+		</template-if>
+		<template-if condition="isDefined(SimpleSearchExpression)">
+			<!-- simple search -->
+			<template-call name="inc/SearchExpression2Like">
+				<call-parameter name="SearchExpression" value="SimpleSearchExpression"/>
+				<call-parameter name="ColumnNames" value="&quot;u.lastName u.firstName u.businessPartnerNo&quot;"/>
+				<call-parameter name="CaseInsensitive" value="true()"/>
+				<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+			</template-call>
+		<if-else/>
+			<!-- parametric search -->
+			<template-call name="inc/SearchExpression2Like">
+				<call-parameter name="SearchExpression" value="FirstNameExpression"/>
+				<call-parameter name="ColumnNames" value="&quot;u.firstName&quot;"/>
+				<call-parameter name="CaseInsensitive" value="true()"/>
+				<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+			</template-call>
+			<template-call name="inc/SearchExpression2Like">
+				<call-parameter name="SearchExpression" value="LastNameExpression"/>
+				<call-parameter name="ColumnNames" value="&quot;u.lastName&quot;"/>
+				<call-parameter name="CaseInsensitive" value="true()"/>
+				<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+			</template-call>
+			<template-call name="inc/SearchExpression2Like">
+				<call-parameter name="SearchExpression" value="BusinessPartnerNoExpression"/>
+				<call-parameter name="ColumnNames" value="&quot;u.businessPartnerNo&quot;"/>
+				<call-parameter name="CaseInsensitive" value="true()"/>
+				<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+			</template-call>
+			<template-if condition="isDefined(Disabled) OR hasElements(LoginExpression:Phrases)">
+				AND c.basicProfileID=u.uuid
+				<template-if condition="isDefined(Disabled)">
+					AND c.disabledflag = <template-variable value="Disabled"/>
+				</template-if>
+				<template-call name="inc/SearchExpression2Like">
+					<call-parameter name="SearchExpression" value="LoginExpression"/>
+					<call-parameter name="ColumnNames" value="&quot;c.login&quot;"/>
+					<call-parameter name="CaseInsensitive" value="true()"/>
+					<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+				</template-call>
+			</template-if>
+		</template-if>
+		<template-if condition="isDefined(SortByFirstName)">
+			order by upper(u.firstName) <template-variable value="SortByFirstName" processing="text"/>
+		<if-elseif condition="isDefined(SortByLastName)"/>
+			order by upper(u.lastName) <template-variable value="SortByLastName" processing="text"/>
+		<if-elseif condition="isDefined(SortByLogin)"/>
+			order by upper(c.login) <template-variable value="SortByLogin" processing="text"/>
+		<if-else/>
+			order by upper(u.lastName) asc
+		</template-if>
+</template>
+</query>

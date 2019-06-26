@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<query description="Searches pagelets for a domain with a specified name/content, type, and pageflag.">
+<parameters>
+    <parameter name="PageFlag" type="java.lang.String" optional="false" description="This flag defines, if the query should search for pagelets where PAGEFLAG = 1 (true/false)."/>
+    <parameter name="TemplateFlag" type="java.lang.String" optional="true" description="This flag defines, if the query should search for pagelets where TEMPLATEFLAG = 1 (true/false)."/>
+    <parameter name="NameOrContent" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="This is the display name of the pagelet."/>
+    <parameter name="Name" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="The display name."/>
+    <parameter name="ID" type="java.lang.String" optional="true" description="The ID of the pagelet."/>
+    <parameter name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the pagelet belongs to."/>
+    <parameter name="PageletTypes" type="java.util.Iterator" optional="true" description="An iterator of pagelet definitions."/>
+    <parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false" description="Search in context of the given locale."/>
+    <parameter name="ExcludedPageletUUIDs" type="java.util.Iterator" optional="true" description="An optional set of Pagelet UUIDs which will not be included in the result set."/>
+    <parameter name="SortBy" type="java.lang.String" optional="true" description="The column by which the result set should be sorted."/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true" description="The direction of sorting (ascending/descending)."/>
+    <parameter name="SortedNames" type="java.util.Map" optional="true" description="A Map of pagelet qualified names sorted according to the display name of pagelets, localize in current locale."/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Pagelet" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletPO" description="This is the found pagelet.">
+        <return-attribute name="PageletUUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="cNameOrContent" input="NameOrContent" processing="SearchExpression2Contains"/>
+    <processor-preprocessing output="cName" input="Name" processing="SearchExpression2Contains"/>
+    <processor-preprocessing output="ModelElementAliasProcessedTypes" input="PageletTypes" processing="ModelElementAliasHelper"/>
+</processor>
+<template type="countedobjects" sqlDialect="Oracle">
+
+select pageletuuid,
+       "rowcount"
+     <template-if condition="isDefined(SortedNames)">
+       , sorting
+     </template-if>
+  from (
+    select p.UUID as pageletuuid, p.onlineflag as onlineflag, 
+           count(*) over() as "rowcount"
+         <template-if condition="isDefined(SortedNames)">
+           , <template-call name="pagelet/inc/PageletsSorting">
+               <call-parameter name="TableAlias" value="&apos;p&apos;"/>
+               <call-parameter name="AVTableAlias" value="&apos;pav&apos;"/>
+               <call-parameter name="UserTableAlias" value="&apos;profile&apos;"/>
+               <call-parameter name="SortBy" value="SortBy"/>
+               <call-parameter name="SortDirection" value="SortDirection"/>
+               <call-parameter name="SortedNames" value="SortedNames"/>
+             </template-call> as sorting
+         </template-if>
+      from pagelet p 
+           left outer join pagelet_av pav
+             on (p.uuid = pav.ownerid and pav.name = &apos;displayName&apos; 
+                 and pav.localeid = <template-variable value="Locale:LocaleID"/>)
+         <template-if condition="isDefined(NameOrContent) and (NameOrContent:NotEmpty)">
+           left outer join 
+           (                  
+            <template-comment>search in a pagelet's configuration parameters respecting configuration parameter
+            inheriting/overloading</template-comment>       
+            select distinct uuid configurationparameterctnrid from 
+            (
+                <template-comment>
+                    Start a tree search wherever the search term is contained in a configuration parameter and retrieve with it all
+                    its children that do not have a value set on their own. 
+                </template-comment>
+                select conf_param.name, conf_param.attributes_<template-variable value="Locale:LocaleID" processing="text"/>,
+                  conf_param.attributes, p.uuid, p.parentuuid from pagelet p 
+                left outer join 
+                  configurationparameter conf_param on (conf_param.configurationparameterctnrid = p.uuid)
+                start with conf_param.uuid in
+                (
+                    select uuid from configurationparameter where 
+                    contains(attributes_<template-variable value="Locale:LocaleID" processing="text"/>, 
+                        <template-variable value="cNameOrContent"/> || ' INPATH (//attrs/attr/string)') &gt; 0
+                    union
+                    select uuid from configurationparameter where 
+                    contains(attributes, 
+                        <template-variable value="cNameOrContent"/> || ' INPATH (//attrs/attr/string)') &gt; 0
+                )
+                connect by prior p.uuid = p.parentuuid
+                and prior conf_param.name = conf_param.name
+                and conf_param.attributes is null 
+                and conf_param.attributes_<template-variable value="Locale:LocaleID" processing="text"/> is null
+            )) param_found
+           on (p.uuid = param_found.configurationparameterctnrid)
+         </template-if>
+         <template-if condition="isDefined(SortBy) and (SortBy eq 'author')">
+           join basicprofile profile
+             on (p.authorid = profile.uuid)
+         </template-if>
+     where (p.domainid in (
+            <template-call name="pagelet/inc/ContentRepositories">
+                <call-parameter name="Repository" value="Repository"/>
+            </template-call>
+            ))
+    <template-if condition="isDefined(ExcludedPageletUUIDs) and hasElements(ExcludedPageletUUIDs)">
+        and not p.uuid in (
+        <template-loop iterator="ExcludedPageletUUIDs" alias="ExcludedPageletUUID">
+            <loop-statement>
+                <template-variable value="ExcludedPageletUUID"/>
+            </loop-statement>
+            <loop-separator>,</loop-separator>
+        </template-loop>)
+    </template-if>
+    <template-if condition="isDefined(NameOrContent) and (NameOrContent:NotEmpty)">
+        and (contains(pav.stringvalue, <template-variable value="cNameOrContent"/>) &gt; 0
+             or param_found.configurationparameterctnrid is not null)
+    <if-elseif condition="isDefined(Name) and (Name:NotEmpty)"/>
+        and (contains(pav.stringvalue, <template-variable value="cName"/>) &gt; 0
+             or p.id = <template-variable value="ID"/>)
+    </template-if>
+    <template-if condition="PageFlag eq &apos;true&apos;">
+        and p.PageFlag = 1
+    <if-else/>
+        and p.PageFlag = 0
+    </template-if>
+    <template-if condition="TemplateFlag eq &apos;true&apos;">
+        and p.TemplateFlag = 1
+    <if-else/>
+        and p.TemplateFlag = 0
+    </template-if>
+    <template-if condition="isDefined(ModelElementAliasProcessedTypes)">
+        <template-if condition="hasElements(ModelElementAliasProcessedTypes)">
+            and p.DefinitionQualifiedName in (
+            <template-loop iterator="ModelElementAliasProcessedTypes" alias="PageletType">
+                <loop-statement><template-variable value="PageletType:QualifiedName"/></loop-statement>
+                <loop-separator>,</loop-separator>
+            </template-loop>)  
+        <if-else/>
+            and 1 = 2 
+        </template-if>
+    </template-if>    
+   ) sps
+<template-if condition="isDefined(SortedNames)">
+  order by 
+    <template-if condition="isDefined(SortBy) and ((SortBy eq &apos;publishedfrom&apos;) OR (SortBy eq &apos;publishedto&apos;))">
+        <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+          onlineflag asc,
+        <if-else/>
+          onlineflag desc,
+        </template-if>
+    </template-if>
+  sorting
+    <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+      desc nulls last
+    <if-else/>
+      asc nulls first
+    </template-if>
+</template-if>
+</template>
+<template type="countedobjects" sqlDialect="Microsoft">
+<template-if condition="isDefined(NameOrContent) and (NameOrContent:NotEmpty)">
+WITH conf_param_cte(uuid, parentuuid, name) AS (  
+  select 
+    p.uuid
+    , p.parentuuid
+    , conf_param.name
+  from 
+    pagelet p join configurationparameter conf_param on (conf_param.configurationparameterctnrid = p.uuid)
+  where conf_param.uuid in (
+      select uuid from configurationparameter where
+        attributes_<template-variable value="Locale:LocaleID" processing="text"/>.exist('//attrs/attr/string/text()[<template-variable value="NameOrContent:XPathSnippet" processing="text"/>]') = 1
+      union
+      select uuid from configurationparameter where 
+        attributes.exist('//attrs/attr/string/text()[<template-variable value="NameOrContent:XPathSnippet" processing="text"/>]') = 1
+  )
+  UNION ALL  
+  select 
+    p.uuid
+    , p.parentuuid 
+    , conf_param.name
+  from 
+    conf_param_cte cte join pagelet p on (cte.uuid = p.parentuuid) join configurationparameter conf_param on (conf_param.configurationparameterctnrid = p.uuid and conf_param.name = cte.name)
+  where 
+    conf_param.attributes is null 
+  and 
+    conf_param.attributes_en_US is null
+)  
+</template-if>
+select pageletuuid,
+       "rowcount"
+     <template-if condition="isDefined(SortedNames)">
+       , sorting
+     </template-if>
+  from (
+    select p.UUID as pageletuuid, p.onlineflag as onlineflag, 
+           count(*) over() as "rowcount"
+         <template-if condition="isDefined(SortedNames)">
+           , <template-call name="pagelet/inc/PageletsSorting">
+               <call-parameter name="TableAlias" value="&apos;p&apos;"/>
+               <call-parameter name="AVTableAlias" value="&apos;pav&apos;"/>
+               <call-parameter name="UserTableAlias" value="&apos;profile&apos;"/>
+               <call-parameter name="SortBy" value="SortBy"/>
+               <call-parameter name="SortDirection" value="SortDirection"/>
+               <call-parameter name="SortedNames" value="SortedNames"/>
+             </template-call> as sorting
+         </template-if>
+      from pagelet p 
+           left outer join pagelet_av pav
+             on (p.uuid = pav.ownerid and pav.name = &apos;displayName&apos; 
+                 and pav.localeid = <template-variable value="Locale:LocaleID"/>)
+         <template-if condition="isDefined(NameOrContent) and (NameOrContent:NotEmpty)">
+           left outer join 
+           (                  
+            <template-comment>search in a pagelet's configuration parameters respecting configuration parameter
+            inheriting/overloading</template-comment>       
+            select distinct uuid configurationparameterctnrid from conf_param_cte
+            ) param_found
+           on (p.uuid = param_found.configurationparameterctnrid)
+         </template-if>
+         <template-if condition="isDefined(SortBy) and (SortBy eq 'author')">
+           join basicprofile profile
+             on (p.authorid = profile.uuid)
+         </template-if>
+     where (p.domainid in (
+            <template-call name="pagelet/inc/ContentRepositories">
+                <call-parameter name="Repository" value="Repository"/>
+            </template-call>
+            ))
+    <template-if condition="isDefined(ExcludedPageletUUIDs) and hasElements(ExcludedPageletUUIDs)">
+        and not p.uuid in (
+        <template-loop iterator="ExcludedPageletUUIDs" alias="ExcludedPageletUUID">
+            <loop-statement>
+                <template-variable value="ExcludedPageletUUID"/>
+            </loop-statement>
+            <loop-separator>,</loop-separator>
+        </template-loop>)
+    </template-if>
+    <template-if condition="isDefined(NameOrContent) and (NameOrContent:NotEmpty)">
+        and (contains(pav.stringvalue, <template-variable value="cNameOrContent"/>)
+             or param_found.configurationparameterctnrid is not null)
+    <if-elseif condition="isDefined(Name) and (Name:NotEmpty)"/>
+        and (contains(pav.stringvalue, <template-variable value="cName"/>)
+             or p.id = <template-variable value="ID"/>)
+    </template-if>
+    <template-if condition="PageFlag eq &apos;true&apos;">
+        and p.PageFlag = 1
+    <if-else/>
+        and p.PageFlag = 0
+    </template-if>
+    <template-if condition="TemplateFlag eq &apos;true&apos;">
+        and p.TemplateFlag = 1
+    <if-else/>
+        and p.TemplateFlag = 0
+    </template-if>
+    <template-if condition="isDefined(ModelElementAliasProcessedTypes)">
+        <template-if condition="hasElements(ModelElementAliasProcessedTypes)">
+            and p.DefinitionQualifiedName in (
+            <template-loop iterator="ModelElementAliasProcessedTypes" alias="PageletType">
+                <loop-statement><template-variable value="PageletType:QualifiedName"/></loop-statement>
+                <loop-separator>,</loop-separator>
+            </template-loop>)  
+        <if-else/>
+            and 1 = 2 
+        </template-if>
+    </template-if>    
+   ) a
+<template-if condition="isDefined(SortedNames)">
+  order by 
+    <template-if condition="isDefined(SortBy) and ((SortBy eq &apos;publishedfrom&apos;) OR (SortBy eq &apos;publishedto&apos;))">
+        <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+          onlineflag asc,
+        <if-else/>
+          onlineflag desc,
+        </template-if>
+    </template-if>
+    <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+      CASE
+        WHEN sorting IS NULL THEN 1
+        ELSE 0
+      END, sorting desc
+    <if-else/>      
+      CASE 
+        WHEN sorting IS NULL THEN 0
+        ELSE 1
+      END, sorting ASC
+    </template-if>
+</template-if>
+</template>
+</query>

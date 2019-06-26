@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="targetRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="sourceRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+</parameters>
+
+<processor name="JDBC">
+</processor>
+<template sqlDialect="Oracle">
+update CatalogCategory tc
+           set tc.PARENTCATEGORYID =
+                    (select tcp.uuid
+                    from CatalogCategory tcp
+                    where tcp.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+                        and ((tcp.name =
+                                (select scp.name||'@'||<template-variable value="sourceRoot:Domain:DomainName"/>
+                                from CatalogCategory sc, CatalogCategory scp
+                                where  scp.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                                    and sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                                    and scp.uuid = sc.PARENTCATEGORYID
+                                    and tc.name = (sc.name||'@'||<template-variable value="sourceRoot:Domain:DomainName"/>)
+                                    and rownum &lt;= 1 ))
+                             or (tcp.uuid = <template-variable value="targetRoot:UUID"/>
+                                 and exists (select *
+                                       from CatalogCategory sc, CatalogCategory scp
+                                       where  scp.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                                              and sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                                              and scp.uuid = sc.PARENTCATEGORYID
+                                              and scp.uuid = <template-variable value="sourceRoot:UUID"/>
+                                              and tc.name = (sc.name||'@'||<template-variable value="sourceRoot:Domain:DomainName"/>))))
+                        and rownum &lt;= 1 )
+            where tc.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+            and tc.name in (select sc.name||'@'||<template-variable value="sourceRoot:Domain:DomainName"/>
+                       from CatalogCategory sc
+                       where sc.uuid &lt;&gt; <template-variable value="sourceRoot:UUID"/>
+                       start with sc.uuid in (<template-variable value="sourceRoot:UUID"/>)
+                       connect by sc.PARENTCATEGORYID = prior sc.uuid and sc.ONLINEFLAG = 1 )
+</template>
+<template sqlDialect="Microsoft">
+with n(uuid, name) as (
+	select sc.uuid, sc.name+'@'+<template-variable value="sourceRoot:Domain:DomainName"/>
+	from CatalogCategory sc   
+	where sc.uuid in (<template-variable value="sourceRoot:UUID"/>)
+	union all 
+	select scb.uuid, scb.name+'@'+<template-variable value="sourceRoot:Domain:DomainName"/>
+	from CatalogCategory scb, n 
+	where scb.parentcategoryid = n.uuid
+	and scb.onlineflag = 1
+)
+update CatalogCategory
+set PARENTCATEGORYID =
+         (select top 1 tcp.uuid
+         from CatalogCategory tcp
+         where tcp.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+             and ((tcp.name =
+                     (select top 1 scp.name+'@'+<template-variable value="sourceRoot:Domain:DomainName"/> 
+                     from CatalogCategory sc, CatalogCategory scp
+                     where  scp.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                         and sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                         and scp.uuid = sc.PARENTCATEGORYID
+                         and CatalogCategory.name = (sc.name+'@'+<template-variable value="sourceRoot:Domain:DomainName"/> )
+                          ))
+                  or (tcp.uuid = <template-variable value="targetRoot:UUID"/> 
+                      and exists (select *
+                            from CatalogCategory sc, CatalogCategory scp
+                            where  scp.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                                   and sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                                   and scp.uuid = sc.PARENTCATEGORYID
+                                   and scp.uuid =  <template-variable value="sourceRoot:UUID"/> 
+                                   and CatalogCategory.name = (sc.name+'@'+<template-variable value="sourceRoot:Domain:DomainName"/> ))))
+             )
+ where domainid = <template-variable value="targetRoot:Domain:UUID"/> 
+ and name in (select name from n where uuid &lt;&gt; <template-variable value="sourceRoot:UUID"/>)
+</template>
+</query>

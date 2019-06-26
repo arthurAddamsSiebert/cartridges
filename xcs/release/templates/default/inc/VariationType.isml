@@ -1,0 +1,115 @@
+<!--- TemplateName        : VariationType.isml --->
+<!--- TemplateDescription : Export a VariationTypes --->
+<!--- TemplateParameter   : variationtype --->
+
+<ISCONTENT type = "text/xml" templatemarker="false" charset="utf-8" SESSION="FALSE">
+
+<ISMODULE template = "inc/CustomAttributes"
+          name = "CUSTOMATTRIBUTES"
+          attribute = "attributes">
+
+<%@ page import = "com.intershop.beehive.xcs.capi.product.ProductAttributeEnumerationConstants,com.intershop.beehive.xcs.capi.productvariation.VariationType,java.util.Iterator,com.intershop.beehive.core.capi.domain.AttributeValue" %>
+<%
+    if (getObject("ExportRefIDs") == null)
+    {
+        getPipelineDictionary().put("ExportRefIDs", Boolean.TRUE);
+    }
+    else if (!(getObject("ExportRefIDs") instanceof Boolean))
+    {
+        getPipelineDictionary().put("ExportRefIDs", new Boolean((String) getObject("ExportRefIDs")));      
+    }
+
+    if (getObject("ExportDomainRefs") == null)
+    {
+        getPipelineDictionary().put("ExportDomainRefs", Boolean.TRUE);
+    }
+    else if (!(getObject("ExportDomainRefs") instanceof Boolean))
+    {
+        getPipelineDictionary().put("ExportDomainRefs", new Boolean((String) getObject("ExportDomainRefs")));      
+    }
+%>
+<ISIF condition="#isDefined(variationtype)#">
+
+    <variation-type<ISIF condition = "#ExportRefIDs#"> refid="<ISPRINT value="#variationtype:UUID#">"</ISIF> name="<ISPRINT value="#variationtype:Name#">">
+
+        <name>#stringToXml(variationtype:Name)#</name>
+        <attribute-name>#stringToXml(variationtype:AttributeName)#</attribute-name>
+        
+        <ISLOOP iterator="variationtype:AttributeValues" alias="av">
+            <ISIF condition="#(av:Name EQ 'displayName')#"><display-name <ISIF condition="#av:isLocalized#">xml:lang="#encodeValue(av:XMLLocaleID)#"</ISIF>><ISPRINT value="#av:StringValue#"></display-name></ISIF>
+        </ISLOOP>
+
+        <%
+            VariationType variationType = (VariationType) getObject("variationtype");
+
+            if(variationType.isLocalized())
+            {
+                out.println("<localizable>1</localizable>");
+            }
+        else
+        {
+            out.println("<localizable>0</localizable>");
+        }
+        
+        if(variationType.getValueType() == ProductAttributeEnumerationConstants.PRODUCT_ATTRIBUTE_TYPE_INTEGER)
+        {
+            out.println("<type>int</type>");
+        }
+        else if (variationType.getValueType() == ProductAttributeEnumerationConstants.PRODUCT_ATTRIBUTE_TYPE_DOUBLE)
+        {
+            out.println("<type>double</type>");
+        }
+        else if (variationType.getValueType() == ProductAttributeEnumerationConstants.PRODUCT_ATTRIBUTE_TYPE_STRING)
+        {
+            out.println("<type>string</type>");
+        }
+        
+        out.println("<variation-type-values>");
+        
+        Iterator avs = variationType.createAttributeValuesIterator();
+        
+        String  defaultLocale = null;
+
+        while (avs.hasNext())
+        {
+            AttributeValue  av          = (AttributeValue) avs.next();
+            String          avName      = av.getName();
+
+            if (avName.equals(ProductAttributeEnumerationConstants.ENUMERATION_VALUES_NAME))
+            {
+                out.println("<variation-type-value>");
+
+                String localeID = av.getXMLLocaleID();
+                Object enumValues  = av.getObject();
+
+                if (enumValues instanceof Iterator)
+                {
+                    Iterator enumIterator = (Iterator) enumValues;
+
+                    while (enumIterator.hasNext())
+                    {
+                        Object value = enumIterator.next();
+                        out.print("<value");
+                        out.print(" xml:lang=\"");
+                        out.print(localeID);
+                        out.print("\">");
+                        out.print(stringToXml(value.toString()));
+                        out.println("</value>");
+                    }
+
+                }
+
+                out.println("</variation-type-value>");
+            }   
+        }
+        
+        out.println("</variation-type-values>");
+        
+        getPipelineDictionary().put("variationTypeCustomAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(variationType.createCustomAttributesIterator(), variationType));
+        
+        %>
+        
+        <ISCUSTOMATTRIBUTES attributes="#variationTypeCustomAttributes#">
+
+    </variation-type>
+</ISIF>

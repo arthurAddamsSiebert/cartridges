@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="PartnerChannel" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false"/>
+    <parameter name="ContentSourceDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="WithoutSharedContent" type="java.lang.Boolean" optional="true"/>
+    <parameter name="SortBy" type="java.lang.String" optional="true"/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Organization" type="orm" class="com.intershop.component.organization.internal.organization.OrganizationPO">
+        <return-attribute name="UUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+
+    SELECT org.uuid, COUNT(org.uuid) OVER() AS "rowcount" 
+        <template-if condition="SortBy eq &apos;name&apos; OR SortBy eq &apos;namelink&apos;">
+           , av.stringvalue AS sorting
+        <if-elseif condition="SortBy eq &apos;id&apos;"/>
+           , org.id AS sorting
+        </template-if>
+      FROM organization org
+      JOIN repository pmr ON (org.organizationdomainid=pmr.domainid AND pmr.typecode=21 AND pmr.proxyflag=0) 
+    <template-if condition="SortBy eq &apos;name&apos; OR SortBy eq &apos;namelink&apos;">
+      LEFT OUTER JOIN organization_av av ON 
+           (av.ownerid = org.uuid AND 
+            av.name = &apos;displayName&apos; AND 
+            av.localeid = <template-variable value="Locale:LocaleID"/>)
+    </template-if>
+     WHERE org.domainid = <template-variable value="PartnerChannel:Domain:UUID"/>
+       AND <template-if condition="isDefined(WithoutSharedContent) AND WithoutSharedContent">NOT</template-if>
+       EXISTS
+           (SELECT 1
+              FROM repository original
+              JOIN repository proxy ON (original.repositorydomainid = proxy.repositorydomainid)
+             WHERE (proxy.proxyflag   =  1 AND original.proxyflag =  0)
+               AND (original.typecode = 21 AND proxy.typecode     = 27)
+               AND original.repositorydomainid = <template-variable value="ContentSourceDomain:UUID"/>
+               AND proxy.domainid = pmr.repositorydomainid)
+    <template-if condition="isDefined(SortBy)">
+     ORDER BY sorting
+        <template-if condition="SortDirection eq &apos;ascending&apos;">
+            ASC
+        <if-else/>
+            DESC
+        </template-if>
+    </template-if>
+
+</template>
+</query>

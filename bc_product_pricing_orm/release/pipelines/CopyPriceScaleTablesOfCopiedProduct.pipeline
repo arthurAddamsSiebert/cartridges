@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Hooks to the ProcessProduct\-CopyAdditionalData extension and copies the PriceScaleTable related data of the original product to the copy product.
+@Group Product-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="CopyPriceScaleTablesOfCopiedProduct" type="process">
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="Start"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CopyProductPriceScales1"/>
+<!--The original product which is copied.-->
+    <parameters name="SourceProduct" type="com.intershop.beehive.xcs.capi.product.Product"/>
+<!--The newly created copy product of the original SourceProduct.-->
+    <parameters name="TargetProduct" type="com.intershop.beehive.xcs.capi.product.Product"/>
+<!--The product history state used for creating product history journal entries.-->
+    <parameters name="ProductHistoryState" type="java.lang.Integer"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyProductPriceScales1">
+    <pipelet href="enfinity:/bc_pricing/pipelets/CopyProductPriceScales.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="TargetProduct:isProductMaster"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="LoopNode0"/>
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="TargetProduct:MasteredProducts">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <entry key="MasteredProduct">
+      <nodeSuccessors name="loop_entry_next" next="KeyMapper0"/>
+    </entry>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetProductByUUID0"/>
+    <parameterBindings name="InValue_1" objectPath="MasteredProduct"/>
+    <returnValueBindings name="OutValue_1" objectPath="Product"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="CopyProductPriceScales0"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+    <parameterBindings name="ProductDomain" objectPath="Product:Domain"/>
+    <parameterBindings name="ProductUUID" objectPath="Product:OriginalProductUUID"/>
+    <returnValueBindings name="Product" objectPath="OriginalProduct"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyProductPriceScales0">
+    <pipelet href="enfinity:/bc_pricing/pipelets/CopyProductPriceScales.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <parameterBindings name="SourceProduct" objectPath="OriginalProduct"/>
+    <parameterBindings name="TargetProduct" objectPath="Product"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+<!--@BendPoints 3,16 2,16 2,10 2,7-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <startNode referencedName="ProcessProductHistory-AddInsertEntry"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+</pipeline:Pipeline>

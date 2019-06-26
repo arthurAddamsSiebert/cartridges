@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ChannelDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="UserGroupID" type="java.lang.String" optional="false"/>	
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>	
+</parameters>
+<return-mappings>
+	<return-mapping name="UserBO" type="bo-orm" class="com.intershop.beehive.core.internal.profile.BasicProfilePO" mapperclass="BasicProfilePOToUserBOMapper">
+		<return-attribute name="UserUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	SELECT 
+		distinct u.uuid as UserUUID, COUNT(*) over() AS "rowcount",
+		<template-if condition="isDefined(SortBy) AND SortBy EQ 'lastname'">
+			upper(u.lastname)
+		<if-elseif condition="isDefined(SortBy) AND SortBy EQ 'firstname'"/>
+			upper(u.firstname)
+		<if-elseif condition="isDefined(SortBy) AND SortBy EQ 'businessPartnerNo'"/>
+			upper(u.businessPartnerNo)
+		<if-elseif condition="isDefined(SortBy) AND SortBy EQ 'email'"/>
+			upper(u.email)
+		<if-elseif condition="isDefined(SortBy) AND SortBy EQ 'login'"/>
+			upper(credentials.login)
+		<if-else/>
+			upper(u.lastname)
+		</template-if>
+			as SORTING
+	FROM
+	    basicprofile u inner join basiccredentials credentials on (u.uuid = credentials.basicprofileid)
+                     inner join usergroupuserassignment usua on (u.uuid = usua.userid)
+   WHERE (usua.usergroupid = <template-variable value="UserGroupID"/> AND usua.usergroupdomainid = <template-variable value="ChannelDomain:UUID"/>)
+   ORDER BY SORTING
+	<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;">
+		DESC <sql-dialect name="Oracle">NULLS LAST</sql-dialect>
+    <if-else/>
+		ASC <sql-dialect name="Oracle">NULLS FIRST</sql-dialect>
+	</template-if>
+</template>
+</query>

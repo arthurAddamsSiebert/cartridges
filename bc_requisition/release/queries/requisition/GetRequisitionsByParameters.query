@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="@Deprecated since 7.10. Currently unused and will be removed in a future release.">
+<parameters>
+    <parameter name="DomainUUID" type="java.lang.String" optional="true"/>
+    <parameter name="UserID" type="java.lang.String" optional="true"/>
+    <parameter name="Status" type="java.util.Iterator" optional="true"/>
+    <parameter name="StateGroupStatus" type="java.util.Iterator" optional="true"/>
+    <parameter name="StateGroup" type="java.lang.String" optional="true"/>
+    <parameter name="Type" type="java.util.Iterator" optional="true"/>
+    <parameter name="SessionBasedFlag" type="java.lang.Integer" optional="true"/>
+    <parameter name="FromCreationDate" type="java.util.Date" optional="true"/>
+    <parameter name="ToCreationDate" type="java.util.Date" optional="true"/>
+    <parameter name="FromHistoryDate" type="java.util.Date" optional="true"/>
+    <parameter name="ToHistoryDate" type="java.util.Date" optional="true"/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="CreationBuyerNo" type="java.lang.String" optional="true"/> 
+    <parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Basket" type="orm" class="com.intershop.beehive.bts.internal.orderprocess.basket.BasketPO">
+        <return-attribute name="uuid"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+    SELECT 
+      b.uuid, COUNT(*) over() AS "rowcount", b.CREATIONDATE
+    FROM
+      basket b
+    WHERE 1=1
+    
+     <template-if condition="isDefined(DomainUUID)">
+              AND b.DOMAINID=<template-variable value="DomainUUID"/>      
+         </template-if>   
+     
+     <template-if condition="isDefined(UserID)">
+          AND b.USERID=<template-variable value="UserID"/>
+         </template-if> 
+    
+    <template-if condition="isDefined(Status) AND hasElements(Status)">
+          AND b.STATUS IN (
+        <template-loop iterator="Status" alias="aStatus"><loop-statement><template-variable value="aStatus"/></loop-statement>
+            <loop-separator>,</loop-separator>
+        </template-loop>
+        )
+    </template-if>
+    
+    <template-if condition="isDefined(Type) AND hasElements(Type)">
+          AND b.TYPE IN (
+        <template-loop iterator="Type" alias="aType"><loop-statement><template-variable value="aType"/></loop-statement>
+            <loop-separator>,</loop-separator>
+        </template-loop>
+        )
+    </template-if>
+    
+    <template-if condition="isDefined(SessionBasedFlag)">
+          AND b.sessionbasedflag=<template-variable value="SessionBasedFlag"/>
+    </template-if> 
+    
+    <template-if condition="isDefined(FromCreationDate)">
+          AND b.creationdate&gt;=<template-variable value="FromCreationDate"/>
+    </template-if> 
+    
+    <template-if condition="isDefined(ToCreationDate)">
+          AND b.creationdate&lt;=<template-variable value="ToCreationDate"/>
+    </template-if> 
+    
+    <template-if condition="isDefined(FromHistoryDate)">
+          AND b.creationdate&gt;=<template-variable value="FromHistoryDate"/>
+    </template-if> 
+    
+    <template-if condition="isDefined(ToHistoryDate)">
+          AND b.creationdate&lt;=<template-variable value="ToHistoryDate"/>
+    </template-if> 
+    
+    <template-if condition="isDefined(StateGroup) AND isDefined(StateGroupStatus) AND hasElements(StateGroupStatus)">
+        AND b.uuid IN (
+        SELECT ownerid 
+        FROM basket_av 
+        WHERE name= <template-variable value="StateGroup"/> 
+          AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag=0) 
+              AND intvalue in (
+                    <template-loop iterator="StateGroupStatus" alias="aStateGroupStatus"><loop-statement>
+                                <template-variable value="aStateGroupStatus"/>
+                            </loop-statement>
+            <loop-separator>,</loop-separator>
+        </template-loop>
+              ) 
+        )
+    </template-if>
+    
+    <template-if condition="isDefined(StateGroup) AND isDefined(StateGroupStatus) AND hasElements(StateGroupStatus)">
+        AND b.uuid IN (
+        SELECT ownerid 
+        FROM basket_av 
+        WHERE name= &apos;CreationBuyerNo&apos;
+          AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag=0) 
+          AND stringvalue = <template-variable value="CreationBuyerNo"/>
+        )
+    </template-if>
+    
+    <sql-dialect name="Oracle">
+    <template-if condition="isDefined(SortDirection)">
+         ORDER BY b.CREATIONDATE
+        <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+            DESC NULLS FIRST
+            <if-else/>
+            ASC NULLS LAST
+        </template-if>
+    </template-if>        
+    </sql-dialect>  
+    <sql-dialect name="Microsoft">
+	    <template-if condition="isDefined(SortDirection)">
+	         ORDER BY 
+	        <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+	            CASE
+	            	WHEN b.CREATIONDATE is null THEN 0
+	            	ELSE 1
+	            END, b.CREATIONDATE desc
+	            <if-else/>
+	            CASE
+	            	WHEN b.CREATIONDATE is null THEN 1
+	            	ELSE 0
+	            END, b.CREATIONDATE asc
+	        </template-if>
+	    </template-if> 
+    </sql-dialect>      
+
+</template>
+</query>

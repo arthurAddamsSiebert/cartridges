@@ -1,0 +1,31 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%! protected Boolean printTemplateMarker() { return Boolean.FALSE; } %><%%><%@ page contentType="text/plain;charset=utf-8" %><%%><%@ page session="false"%><%setEncodingType("text/plain"); %><%@ page import = "com.intershop.beehive.xcs.capi.catalog.CatalogCategory" %><%@ 
+	page import = "com.intershop.component.product.capi.ProductBO" %><%@
+	page import = "com.intershop.component.catalog.capi.CatalogCategoryBO,
+                   com.intershop.component.catalog.capi.CatalogBO,
+                   com.intershop.component.catalog.capi.CatalogBORepository,
+                   com.intershop.component.application.capi.ApplicationBO,
+                   com.intershop.component.catalog.capi.CatalogBORepositoryExtension,
+                   com.intershop.beehive.core.capi.app.AppContextUtil,
+                   com.intershop.beehive.app.capi.AppContext" %><% 
+     AppContext appContext = AppContextUtil.getCurrentAppContext();
+%><% {Object temp_obj = ("ViewStandardCatalog-Browse"); getPipelineDictionary().put("CategoryViewingPipelineName", temp_obj);} %>LinkType;UUID;DisplayName;URL<%out.println();%><% _boolean_result=false;try {_boolean_result=((Boolean)((hasLoopElements("Categories") ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",15,e);}if (_boolean_result) { %><% while (loop("Categories","Category",null)) { %><%
+        CatalogCategory category = (CatalogCategory) getObject("Category");
+        ApplicationBO applicationBO = appContext.getVariable(ApplicationBO.CURRENT);        
+	    CatalogBORepository catalogBORepository = applicationBO.getRepository(CatalogBORepositoryExtension.EXTENSION_ID);
+	    CatalogBO catalogBO = catalogBORepository.getCatalogBOByCatalogRepositoryBOID(category.getDomain().getUUID());
+        getPipelineDictionary().put("CategoryBO", catalogBO.getCatalogCategoryBOByID(category.getUUID()));
+%>Category;<% {String value = null;try{value=context.getFormattedValue(getObject("Category:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {21}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>;"<% {String value = null;try{value=context.getFormattedValue(getObject("Category:DisplayName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {21}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>";<%=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue(getObject("CategoryViewingPipelineName"),null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("CategoryName",null),context.getFormattedValue(getObject("Category:Name"),null))).addURLParameter(context.getFormattedValue("CatalogID",null),context.getFormattedValue(getObject("CategoryBO:CatalogBO:Name"),null))),null)%><%out.println();%><% } %><% } %><% _boolean_result=false;try {_boolean_result=((Boolean)((hasLoopElements("Products") ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",22,e);}if (_boolean_result) { %><% 
+Object objects = getObject("Products");
+if(objects instanceof com.intershop.beehive.foundation.util.ResettableIterator)
+{
+ 	getPipelineDictionary().put("Products", ((com.intershop.beehive.foundation.util.ResettableIterator)objects).toSequence());
+}
+%><% while (loop("Products","ProductBO",null)) { %><%
+    ProductBO productBO = (ProductBO) getObject("ProductBO");
+	getPipelineDictionary().put("ProductBO", productBO);
+ %>Product;<% {String value = null;try{value=context.getFormattedValue(getObject("ProductBO:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {31}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>;"<% {String value = null;try{value=context.getFormattedValue(getObject("ProductBO:Name"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {31}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>";<%=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProduct-Start",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("CatalogID",null),context.getFormattedValue(getObject("ProductBO:DefaultCatalogCategory:CatalogBO:Name"),null))).addURLParameter(context.getFormattedValue("CategoryName",null),context.getFormattedValue(getObject("ProductBO:DefaultCatalogCategory:Name"),null)).addURLParameter(context.getFormattedValue("SKU",null),context.getFormattedValue(getObject("ProductBO:SKU"),null))),null)%><%out.println();%><% } %><% } %><% printFooter(out); %>

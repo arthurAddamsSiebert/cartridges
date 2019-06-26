@@ -1,0 +1,89 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% {Object temp_obj = (getObject("CustomerBO:CustomerType:CustomerTypeID")); getPipelineDictionary().put("CustomerTypeID", temp_obj);} %><% {Object temp_obj = ("Users"); getPipelineDictionary().put("SelectedTab", temp_obj);} %><% {Object temp_obj = (getObject("CustomerBO:Extension(\"CompanyCustomer\")")); getPipelineDictionary().put("CustomerDetails", temp_obj);} %><!-- Working Area -->
+<!-- Main Content --><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewCustomerUser_52-Show",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ChannelID",null),context.getFormattedValue(getObject("CurrentChannel:UUID"),null))).addURLParameter(context.getFormattedValue("UserUUID",null),context.getFormattedValue(getObject("UserBO:ID"),null)).addURLParameter(context.getFormattedValue("CustomerID",null),context.getFormattedValue(getObject("CustomerBO:ID"),null)))),
+new TagParameter("id","CustomerUsers/Details"),
+new TagParameter("text",context.getFormattedValue(getObject("UserBO:FirstName"),null) + context.getFormattedValue(" ",null) + context.getFormattedValue(getObject("UserBO:LastName"),null))}, 8); %><!-- EO Page Navigator --><% {out.flush();processExtensionPoint((com.intershop.beehive.core.capi.request.ServletResponse)response,"CustomerTabs", null, "11");} %><% URLPipelineAction action296 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewCustomerUser_52-Dispatch",null)))),null));String site296 = null;String serverGroup296 = null;String actionValue296 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewCustomerUser_52-Dispatch",null)))),null);if (site296 == null){  site296 = action296.getDomain();  if (site296 == null)  {      site296 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup296 == null){  serverGroup296 = action296.getServerGroup();  if (serverGroup296 == null)  {      serverGroup296 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewCustomerUser_52-Dispatch",null)))),null));out.print("\"");out.print(" name=\"");out.print("formMask");out.print("\"");out.print(" id=\"");out.print("kor-customeruser-updateForm");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue296, site296, serverGroup296,true)); %><input type="hidden" name="UserUUID" value="<%=context.getFormattedValue(getObject("UserBO:ID"),null)%>" />
+<input type="hidden" name="CustomerID" value="<%=context.getFormattedValue(getObject("CustomerBO:ID"),null)%>" />
+<input type="hidden" name="ChannelID" value="<%=context.getFormattedValue(getObject("CurrentChannel:UUID"),null)%>" />
+<table cellpadding="0" cellspacing="0" border="0" width="100%" 
+<% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_MANAGE_CONSUMERS")))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",18,e);}if (_boolean_result) { %>
+class="js-form-disabled"
+<% } %>
+>
+<tr>
+<td class="table_title w e s"><% {String value = null;try{value=context.getFormattedValue(getObject("CustomerDetails:Name"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {24}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %> (<% {out.write(localizeISText(context.getFormattedValue(getObject("CustomerBO:CustomerType:LocalizationKeyForName"),null),"",null,null,null,null,null,null,null,null,null,null,null));} %>) - <% {String value = null;try{value=context.getFormattedValue(getObject("UserBO:FirstName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {24}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %> <% {String value = null;try{value=context.getFormattedValue(getObject("UserBO:LastName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {24}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"user/CustomerUserErrors_52", null, "27");} %><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("confirmDelete"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",29,e);}if (_boolean_result) { %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("IsLastUser")))).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("IsLastUser"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",30,e);}if (_boolean_result) { %><tr>
+<td>
+<table border="0" cellpadding="4" cellspacing="0" width="100%" class="confirm_box w e s">
+<tr>
+<td class="error_icon center e" width="1">
+<img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/confirmation.gif" width="16" height="15" alt="" border="0"/>
+</td>
+<td class="confirm">
+<strong><% {out.write(localizeISText("customerusers.list.delete.confirm","",null,null,null,null,null,null,null,null,null,null,null));} %></strong>
+<br/><% {out.write(localizeISText("customerusers.list.delete.confirm_delete","",null,null,null,null,null,null,null,null,null,null,null));} %><p/><% {out.write(localizeISText("customerusers.list.delete.confirm_delete_customers_as_well","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td align="right" class="top">
+<table cellspacing="0" cellpadding="0" border="0">
+<tbody>
+<tr>
+<td class="button"><input type="submit" class="button " value="<% {out.write(localizeISText("customers.list.delete.button.just.user","",null,null,null,null,null,null,null,null,null,null,null));} %>" name="delete"></td>
+<td><img height="0" width="4" border="0" alt="" src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" /></td>
+<td class="button"><input type="submit" class="button " value="<% {out.write(localizeISText("customers.list.delete.button.customer.as.well","",null,null,null,null,null,null,null,null,null,null,null));} %>" name="deleteUserAndCustomer"></td>
+<td><img height="0" width="4" border="0" alt="" src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" /></td>
+<td class="button"><input type="submit" class="button " value="<% {out.write(localizeISText("customers.list.delete.button.cancel","",null,null,null,null,null,null,null,null,null,null,null));} %>" name="cancelDelete" /></td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</table>
+</td>
+</tr><% } else { %><% processOpenTag(response, pageContext, "messagebox", new TagParameter[] {
+new TagParameter("colspan","1"),
+new TagParameter("subject",localizeText(context.getFormattedValue("UpdateCustomerUser_52.Product.subject",null))),
+new TagParameter("cancelbtnname","cancelDelete"),
+new TagParameter("okbtnname","delete"),
+new TagParameter("type","sdc"),
+new TagParameter("message",localizeText(context.getFormattedValue("UpdateCustomerUser_52.DoYouReallyWantToDeleteThisUser.message",null)))}, 64); %><% } %><% } %><tr><td class="table_title_description w e s"><% {out.write(localizeISText("UpdateCustomerUser_52.FieldsWithRedAsteriskAreMandatory.table_title_description",null,null,"star",null,null,null,null,null,null,null,null,null));} %></td></tr>
+<tr>
+<td>
+<table border="0" cellspacing="0" cellpadding="0" width="100%" class="w e">
+<tr>
+<td colspan="5"><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="1" height="6" alt="" border="0"/></td>
+</tr><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"user/CustomerUserPersonalInfoInc_52", null, "77");} %><tr><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) getObject("CustomerUserForm:Login:isInvalid")).booleanValue() || ((Boolean) ((((context.getFormattedValue(getObject("ERROR_User"),null).equals(context.getFormattedValue("LoginAlreadyInUse",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",79,e);}if (_boolean_result) { %><td nowrap="nowrap" class="label"><label class="label label_error" for="<% {String value = null;try{value=context.getFormattedValue(getObject("CustomerUserForm:Login:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {80}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("UpdateCustomerUser_52.Login.label",null,null,null,null,null,null,null,null,null,null,null,null));} %>:<span class="star">*</span></label></td><% } else { %><td nowrap="nowrap" class="label"><label class="label" for="<% {String value = null;try{value=context.getFormattedValue(getObject("CustomerUserForm:Login:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {82}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("UpdateCustomerUser_52.Login.label",null,null,null,null,null,null,null,null,null,null,null,null));} %>:<span class="star">*</span></label></td><% } %><td class="table_detail"><input autocomplete="off" type="text" name="<% {String value = null;try{value=context.getFormattedValue(getObject("CustomerUserForm:Login:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {84}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" id="<% {String value = null;try{value=context.getFormattedValue(getObject("CustomerUserForm:Login:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {84}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" maxlength="256" size="25" value="<% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CustomerUserForm:isSubmitted"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",84,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("CustomerUserForm:Login:FormattedValue"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {84}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } else { %><% {String value = null;try{value=context.getFormattedValue(getObject("UserBO:Login"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {84}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %>" class="inputfield_en" tabindex="100"/></td>
+<td nowrap="nowrap" class="label"><label class="label"><% {out.write(localizeISText("UpdateCustomerUser_52.CreationDate.label",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</label></td>
+<td class="table_detail" colspan="2"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("UserBO:CreationDate"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",87,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("UserBO:CreationDate"),new Integer(DATE_SHORT),null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {87}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>&nbsp;<% {String value = null;try{value=context.getFormattedValue(getObject("UserBO:CreationDate"),new Integer(DATE_TIME),null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {87}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %></td>
+</tr>
+<tr>
+<td class="table_detail" colspan="2">&nbsp;</td>
+<td nowrap="nowrap" class="label"><label class="label"><% {out.write(localizeISText("UpdateCustomerUser_52.LastTimeLoggedIn.label",null,null,null,null,null,null,null,null,null,null,null,null));} %>:</label></td>
+<td class="table_detail" colspan="2"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("UserBO:LastLoggedIn"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",94,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("UserBO:LastLoggedIn"),new Integer(DATE_SHORT),null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {94}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>&nbsp;<% {String value = null;try{value=context.getFormattedValue(getObject("UserBO:LastLoggedIn"),new Integer(DATE_TIME),null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {94}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %></td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td class="w e s"><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="1" height="6" border="0" alt=""/></td>
+</tr><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_MANAGE_CONSUMERS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",103,e);}if (_boolean_result) { %><tr>
+<td align="right" class="w e s">
+<table border="0" cellspacing="4" cellpadding="0">
+<tr>
+<td class="button"><input type="hidden" name="webform-id" value="CustomerUserForm"/><input type="hidden" name="JumpTo" value="Standard"/><input type="hidden" name="redirect" value="NewUser"/><input type="submit" name="update" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("UpdateCustomerUser_52.Apply.button",null)),null)%>" class="button" tabindex="202"/></td>
+<td class="button"><input type="submit" name="newPassword" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("UpdateCustomerUser_52.SendPasswordRetrievalMail.button",null)),null)%>" class="button" tabindex="204"/></td>
+<td class="button"><input type="submit" name="confirmDelete" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("UpdateCustomerUser_52.Delete.button",null)),null)%>" class="button" tabindex="206"/></td>
+</tr>
+</table>
+</td>
+</tr><% } %></table><% out.print("</form>"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/BackToList", null, "118");} %> 
+<script language="JavaScript" type="text/javascript">
+<!--
+document.formMask.CustomerUserForm_UserID.focus();
+-->
+</script>
+<!-- EO Main Content -->
+<!-- EO Working Area --><% printFooter(out); %>

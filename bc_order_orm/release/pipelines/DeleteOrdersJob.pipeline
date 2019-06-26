@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Job pipeline for deleting orders which are marked as to be deleted.
+@Group Order-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="DeleteOrdersJob" overrideMode="Inherit" type="job">
+<!--Creates the job configuration 
+for the given sales or partner 
+organization.
+@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_xfSFoCefEeiVpJrW_UtyPA" strict="true"
+      name="Create" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode__UZ5kCgnEeixxfpKbVuJzA"/>
+<!--the organization the job configuration should be created in-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode__UZ5kCgnEeixxfpKbVuJzA"
+      conditionKey="Organization:TypeCode" operator="eq" conditionValue="20">
+    <nodeSuccessors name="decision_yes" next="JoinNode_dlPPQCgyEeixxfpKbVuJzA"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode_a4YncCgyEeixxfpKbVuJzA"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_dlPPQCgyEeixxfpKbVuJzA">
+    <nodeSuccessors name="next" next="CreateJobConfiguration_p-imICehEeiVpJrW_UtyPA"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateJobConfiguration_p-imICehEeiVpJrW_UtyPA">
+    <pipelet href="enfinity:/core/pipelets/CreateJobConfiguration.xml"/>
+    <nodeSuccessors name="next" next="UpdateJobConfiguration_7CndECefEeiVpJrW_UtyPA"/>
+    <parameterBindings name="Domain" objectPath="Organization:Domain"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateJobConfiguration_7CndECefEeiVpJrW_UtyPA">
+    <configurationValues name="Date" value="2000.01.01_at_00:00:00"/>
+    <configurationValues name="Descript" value="Deletes orders whose toBeDeleted flag is true and whose status is not PENDING, MANUAL_INTERVENTION_NEEDED or EXPORTFAILED. The selection of statuses that are ignored for the order deletion can be overwritten by defining an attribute called &quot;ExcludedStatuses&quot;, datatype String, with comma separated values, i.e. PENDING,MANUAL_INTERVENTION_NEEDED,EXPORTFAILED"/>
+    <configurationValues name="EnableJob" value="false"/>
+    <configurationValues name="Name" value="Delete Orders"/>
+    <configurationValues name="PipelineName" value="DeleteOrdersJob"/>
+    <configurationValues name="PipelineStartNode" value="Start"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateJobConfiguration.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_C9FQcCgoEeixxfpKbVuJzA"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode_Lf4gwCegEeiVpJrW_UtyPA"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_C9FQcCgoEeixxfpKbVuJzA">
+    <nodeSuccessors name="next" next="EndNode_K8Cz4CegEeiVpJrW_UtyPA"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_K8Cz4CegEeiVpJrW_UtyPA" strict="true"/>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_Lf4gwCegEeiVpJrW_UtyPA" name="Error"
+      strict="true"/>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_a4YncCgyEeixxfpKbVuJzA"
+      conditionKey="Organization:TypeCode" operator="eq" conditionValue="30">
+<!--@BendPoints 11,5-->
+    <nodeSuccessors name="decision_yes" next="JoinNode_dlPPQCgyEeixxfpKbVuJzA"/>
+<!--@BendPoints 13,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode_C9FQcCgoEeixxfpKbVuJzA"/>
+  </nodes>
+<!--Starts the order deletion job 
+with the given parameters.
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_jYh1ACN7EeiuaPxgcMLfKw" strict="true"
+      name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO_VNDUICODEeiuaPxgcMLfKw"/>
+<!--comma\-separated list of statuses which are excluded from deletion (i. e. an order with such a status will not be deleted)-->
+    <parameters name="ExcludedStatuses" type="java.lang.String" optional="true"/>
+<!--maximum number of orders to be deleted-->
+    <parameters name="MaxNumberOfOrders" type="java.lang.Integer" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO_VNDUICODEeiuaPxgcMLfKw">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetOrderDomainsByApplication_KFlLkDDYEeiW68PQKcOJmg"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderDomainsByApplication_KFlLkDDYEeiW68PQKcOJmg">
+    <pipelet href="enfinity:/bc_order_orm/pipelets/GetOrderDomainsByApplication.xml"/>
+    <nodeSuccessors name="next" next="LoopNode_00hOkDHQEeiW68PQKcOJmg"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode_00hOkDHQEeiW68PQKcOJmg" loop="Domains">
+    <nodeSuccessors name="next" next="EndNode_lPU-kCN7EeiuaPxgcMLfKw"/>
+    <entry key="OrderDomain">
+      <nodeSuccessors name="loop_entry_next" next="DeleteOrdersBySP_WTEpkCOaEeiuaPxgcMLfKw"/>
+    </entry>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DeleteOrdersBySP_WTEpkCOaEeiuaPxgcMLfKw">
+    <configurationValues name="DefaultExcludedStatuses" value="PENDING,EXPORTFAILED,MANUAL_INTERVENTION_NEEDED"/>
+    <configurationValues name="DefaultMaxNumberOfOrders" value="10000"/>
+    <pipelet href="enfinity:/bc_order_orm/pipelets/DeleteOrdersBySP.xml"/>
+    <nodeSuccessors name="next" next="RefreshCache_jOEdICbLEeiJ-vACxSxnBQ"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode_iiE0gCODEeiuaPxgcMLfKw"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshCache_jOEdICbLEeiJ-vACxSxnBQ">
+    <configurationValues name="PersistentClassName_0" value="com.intershop.beehive.bts.internal.orderprocess.fulfillment.OrderPO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+<!--@BendPoints 2,11 2,7-->
+    <nodeSuccessors name="next" next="LoopNode_00hOkDHQEeiW68PQKcOJmg_Entry"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_iiE0gCODEeiuaPxgcMLfKw" name="Error"
+      strict="true"/>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_lPU-kCN7EeiuaPxgcMLfKw" strict="true"/>
+</pipeline:Pipeline>

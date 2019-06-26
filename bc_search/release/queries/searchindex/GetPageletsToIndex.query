@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="gets page pagelets that contains configuration parameters that should be indexed in the search index.">
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false" description="the domain of the objects to be indexed."/>
+	<parameter name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex" optional="false" description="the searchindex currently to be build or updated."/>
+	<parameter name="LastIndexStartTime" type="java.util.Date" optional="true" description="the time the index was last build or updated. If present only the changed objects are searched indexed (updates the index)"/>
+	<parameter name="CurrentDate" type="java.util.Date" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	<sql-dialect name="Microsoft">
+		WITH abc(parent, pageflag,  dqn, child) AS
+		(
+			SELECT parent, pageflag,  dqn, child FROM
+			(
+				  SELECT p.uuid parent, p.pageflag pageflag, p.definitionqualifiedname dqn, spa.subpageletid child
+				  FROM pagelet p, slot s, slotpageletassignment spa
+				  WHERE 
+				  spa.parentslotid = s.uuid 
+				  AND p.uuid = s.parentpageletid
+				  AND (p.domainid=<template-variable value="Domain:UUID"/>
+				  OR p.domainid=
+				  (
+					SELECT repositorydomainid
+					FROM repository 
+					WHERE domainid=<template-variable value="Domain:UUID"/> AND proxyflag=1 AND typecode=27)
+				  )
+			) a
+			WHERE child IN 
+				<template-comment>start with the childrens that have selected parameters</template-comment>
+					(
+					  SELECT p2.uuid 
+					  FROM pagelet p2, configurationparameter cp 
+					  WHERE p2.uuid = cp.configurationparameterctnrid
+					  AND (p2.domainid=<template-variable value="Domain:UUID"/>
+					  OR p2.domainid = 
+						(
+						SELECT repositorydomainid
+						FROM repository 
+						WHERE domainid=<template-variable value="Domain:UUID"/> AND proxyflag=1 AND typecode=27)
+						)
+			<template-if condition="isdefined(LastIndexStartTime)">
+				AND 
+				( (cp.lastmodified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>)
+				  OR  (p2.lastmodified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>)
+				  OR (p2.validFrom IS NOT NULL AND <template-variable value="CurrentDate" /> &gt; p2.validFrom AND p2.validFrom &gt; <template-variable value="LastIndexStartTime" />)
+				  OR (p2.validto IS NOT NULL AND p2.validto &gt; <template-variable value="LastIndexStartTime" /> AND p2.validTo &lt; <template-variable value="CurrentDate" />)
+				) 
+			</template-if>
+						<template-if condition="isDefined(SearchIndex:Configuration:IndexedQNames)">
+						AND cp.definitionqualifiedname 
+						IN 
+							(	
+							<template-if condition="hasLoopElements(SearchIndex:Configuration:IndexedQNames)">
+								<template-loop iterator="SearchIndex:Configuration:IndexedQNames" alias="IndexedQName">
+									<loop-statement>
+										<template-variable value="IndexedQName"/>
+									</loop-statement>
+									<loop-separator>,</loop-separator>
+								</template-loop>
+							<if-else/>
+								<template-variable value="SearchIndex:Configuration:IndexedQNames"/>
+							</template-if>
+							)
+						</template-if>
+				<template-comment>
+				   now we add all pagelets with configured dynamic slots unconditionally so pages 
+				   with these dynamic slots are always included in build and update of the index 
+				</template-comment>
+						<template-if condition="isDefined(SearchIndex:Configuration:DynamicSlotQNames)">
+						UNION ALL 
+						(
+						  SELECT parentpageletid 
+						  FROM slot 
+						  WHERE definitionqualifiedname 
+						  IN (
+								<template-if condition="hasLoopElements(SearchIndex:Configuration:DynamicSlotQNames)">
+									<template-loop iterator="SearchIndex:Configuration:DynamicSlotQNames" alias="DynamicSlotQName">
+										<loop-statement>
+											<template-variable value="DynamicSlotQName"/>
+										</loop-statement>
+										<loop-separator>,</loop-separator>
+									</template-loop>
+								<if-else/>
+									<template-variable value="SearchIndex:Configuration:DynamicSlotQNames"/>
+								</template-if>
+							  )
+						)
+						</template-if>
+					)
+				UNION ALL 
+					SELECT p.uuid parent, p.pageflag pageflag, p.definitionqualifiedname dqn, spa.subpageletid child
+					FROM pagelet p, slot s, slotpageletassignment spa, abc a
+					WHERE 
+					spa.parentslotid = s.uuid 
+					AND p.uuid = s.parentpageletid
+					AND a.child = p.uuid
+		)
+	</sql-dialect>
+	SELECT parent AS uuid, count(parent) over() as "ROWCOUNT"
+	FROM
+	(
+	SELECT DISTINCT parent 
+	FROM
+	(
+	<sql-dialect name="Oracle">
+	  SELECT parent, pageflag,  dqn, child FROM
+	  (
+	      SELECT p.uuid parent, p.pageflag pageflag, p.definitionqualifiedname dqn, spa.subpageletid child
+	      FROM pagelet p, slot s, slotpageletassignment spa
+	      WHERE 
+	      spa.parentslotid = s.uuid 
+	      AND p.uuid = s.parentpageletid
+	      AND (p.domainid=<template-variable value="Domain:UUID"/>
+	   	  OR p.domainid=
+	      (
+	   	    SELECT repositorydomainid
+	        FROM repository 
+	        WHERE domainid=<template-variable value="Domain:UUID"/> AND proxyflag=1 AND typecode=27)
+	      )
+	  ) 
+	  START WITH child IN 
+	  	<template-comment>start with the childrens that have selected parameters</template-comment>
+	        (
+	          SELECT p2.uuid 
+	          FROM pagelet p2, configurationparameter cp 
+	          WHERE p2.uuid = cp.configurationparameterctnrid
+	          AND (p2.domainid=<template-variable value="Domain:UUID"/>
+	          OR p2.domainid = 
+	            (
+	            SELECT repositorydomainid
+	            FROM repository 
+	            WHERE domainid=<template-variable value="Domain:UUID"/> AND proxyflag=1 AND typecode=27)
+	            )
+	<template-if condition="isdefined(LastIndexStartTime)">
+		AND 
+		( (cp.lastmodified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>)
+		  OR  (p2.lastmodified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>)
+		  OR (p2.validFrom IS NOT NULL AND <template-variable value="CurrentDate" /> &gt; p2.validFrom AND p2.validFrom &gt; <template-variable value="LastIndexStartTime" />)
+		  OR (p2.validto IS NOT NULL AND p2.validto &gt; <template-variable value="LastIndexStartTime" /> AND p2.validTo &lt; <template-variable value="CurrentDate" />)
+		) 
+	</template-if>
+	     		<template-if condition="isDefined(SearchIndex:Configuration:IndexedQNames)">
+		        AND cp.definitionqualifiedname 
+		        IN 
+		        	(	
+		       		<template-if condition="hasLoopElements(SearchIndex:Configuration:IndexedQNames)">
+			        	<template-loop iterator="SearchIndex:Configuration:IndexedQNames" alias="IndexedQName">
+			        		<loop-statement>
+					        	<template-variable value="IndexedQName"/>
+					        </loop-statement>
+							<loop-separator>,</loop-separator>
+						</template-loop>
+			        <if-else/>
+			        	<template-variable value="SearchIndex:Configuration:IndexedQNames"/>
+			        </template-if>
+		            )
+		     	</template-if>
+	  	<template-comment>
+	  	   now we add all pagelets with configured dynamic slots unconditionally so pages 
+	  	   with these dynamic slots are always included in build and update of the index 
+	  	</template-comment>
+	     		<template-if condition="isDefined(SearchIndex:Configuration:DynamicSlotQNames)">
+		     	UNION ALL 
+		     	(
+		     	  SELECT parentpageletid 
+		     	  FROM slot 
+		     	  WHERE definitionqualifiedname 
+		     	  IN (
+			       	    <template-if condition="hasLoopElements(SearchIndex:Configuration:DynamicSlotQNames)">
+				        	<template-loop iterator="SearchIndex:Configuration:DynamicSlotQNames" alias="DynamicSlotQName">
+				        		<loop-statement>
+						        	<template-variable value="DynamicSlotQName"/>
+						        </loop-statement>
+								<loop-separator>,</loop-separator>
+							</template-loop>
+				        <if-else/>
+				        	<template-variable value="SearchIndex:Configuration:DynamicSlotQNames"/>
+				        </template-if>
+		     	      )
+		     	)
+		     	</template-if>
+	        )
+	  CONNECT BY NOCYCLE PRIOR parent = child
+	  </sql-dialect>
+	  <sql-dialect name="Microsoft">
+		SELECT parent, pageflag,  dqn, child FROM abc
+	  </sql-dialect>
+	  UNION ALL
+	  	<template-comment>add all the pages with parameters directly at the page</template-comment>
+	SELECT p.uuid as parent, p.pageflag, p.definitionqualifiedname dqn, null as child 
+	        FROM pagelet p, configurationparameter cp 
+	        WHERE p.uuid = cp.configurationparameterctnrid
+	        	AND p.pageflag = 1
+	        AND (p.domainid=<template-variable value="Domain:UUID"/>
+	 OR p.domainid=(
+	SELECT repositorydomainid
+	FROM repository 
+	WHERE domainid=<template-variable value="Domain:UUID"/> AND proxyflag=1 AND typecode=27)
+	)
+	<template-if condition="isdefined(LastIndexStartTime)">
+		AND 
+		( cp.lastmodified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>
+		  OR  p.lastmodified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>
+		  OR (p.validFrom IS NOT NULL AND <template-variable value="CurrentDate" /> &gt; p.validFrom AND p.validFrom &gt; <template-variable value="LastIndexStartTime" />)
+  		  OR (p.validto IS NOT NULL AND p.validto &gt; <template-variable value="LastIndexStartTime" /> and p.validTo &lt; <template-variable value="CurrentDate" />) 
+		)
+	</template-if>
+	     		<template-if condition="isDefined(SearchIndex:Configuration:IndexedQNames)">
+		        AND cp.definitionqualifiedname 
+		        IN 
+		        	(	
+		       				<template-if condition="hasLoopElements(SearchIndex:Configuration:IndexedQNames)">
+			        	<template-loop iterator="SearchIndex:Configuration:IndexedQNames" alias="IndexedQName"><loop-statement>
+					        			<template-variable value="IndexedQName"/>
+					        		</loop-statement>
+				<loop-separator>,</loop-separator>
+			</template-loop>
+			        <if-else/>
+			        	<template-variable value="SearchIndex:Configuration:IndexedQNames"/>
+			        </template-if>
+		        )
+		     		</template-if>	  
+	)a
+	WHERE pageflag = 1
+ 		<template-comment>restricts the selected pages to selected page types.</template-comment>
+   		<template-if condition="isDefined(SearchIndex:Configuration:PageQNames)">
+       	AND dqn 
+       	IN 
+       	(	
+      		<template-if condition="hasLoopElements(SearchIndex:Configuration:PageQNames)">
+        	<template-loop iterator="SearchIndex:Configuration:PageQNames" alias="PageQName">
+        		<loop-statement>
+		        	<template-variable value="PageQName"/>
+		        </loop-statement>
+				<loop-separator>,</loop-separator>
+			</template-loop>
+        <if-else/>
+        	<template-variable value="SearchIndex:Configuration:PageQNames"/>
+        </template-if>
+           )
+    	</template-if>
+	) a
+</template>
+</query>

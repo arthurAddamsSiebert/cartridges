@@ -1,0 +1,63 @@
+<!--- Registered customer --->
+<%@page import = "com.intershop.component.order.capi.OrderBO"%>
+<%@page import = "com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"%>
+<%@page import = "com.intershop.component.order.capi.extension.OrderBOCompanyCustomerExtension"%>
+<%@page import="com.intershop.beehive.core.capi.app.AppContextUtil"%>
+<%@page import = "com.intershop.component.application.capi.ApplicationBO"%>
+<%@page import = "com.intershop.component.customer.capi.CustomerBORepository"%>
+<%@page import = "com.intershop.component.customer.capi.CustomerBO"%>
+<%@page import = "com.intershop.component.customer.capi.CustomerBODetailsExtension"%>
+<%@page import = "com.intershop.component.customer.capi.CustomerBOCompanyCustomerExtension"%>
+<%@page import = "com.intershop.component.customer.capi.CustomerBOPrivateCustomerExtension"%>
+<%@page import = "com.intershop.beehive.core.capi.domain.PersistentObjectBOExtension"%>
+<%
+	String buyerName = "";
+	OrderBO orderBO = (OrderBO) getObject("orderBO");
+	if (orderBO != null && (
+	                (orderBO.getBuyerFirstName() != null && !orderBO.getBuyerFirstName().isEmpty()) || 
+	                (orderBO.getBuyerLastName() != null && !orderBO.getBuyerLastName().isEmpty())))
+    {
+    	buyerName = orderBO.getBuyerFirstName() + " " + orderBO.getBuyerLastName();
+    	
+	    OrderBOCompanyCustomerExtension occe = orderBO.getExtension("CompanyCustomer");
+		if (occe != null)
+		{
+		    buyerName = occe.getCompanyName() + " (" + buyerName + ")";
+		}
+	}
+	else 
+	{
+		String customerID = ((Order)orderBO.getExtension(PersistentObjectBOExtension.class).getPersistentObject()).getCustomerID();
+		if (customerID != null)
+		{
+ 			ApplicationBO applicationBO = AppContextUtil.getCurrentAppContext().getVariable(ApplicationBO.CURRENT);
+			CustomerBORepository repository = applicationBO.getRepository("CustomerBORepository");
+		
+			CustomerBO customer = repository.getCustomerBOByCustomerID(customerID);
+			if (customer != null)
+			{
+				CustomerBODetailsExtension customerDetails = customer.getExtension("CompanyCustomer");
+				if (customerDetails == null)
+				{
+					customerDetails = customer.getExtension("PrivateCustomer");
+				}
+		
+				buyerName = customerDetails.getName();
+			}
+		} 
+	}
+	
+	getPipelineDictionary().put("customer_name", buyerName);
+%>
+<isif condition="#isDefined(customer_name)#">
+	<isif condition="#isDefined(current_channel) AND isDefined(permissions_map:SLD_VIEW_CONSUMERS) AND isDefined(orderBO:CustomerBO)#"> 
+		<!--- Link to the Customer in the Back Office, valid for the channel Back Office only (permission has not been renamed yet to SLD_VIEW_CONSUMERS) --->
+		<a href="#URL(Action('ViewCustomer_'.current_channel:TypeCode.'-Show'), Parameter('CustomerID', orderBO:CustomerBO:ID))#" class="table_detail_link"><isprint value="#customer_name#"></a>	
+	<iselse>
+		<!--- No link, just display customer's name --->
+		<isprint value="#customer_name#">
+	</isif>					
+<iselse>
+	<!--- Either unregistered checkout or Customer's account has been deleted --->
+	<isprint value="#orderBO:BuyerFirstName#">&nbsp;<isprint value="#orderBO:BuyerLastName#">
+</isif>

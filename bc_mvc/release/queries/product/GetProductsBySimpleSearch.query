@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="NameOrIDOrDescription" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="CustomNonLocalizedAttributeName" type="java.lang.String" optional="true"/>
+	<parameter name="CustomNonLocalizedAttributeValue" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="CustomLocalizedAttributeName" type="java.lang.String" optional="true"/>
+	<parameter name="CustomLocalizedAttributeValue" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="Online" type="java.lang.Integer" optional="true"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttributeLocalizedFlag" type="java.lang.Integer" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+	<processor-preprocessing output="cCustomNonLocalizedAttributeValue" input="CustomNonLocalizedAttributeValue" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cCustomLocalizedAttributeValue" input="CustomLocalizedAttributeValue" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="ProductConfiguration" input="" processing="ProductConfigurationQueryProcessor"/>
+</processor>
+	<template type="objects">
+	SELECT
+		p.uuid as UUID, 
+        <template-call name="product/inc/ProductSorting">
+            <call-parameter name="ProductAlias" value="'p'"/>
+            <call-parameter name="SortAttribute" value="SortAttribute"/>
+            <call-parameter name="SortAttributeType" value="SortAttributeType"/>
+            <call-parameter name="SortAttributeLocalizedFlag" value="SortAttributeLocalizedFlag"/>
+            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+        </template-call> AS SORTING
+	FROM 
+		product p
+	WHERE 
+		p.domainid = <template-variable value="ProductDomain:UUID"/>
+    <template-call name="product/inc/NameOrIDFilter">
+        <call-parameter name="ProductAlias" value="'p'"/>
+        <call-parameter name="NameOrID" value="NameOrID"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+    </template-call>
+    <template-call name="product/inc/NameOrIDOrDescriptionFilter">
+        <call-parameter name="ProductAlias" value="'p'"/>
+        <call-parameter name="NameOrIDOrDescription" value="NameOrIDOrDescription"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+    </template-call>
+	<template-if condition="isDefined(CustomNonLocalizedAttributeName) AND isDefined(CustomNonLocalizedAttributeValue) AND CustomNonLocalizedAttributeValue:NotEmpty">
+		AND contains(p.attributes,'('|| <template-variable value="cCustomNonLocalizedAttributeValue"/>||') INPATH (//attrs/attr[@name="' || <template-variable value="CustomNonLocalizedAttributeName"/> || '"]/string)')>0
+	</template-if>
+	<template-if condition="isDefined(CustomLocalizedAttributeName) AND isDefined(CustomLocalizedAttributeValue) AND CustomLocalizedAttributeValue:NotEmpty">
+		AND contains(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, '('||<template-variable value="cCustomLocalizedAttributeValue"/>||') INPATH (//attrs/attr[@name="' || <template-variable value="CustomLocalizedAttributeName"/> || '"]/string)')>0
+	</template-if>
+	<template-if condition="isDefined(Online)">
+    	<template-if condition="NOT (ProductConfiguration:ProductIgnoreOnline)">
+			AND p.onlineflag=<template-variable value="Online"/>
+		<if-elseif condition="isDefined(ProductConfiguration)"/>
+			AND 
+			(
+		   		p.availabilitystatus is null or
+		   		(
+		   			p.validfrom &lt;= <template-variable value="ProductConfiguration:ProductOnlineDate"/> AND
+		   		 	p.validto &gt;= <template-variable value="ProductConfiguration:ProductOnlineDate"/> AND
+		   		 	p.availabilitystatus=<template-variable value="Online"/>
+		   		) or
+		   		p.availabilitystatus &lt;&gt; <template-variable value="Online"/>
+		   	) 
+		</template-if>
+	</template-if>
+</template>
+</query>

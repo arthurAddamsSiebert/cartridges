@@ -1,0 +1,160 @@
+<!--- TemplateName        : CatalogCategory.isml --->
+<!--- TemplateDescription : Export a catalog category --->
+<!--- TemplateParameter   : catalogcategory --->
+
+
+<%@page import="com.intershop.beehive.xcs.capi.catalog.CatalogConstants"%>
+<%@page import="com.intershop.beehive.xcs.internal.catalog.ExtensibleObjectCustomAttributesFilterCondition"%>
+<%@page import="com.intershop.beehive.core.capi.impex.AttributeValueIterator"%>
+<%@page import="com.intershop.beehive.core.capi.naming.NamingMgr"%>
+
+<%@page import="com.intershop.beehive.xcs.internal.image.ImageSetDefinitionCategoryAssignment"%>
+<%@page import = "com.intershop.component.image.internal.orm.ImageReference" %>
+
+<%@page import="com.intershop.beehive.xcs.capi.catalog.CatalogMgr"%>
+<%@page import="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"%>
+
+<%@page import="com.intershop.component.mvc.capi.catalog.MVCatalogMgr"%>
+<%@page import="com.intershop.component.mvc.capi.catalog.Catalog"%>
+
+
+<ISCONTENT type="text/xml" templatemarker="false" charset="utf-8" SESSION="FALSE">
+ 
+<ISMODULE template="inc/CustomAttributes" 
+          name="CUSTOMATTRIBUTES"
+          attribute="attributes"> 
+
+<ISIF condition="#isDefined(catalogcategory)#">
+    <ISIF condition="#NOT(catalogcategory:isHotDealsCategory)#">
+        <category name="<ISPRINT value="#catalogcategory:Name#">"<isif condition="#catalogcategory:isRootCategory#"> import-mode="UPDATE"</isif>>
+        <name><ISPRINT value="#catalogcategory:Name#"></name>
+    	<root><ISIF condition="#catalogcategory:isRootCategory#">1<ISELSE>0</ISIF></root>
+        <ISIF condition="#isDefined(catalogcategory:ProductQueryString)#">
+            <product-assignment-query><ISPRINT value="#catalogcategory:ProductQueryString#"></product-assignment-query>
+        </ISIF>
+        <ISIF condition="#isDefined(catalogcategory:Template)#">
+            <template><ISPRINT value="#catalogcategory:Template#"></template>
+        </ISIF>
+        <ISIF condition="#isDefined(catalogcategory:HotDealsCategory:Template)#">
+            <hotdeals-template><ISPRINT value="#catalogcategory:HotDealsCategory:Template#"></hotdeals-template>
+        </ISIF>
+        <online><ISIF condition="#catalogcategory:isOnline#">1<ISELSE>0</ISIF></online>
+        <ISIF condition="#NOT catalogcategory:PositionNull#">
+            <position><%= stringToXml(getObject("catalogcategory:Position").toString()) %></position>
+        </ISIF>
+        <ISIF condition="#catalogcategory:isRootCategory AND isDefined(Catalog:ClassificationSystem)#">
+            <classification-system><ISPRINT value="#Catalog:ClassificationSystem:Name#"></classification-system>
+        </ISIF>
+		<category-links>
+        <ISLOOP iterator="catalogcategory:OutgoingCategoryLinks" alias="ccl">
+        <category-link name="<ISPRINT value="#ccl:TargetCategory:Name#">"<ISIF condition="#(ccl:TargetCategory:Domain:DomainName NE catalogcategory:Domain:DomainName)#"> domain="<ISPRINT value="#ccl:TargetCategory:Domain:DomainName#">"</ISIF>>
+        	<category-link-type name="<ISPRINT value="#ccl:TypeCode#">"></category-link-type>
+	        <ISLOOP iterator="ccl:AttributeValues" alias="av">
+	            <ISIF condition="#(av:Name EQ 'displayName')#">
+	                <display-name <ISIF condition="#av:isLocalized#">xml:lang="#encodeValue(av:XMLLocaleID)#"</ISIF>><ISPRINT value="#av:StringValue#"></display-name>
+	            </ISIF>
+	            <ISIF condition="#(av:Name EQ 'description')#">
+	                <description <ISIF condition="#av:isLocalized#">xml:lang="#encodeValue(av:XMLLocaleID)#"</ISIF>><ISPRINT value="#av:StringValue#"></description>
+	            </ISIF>
+	        </ISLOOP>
+	        <ISIF condition="#NOT ccl:PositionNull#">
+	            <position><%= stringToXml(getObject("ccl:Position").toString()) %></position>
+	        </ISIF>
+	        <%
+	            com.intershop.beehive.xcs.capi.catalog.CatalogCategoryLink categoryLink = (com.intershop.beehive.xcs.capi.catalog.CatalogCategoryLink) getObject("ccl");
+	            getPipelineDictionary().put("categoryLinkCustomAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(categoryLink.createCustomCatalogCategoryLinkAttributesIterator(), categoryLink));
+	        %>
+	        <ISCUSTOMATTRIBUTES attributes=#categoryLinkCustomAttributes#>
+        </category-link>
+    </ISLOOP>           
+    </category-links>
+        <ISLOOP iterator="catalogcategory:AttributeValues" alias="av">
+            <ISIF condition="#(av:Name EQ 'displayName')#">
+                <display-name <ISIF condition="#av:isLocalized#">xml:lang="#encodeValue(av:XMLLocaleID)#"</ISIF>><ISPRINT value="#av:StringValue#"></display-name>
+            </ISIF>
+            <ISIF condition="#(av:Name EQ 'description')#">
+                <description <ISIF condition="#av:isLocalized#">xml:lang="#encodeValue(av:XMLLocaleID)#"</ISIF>><ISPRINT value="#av:StringValue#"></description>
+            </ISIF>
+        </ISLOOP>
+        <ISIF condition="#isDefined(catalogcategory:Parent)#">
+            <parent name="<ISPRINT value="#catalogcategory:Parent:Name#">" /></ISIF>
+		<isif condition="#not(catalogcategory:ProductBindingAttributeNull)#">
+			<product-binding attribute="<isprint value="#catalogcategory:ProductBindingAttribute#">" type="<isif condition="#catalogcategory:ProductBindingType == 1#">implicit<iselse>explicit</isif>"><isprint value="#catalogcategory:ProductBindingValue#"/></product-binding>
+		</isif>
+        <ISIF condition="#not(catalogcategory:SearchQueryDefinitionNameNull)#">
+            <searchquery-definition-name><ISPRINT value="#catalogcategory:SearchQueryDefinitionName#"></searchquery-definition-name>
+        </ISIF>
+        <%
+            CatalogCategory categoryToExport = (CatalogCategory)getObject("catalogcategory");
+            if(categoryToExport.isRootCategory())
+            {
+            	Catalog catalogToExport = NamingMgr.getManager(MVCatalogMgr.class).getCatalogByCatalogDomain(categoryToExport.getDomain());
+            	
+            	String excludedNamesAndPrefixes = CatalogConstants.CATEGORY_DISPLAYNAME + ";" + CatalogConstants.CATEGORY_DESCRIPTION;
+            	String delimiter = ";" ;
+            	
+            	ExtensibleObjectCustomAttributesFilterCondition customAttributesFilterCondition 
+            														= new ExtensibleObjectCustomAttributesFilterCondition(excludedNamesAndPrefixes, delimiter);
+            	FilterIterator filteredCustomAttributes = new FilterIterator(catalogToExport.createAttributeValuesIterator(), customAttributesFilterCondition); 
+            	
+            	getPipelineDictionary().put("categoryCustomAttributes", new AttributeValueIterator(filteredCustomAttributes));
+            }
+            else
+            {
+            	getPipelineDictionary().put("categoryCustomAttributes", new AttributeValueIterator(categoryToExport.createCustomCategoryAttributesIterator()));
+			}
+        	CatalogMgr catalogMgr = (CatalogMgr)NamingMgr.getInstance().lookupManager(CatalogMgr.REGISTRY_NAME);
+        	Iterator<ImageSetDefinitionCategoryAssignment> isdca = catalogMgr.getImageSetDefinitionCategoryAsgmtsByCategory(categoryToExport);
+        	if (isdca.hasNext())
+        	{
+        		getPipelineDictionary().put("imageSetDefinitionAssignments", isdca); 
+        %>
+	        <image-set-assignments>
+	
+	        <ISLOOP iterator="imageSetDefinitionAssignments" alias="isda">
+	             <image-set-assignment image-set="#isda:ImageSetDefinition:ID#"/>
+	        </ISLOOP>
+	
+	        </image-set-assignments>
+        <%
+	        }
+         %>
+		<%
+				//
+				// Category Images.
+				//						
+				String primaryImageView = categoryToExport.getPrimaryViewID();
+				Iterator<ImageReference> imageReferences = categoryToExport.createImageReferencesIterator();
+				if (imageReferences.hasNext() || null != primaryImageView)
+				{
+	          		out.println("<images>");
+						if (null != primaryImageView)
+						{
+							  out.println("<primary-view image-view=\"" + primaryImageView + "\" />");
+						}
+						while (imageReferences.hasNext())
+						{
+							ImageReference imageReference = imageReferences.next();
+							out.print("<image-ref image-view=\"" + stringToXml(imageReference.getImageView().getID()) + "\" image-type=\"" + stringToXml(imageReference.getImageType().getID()) + "\"");
+							out.print(" image-base-name=\"" + stringToXml(imageReference.getImageBaseName()) + "\"");
+							if (imageReference.getImageWidth() != 0)
+							{
+								  out.print(" image-width=\"" + imageReference.getImageWidth() + "\"");
+							}
+							if (imageReference.getImageHeight()!= 0)
+							{
+								  out.print(" image-height=\"" + imageReference.getImageHeight() + "\"");
+							}
+							if (! imageReference.getDomain().equals(categoryToExport.getDomain()))
+							{
+								  out.print(" domain=\"" + stringToXml(imageReference.getDomain().getDomainName()) + "\"");
+							}
+							out.println (" />");
+						}
+	          		out.println("</images>");
+				}
+			%>							
+        <ISCUSTOMATTRIBUTES attributes="#categoryCustomAttributes#">
+    </category>
+    </ISIF>
+</ISIF>

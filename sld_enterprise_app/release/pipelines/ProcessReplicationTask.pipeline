@@ -1,0 +1,533 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Process pipeline to provide basic functionality to manage a replication task.
+@Group Replication-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessReplicationTask" type="process">
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="Assign"
+      callMode="Private">
+<!--@BendPoints 3,12-->
+    <nodeSuccessors name="next" next="GetOrganizationByName2"/>
+<!--The replication task to remove staging groups.-->
+    <parameters name="ReplicationTask" type="com.intershop.beehive.core.capi.replication.ReplicationTask"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByName2">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByName.xml"/>
+<!--@BendPoints 3,14-->
+    <nodeSuccessors name="next" next="Pipelet13"/>
+<!--@BendPoints 7,13 7,14-->
+    <nodeSuccessors name="pipelet_error" next="CreateStringSplitter1"/>
+    <parameterBindings name="Name" objectPath="ReplicationTask:Domain:DomainName"/>
+    <returnValueBindings name="Organization" objectPath="CurrentOrganization"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet13">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentOrganization"/>
+    <parameterBindings name="InValue_2" constant="ProcessReplicationGroupAssignment-Start"/>
+    <parameterBindings name="InValue_3" constant="ProcessReplicationPageCache-Start"/>
+    <parameterBindings name="InValue_4" objectPath="ReplicationTask:ReplicationGroups"/>
+    <returnValueBindings name="OutValue_1" objectPath="Organization"/>
+    <returnValueBindings name="OutValue_2" objectPath="GroupAssignmentPipeline"/>
+    <returnValueBindings name="OutValue_3" objectPath="PageCachePipeline"/>
+    <returnValueBindings name="OutValue_4" objectPath="ReplicationGroups"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="RemoveStagingGroupsFromReplicationTask1"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveStagingGroupsFromReplicationTask1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveStagingGroupsFromReplicationTask.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1" callModePermissions="Private">
+<!--@BendPoints 3,32-->
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <startNode objectPath="PageCachePipeline"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2" callModePermissions="Private">
+<!--@BendPoints 3,34-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <startNode objectPath="GroupAssignmentPipeline"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStringSplitter1">
+    <configurationValues name="Mode" value="First Occurrence"/>
+    <configurationValues name="Separator" value="-"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStringSplitter.xml"/>
+<!--@BendPoints 7,16-->
+    <nodeSuccessors name="next" next="GetOrganizationByName3"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByName3">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByName.xml"/>
+    <nodeSuccessors name="next" next="GetRepositoryByID2"/>
+    <parameterBindings name="Name" objectPath="Splitter:Begin(ReplicationTask:Domain:DomainName)"/>
+    <returnValueBindings name="Organization" objectPath="CurrentOrganization"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByID2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByID.xml"/>
+    <nodeSuccessors name="next" next="ConcatenateStrings1"/>
+    <parameterBindings name="Domain" objectPath="CurrentOrganization:Domain"/>
+    <parameterBindings name="RepositoryID" objectPath="Splitter:End(ReplicationTask:Domain:DomainName)"/>
+    <returnValueBindings name="Repository" objectPath="CurrentChannel"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="ConcatenateStrings3"/>
+    <parameterBindings name="String0" constant="ProcessReplicationPageCache_"/>
+    <parameterBindings name="String1" objectPath="CurrentChannel:TypeCode"/>
+    <parameterBindings name="String2" constant="-Start"/>
+    <returnValueBindings name="Concatenated" objectPath="PageCachePipeline"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+<!--@BendPoints 7,24-->
+    <nodeSuccessors name="next" next="Pipelet14"/>
+    <parameterBindings name="String0" constant="ProcessReplicationGroupAssignment_"/>
+    <parameterBindings name="String1" objectPath="CurrentChannel:TypeCode"/>
+    <parameterBindings name="String2" constant="-Start"/>
+    <returnValueBindings name="Concatenated" objectPath="GroupAssignmentPipeline"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet14">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 7,27-->
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentChannel:RepositoryDomain"/>
+    <parameterBindings name="InValue_2" objectPath="ReplicationTask:ReplicationGroups"/>
+    <parameterBindings name="InValue_3" objectPath="CurrentChannel"/>
+    <parameterBindings name="InValue_4" objectPath="CurrentOrganization"/>
+    <returnValueBindings name="OutValue_1" objectPath="Domain"/>
+    <returnValueBindings name="OutValue_2" objectPath="ReplicationGroups"/>
+    <returnValueBindings name="OutValue_3" objectPath="ChannelRepository"/>
+    <returnValueBindings name="OutValue_4" objectPath="Organization"/>
+  </nodes>
+<!--@displayNearNode@
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" strict="true" name="Create"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet8"/>
+<!--The description of data replication task.-->
+    <parameters name="Description" type="java.lang.String" optional="true"/>
+<!--The domain of new data replication task.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The due time of data replication task.-->
+    <parameters name="DueTime" type="java.util.Date" optional="true"/>
+<!--The ID of new data replication task.-->
+    <parameters name="ID" type="java.lang.String"/>
+<!--The locale to localize data replication task description.-->
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"
+        optional="true"/>
+<!--The requester of data replication task.-->
+    <parameters name="Requester" type="com.intershop.beehive.core.capi.user.User"
+        optional="true"/>
+<!--The start time of data replication task.-->
+    <parameters name="StartTime" type="java.util.Date" optional="true"/>
+<!--The state of data replication task.-->
+    <parameters name="State" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet8">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateReplicationTask.xml"/>
+    <nodeSuccessors name="next" next="Pipelet9"/>
+    <nodeSuccessors name="pipelet_error" next="End3"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet9">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationTask.xml"/>
+    <nodeSuccessors name="next" next="End6"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6" name="next" strict="true">
+<!--The created replication task.-->
+    <returnValues name="ReplicationTask" type="com.intershop.beehive.core.capi.replication.ReplicationTask"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3" name="ERROR" strict="true"/>
+<!--@Location 18,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CreateAndAssign"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetOrganizationByName1"/>
+    <parameters name="OrganizationID" type="java.lang.String"/>
+    <parameters name="ChannelID" type="java.lang.String" optional="true"/>
+    <parameters name="TaskDescription" type="java.lang.String" optional="true"/>
+    <parameters name="RequesterLoginName" type="java.lang.String" optional="true"/>
+    <parameters name="ReplicationGroups" type="java.util.Collection"/>
+<!--The identifier of task.-->
+    <parameters name="TaskID" type="java.lang.String"/>
+<!--The replication process to assign task to.-->
+    <parameters name="ReplicationProcess" type="com.intershop.beehive.core.capi.replication.ReplicationProcess"/>
+  </nodes>
+<!--@Location 18,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByName1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByName.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <parameterBindings name="Name" objectPath="OrganizationID"/>
+    <returnValueBindings name="Organization" objectPath="CurrentOrganization"/>
+    <returnValueBindings name="OrganizationDomain" nullBinding="true"/>
+  </nodes>
+<!--@Location 18,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="ChannelID">
+    <nodeSuccessors name="decision_yes" next="GetRepositoryByID1"/>
+<!--@BendPoints 39,5-->
+    <nodeSuccessors name="decision_no" next="Pipelet10"/>
+  </nodes>
+<!--@Location 18,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByID1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByID.xml"/>
+<!--@BendPoints 37,8-->
+    <nodeSuccessors name="next" next="Pipelet11"/>
+    <parameterBindings name="Domain" objectPath="CurrentOrganization:OrganizationDomain"/>
+    <parameterBindings name="RepositoryID" objectPath="ChannelID"/>
+    <returnValueBindings name="Repository" objectPath="CurrentChannel"/>
+  </nodes>
+<!--@Location 18,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet11">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentChannel:RepositoryDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="Domain"/>
+  </nodes>
+<!--@Location 18,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+  </nodes>
+<!--@Location 18,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="RequesterLoginName">
+    <nodeSuccessors name="decision_yes" next="GetUserByLogin1"/>
+<!--@BendPoints 39,13 39,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 18,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserByLogin1">
+    <configurationValues name="CheckPassword" value="FALSE"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetUserByLogin.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="Domain" objectPath="CurrentOrganization:Domain"/>
+    <parameterBindings name="Login" objectPath="RequesterLoginName"/>
+    <parameterBindings name="Password" nullBinding="true"/>
+    <returnValueBindings name="User" objectPath="Requester"/>
+  </nodes>
+<!--@Location 18,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="GetCurrentDate2"/>
+  </nodes>
+<!--@Location 18,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+<!--@BendPoints 37,20-->
+    <nodeSuccessors name="next" next="Pipelet12"/>
+    <returnValueBindings name="CurrentDate" objectPath="StartTime"/>
+  </nodes>
+<!--@Location 18,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet12">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 37,22-->
+    <nodeSuccessors name="next" next="Call1" action="begin"/>
+    <parameterBindings name="InValue_1" objectPath="TaskID"/>
+    <parameterBindings name="InValue_2" objectPath="CurrentOrganization"/>
+    <parameterBindings name="InValue_3" objectPath="TaskDescription"/>
+    <parameterBindings name="InValue_4" constant="WAITING"/>
+    <returnValueBindings name="OutValue_1" objectPath="ID"/>
+    <returnValueBindings name="OutValue_2" objectPath="Organization"/>
+    <returnValueBindings name="OutValue_3" objectPath="Description"/>
+    <returnValueBindings name="OutValue_4" objectPath="State"/>
+  </nodes>
+<!--@Location 18,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+<!--@BendPoints 37,24-->
+    <nodeSuccessors name="next" next="UpdateCustomAttribute1"/>
+    <startNode referencedName="ProcessReplicationTask-Create"/>
+  </nodes>
+<!--@Location 18,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttribute1">
+    <configurationValues name="DefaultAttributeName" value="ReplicationGroups"/>
+    <configurationValues name="DefaultAttributeType" value="MultipleString"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+    <parameterBindings name="AttributeName" nullBinding="true"/>
+    <parameterBindings name="AttributeType" nullBinding="true"/>
+    <parameterBindings name="AttributeValue" objectPath="ReplicationGroups"/>
+    <parameterBindings name="ExtensibleObject" objectPath="ReplicationTask"/>
+    <parameterBindings name="LocaleInformation" nullBinding="true"/>
+  </nodes>
+<!--@Location 18,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="ReplicationProcess">
+<!--@BendPoints 37,28-->
+    <nodeSuccessors name="decision_yes" next="AddReplicationTaskToReplicationProcess2"/>
+<!--@BendPoints 38,27 38,31-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 18,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddReplicationTaskToReplicationProcess2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddReplicationTaskToReplicationProcess.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 18,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode1" action="commit"/>
+  </nodes>
+<!--@Location 18,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+<!--The created replication task.-->
+    <returnValues name="ReplicationTask" type="com.intershop.beehive.core.capi.replication.ReplicationTask"/>
+  </nodes>
+<!--@Location 19,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet10">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 39,11-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentOrganization:OrganizationDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="Domain"/>
+  </nodes>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="Discard" callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode2"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="ReplicationTaskUUIDs">
+    <nodeSuccessors name="next" next="End2"/>
+    <entry key="ReplicationTaskUUID">
+      <nodeSuccessors name="loop_entry_next" next="Pipelet4"/>
+    </entry>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetReplicationTaskByUUID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+<!--@BendPoints 25,5-->
+    <nodeSuccessors name="pipelet_error" next="Join7"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="ReplicationTask:State"
+      operator="str_eq" conditionValue="WAITING">
+    <nodeSuccessors name="decision_yes" next="Join8"/>
+<!--@BendPoints 23,7-->
+    <nodeSuccessors name="decision_no" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join8">
+    <nodeSuccessors name="next" next="Pipelet3"/>
+  </nodes>
+<!--@Location 10,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationTask.xml"/>
+    <nodeSuccessors name="next" next="Join6"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="DueTime" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="Requester" nullBinding="true"/>
+    <parameterBindings name="StartTime" nullBinding="true"/>
+    <parameterBindings name="State" constant="CANCELED"/>
+  </nodes>
+<!--@Location 10,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+<!--@BendPoints 21,16 20,16 20,3-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="ReplicationTask:State"
+      operator="str_eq" conditionValue="PENDING">
+<!--@BendPoints 23,11-->
+    <nodeSuccessors name="decision_yes" next="Join8"/>
+    <nodeSuccessors name="decision_no" next="Join7"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+<!--@BendPoints 25,15-->
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 23,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="Error"
+      callMode="Private">
+<!--@BendPoints 47,2-->
+    <nodeSuccessors name="next" next="EndNode2" action="rollback"/>
+  </nodes>
+<!--@Location 23,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Publish" callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode1"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="ReplicationTaskUUIDs">
+    <nodeSuccessors name="next" next="End1"/>
+    <entry key="ReplicationTaskUUID">
+      <nodeSuccessors name="loop_entry_next" next="Pipelet1"/>
+    </entry>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetReplicationTaskByUUID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--@BendPoints 35,5-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ReplicationTask:State"
+      operator="str_eq" conditionValue="EDITING">
+    <nodeSuccessors name="decision_yes" next="Decision1"/>
+    <nodeSuccessors name="decision_no" next="Join1"/>
+  </nodes>
+<!--@Location 14,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="ReplicationTask:ReplicationGroups"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="GetCurrentDate1"/>
+<!--@BendPoints 33,9-->
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue1"/>
+  </nodes>
+<!--@Location 14,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="Decision2"/>
+  </nodes>
+<!--@Location 14,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="CurrentDate:Time"
+      operator="gte" conditionItem="ReplicationTask:StartTime:Time">
+    <nodeSuccessors name="decision_yes" next="UpdateReplicationTask1"/>
+<!--@BendPoints 31,13-->
+    <nodeSuccessors name="decision_no" next="Pipelet2"/>
+  </nodes>
+<!--@Location 14,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateReplicationTask1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationTask.xml"/>
+    <nodeSuccessors name="next" next="Join9"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="DueTime" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="Requester" nullBinding="true"/>
+    <parameterBindings name="StartTime" nullBinding="true"/>
+    <parameterBindings name="State" constant="WAITING"/>
+  </nodes>
+<!--@Location 14,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join9">
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 14,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+<!--@BendPoints 27,21 27,3-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 15,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationTask.xml"/>
+<!--@BendPoints 31,18-->
+    <nodeSuccessors name="next" next="Join9"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="DueTime" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="Requester" nullBinding="true"/>
+    <parameterBindings name="StartTime" nullBinding="true"/>
+    <parameterBindings name="State" constant="PENDING"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="ErrorReplicationGroups"/>
+    <configurationValues name="Value" value="Missing"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 33,19-->
+    <nodeSuccessors name="next" next="Join9"/>
+  </nodes>
+<!--@Location 17,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+<!--@BendPoints 35,21-->
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 16,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="Remove" callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode3"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="ReplicationTaskUUIDs">
+    <nodeSuccessors name="next" next="End5"/>
+    <entry key="ReplicationTaskUUID">
+      <nodeSuccessors name="loop_entry_next" next="Pipelet5"/>
+    </entry>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetReplicationTaskByUUID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="ReplicationTask:State"
+      operator="str_eq" conditionValue="PENDING">
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode3"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="Join4"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+<!--@BendPoints 17,15-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 13,16 11,16 11,3-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ReplicationTask:State"
+      operator="str_eq" conditionValue="WAITING">
+    <nodeSuccessors name="decision_yes" next="Join4"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode7"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="ReplicationTask:State"
+      operator="str_eq" conditionValue="RUNNING">
+    <nodeSuccessors name="decision_yes" next="Join4"/>
+    <nodeSuccessors name="decision_no" next="Pipelet6"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveReplicationTask.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5"/>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="Update" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="ReplicationTask:State"
+      operator="str_eq" conditionValue="EDITING">
+    <nodeSuccessors name="decision_yes" next="Pipelet7"/>
+<!--@BendPoints 8,3 8,7-->
+    <nodeSuccessors name="decision_no" next="Join3"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet7">
+    <configurationValues name="SetDueTimeNull" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationTask.xml"/>
+    <nodeSuccessors name="next" next="Join3"/>
+    <parameterBindings name="State" nullBinding="true"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+    <nodeSuccessors name="next" next="End4"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4" name="next"/>
+</pipeline:Pipeline>

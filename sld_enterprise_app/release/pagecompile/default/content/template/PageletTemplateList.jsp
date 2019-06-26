@@ -1,0 +1,37 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %>
+<% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"content/Modules", null, "3");} %><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("ApplicationBO:getExtension(\"(Class)com.intershop.sellside.enterprise.capi.application.ApplicationBOApplicationSelectorExtension\"):Type"),null).equals(context.getFormattedValue("organization",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",5,e);}if (_boolean_result) { %><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("PageFlag"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",6,e);}if (_boolean_result) { %><% {Object temp_obj = ("MasterPageVariantTemplates"); getPipelineDictionary().put("TemplateSearchID", temp_obj);} %><% {Object temp_obj = (localizeText(context.getFormattedValue("PageletTemplateList.MasterPageTemplates",null))); getPipelineDictionary().put("BreadcrumbText", temp_obj);} %><% } else { %><% {Object temp_obj = ("MasterComponentTemplates"); getPipelineDictionary().put("TemplateSearchID", temp_obj);} %><% {Object temp_obj = (localizeText(context.getFormattedValue("PageletTemplateList.MasterComponentTemplates",null))); getPipelineDictionary().put("BreadcrumbText", temp_obj);} %><% } %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("hide","true"),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewOverview-MasterContent",null))))),
+new TagParameter("start","true"),
+new TagParameter("text",localizeText(context.getFormattedValue("PageletTemplateList.MasterContent.text",null)))}, 13); %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("listview","true"),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewPageletSearch-BackToList",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("UniquePageletSearchID",null),context.getFormattedValue(getObject("TemplateSearchID"),null))).addURLParameter(context.getFormattedValue("SearchType",null),context.getFormattedValue(getObject("SearchType"),null)).addURLParameter(context.getFormattedValue("SelectedMenuItem",null),context.getFormattedValue(getObject("SelectedMenuItem"),null)).addURLParameter(context.getFormattedValue("PageFlag",null),context.getFormattedValue(getObject("PageFlag"),null)))),
+new TagParameter("id","PageTemplates"),
+new TagParameter("text",getObject("BreadcrumbText"))}, 14); %><% } else { %><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("PageFlag"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",16,e);}if (_boolean_result) { %><% {Object temp_obj = (localizeText(context.getFormattedValue("PageletTemplateList.PageTemplates",null))); getPipelineDictionary().put("BreadcrumbText", temp_obj);} %><% {Object temp_obj = ("PageVariantTemplates"); getPipelineDictionary().put("TemplateSearchID", temp_obj);} %><% } else { %><% {Object temp_obj = (localizeText(context.getFormattedValue("PageletTemplateList.ComponentTemplates",null))); getPipelineDictionary().put("BreadcrumbText", temp_obj);} %><% {Object temp_obj = ("ComponentTemplates"); getPipelineDictionary().put("TemplateSearchID", temp_obj);} %><% } %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("hide","true"),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewOverview-Content",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ChannelID",null),context.getFormattedValue(getObject("CurrentChannel:UUID"),null))))),
+new TagParameter("start","true"),
+new TagParameter("text",localizeText(context.getFormattedValue("PageletTemplateList.Content.text",null)))}, 23); %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("listview","true"),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewPageletSearch-BackToList",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("UniquePageletSearchID",null),context.getFormattedValue(getObject("TemplateSearchID"),null))).addURLParameter(context.getFormattedValue("SearchType",null),context.getFormattedValue(getObject("SearchType"),null)).addURLParameter(context.getFormattedValue("SelectedMenuItem",null),context.getFormattedValue(getObject("SelectedMenuItem"),null)).addURLParameter(context.getFormattedValue("PageFlag",null),context.getFormattedValue(getObject("PageFlag"),null)))),
+new TagParameter("id","PageTemplates"),
+new TagParameter("text",getObject("BreadcrumbText"))}, 24); %><% } %><% processOpenTag(response, pageContext, "pageletsearch", new TagParameter[] {
+new TagParameter("template","true"),
+new TagParameter("confirmpreview",getObject("confirmPreview")),
+new TagParameter("disableinusetemplates","false"),
+new TagParameter("disablesharedpagelets","false"),
+new TagParameter("submitbuttonincludetype","objectlist"),
+new TagParameter("start",getObject("TemplateSearchStartFlag")),
+new TagParameter("extendedheadingtemplate","content/search/inc/TemplateSearchHeader"),
+new TagParameter("submitbuttonstemplate","content/search/inc/TemplateSearchButtons"),
+new TagParameter("confirmdelete",getObject("confirmDelete")),
+new TagParameter("page",getObject("PageFlag")),
+new TagParameter("pageletclipboard",getObject("PageletClipboard")),
+new TagParameter("targetpageletviewpipeline","ViewPageletTemplatesList-Dispatch"),
+new TagParameter("notfoundtemplate","content/search/inc/EmptyPageletSearchResult"),
+new TagParameter("uniqueid",getObject("TemplateSearchID"))}, 27); %><% printFooter(out); %>

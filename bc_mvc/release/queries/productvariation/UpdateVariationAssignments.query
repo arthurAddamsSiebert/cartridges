@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="DomainID" type="java.lang.String" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="count" sqlDialect = "Oracle">
+insert into productvariation (UUID, DOMAINID, LASTMODIFIED, PRODUCTMASTERID, PRODUCTID, OCA)
+select 'PV_'||sf_create_uuid('A', 24) as UUID, 
+        pmt.DOMAINID, UTCTIMESTAMP(), pmt.UUID, p.UUID, 1 
+from product pmt,
+     productvariation pvs,
+     product p 
+where (
+         (pmt.DOMAINID = <template-variable value="DomainID"/>) 
+     and (p.DOMAINID = pmt.DOMAINID)
+     and (p.OFFEREDPRODUCTID = pvs.PRODUCTID) 
+     and (pmt.OFFEREDPRODUCTID = pvs.PRODUCTMASTERID) 
+     ) 
+     and not exists
+        (select UUID 
+            from productvariation 
+            where PRODUCTMASTERID = pmt.uuid
+                and PRODUCTID = p.uuid
+        )
+</template>
+<template type="count" sqlDialect = "Microsoft">
+	DECLARE @productvar TABLE
+	(
+		ID INT IDENTITY,
+		DOMAINID NVARCHAR(30),
+		UTCDATE	 DATETIME,
+		UUID NVARCHAR(30),
+		PUUID NVARCHAR(30)
+	);
+	DECLARE @counter INT = 1,
+			@count	 INT = 0;
+	INSERT INTO @productvar(DOMAINID, UTCDATE, UUID, PUUID)
+	SELECT  
+			pmt.DOMAINID, GETUTCDATE(), pmt.UUID, p.UUID
+	FROM product pmt,
+		 productvariation pvs,
+		 product p 
+	WHERE (
+			 (pmt.DOMAINID = <template-variable value="DomainID"/>
+			 ) 
+		 and
+		  (p.DOMAINID = pmt.DOMAINID)
+		 and (p.OFFEREDPRODUCTID = pvs.PRODUCTID) 
+		 and (pmt.OFFEREDPRODUCTID = pvs.PRODUCTMASTERID) 
+		 ) 
+		 and not exists
+			(select UUID 
+				from productvariation 
+				where PRODUCTMASTERID = pmt.uuid
+					and PRODUCTID = p.uuid
+			);
+	SELECT @count = COUNT(1) FROM @productvar;
+
+	WHILE @counter &lt;= @count
+	BEGIN
+		INSERT INTO productvariation (UUID, DOMAINID, LASTMODIFIED, PRODUCTMASTERID, PRODUCTID, OCA)
+			SELECT (CONCAT('PL_', dbo.sf_create_uuid())), DOMAINID, UTCDATE, UUID, PUUID, 1 FROM @productvar WHERE ID = @counter;
+		SET @counter = @counter + 1;
+	END
+</template>
+</query>

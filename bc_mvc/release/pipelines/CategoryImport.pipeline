@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Catalog-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="CategoryImport" overrideMode="Inherit" type="process">
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" visibility="Protected"
+      name="GetCategoryAssignmentDomain" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameters name="CategoryAssignmentDomainName" type="java.lang.String" optional="true"/>
+    <parameters name="Controller" type="com.intershop.beehive.core.capi.impex.Controller"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="CategoryAssignmentDomainName">
+    <nodeSuccessors name="decision_yes" next="CallNode0"/>
+    <nodeSuccessors name="decision_no" next="LogMessage1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+<!--@BendPoints 3,13-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 1,5 1,17-->
+    <nodeSuccessors name="error" next="JoinNode0"/>
+    <startNode referencedName="Super:GetCategoryAssignmentDomain"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="CategoryAssignmentDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="error" strict="true"/>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage1">
+    <configurationValues name="Level" value="Debug"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="MessageText" constant="No CategoryAssignmentDomainName property is defined. Falling back to the catalog's owning domain."/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Controller:DomainName">
+    <nodeSuccessors name="decision_yes" next="GetCatalogByDomain0"/>
+<!--@BendPoints 7,5-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogByDomain0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogByDomain.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="CatalogDomain" nullBinding="true"/>
+    <parameterBindings name="CatalogDomainName" objectPath="Controller:DomainName"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameterBindings name="InValue_1" objectPath="Catalog:OriginalCatalog:OwningDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="CategoryAssignmentDomain"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="CategoryAssignmentDomain">
+    <nodeSuccessors name="decision_yes" next="JoinNode1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="LogMessage0"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage0">
+    <configurationValues name="Level" value="Error"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="MessageParam1" objectPath="CurrentDomain:DomainName"/>
+    <parameterBindings name="MessageParam2" objectPath="CurrentApplication:UrlIdentifier"/>
+    <parameterBindings name="MessageText" constant="Category assignment domain was not found. CurrentDomain: {}; App: {};"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+</pipeline:Pipeline>

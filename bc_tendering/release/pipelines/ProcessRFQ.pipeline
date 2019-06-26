@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline handles RFQ creation tasks.
+@Group RFQ-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessRFQ" type="process">
+<!--Set all requests from state New to Pending.
+@Location 3,5-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1" height="97" width="111"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="Cancel" callMode="Private">
+    <nodeSuccessors name="next" next="UpdateRFQ2"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRFQ2">
+    <configurationValues name="DefaultState" value="Cancelled"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/UpdateRFQ.xml"/>
+    <nodeSuccessors name="next" next="End3"/>
+    <parameterBindings name="DatePattern" objectPath="invalid"/>
+    <parameterBindings name="Description" objectPath="invalid"/>
+    <parameterBindings name="DisplayName" objectPath="invalid"/>
+    <parameterBindings name="Locale" objectPath="invalid"/>
+    <parameterBindings name="State" objectPath="invalid"/>
+    <parameterBindings name="ValidFrom" objectPath="invalid"/>
+    <parameterBindings name="ValidTo" objectPath="invalid"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="Close" callMode="Private">
+    <nodeSuccessors name="next" next="UpdateRFQ4"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRFQ4">
+    <configurationValues name="DefaultState" value="Closed"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/UpdateRFQ.xml"/>
+    <nodeSuccessors name="next" next="End5"/>
+    <parameterBindings name="DatePattern" objectPath="invalid"/>
+    <parameterBindings name="Description" objectPath="invalid"/>
+    <parameterBindings name="DisplayName" objectPath="invalid"/>
+    <parameterBindings name="Locale" objectPath="invalid"/>
+    <parameterBindings name="State" objectPath="invalid"/>
+    <parameterBindings name="ValidFrom" objectPath="invalid"/>
+    <parameterBindings name="ValidTo" objectPath="invalid"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5"/>
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="CloseExpiredRFQs" sessionMode="Volatile"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Loop5"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop5" loop="CurrentDomain:Units">
+    <nodeSuccessors name="next" next="End7"/>
+    <entry key="OrganizationDomain">
+      <nodeSuccessors name="loop_entry_next" next="GetOrganizationByDomain1"/>
+    </entry>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByDomain1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByDomain.xml"/>
+    <nodeSuccessors name="next" next="Decision2"/>
+<!--@BendPoints 18,5 18,9-->
+    <nodeSuccessors name="pipelet_error" next="Join3"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="Organization:TypeCode"
+      operator="neq" conditionValue="3">
+    <nodeSuccessors name="decision_yes" next="Join3"/>
+<!--@BendPoints 19,7 19,11 17,11-->
+    <nodeSuccessors name="decision_no" next="GetOrganizations2"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+<!--@BendPoints 17,10 15,10 15,3-->
+    <nodeSuccessors name="next" next="Loop5_Entry"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizations2">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizations.xml"/>
+    <nodeSuccessors name="next" next="Loop4"/>
+    <parameterBindings name="Owner" objectPath="Organization:Domain"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop4" loop="Organizations">
+    <nodeSuccessors name="next" next="End4"/>
+    <entry key="Organization">
+      <nodeSuccessors name="loop_entry_next" next="GetExpiredRFQsByOrganization1"/>
+    </entry>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetExpiredRFQsByOrganization1">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetExpiredRFQsByOrganization.xml"/>
+    <nodeSuccessors name="next" next="Loop3"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Organization:Domain"/>
+  </nodes>
+<!--Iterate all existing organizations.
+@Location 8,9-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop3" loop="RFQs">
+<!--@BendPoints 19,19 19,26 15,26 15,15-->
+    <nodeSuccessors name="next" next="Loop4_Entry"/>
+    <entry key="RFQ">
+      <nodeSuccessors name="loop_entry_next" next="UpdateRFQ5"/>
+    </entry>
+  </nodes>
+<!--@Location 8,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRFQ5">
+    <configurationValues name="DefaultState" value="Closed"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/UpdateRFQ.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+<!--@BendPoints 18,21 18,23-->
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+  </nodes>
+<!--@Location 8,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+<!--@BendPoints 17,24 16,24 16,19-->
+    <nodeSuccessors name="next" next="Loop3_Entry"/>
+  </nodes>
+<!--@Location 10,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End7"/>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="Complete" callMode="Private">
+    <nodeSuccessors name="next" next="UpdateRFQ3" action="begin"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRFQ3">
+    <configurationValues name="DefaultState" value="Completed"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/UpdateRFQ.xml"/>
+    <nodeSuccessors name="next" next="Loop2"/>
+    <parameterBindings name="DatePattern" objectPath="invalid"/>
+    <parameterBindings name="Description" objectPath="invalid"/>
+    <parameterBindings name="DisplayName" objectPath="invalid"/>
+    <parameterBindings name="Locale" objectPath="invalid"/>
+    <parameterBindings name="State" objectPath="invalid"/>
+    <parameterBindings name="ValidFrom" objectPath="invalid"/>
+    <parameterBindings name="ValidTo" objectPath="invalid"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="RFQ:Requests">
+    <nodeSuccessors name="next" next="End6" action="commit"/>
+    <entry key="RFQRequest">
+      <nodeSuccessors name="loop_entry_next" next="UpdateRFQRequestProductState1"/>
+    </entry>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRFQRequestProductState1">
+    <pipelet href="enfinity:/bc_tendering/pipelets/UpdateRFQRequestProductState.xml"/>
+<!--@BendPoints 11,8 10,8 10,5-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start7" name="Create" callMode="Private">
+    <nodeSuccessors name="next" next="CreateRFQ1" action="begin"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateRFQ1">
+    <pipelet href="enfinity:/bc_tendering/pipelets/CreateRFQ.xml"/>
+    <nodeSuccessors name="next" next="CreateRFQParameterGroup1"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateRFQParameterGroup1">
+    <configurationValues name="DefaultGroupID" value="ProductAttributes"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/CreateRFQParameterGroup.xml"/>
+    <nodeSuccessors name="next" next="CreateRFQParameterGroup3"/>
+    <parameterBindings name="ParentGroup" objectPath="RFQ:RootParameterGroup"/>
+    <returnValueBindings name="RFQParameterGroup" objectPath="ProductAttributesGroup"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateRFQParameterGroup3">
+    <configurationValues name="DefaultGroupID" value="BuyerAttributes"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/CreateRFQParameterGroup.xml"/>
+    <nodeSuccessors name="next" next="CreateRFQParameterGroup4"/>
+    <parameterBindings name="ParentGroup" objectPath="ProductAttributesGroup"/>
+    <returnValueBindings name="RFQParameterGroup" objectPath="ProductBuyerAttributesGroup"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateRFQParameterGroup4">
+    <configurationValues name="DefaultGroupID" value="SupplierAttributes"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/CreateRFQParameterGroup.xml"/>
+    <nodeSuccessors name="next" next="CreateRFQParameterGroup2"/>
+    <parameterBindings name="ParentGroup" objectPath="ProductAttributesGroup"/>
+    <returnValueBindings name="RFQParameterGroup" objectPath="ProductSupplierAttributesGroup"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateRFQParameterGroup2">
+    <configurationValues name="DefaultGroupID" value="ContractAttributes"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/CreateRFQParameterGroup.xml"/>
+    <nodeSuccessors name="next" next="CreateRFQParameterGroup6"/>
+    <parameterBindings name="ParentGroup" objectPath="RFQ:RootParameterGroup"/>
+    <returnValueBindings name="RFQParameterGroup" objectPath="ContractAttributesGroup"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateRFQParameterGroup6">
+    <configurationValues name="DefaultGroupID" value="BuyerAttributes"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/CreateRFQParameterGroup.xml"/>
+    <nodeSuccessors name="next" next="CreateRFQParameterGroup5"/>
+    <parameterBindings name="ParentGroup" objectPath="ContractAttributesGroup"/>
+    <returnValueBindings name="RFQParameterGroup" objectPath="ContractBuyerAttributesGroup"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateRFQParameterGroup5">
+    <configurationValues name="DefaultGroupID" value="SupplierAttributes"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/CreateRFQParameterGroup.xml"/>
+    <nodeSuccessors name="next" next="End1" action="commit"/>
+    <parameterBindings name="ParentGroup" objectPath="ContractAttributesGroup"/>
+    <returnValueBindings name="RFQParameterGroup" objectPath="ContractSupplierAttributesGroup"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Submit" callMode="Private">
+    <nodeSuccessors name="next" next="UpdateRFQ1" action="begin"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRFQ1">
+    <configurationValues name="DefaultState" value="Pending"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/UpdateRFQ.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+    <parameterBindings name="DatePattern" objectPath="invalid"/>
+    <parameterBindings name="Description" objectPath="invalid"/>
+    <parameterBindings name="DisplayName" objectPath="invalid"/>
+    <parameterBindings name="Locale" objectPath="invalid"/>
+    <parameterBindings name="State" objectPath="invalid"/>
+    <parameterBindings name="ValidFrom" objectPath="invalid"/>
+    <parameterBindings name="ValidTo" objectPath="invalid"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="RFQ:Requests">
+    <nodeSuccessors name="next" next="End2" action="commit"/>
+    <entry key="RFQRequest">
+      <nodeSuccessors name="loop_entry_next" next="Decision1"/>
+    </entry>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="RFQRequest:State"
+      operator="eq" conditionValue="3">
+    <nodeSuccessors name="decision_yes" next="UpdateRFQRequest1"/>
+<!--@BendPoints 6,7 6,11-->
+    <nodeSuccessors name="decision_no" next="Join1"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRFQRequest1">
+    <configurationValues name="DefaultState" value="Pending"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/UpdateRFQRequest.xml"/>
+    <nodeSuccessors name="next" next="Join1"/>
+    <parameterBindings name="State" objectPath="invalid"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+<!--@BendPoints 5,12 4,12 4,5-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+</pipeline:Pipeline>

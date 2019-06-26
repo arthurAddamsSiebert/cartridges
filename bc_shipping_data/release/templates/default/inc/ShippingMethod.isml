@@ -1,0 +1,106 @@
+<iscontent type = "text/xml" templatemarker="false" charset="utf-8" session="false">
+<%@page import="com.intershop.beehive.core.capi.naming.*,
+	com.intershop.beehive.core.capi.currency.CurrencyMgr,
+	com.intershop.beehive.core.capi.domain.*,
+	com.intershop.component.shipping_data.capi.shippingmethod.*,
+	com.intershop.component.shipping_data.capi.shippingmethod.shippingchargeplan.*,
+	com.intershop.component.shipping_data.capi.shippingmethod.shippingchargeplan.bracket.*,
+	java.util.*" %>
+	
+<isinclude template="impex/Modules">
+<ismodule template="inc/CustomAttributes"
+	name="CustomAttributes"
+	attribute="attributes">
+<%
+	 ShippingMethod shippingMethodObj = (ShippingMethod) getObject("shippingmethod");
+%>	
+	
+  <shipping-method>
+      <id><isprint value="#shippingmethod:Id#"></id>
+      <active><isprint value="#shippingmethod:Active#"></active>
+      <sequence-number><isprint value="#shippingmethod:SequenceNumber#" formatter="#"></sequence-number>
+	  <isif condition="#isDefined(shippingmethod:ShippingTimeMin) AND (shippingmethod:ShippingTimeMin NE null) AND (shippingmethod:ShippingTimeMin NE '-1')#">
+	      <ship-time-lower><isprint value="#shippingmethod:ShippingTimeMin#" formatter="#"></ship-time-lower>
+	  </isif>
+	  <isif condition="#isDefined(shippingmethod:ShippingTimeMax) AND (shippingmethod:ShippingTimeMax NE null) AND (shippingmethod:ShippingTimeMax NE '-1')#">	  
+	      <ship-time-upper><isprint value="#shippingmethod:ShippingTimeMax#" formatter="#"></ship-time-upper>
+      </isif>
+      <instruction-support><isprint value="#shippingmethod:InstructionSupported#"></instruction-support>
+      <isif condition="#isDefined(shippingmethod:StartDate) AND (shippingmethod:StartDate NE null)#">
+		  <start-date><isprint value="#shippingmethod:StartDate#" formatter="yyyy-MM-dd"></start-date>
+	  </isif>
+	  <isif condition="#isDefined(shippingmethod:EndDate) AND (shippingmethod:EndDate NE null)#">
+	  	  <end-date><isprint value="#shippingmethod:EndDate#" formatter="yyyy-MM-dd"></end-date>
+	  </isif>
+	  <isif condition="#isDefined(shippingmethod:ShippingChargePlan) AND (shippingmethod:ShippingChargePlan NE null)#">
+		  <shipping-charge-plan-type><isprint value="#shippingmethod:ShippingChargePlan:Type#"></shipping-charge-plan-type>
+	  </isif>
+	  <%
+            getPipelineDictionary().put("ShippingMethodCustomAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(shippingMethodObj.createCustomAttributesIterator(), shippingMethodObj));
+	   %>
+        <ISCUSTOMATTRIBUTES attributes=#ShippingMethodCustomAttributes#>
+		
+		<%
+		if(shippingMethodObj.getShippingChargePlan()!=null)
+		{
+			ShippingChargePlan chargePlan=shippingMethodObj.getShippingChargePlan();
+			if(chargePlan!=null)
+			{
+					getPipelineDictionary().put("chargePlan",chargePlan);
+					getPipelineDictionary().put("chargePlanCustomAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(chargePlan.createCustomAttributesIterator(), chargePlan));
+					%>
+						<shipping-charge-plan>
+							<id><isprint value="#chargePlan:Id#"></id>
+							<tax-class><isprint value="#chargePlan:TaxClassCode#"></tax-class>
+							
+								<isif condition="#hasLoopElements(chargePlan:Brackets)#">
+									<isloop iterator="chargePlan:Brackets" alias="Bracket">
+										<bracket>
+										<currency><isprint value="#Bracket:CurrencyCode#"></currency>
+										<%
+											ShippingChargePlanBracket bracket = (ShippingChargePlanBracket) getObject("Bracket");
+											getPipelineDictionary().put("bracketCustomAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(bracket.createCustomAttributesIterator(), bracket));
+										%>
+										<ISCUSTOMATTRIBUTES attributes=#bracketCustomAttributes#>	
+										</bracket>
+									</isloop>
+								</isif>
+							<ISCUSTOMATTRIBUTES attributes=#chargePlanCustomAttributes#>	
+						</shipping-charge-plan>
+					<%
+					if(chargePlan.getType().name() == "FLEXSHIPPING")
+					{
+				
+					%>
+						<isloop iterator="chargePlan:AssignedShippingChargePlans:KeySet" alias="SelectorID">
+							<isset scope="request" name="flexChargePlan" value="#chargePlan:AssignedShippingChargePlan(SelectorID)#">
+						<%
+							ShippingChargePlan flexChargePlan=(ShippingChargePlan)getObject("flexChargePlan");
+							getPipelineDictionary().put("chargePlanCustomAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(flexChargePlan.createCustomAttributesIterator(), flexChargePlan));
+						%>
+							<shipping-charge-plan>
+								<id><isprint value="#flexChargePlan:Id#"></id>
+								<tax-class><isprint value="#flexChargePlan:TaxClassCode#"></tax-class>
+								
+									<isif condition="#hasLoopElements(flexChargePlan:Brackets)#">
+										<isloop iterator="flexChargePlan:Brackets" alias="Bracket">
+											<bracket>
+											<currency><isprint value="#Bracket:CurrencyCode#"></currency>
+											<%
+												ShippingChargePlanBracket bracket = (ShippingChargePlanBracket) getObject("Bracket");
+												getPipelineDictionary().put("bracketCustomAttributes", new com.intershop.beehive.core.capi.impex.AttributeValueIterator(bracket.createCustomAttributesIterator(), bracket));
+											%>
+											<ISCUSTOMATTRIBUTES attributes=#bracketCustomAttributes#>	
+											</bracket>
+										</isloop>
+									</isif>
+								<ISCUSTOMATTRIBUTES attributes=#chargePlanCustomAttributes#>	
+							</shipping-charge-plan>
+						</isloop>
+					<%
+				}
+			} 
+		}		
+		%>
+</shipping-method>
+	

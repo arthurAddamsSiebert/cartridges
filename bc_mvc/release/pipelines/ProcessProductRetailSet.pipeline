@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Responsible for product Retail Set management \- create, delete and get ProductLinks.
+@Group Product-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessProductRetailSet" type="process">
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="Create" callMode="Private">
+<!--@BendPoints 17,2-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ProductUUIDs"
+      operator="has_elements">
+<!--@BendPoints 17,4-->
+    <nodeSuccessors name="decision_yes" next="GetProductByUUID2"/>
+<!--@BendPoints 18,3-->
+    <nodeSuccessors name="decision_no" next="EndNode2"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="UpdateProductTypeCode1" action="begin"/>
+    <nodeSuccessors name="pipelet_error" next="End4"/>
+    <parameterBindings name="ProductUUID" objectPath="ProductID"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductTypeCode1">
+    <configurationValues name="DefaultTypeCode" value="128"/>
+    <configurationValues name="ProcessMethod" value="Add Typecode"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateProductTypeCode.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+    <parameterBindings name="Product" objectPath="Product"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="ProductUUIDs">
+    <nodeSuccessors name="next" next="End7" action="commit"/>
+    <entry key="TargetProductID">
+      <nodeSuccessors name="loop_entry_next" next="GetProductByUUID5"/>
+    </entry>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID5">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="Pipelet3"/>
+<!--@BendPoints 18,11 18,23-->
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+    <parameterBindings name="ProductUUID" objectPath="TargetProductID"/>
+    <returnValueBindings name="Product" objectPath="TargetProduct"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="AddProductToBundle1"/>
+    <parameterBindings name="InValue_1" objectPath="TargetProduct:TypeCode"/>
+    <returnValueBindings name="OutValue_1" objectPath="TargetProductTypeCode"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddProductToBundle1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/AddProductToBundle.xml"/>
+    <nodeSuccessors name="next" next="Pipelet4"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode1" action="rollback"/>
+    <parameterBindings name="SourceProduct" objectPath="Product"/>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="DefaultTypeCode" value="256"/>
+    <configurationValues name="ProcessMethod" value="Set Typecode"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateProductTypeCode.xml"/>
+    <nodeSuccessors name="next" next="Pipelet1"/>
+    <parameterBindings name="Product" objectPath="TargetProduct"/>
+    <parameterBindings name="TypeCode" objectPath="TargetProductTypeCode"/>
+  </nodes>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="DefaultTypeCode" value="256"/>
+    <configurationValues name="ProcessMethod" value="Add Typecode"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateProductTypeCode.xml"/>
+    <nodeSuccessors name="next" next="Touch2"/>
+    <parameterBindings name="Product" objectPath="TargetProduct"/>
+  </nodes>
+<!--@Location 8,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Touch2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/Touch.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+    <parameterBindings name="Object" objectPath="Product"/>
+  </nodes>
+<!--@Location 8,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+<!--@BendPoints 17,24 15,24 15,9-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 10,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="error"/>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End7"/>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4" name="error-product-not-available"/>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="Delete" callMode="Private">
+    <nodeSuccessors name="next" next="GetProductByUUID7"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID7">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="Loop2"/>
+    <nodeSuccessors name="pipelet_error" next="End2"/>
+    <parameterBindings name="ProductUUID" objectPath="ProductID"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="ProductUUIDs">
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="next" next="CheckForEmptyIterator1"/>
+    <entry key="TargetProductID">
+      <nodeSuccessors name="loop_entry_next" next="GetProductByUUID6"/>
+    </entry>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID6">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="RemoveProductFromRetailSet1"/>
+<!--@BendPoints 4,7 4,13-->
+    <nodeSuccessors name="pipelet_error" next="Join3"/>
+    <parameterBindings name="ProductUUID" objectPath="TargetProductID"/>
+    <returnValueBindings name="Product" objectPath="TargetProduct"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveProductFromRetailSet1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveProductFromRetailSet.xml"/>
+    <nodeSuccessors name="next" next="Touch1"/>
+    <parameterBindings name="Product" objectPath="TargetProduct"/>
+    <parameterBindings name="RetailSet" objectPath="Product"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Touch1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/Touch.xml"/>
+    <nodeSuccessors name="next" next="Join3"/>
+    <parameterBindings name="Object" objectPath="Product"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+<!--@BendPoints 3,14 2,14 2,5-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyIterator.xml"/>
+    <nodeSuccessors name="next" next="Join4"/>
+<!--@BendPoints 7,7-->
+    <nodeSuccessors name="pipelet_error" next="UpdateProductTypeCode2"/>
+    <parameterBindings name="FilledIterator" objectPath="Product:BundledProductAssignments"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+    <nodeSuccessors name="next" next="End3"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductTypeCode2">
+    <configurationValues name="DefaultTypeCode" value="128"/>
+    <configurationValues name="ProcessMethod" value="Subtract Typecode"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateProductTypeCode.xml"/>
+<!--@BendPoints 7,11-->
+    <nodeSuccessors name="next" next="Join4"/>
+    <parameterBindings name="Product" objectPath="Product"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2" name="error-product-not-available"/>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="DetermineProduct" callMode="Private">
+    <nodeSuccessors name="next" next="GetProductByUUID1"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="End8"/>
+    <nodeSuccessors name="pipelet_error" next="End9"/>
+    <parameterBindings name="ProductUUID" objectPath="ProductID"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End8"/>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End9" name="error-product-not-available"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="Search" callMode="Private">
+    <nodeSuccessors name="next" next="Call2"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2" callModePermissions="Private">
+    <nodeSuccessors name="next" next="Call1"/>
+    <startNode objectPath="ParametricSearchPipeline"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="End5"/>
+<!--@BendPoints 9,6 11,6-->
+    <nodeSuccessors name="error-product-not-available" next="End6"/>
+    <startNode referencedName="ProcessProductRetailSet-DetermineProduct"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5"/>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6" name="error-product-not-available"/>
+<!--@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="Update" callMode="Private">
+    <nodeSuccessors name="next" next="GetProductByUUID3"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID3">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="VerifyQuantity1"/>
+    <nodeSuccessors name="pipelet_error" next="End10"/>
+    <parameterBindings name="ProductUUID" objectPath="ProductID"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyQuantity1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyQuantity.xml"/>
+    <nodeSuccessors name="next" next="GetProductByUUID4"/>
+    <nodeSuccessors name="pipelet_error" next="End11"/>
+    <parameterBindings name="LocalizedString" objectPath="FormRecord:Quantity"/>
+    <returnValueBindings name="QuantityValue" objectPath="Quantity"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID4">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="UpdateProductBundleQuantity1"/>
+<!--@BendPoints 24,7 24,11-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+    <parameterBindings name="ProductUUID" objectPath="TargetProductID"/>
+    <returnValueBindings name="Product" objectPath="TargetProduct"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductBundleQuantity1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateProductBundleQuantity.xml"/>
+    <nodeSuccessors name="next" next="Join1"/>
+    <parameterBindings name="SourceProduct" objectPath="Product"/>
+    <parameterBindings name="TargetProduct" objectPath="TargetProduct"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 12,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End11"/>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End10" name="error-product-not-available"/>
+</pipeline:Pipeline>

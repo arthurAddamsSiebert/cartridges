@@ -1,0 +1,1396 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This Pipeline is responsible for sending email notifications regarding auction event (start, end, outbid etc.)
+@Group Auction-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="AuctionNotification" type="process">
+<!--If the admin did not provide an email address mailfrom is empty. In this case no mail to the admin can be sent, that a new bid has arrived.
+An artificial mailFrom will be created as sender address of the outbid notification.
+@Location 11,8-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text5" height="1" width="1"/>
+<!--The previous leading bidder will receive the outbid notification.
+The auctioneer will receive the NewBidArrived notification.
+@Location 10,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text4" height="1" width="3"/>
+<!--If still no email was found use auction@test.intershop.de since this domain should exist.
+@Location 15,23-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text3" height="1" width="1"/>
+<!--Create a dummy mail address "auction@<organization>.com
+@Location 18,22-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2" height="1" width="1"/>
+<!--Get the email address of the user who placed the start bid.
+@Location 14,20-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1" height="1" width="1"/>
+<!--@Location 27,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start8" name="AuctionCanceled" callMode="Private">
+    <nodeSuccessors name="next" next="GetAuctionItems7"/>
+  </nodes>
+<!--@Location 27,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionItems7">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionItems.xml"/>
+    <nodeSuccessors name="next" next="GetAuctionParticipants6"/>
+  </nodes>
+<!--@Location 27,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionParticipants6">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionParticipants.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByUser10"/>
+  </nodes>
+<!--@Location 27,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser10">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper17"/>
+    <parameterBindings name="User" objectPath="Auction:StartBid:Owner"/>
+    <returnValueBindings name="Organization" objectPath="AuctionOwnerOrganization"/>
+  </nodes>
+<!--@Location 27,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper17">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call9"/>
+    <parameterBindings name="InValue_1" objectPath="AuctionOwnerOrganization:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 27,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call9">
+    <nodeSuccessors name="next" next="SetDictionaryValue15"/>
+    <startNode referencedName="AuctionNotification-GetMailFrom"/>
+  </nodes>
+<!--@Location 27,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue15">
+    <configurationValues name="Name" value="MailTemplate"/>
+    <configurationValues name="Value" value="auction/MailParticipantCancel"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Loop8"/>
+  </nodes>
+<!--@Location 27,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop8" loop="AuctionParticipants">
+    <nodeSuccessors name="next" next="End17"/>
+    <entry key="AuctionParticipant">
+      <nodeSuccessors name="loop_entry_next" next="RemoveDictionaryValue6"/>
+    </entry>
+  </nodes>
+<!--@Location 27,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue6">
+    <configurationValues name="Key" value="MailTo"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper16"/>
+  </nodes>
+<!--@Location 27,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper16">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 55,20 54,20 54,21-->
+    <nodeSuccessors name="next" next="Decision18"/>
+    <parameterBindings name="InValue_1" objectPath="AuctionParticipant:Participant:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTo"/>
+  </nodes>
+<!--@Location 27,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision18" conditionKey="MailTo"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector6"/>
+    <nodeSuccessors name="decision_no" next="ProcessMail11"/>
+  </nodes>
+<!--@Location 28,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector6">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 58,21 58,25-->
+    <nodeSuccessors name="next" next="Join9"/>
+    <parameterBindings name="InVector" objectPath="ErrorSetMailTo"/>
+    <parameterBindings name="Object" objectPath="AuctionParticipant:Participant"/>
+    <returnValueBindings name="OutVector" objectPath="ErrorSetMailTo"/>
+  </nodes>
+<!--@Location 27,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join9">
+<!--@BendPoints 55,26 53,26 53,15-->
+    <nodeSuccessors name="next" next="Loop8_Entry"/>
+  </nodes>
+<!--@Location 27,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail11">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="Join9"/>
+    <parameterBindings name="Domain" objectPath="AuctionOwnerOrganization:OwningDomain"/>
+  </nodes>
+<!--@Location 28,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End17"/>
+<!--@Location 15,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="AuctionExtended" callMode="Private">
+    <nodeSuccessors name="next" next="GetAuctionItems4"/>
+  </nodes>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionItems4">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionItems.xml"/>
+    <nodeSuccessors name="next" next="GetAuctionParticipants3"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionParticipants3">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionParticipants.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByUser8"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser8">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="RemoveDictionaryValue9"/>
+    <parameterBindings name="User" objectPath="Auction:StartBid:Owner"/>
+    <returnValueBindings name="Organization" objectPath="AuctionOwnerOrganization"/>
+  </nodes>
+<!--@Location 15,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue9">
+    <configurationValues name="Key" value="MailFrom"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper10"/>
+  </nodes>
+<!--@Location 15,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper10">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call6"/>
+    <parameterBindings name="InValue_1" objectPath="AuctionOwnerOrganization:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 15,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call6">
+    <nodeSuccessors name="next" next="SetDictionaryValue11"/>
+    <startNode referencedName="AuctionNotification-GetMailFrom"/>
+  </nodes>
+<!--@Location 15,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue11">
+    <configurationValues name="Name" value="MailTemplate"/>
+    <configurationValues name="Value" value="auction/MailParticipantExtension"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Loop3"/>
+  </nodes>
+<!--@Location 15,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop3" loop="AuctionParticipants">
+    <nodeSuccessors name="next" next="End9"/>
+    <entry key="AuctionParticipant">
+      <nodeSuccessors name="loop_entry_next" next="RemoveDictionaryValue3"/>
+    </entry>
+  </nodes>
+<!--@Location 15,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue3">
+    <configurationValues name="Key" value="MailTo"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper11"/>
+  </nodes>
+<!--@Location 15,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper11">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 31,22 30,22 30,23-->
+    <nodeSuccessors name="next" next="Decision8"/>
+    <parameterBindings name="InValue_1" objectPath="AuctionParticipant:Participant:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTo"/>
+  </nodes>
+<!--@Location 15,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision8" conditionKey="MailTo"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector3"/>
+    <nodeSuccessors name="decision_no" next="ProcessMail8"/>
+  </nodes>
+<!--@Location 16,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector3">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 34,23 34,27-->
+    <nodeSuccessors name="next" next="Join6"/>
+    <parameterBindings name="InVector" objectPath="ErrorSetMailTo"/>
+    <parameterBindings name="Object" objectPath="AuctionParticipant:Participant"/>
+    <returnValueBindings name="OutVector" objectPath="ErrorSetMailTo"/>
+  </nodes>
+<!--@Location 15,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+<!--@BendPoints 31,28 29,28 29,17-->
+    <nodeSuccessors name="next" next="Loop3_Entry"/>
+  </nodes>
+<!--@Location 15,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail8">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="Join6"/>
+    <parameterBindings name="Domain" objectPath="AuctionOwnerOrganization:OwningDomain"/>
+  </nodes>
+<!--@Location 16,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End9"/>
+<!--@Location 18,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start10" name="AuctionFinished" callMode="Private">
+    <nodeSuccessors name="next" next="GetAuctionItems5"/>
+  </nodes>
+<!--@Location 18,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionItems5">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionItems.xml"/>
+    <nodeSuccessors name="next" next="GetAuctionParticipants4"/>
+  </nodes>
+<!--@Location 18,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionParticipants4">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionParticipants.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByUser5"/>
+  </nodes>
+<!--@Location 18,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser5">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="RemoveDictionaryValue8"/>
+    <parameterBindings name="User" objectPath="Auction:StartBid:Owner"/>
+    <returnValueBindings name="Organization" objectPath="AuctionOwnerOrganization"/>
+  </nodes>
+<!--@Location 18,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue8">
+    <configurationValues name="Key" value="MailFrom"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper13"/>
+  </nodes>
+<!--@Location 18,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper13">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call7"/>
+    <parameterBindings name="InValue_1" objectPath="AuctionOwnerOrganization:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 18,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call7">
+    <nodeSuccessors name="next" next="SetDictionaryValue14"/>
+    <startNode referencedName="AuctionNotification-GetMailFrom"/>
+  </nodes>
+<!--@Location 18,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue14">
+    <configurationValues name="Name" value="MailTemplate"/>
+    <configurationValues name="Value" value="auction/MailParticipantFinished"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Loop5"/>
+  </nodes>
+<!--@Location 18,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop5" loop="AuctionParticipants">
+    <nodeSuccessors name="next" next="End13"/>
+    <entry key="AuctionParticipant">
+      <nodeSuccessors name="loop_entry_next" next="RemoveDictionaryValue4"/>
+    </entry>
+  </nodes>
+<!--@Location 18,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue4">
+    <configurationValues name="Key" value="MailTo"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper12"/>
+  </nodes>
+<!--@Location 18,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper12">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 37,22 36,22 36,23-->
+    <nodeSuccessors name="next" next="Decision15"/>
+    <parameterBindings name="InValue_1" objectPath="AuctionParticipant:Participant:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTo"/>
+  </nodes>
+<!--@Location 18,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision15" conditionKey="MailTo"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector4"/>
+    <nodeSuccessors name="decision_no" next="ProcessMail9"/>
+  </nodes>
+<!--@Location 19,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector4">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 40,23 40,27-->
+    <nodeSuccessors name="next" next="Join7"/>
+    <parameterBindings name="InVector" objectPath="ErrorSetMailTo"/>
+    <parameterBindings name="Object" objectPath="AuctionParticipant:Participant"/>
+    <returnValueBindings name="OutVector" objectPath="ErrorSetMailTo"/>
+  </nodes>
+<!--@Location 18,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+<!--@BendPoints 37,28 35,28 35,17-->
+    <nodeSuccessors name="next" next="Loop5_Entry"/>
+  </nodes>
+<!--@Location 18,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail9">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="Join7"/>
+    <parameterBindings name="Domain" objectPath="AuctionOwnerOrganization:OwningDomain"/>
+  </nodes>
+<!--@Location 19,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End13"/>
+<!--@Location 24,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start6" name="AuctionNearingEnd" callMode="Private">
+    <nodeSuccessors name="next" next="GetAuctionParticipants5"/>
+  </nodes>
+<!--@Location 24,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionParticipants5">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionParticipants.xml"/>
+    <nodeSuccessors name="next" next="GetAuctionItems6"/>
+  </nodes>
+<!--@Location 24,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionItems6">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionItems.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByUser9"/>
+  </nodes>
+<!--@Location 24,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser9">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="RemoveDictionaryValue10"/>
+    <parameterBindings name="User" objectPath="Auction:StartBid:Owner"/>
+    <returnValueBindings name="Organization" objectPath="AuctionOwnerOrganization"/>
+  </nodes>
+<!--@Location 24,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue10">
+    <configurationValues name="Key" value="MailFrom"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper15"/>
+  </nodes>
+<!--@Location 24,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper15">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call8"/>
+    <parameterBindings name="InValue_1" objectPath="AuctionOwnerOrganization:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 24,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call8">
+    <nodeSuccessors name="next" next="Loop6"/>
+    <startNode referencedName="AuctionNotification-GetMailFrom"/>
+  </nodes>
+<!--@Location 24,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop6" loop="AuctionParticipants">
+    <nodeSuccessors name="next" next="End15"/>
+    <entry key="AuctionParticipant">
+      <nodeSuccessors name="loop_entry_next" next="RemoveDictionaryValue5"/>
+    </entry>
+  </nodes>
+<!--@Location 24,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue5">
+    <configurationValues name="Key" value="MailTo"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper14"/>
+  </nodes>
+<!--@Location 24,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper14">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 49,20 48,20 48,21-->
+    <nodeSuccessors name="next" next="Decision17"/>
+    <parameterBindings name="InValue_1" objectPath="AuctionParticipant:Participant:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTo"/>
+  </nodes>
+<!--@Location 24,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision17" conditionKey="MailTo"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector5"/>
+    <nodeSuccessors name="decision_no" next="ProcessMail10"/>
+  </nodes>
+<!--@Location 25,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector5">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 52,21 52,25-->
+    <nodeSuccessors name="next" next="Join8"/>
+    <parameterBindings name="InVector" objectPath="ErrorSetMailTo"/>
+    <parameterBindings name="Object" objectPath="AuctionParticipant:Participant"/>
+    <returnValueBindings name="OutVector" objectPath="ErrorSetMailTo"/>
+  </nodes>
+<!--@Location 24,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join8">
+<!--@BendPoints 49,26 47,26 47,15-->
+    <nodeSuccessors name="next" next="Loop6_Entry"/>
+  </nodes>
+<!--@Location 24,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail10">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="Join8"/>
+    <parameterBindings name="Domain" objectPath="AuctionOwnerOrganization:OwningDomain"/>
+  </nodes>
+<!--@Location 25,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End15"/>
+<!--@Location 21,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start11" name="AuctionsNearingEndJob"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetAuctions1"/>
+  </nodes>
+<!--@Location 21,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctions1">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctions.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue18"/>
+    <parameterBindings name="Domain" objectPath="not used"/>
+  </nodes>
+<!--@Location 21,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue18">
+    <configurationValues name="Name" value="StateString"/>
+    <configurationValues name="Value" value="2"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="VerifyInteger1"/>
+  </nodes>
+<!--@Location 21,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyInteger1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyInteger.xml"/>
+    <nodeSuccessors name="next" next="FilterAuctions1"/>
+    <parameterBindings name="LocalizedString" objectPath="StateString"/>
+    <returnValueBindings name="IntegerObject" objectPath="SelectedState"/>
+  </nodes>
+<!--@Location 21,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FilterAuctions1">
+    <pipelet href="enfinity:/bc_tendering/pipelets/FilterAuctions.xml"/>
+    <nodeSuccessors name="next" next="GetCurrentDate1"/>
+    <parameterBindings name="AuctionState" objectPath="SelectedState"/>
+    <parameterBindings name="Auctions" objectPath="Auctions"/>
+    <returnValueBindings name="FilteredAuctions" objectPath="Auctions"/>
+  </nodes>
+<!--@Location 21,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="CalculateDate1"/>
+  </nodes>
+<!--@Location 21,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CalculateDate1">
+    <configurationValues name="DefaultMilliseconds" value="86400001"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CalculateDate.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue16"/>
+    <parameterBindings name="Date" objectPath="CurrentDate"/>
+    <parameterBindings name="Milliseconds" objectPath="not used"/>
+  </nodes>
+<!--@Location 21,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue16">
+    <configurationValues name="Name" value="MailTemplate"/>
+    <configurationValues name="Value" value="auction/MailParticipantEndToday"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Loop7"/>
+  </nodes>
+<!--@Location 21,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop7" loop="Auctions">
+    <nodeSuccessors name="next" next="End8"/>
+    <entry key="Auction">
+      <nodeSuccessors name="loop_entry_next" next="Decision22"/>
+    </entry>
+  </nodes>
+<!--@Location 21,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision22" conditionKey="Auction:EndTime:Time"
+      operator="lt" conditionItem="CalculatedDate:Time">
+    <nodeSuccessors name="decision_yes" next="Call1"/>
+<!--@BendPoints 44,19 44,23-->
+    <nodeSuccessors name="decision_no" next="Join11"/>
+  </nodes>
+<!--@Location 21,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="Join11"/>
+    <startNode referencedName="AuctionNotification-AuctionNearingEnd"/>
+  </nodes>
+<!--@Location 21,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join11">
+<!--@BendPoints 43,24 41,24 41,17-->
+    <nodeSuccessors name="next" next="Loop7_Entry"/>
+  </nodes>
+<!--@Location 22,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End8"/>
+<!--@Location 31,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start12" name="BidCanceled" callMode="Private">
+<!--@BendPoints 63,2 61,2 61,3-->
+    <nodeSuccessors name="next" next="Decision21"/>
+  </nodes>
+<!--@Location 31,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision21" conditionKey="Auction:Definition:IsHidden"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="End19"/>
+    <nodeSuccessors name="decision_no" next="Decision19"/>
+  </nodes>
+<!--@Location 32,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End19"/>
+<!--@Location 31,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision19" conditionKey="LeadingBid:UUID"
+      operator="str_neq" conditionItem="Auction:StartBid:UUID">
+    <nodeSuccessors name="decision_yes" next="GetAuctionItems9"/>
+    <nodeSuccessors name="decision_no" next="End6"/>
+  </nodes>
+<!--@Location 31,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionItems9">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionItems.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByUser12"/>
+  </nodes>
+<!--@Location 31,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser12">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByUser13"/>
+    <parameterBindings name="User" objectPath="Auction:Owner"/>
+    <returnValueBindings name="Organization" objectPath="AuctionOwnerOrganization"/>
+  </nodes>
+<!--@Location 31,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser13">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper19"/>
+    <parameterBindings name="User" objectPath="LeadingBid:Owner"/>
+    <returnValueBindings name="Organization" objectPath="OrganizationForNotification"/>
+  </nodes>
+<!--@Location 31,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper19">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call10"/>
+    <parameterBindings name="InValue_1" objectPath="LeadingBid:Owner"/>
+    <parameterBindings name="InValue_2" objectPath="OrganizationForNotification:Profile:AddressBook:DefaultAddress:EMail"/>
+    <parameterBindings name="InValue_3" objectPath="LeadingBid:Owner:Profile:AddressBook:DefaultAddress:EMail"/>
+    <parameterBindings name="InValue_5" objectPath="AuctionOwnerOrganization:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="LeadingUser"/>
+    <returnValueBindings name="OutValue_2" objectPath="MailTo2"/>
+    <returnValueBindings name="OutValue_3" objectPath="MailTo"/>
+    <returnValueBindings name="OutValue_5" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 31,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call10">
+    <nodeSuccessors name="next" next="SetDictionaryValue20"/>
+    <startNode referencedName="AuctionNotification-GetMailFrom"/>
+  </nodes>
+<!--@Location 31,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue20">
+    <configurationValues name="Name" value="MailTemplate"/>
+    <configurationValues name="Value" value="auction/MailParticipantLeader"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="ProcessMail12"/>
+  </nodes>
+<!--@Location 31,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail12">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="End21"/>
+    <parameterBindings name="Domain" objectPath="AuctionOwnerOrganization:OwningDomain"/>
+  </nodes>
+<!--@Location 31,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End21"/>
+<!--@Location 32,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6"/>
+<!--@Location 37,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start13" name="BidCanceledConsumer"
+      callMode="Private">
+<!--@BendPoints 75,2 73,2 73,3-->
+    <nodeSuccessors name="next" next="Decision27"/>
+  </nodes>
+<!--@Location 37,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision27" conditionKey="Auction:Definition:IsHidden"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="End28"/>
+    <nodeSuccessors name="decision_no" next="Decision29"/>
+  </nodes>
+<!--@Location 38,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End28"/>
+<!--@Location 37,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision29" conditionKey="LeadingBid:UUID"
+      operator="str_neq" conditionItem="Auction:StartBid:UUID">
+    <nodeSuccessors name="decision_yes" next="GetAuctionItems11"/>
+    <nodeSuccessors name="decision_no" next="End29"/>
+  </nodes>
+<!--@Location 37,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionItems11">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionItems.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByUser16"/>
+  </nodes>
+<!--@Location 37,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser16">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByUser15"/>
+    <parameterBindings name="User" objectPath="Auction:Owner"/>
+    <returnValueBindings name="Organization" objectPath="AuctionOwnerOrganization"/>
+  </nodes>
+<!--@Location 37,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser15">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper26"/>
+    <parameterBindings name="User" objectPath="LeadingBid:Owner"/>
+    <returnValueBindings name="Organization" objectPath="OrganizationForNotification"/>
+  </nodes>
+<!--@Location 37,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper26">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call12"/>
+    <parameterBindings name="InValue_1" objectPath="LeadingBid:Owner"/>
+    <parameterBindings name="InValue_2" objectPath="LeadingBid:Owner:Profile:DefaultAddress:EMail"/>
+    <parameterBindings name="InValue_3" objectPath="LeadingBid:Owner:Profile:DefaultAddress:EMail"/>
+    <parameterBindings name="InValue_5" objectPath="Auction:Owner:Profile:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="LeadingUser"/>
+    <returnValueBindings name="OutValue_2" objectPath="MailTo2"/>
+    <returnValueBindings name="OutValue_3" objectPath="MailTo"/>
+    <returnValueBindings name="OutValue_5" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 37,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call12">
+<!--@BendPoints 75,16 74,16 74,17-->
+    <nodeSuccessors name="next" next="Decision28"/>
+    <startNode referencedName="AuctionNotification-GetMailFrom"/>
+  </nodes>
+<!--@Location 37,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision28" conditionKey="MailTo"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="End31"/>
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue22"/>
+  </nodes>
+<!--@Location 38,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End31"/>
+<!--@Location 37,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue22">
+    <configurationValues name="Name" value="MailTemplate"/>
+    <configurationValues name="Value" value="auction/MailParticipantLeader"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="ProcessMail14"/>
+  </nodes>
+<!--@Location 37,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail14">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="End30"/>
+    <parameterBindings name="Domain" objectPath="AuctionOwnerOrganization:OwningDomain"/>
+  </nodes>
+<!--@Location 37,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End30"/>
+<!--@Location 38,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End29"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="EvaluationInformation"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetOrganizationByUser2"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser2">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper4"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call3"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentUser"/>
+    <parameterBindings name="InValue_2" objectPath="Auction:StartBid:Owner:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="User"/>
+    <returnValueBindings name="OutValue_2" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call3">
+    <nodeSuccessors name="next" next="SetDictionaryValue6"/>
+    <startNode referencedName="AuctionNotification-GetMailFrom"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue6">
+    <configurationValues name="Name" value="MailTemplate"/>
+    <configurationValues name="Value" value="auction/MailParticipantEvaluation"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue7"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue7">
+    <configurationValues name="Name" value="ReservePriceKey"/>
+    <configurationValues name="Value" value="ReservePrice"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper6"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 9,14-->
+    <nodeSuccessors name="next" next="GetAuctionItems12"/>
+    <parameterBindings name="InValue_1" objectPath="Auction:StartBid:PriceDetail(ReservePriceKey)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ReservePrice"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionItems12">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionItems.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue3"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue3">
+    <configurationValues name="Name" value="MailTemplateWinner"/>
+    <configurationValues name="Value" value="auction/MailParticipantEvaluationWinner"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Decision4"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision4" conditionKey="WinningBid">
+    <nodeSuccessors name="decision_yes" next="GetOrganizationByUser3"/>
+<!--@BendPoints 10,19 10,27-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser3">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+<!--@BendPoints 9,22-->
+    <nodeSuccessors name="next" next="KeyMapper7"/>
+    <parameterBindings name="User" objectPath="WinningBid:Owner"/>
+    <returnValueBindings name="Organization" objectPath="WinningOrganization"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper7">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="ProcessMail2"/>
+    <parameterBindings name="InValue_2" objectPath="WinningBid:Owner:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_2" objectPath="MailTo"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail2">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="Domain" objectPath="Organization:OwningDomain"/>
+    <parameterBindings name="MailTemplate" objectPath="MailTemplateWinner"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 9,28-->
+    <nodeSuccessors name="next" next="Pipelet4"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="DefaultBidState" value="4"/>
+    <configurationValues name="Mode" value="Standard"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionBids.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="AuctionBids">
+<!--@BendPoints 14,31 14,39 9,39-->
+    <nodeSuccessors name="next" next="Loop2"/>
+    <entry key="AuctionBid">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode2"/>
+    </entry>
+  </nodes>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="WinningBid">
+    <nodeSuccessors name="decision_yes" next="DecisionNode1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,17-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="AuctionBid:Owner:ID"
+      operator="str_eq" conditionItem="WinningBid:Owner:ID">
+    <nodeSuccessors name="decision_yes" next="JoinNode3"/>
+<!--@BendPoints 11,35-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 7,37 7,31-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 5,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 13,33-->
+    <nodeSuccessors name="next" next="Pipelet3"/>
+  </nodes>
+<!--@Location 6,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 13,37-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="InVector" objectPath="Set"/>
+    <parameterBindings name="Object" objectPath="AuctionBid:Owner"/>
+    <returnValueBindings name="Iterator" objectPath="AuctionParticipants"/>
+    <returnValueBindings name="OutVector" objectPath="Set"/>
+  </nodes>
+<!--@Location 4,20-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="AuctionParticipants">
+    <nodeSuccessors name="next" next="End2"/>
+    <entry key="AuctionParticipant">
+      <nodeSuccessors name="loop_entry_next" next="RemoveDictionaryValue2"/>
+    </entry>
+  </nodes>
+<!--@Location 4,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue2">
+    <configurationValues name="Key" value="MailTo"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper3"/>
+  </nodes>
+<!--@Location 4,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 9,46 8,46 8,47-->
+    <nodeSuccessors name="next" next="Decision2"/>
+    <parameterBindings name="InValue_1" objectPath="AuctionParticipant:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTo"/>
+  </nodes>
+<!--@Location 4,23-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="MailTo"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector2"/>
+    <nodeSuccessors name="decision_no" next="ProcessMail3"/>
+  </nodes>
+<!--@Location 5,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 12,47 12,51-->
+    <nodeSuccessors name="next" next="Join2"/>
+    <parameterBindings name="InVector" objectPath="ErrorSetMailTo"/>
+    <parameterBindings name="Object" objectPath="AuctionParticipant:Participant"/>
+    <returnValueBindings name="OutVector" objectPath="ErrorSetMailTo"/>
+  </nodes>
+<!--@Location 4,25-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+<!--@BendPoints 7,51 7,41-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+  </nodes>
+<!--@Location 4,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail3">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+    <parameterBindings name="Domain" objectPath="Organization:OwningDomain"/>
+  </nodes>
+<!--@Location 6,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="EvaluationInformationConsumer"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetOrganizationByUser11"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser11">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper18"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper18">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call4"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentUser"/>
+    <parameterBindings name="InValue_2" objectPath="CurrentUser:Profile:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="User"/>
+    <returnValueBindings name="OutValue_2" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call4">
+    <nodeSuccessors name="next" next="SetDictionaryValue17"/>
+    <startNode referencedName="AuctionNotification-GetMailFrom"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue17">
+    <configurationValues name="Name" value="ReservePriceKey"/>
+    <configurationValues name="Value" value="ReservePrice"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper21"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper21">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetAuctionItems8"/>
+    <parameterBindings name="InValue_1" objectPath="Auction:StartBid:PriceDetail(ReservePriceKey)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ReservePrice"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionItems8">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionItems.xml"/>
+    <nodeSuccessors name="next" next="Decision24"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision24" conditionKey="WinningBid">
+    <nodeSuccessors name="decision_yes" next="KeyMapper22"/>
+<!--@BendPoints 19,15-->
+    <nodeSuccessors name="decision_no" next="GetAuctionBids1"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper22">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue19"/>
+    <parameterBindings name="InValue_1" objectPath="WinningBid:Owner:Profile:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTo"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue19">
+    <configurationValues name="Name" value="MailTemplateWinner"/>
+    <configurationValues name="Value" value="auction/MailParticipantEvaluationWinner"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="CheckForEmptyString1"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="ProcessMail4"/>
+<!--@BendPoints 16,21 16,25-->
+    <nodeSuccessors name="pipelet_error" next="Join12"/>
+    <parameterBindings name="FilledString" objectPath="MailTo"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail4">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="Join12"/>
+    <parameterBindings name="Domain" objectPath="Organization:OwningDomain"/>
+    <parameterBindings name="MailTemplate" objectPath="MailTemplateWinner"/>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join12">
+    <nodeSuccessors name="next" next="Join10"/>
+  </nodes>
+<!--@Location 7,19-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join10">
+    <nodeSuccessors name="next" next="End23"/>
+  </nodes>
+<!--@Location 7,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End23"/>
+<!--@Location 9,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionBids1">
+    <configurationValues name="DefaultBidState" value="4"/>
+    <configurationValues name="Mode" value="Standard"/>
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionBids.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue24"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue24">
+    <configurationValues name="Name" value="MailTemplate"/>
+    <configurationValues name="Value" value="auction/MailParticipantEvaluation"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Loop9"/>
+  </nodes>
+<!--@Location 9,10-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop9" loop="AuctionBids">
+<!--@BendPoints 20,21 20,25 19,25-->
+    <nodeSuccessors name="next" next="Loop4"/>
+    <entry key="AuctionBid">
+      <nodeSuccessors name="loop_entry_next" next="AddObjectToVector7"/>
+    </entry>
+  </nodes>
+<!--@Location 9,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector7">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 19,24 17,24 17,21-->
+    <nodeSuccessors name="next" next="Loop9_Entry"/>
+    <parameterBindings name="InVector" objectPath="Set"/>
+    <parameterBindings name="Object" objectPath="AuctionBid:Owner"/>
+    <returnValueBindings name="Iterator" objectPath="AuctionParticipants"/>
+    <returnValueBindings name="OutVector" objectPath="Set"/>
+  </nodes>
+<!--@Location 9,13-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop4" loop="AuctionParticipants">
+<!--@BendPoints 21,27 21,39-->
+    <nodeSuccessors name="next" next="Join10"/>
+    <entry key="AuctionParticipant">
+      <nodeSuccessors name="loop_entry_next" next="RemoveDictionaryValue7"/>
+    </entry>
+  </nodes>
+<!--@Location 9,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue7">
+    <configurationValues name="Key" value="MailTo"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper27"/>
+  </nodes>
+<!--@Location 9,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper27">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CheckForEmptyString3"/>
+    <parameterBindings name="InValue_1" objectPath="AuctionParticipant:Profile:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTo"/>
+  </nodes>
+<!--@Location 9,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="ProcessMail5"/>
+<!--@BendPoints 20,33 20,37-->
+    <nodeSuccessors name="pipelet_error" next="Join13"/>
+    <parameterBindings name="FilledString" objectPath="MailTo"/>
+  </nodes>
+<!--@Location 9,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail5">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="Join13"/>
+    <parameterBindings name="Domain" objectPath="Organization:OwningDomain"/>
+  </nodes>
+<!--@Location 9,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join13">
+<!--@BendPoints 19,38 17,38 17,27-->
+    <nodeSuccessors name="next" next="Loop4_Entry"/>
+  </nodes>
+<!--@Location 12,18-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start9" name="GetMailFrom" callMode="Private">
+    <nodeSuccessors name="next" next="CheckForEmptyString2"/>
+  </nodes>
+<!--@Location 12,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="End34"/>
+<!--@BendPoints 27,39-->
+    <nodeSuccessors name="pipelet_error" next="KeyMapper5"/>
+    <parameterBindings name="FilledString" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 12,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End34"/>
+<!--@Location 13,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CheckForEmptyString4"/>
+    <parameterBindings name="InValue_1" objectPath="Auction:StartBid:Owner:Profile:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 13,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="End35"/>
+<!--@BendPoints 29,43-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue4"/>
+    <parameterBindings name="FilledString" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 13,22-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End35"/>
+<!--@Location 14,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue4">
+    <configurationValues name="Name" value="MailFrom"/>
+    <configurationValues name="Value" value="auction@test.intershop.de"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="End10"/>
+  </nodes>
+<!--@Location 14,23-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End10"/>
+<!--@Location 16,21-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start14" name="GetMailFrom_Old" callMode="Private">
+    <nodeSuccessors name="next" next="GetOrganizationByUser4"/>
+  </nodes>
+<!--@Location 16,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser4">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="ConcatenateStrings1"/>
+<!--@BendPoints 35,45-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue2"/>
+    <parameterBindings name="User" objectPath="Auction:StartBid:Owner"/>
+  </nodes>
+<!--@Location 16,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="Join14"/>
+    <parameterBindings name="String1" constant="auction@"/>
+    <parameterBindings name="String2" objectPath="OrganizationDomain:DomainName"/>
+    <parameterBindings name="String3" constant=".com"/>
+    <returnValueBindings name="Concatenated" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 16,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join14">
+    <nodeSuccessors name="next" next="End32"/>
+  </nodes>
+<!--@Location 16,25-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End32"/>
+<!--@Location 17,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="MailFrom"/>
+    <configurationValues name="Value" value="auction@test.intershop.de"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 35,49-->
+    <nodeSuccessors name="next" next="Join14"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="InviteParticipants" callMode="Private">
+    <nodeSuccessors name="next" next="GetAuctionItems3"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionItems3">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionItems.xml"/>
+    <nodeSuccessors name="next" next="GetAuctionParticipants2"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionParticipants2">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionParticipants.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByUser1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call2"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentUser"/>
+    <parameterBindings name="InValue_2" objectPath="Auction:StartBid:Owner:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="User"/>
+    <returnValueBindings name="OutValue_2" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+    <nodeSuccessors name="next" next="SetDictionaryValue1"/>
+    <startNode referencedName="AuctionNotification-GetMailFrom"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="MailTemplate"/>
+    <configurationValues name="Value" value="auction/MailParticipantInvitation"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="GetLocale1"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="AuctionParticipants">
+    <nodeSuccessors name="next" next="End1"/>
+    <entry key="AuctionParticipant">
+      <nodeSuccessors name="loop_entry_next" next="RemoveDictionaryValue1"/>
+    </entry>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue1">
+    <configurationValues name="Key" value="MailTo"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 3,22 2,22 2,23-->
+    <nodeSuccessors name="next" next="Decision1"/>
+    <parameterBindings name="InValue_1" objectPath="AuctionParticipant:Participant:Profile:AddressBook:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="MailTo"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="MailTo"
+      operator="str_empty">
+<!--@BendPoints 5,23-->
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector1"/>
+    <nodeSuccessors name="decision_no" next="ProcessMail1"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 5,27-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InVector" objectPath="ErrorSetMailTo"/>
+    <parameterBindings name="Object" objectPath="AuctionParticipant:Participant"/>
+    <returnValueBindings name="OutVector" objectPath="ErrorSetMailTo"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 3,28 1,28 1,17-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail1">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="Domain" objectPath="Organization:OwningDomain"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 12,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="NotifyOutbid" callMode="Private">
+    <nodeSuccessors name="next" next="GetAuctionItems2"/>
+  </nodes>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionItems2">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionItems.xml"/>
+    <nodeSuccessors name="next" next="Pipelet2"/>
+  </nodes>
+<!--@Location 12,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="Pipelet1"/>
+    <parameterBindings name="User" objectPath="Auction:StartBid:Owner"/>
+    <returnValueBindings name="Organization" objectPath="AuctionOwnerOrganization"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue8"/>
+    <parameterBindings name="User" objectPath="AuctionBid:Owner"/>
+    <returnValueBindings name="Organization" objectPath="LeadingOrganization"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue8">
+    <configurationValues name="Name" value="ReservePriceKey"/>
+    <configurationValues name="Value" value="ReservePrice"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper8"/>
+  </nodes>
+<!--@Location 12,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper8">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue9"/>
+    <parameterBindings name="InValue_1" objectPath="PreviousBid:Owner:Profile:AddressBook:DefaultAddress:EMail"/>
+    <parameterBindings name="InValue_2" objectPath="Auction:StartBid:Owner:Profile:AddressBook:DefaultAddress:EMail"/>
+    <parameterBindings name="InValue_3" objectPath="Auction:StartBid:Owner:Profile:AddressBook:DefaultAddress:EMail"/>
+    <parameterBindings name="InValue_4" objectPath="Auction:StartBid:PriceDetail(ReservePriceKey)"/>
+    <returnValueBindings name="OutValue_1" objectPath="OutbidMailTo"/>
+    <returnValueBindings name="OutValue_2" objectPath="MailFrom"/>
+    <returnValueBindings name="OutValue_3" objectPath="MailTo"/>
+    <returnValueBindings name="OutValue_4" objectPath="ReservePrice"/>
+  </nodes>
+<!--@Location 12,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue9">
+    <configurationValues name="Name" value="MailTemplate"/>
+    <configurationValues name="Value" value="auction/MailParticipantOutbid"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue10"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue10">
+    <configurationValues name="Name" value="MailTemplateOwner"/>
+    <configurationValues name="Value" value="auction/MailAuctioneerNewBid"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="CheckForEmptyString5"/>
+  </nodes>
+<!--@Location 12,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="ProcessMail6"/>
+<!--@BendPoints 27,17-->
+    <nodeSuccessors name="pipelet_error" next="Call5"/>
+    <parameterBindings name="FilledString" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 12,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail6">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="Join15"/>
+    <parameterBindings name="Domain" objectPath="AuctionOwnerOrganization:OwningDomain"/>
+    <parameterBindings name="MailTemplate" objectPath="MailTemplateOwner"/>
+    <parameterBindings name="MailTo" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 11,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join15">
+<!--@BendPoints 23,25-->
+    <nodeSuccessors name="next" next="Decision5"/>
+  </nodes>
+<!--@Location 12,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision5" conditionKey="Auction:Definition:IsHidden"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="End5"/>
+    <nodeSuccessors name="decision_no" next="Decision10"/>
+  </nodes>
+<!--@Location 13,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5"/>
+<!--@Location 12,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision10" conditionKey="PreviousBid:UUID"
+      operator="str_neq" conditionItem="Auction:StartBid:UUID">
+    <nodeSuccessors name="decision_yes" next="Decision7"/>
+    <nodeSuccessors name="decision_no" next="End4"/>
+  </nodes>
+<!--@Location 12,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision7" conditionKey="PreviousBid:OutBidNotification"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="ProcessMail7"/>
+    <nodeSuccessors name="decision_no" next="End7"/>
+  </nodes>
+<!--@Location 12,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail7">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="End3"/>
+    <parameterBindings name="Domain" objectPath="LeadingOrganization:OwningDomain"/>
+    <parameterBindings name="MailTo" objectPath="OutbidMailTo"/>
+  </nodes>
+<!--@Location 12,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+<!--@Location 13,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End7"/>
+<!--@Location 13,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 13,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call5">
+<!--@BendPoints 27,23-->
+    <nodeSuccessors name="next" next="Join15"/>
+    <startNode referencedName="AuctionNotification-GetMailFrom"/>
+  </nodes>
+<!--@Location 34,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start7" name="NotifyOutbidConsumer"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetAuctionItems10"/>
+  </nodes>
+<!--@Location 34,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAuctionItems10">
+    <pipelet href="enfinity:/bc_tendering/pipelets/GetAuctionItems.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByUser14"/>
+  </nodes>
+<!--@Location 34,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser14">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper23"/>
+    <parameterBindings name="User" objectPath="Auction:StartBid:Owner"/>
+    <returnValueBindings name="Organization" objectPath="AuctionOwnerOrganization"/>
+  </nodes>
+<!--@Location 34,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper23">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Call11"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentUser"/>
+    <parameterBindings name="InValue_2" objectPath="PreviousBid:Owner:Profile:DefaultAddress:EMail"/>
+    <parameterBindings name="InValue_3" objectPath="PreviousBid:Owner:Profile:DefaultAddress:EMail"/>
+    <parameterBindings name="InValue_4" objectPath="PreviousBid:Owner"/>
+    <parameterBindings name="InValue_5" objectPath="Auction:StartBid:Owner:Profile:DefaultAddress:EMail"/>
+    <returnValueBindings name="OutValue_1" objectPath="LeadingUser"/>
+    <returnValueBindings name="OutValue_2" objectPath="MailTo"/>
+    <returnValueBindings name="OutValue_3" objectPath="MailTo2"/>
+    <returnValueBindings name="OutValue_4" objectPath="OutbidUser"/>
+    <returnValueBindings name="OutValue_5" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 34,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call11">
+    <nodeSuccessors name="next" next="SetDictionaryValue23"/>
+    <startNode referencedName="AuctionNotification-GetMailFrom"/>
+  </nodes>
+<!--@Location 34,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue23">
+    <configurationValues name="Name" value="MailTemplate"/>
+    <configurationValues name="Value" value="auction/MailParticipantOutbid"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue5"/>
+  </nodes>
+<!--@Location 34,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue5">
+    <configurationValues name="Name" value="ReservePriceKey"/>
+    <configurationValues name="Value" value="ReservePrice"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper25"/>
+  </nodes>
+<!--@Location 34,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper25">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 69,16 67,16 67,17-->
+    <nodeSuccessors name="next" next="Decision26"/>
+    <parameterBindings name="InValue_1" objectPath="StartBid:PriceDetail(ReservePriceKey)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ReservePrice"/>
+  </nodes>
+<!--@Location 34,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision26" conditionKey="Auction:Definition:IsHidden"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="End25"/>
+    <nodeSuccessors name="decision_no" next="Decision23"/>
+  </nodes>
+<!--@Location 35,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End25"/>
+<!--@Location 34,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision23" conditionKey="PreviousBid:UUID"
+      operator="str_neq" conditionItem="Auction:StartBid:UUID">
+    <nodeSuccessors name="decision_yes" next="Decision25"/>
+    <nodeSuccessors name="decision_no" next="End26"/>
+  </nodes>
+<!--@Location 34,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision25" conditionKey="PreviousBid:OutBidNotification"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="ProcessMail13"/>
+    <nodeSuccessors name="decision_no" next="End24"/>
+  </nodes>
+<!--@Location 34,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail13">
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="End27"/>
+    <parameterBindings name="Domain" objectPath="AuctionOwnerOrganization:OwningDomain"/>
+  </nodes>
+<!--@Location 34,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End27"/>
+<!--@Location 35,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End24"/>
+<!--@Location 35,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End26"/>
+</pipeline:Pipeline>

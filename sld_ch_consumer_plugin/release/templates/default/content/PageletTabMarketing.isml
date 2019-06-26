@@ -1,0 +1,242 @@
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<isinclude template="inc/Modules">
+<isinclude template="content/Modules">
+
+<isif condition="#ContentRepository:TypeCode != 21#">
+	<isinclude template="marketing/Modules">
+	
+	<ISCreateMap mapname="PageletPropertiesParams"
+		key0="Pagelet" value0="#Pagelet#"
+		key1="ContentRepository" value1="#ContentRepository#"
+		key2="ContextObject" value2="#Assignment:To#"
+		key3="Assignment" value3="#Assignment#">
+	<ispipeline pipeline="ViewPageletMarketing-TemplateCallback" params="#PageletPropertiesParams#" alias="Result"/>
+	<ISPopulateDictionary map="#Result#">
+	
+	<ISContentPermissionMap ContentRepository="#ContentRepository#" PermissionMap="PermissionMap">
+	<ISPageletEditable ContentRepository="#ContentRepository#" Pagelet="#Pagelet#" User="#CurrentUser#" Result="IsPageletEditable" PageletLockedForOther="PageletLockedForOther">
+	
+	<ISCreateMap mapname="PageletAssignmentSearchParams" key0="Pagelet" value0="#Pagelet#" key1="ContentRepository" value1="#ContentRepository#">
+	<isif condition="#isDefined(PermissionMap:SLD_VIEW_CONSUMERS)#">
+		<ispipeline pipeline="ViewPageletPropertiesAssignUserGroups-GetPageletUserGroupAssignments" params="#PageletAssignmentSearchParams#" alias="GetPageletUserGroupAssignmentsResult"/>
+		<ISPopulateDictionary map="#GetPageletUserGroupAssignmentsResult#">
+	</isif>
+	<isif condition="#isDefined(PermissionMap:SLD_VIEW_MARKETING)#">
+		<ispipeline pipeline="ViewPageletPropertiesAssignPromotion-GetPageletPromotionAssignment" params="#PageletAssignmentSearchParams#" alias="GetPageletPromotionAssignmentResult"/>
+		<ISPopulateDictionary map="#GetPageletPromotionAssignmentResult#">
+		
+		<ispipeline pipeline="ViewPageletPropertiesAssignCampaign-GetPageletCampaignAssignment" params="#PageletAssignmentSearchParams#" alias="GetPageletCampaignAssignmentResult"/>
+		<ISPopulateDictionary map="#GetPageletCampaignAssignmentResult#">
+		
+		<ispipeline pipeline="ViewPageletPropertiesAssignABTest-GetPageletABTestAssignments" params="#PageletAssignmentSearchParams#" alias="GetPageletABTestAssignmentsResult"/>
+		<ISPopulateDictionary map="#GetPageletABTestAssignmentsResult#">
+	</isif>
+	
+	<isif condition="#isDefined(PageletLockedForOther)#">
+		<isset name="DisableUserGroups" value="true" scope="request">
+		<isset name="DisablePromotion" value="true" scope="request">
+		<isset name="DisableCampaign" value="true" scope="request">
+		<isset name="DisableABTest" value="true" scope="request">
+	<iselseif condition="#isDefined(PageletUserGroupAssignments)#">
+		<isset name="DisablePromotion" value="true" scope="request">
+		<isset name="DisableCampaign" value="true" scope="request">
+		<isset name="DisableABTest" value="true" scope="request">
+	<iselseif condition="#isDefined(PageletPromotionAssignment)#">
+		<isif condition="#PageletPromotionAssignment:Domain:UUID NE ContentRepository:RepositoryDomain:UUID#">
+			<isset name="DisablePromotion" value="true" scope="request">
+		</isif>
+		<isset name="DisableUserGroups" value="true" scope="request">
+		<isset name="DisableCampaign" value="true" scope="request">
+		<isset name="DisableABTest" value="true" scope="request">
+	<iselseif condition="#isDefined(AssignedCampaign)#">
+		<isif condition="#PageletCampaignAssignment:Domain:UUID NE ContentRepository:RepositoryDomain:UUID#">
+			<isset name="DisableCampaign" value="true" scope="request">
+		</isif>
+		<isset name="DisableUserGroups" value="true" scope="request">
+		<isset name="DisablePromotion" value="true" scope="request">
+		<isset name="DisableABTest" value="true" scope="request">
+	<iselseif condition="#hasLoopElements(ABTestGroupAssignments)#">
+		<isset name="DisableUserGroups" value="true" scope="request">
+		<isset name="DisablePromotion" value="true" scope="request">
+		<isset name="DisableCampaign" value="true" scope="request">
+	</isif>
+	
+	<!--- Error Handling --->
+	<isif condition="#isDefined(ERROR)#">
+		<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box w e s">
+			<tr>
+				<td class="error_icon middle e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+				<td class="error top" width="100%">
+					<isif condition="#ERROR EQ 'NoUserGroupSelected'#">
+						<istext key="PageletTabMarketing.YouHaveNotSelectedAnyCustomerSegmentAssignment.error" encoding="off"/>
+					</isif>
+					<isif condition="#ERROR EQ 'NoABTestSelected'#">
+						<istext key="PageletTabMarketing.YouHaveNotSelectedAnyABTestAssignmentToBeRemoved.error" encoding="off"/>
+					</isif>
+				</td>
+			</tr>
+		</table>
+	</isif>
+	
+	<!--- Main Content --->
+	<isform action="#URL(Action('ViewPageletMarketing-Dispatch'))#" method="post" name="formMask">
+		<input type="hidden" name="LocaleId" value="<isprint value="#Locale:LocaleID#">"/>
+		<input type="hidden" name="PageletUUID" value="<isprint value="#Pagelet:UUID#">"/>
+		<input type="hidden" name="RepositoryUUID" value="<isprint value="#ContentRepository:UUID#">"/>
+		<input type="hidden" name="ContextObjectUUID" value="<isprint value="#ContextObject:UUID#">"/>
+		<input type="hidden" name="PageLocatorName" value="<isprint value="#PageLocatorName#">"/>
+		<input type="hidden" name="ContextPipeline" value="<isprint value="#ContextPipeline#">"/>
+		<isif condition="#isDefined(Assignment)#">
+			<input type="hidden" name="AssignmentUUID" value="<isprint value="#Assignment:UUID#">"/>
+		</isif>
+		
+		<table cellpadding="0" cellspacing="0" border="0" width="100%" class="w e s">
+			<tr><td colspan="2"><img src="#WebRoot()#/images/space.gif" width="1" height="4" alt="" border="0"/></td></tr>
+			<isif condition="#isDefined(PermissionMap:SLD_VIEW_CONSUMERS)#">
+				<tr>
+					<td nowrap="nowrap" class="label_select_multiple">
+						<label class="label label_select_multiple" for="EditPagelet_UserGroups"><istext key="PageletTabMarketing.CustomerSegments.label" encoding="off"/>:</label>
+					</td>
+					<td class="table_detail" width="100%">
+						<table border="0" cellspacing="4" cellpadding="0">
+							<tr>
+								<td>
+									<select name="EditPagelet_UserGroups" id="EditPagelet_UserGroups" class="select inputfield_en" size="8" multiple="multiple" style="width:380px"
+										<isif condition="#isDefined(DisableUserGroups)#">disabled="disabled"</isif>
+									>
+										<isif condition="#isDefined(PageletUserGroupAssignments)#">
+											<isloop iterator="PageletUserGroupAssignments" alias="Assignment">
+												<option value="<isprint value="#Assignment:UUID#">"
+													<isif condition="#Assignment:Domain:UUID NE ContentRepository:RepositoryDomain:UUID#">disabled="disabled"</isif>
+												>
+													<isif condition="#isDefined(Assignment:UserGroup:Name(CurrentSession:Locale))#">
+														<isprint value="#Assignment:UserGroup:Name(CurrentSession:Locale)#">
+													<iselse>
+														<isprint value="#Assignment:UserGroup:ID#"> <istext key="PageletTabMarketing.NameMissing.option" encoding="off"/>
+													</isif>
+												</option>
+											</isloop>
+										</isif>
+									</select>
+								</td>
+								<isif condition="#isDefined(PermissionMap:SLD_MANAGE_CONTENT)#">
+									<td class="button" valign="top">
+										<input type="submit" class="button sfe-action-dialog" value="#localizeText('PageletTabMarketing.AddWithDialog.button')#" name="AssignUserGroups" <isif condition="#isDefined(DisableUserGroups)#">disabled="disabled"</isif>/>
+									</td>
+									<isif condition="#hasLoopElements(PageletUserGroupAssignments)#">
+										<td class="button" valign="top">
+											<input type="submit" class="button sfe-action-inline sfe-layout-change" value="#localizeText('PageletTabMarketing.Remove.button')#" name="UnassignUserGroups" <isif condition="#isDefined(DisableUserGroups)#">disabled="disabled"</isif>/>
+										</td>
+									</isif>
+								</isif>
+							</tr>
+						</table>
+					</td>
+				</tr>
+			</isif>
+			<isif condition="#isDefined(PermissionMap:SLD_VIEW_MARKETING)#">
+				<tr>
+					<td nowrap="nowrap" class="label">
+						<label class="label" for="EditPagelet_Promotion"><istext key="PageletTabMarketing.Promotion.label" encoding="off"/>:</label>
+					</td>
+					<td class="table_detail" width="100%">
+						<table border="0" cellspacing="4" cellpadding="0">
+							<tr>
+								<td>
+									<input type="text" name="EditPagelet_Promotion" id="EditPagelet_Promotion" maxlength="256" size="50" readonly="readonly" class="inputfield_en"
+										<isif condition="#isDefined(DisablePromotion)#">disabled="disabled"</isif>
+										<isif condition="#isDefined(PageletPromotionAssignment:Promotion)#">value="<ISMarketingObjectDisplayName Object="#PageletPromotionAssignment:Promotion#" Locale="#CurrentSession:Locale#">"</isif> 
+										
+									/>
+									<isif condition="#isDefined(PageletPromotionAssignment:Promotion)#">
+										<input type="hidden" name="PromotionUUID" value="<isprint value="#PageletPromotionAssignment:Promotion:UUID#">" />
+									</isif>
+								</td>
+								<isif condition="#isDefined(PermissionMap:SLD_ASSIGN_MARKETING_AND_CONTENT) #">
+									<td class="button">
+										<input type="submit" name="AssignPromotion" value="#localizeText('PageletTabMarketing.AssignWithDialog.button')#" class="button sfe-action-dialog" <isif condition="#isDefined(DisablePromotion)#">disabled="disabled"</isif>/>
+									</td>
+									<isif condition="#isDefined(PageletPromotionAssignment:Promotion)#">
+										<td class="button">
+											<input type="submit" name="UnassignPromotion" value="#localizeText('PageletTabMarketing.Unassign.button')#" class="button sfe-action-inline sfe-layout-change" <isif condition="#isDefined(DisablePromotion)#">disabled="disabled"</isif>/>
+										</td>
+									</isif>
+								</isif>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				<tr>
+					<td nowrap="nowrap" class="label">
+						<label class="label" for="EditPagelet_Campaign"><istext key="PageletTabMarketing.Campaign.label" encoding="off"/>:</label>
+					</td>
+					<td class="table_detail" width="100%">
+						<table border="0" cellspacing="4" cellpadding="0">
+							<tr>
+								<td>
+									<input type="text" name="EditPagelet_Campaign" id="EditPagelet_Campaign" maxlength="256" size="50"  readonly="readonly" class="inputfield_en"
+										<isif condition="#isDefined(DisableCampaign)#">disabled="disabled"</isif>
+										<isif condition="#isDefined(AssignedCampaign)#">value="<ISMarketingObjectDisplayName Object="#AssignedCampaign#" Locale="#CurrentSession:Locale#">"</isif>
+									/>
+									<isif condition="#isDefined(AssignedCampaign)#">
+										<input type="hidden" name="CampaignUUID" value="<isprint value="#AssignedCampaign:UUID#">" />
+									</isif>
+								</td>
+								<isif condition="#isDefined(PermissionMap:SLD_ASSIGN_MARKETING_AND_CONTENT)#">
+									<td class="button">
+										<input type="submit" name="AssignCampaign" value="#localizeText('PageletTabMarketing.AssignWithDialog.button')#" class="button sfe-action-dialog" <isif condition="#isDefined(DisableCampaign)#">disabled="disabled"</isif>/>
+									</td>
+									<isif condition="#isDefined(AssignedCampaign)#">
+										<td class="button">
+											<input type="submit" name="UnassignCampaign" value="#localizeText('PageletTabMarketing.Unassign.button')#" class="button sfe-action-inline sfe-layout-change" <isif condition="#isDefined(DisableCampaign)#">disabled="disabled"</isif>/>
+										</td>
+									</isif>
+								</isif>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				<!--- No assignment of A/B Tests possible within channel. --->
+				<isif condition="#ApplicationBO:getExtension("ApplicationSelector"):Type NE 'channel'#">
+					<tr>
+						<td nowrap="nowrap" class="label_select_multiple">
+							<label class="label label_select_multiple" for="EditPagelet_ABTest"><istext key="PageletTabMarketing.ABTest.label" encoding="off"/>:</label>
+						</td>
+						<td class="table_detail" width="100%">
+							<table border="0" cellspacing="4" cellpadding="0">
+								<tr>
+									<td>
+										<select name="EditPagelet_ABTest" id="EditPagelet_ABTest" class="select inputfield_en" size="8" multiple="multiple" style="width:380px"
+											<isif condition="#isDefined(DisableABTest)#">disabled="disabled"</isif>
+										>
+											<isif condition="#(isDefined(ABTestGroupAssignments) AND (ABTestGroupAssignments:Size > 0))#">
+												<isloop iterator="ABTestGroupAssignments" alias="ABTestGroupAssignment">
+													<option value="<isprint value="#ABTestGroupAssignment:UUID#">"
+														<isif condition="#ABTestGroupAssignment:Domain:UUID NE ContentRepository:RepositoryDomain:UUID#">disabled="disabled"</isif>
+													>
+														<isprint value="#ABTestGroupAssignment:To:Test:DisplayName#"> - <isprint value="#ABTestGroupAssignment:To:DisplayName#"/>
+													</option>
+												</isloop>
+											</isif>
+										</select>
+									</td>
+									<isif condition="#isDefined(PermissionMap:SLD_ASSIGN_MARKETING_AND_CONTENT)#">
+										<td class="button" valign="top">
+											<input type="submit" name="AssignABTest" value="#localizeText('PageletTabMarketing.AddWithDialog.button')#" class="button sfe-action-dialog" <isif condition="#isDefined(DisableABTest)#">disabled="disabled"</isif> />
+										</td>
+										<isif condition="#(isDefined(ABTestGroupAssignments) AND (ABTestGroupAssignments:Size > 0))#">
+											<td class="button" valign="top">
+												<input type="submit" name="UnassignABTest" value="#localizeText('PageletTabMarketing.Remove.button')#" class="button sfe-action-inline sfe-layout-change" <isif condition="#isDefined(DisableABTest)#">disabled="disabled"</isif> />
+											</td>
+										</isif>
+									</isif>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</isif>
+			</isif>
+			<tr><td class="fielditem2" colspan="2"><img src="#WebRoot()#/images/space.gif" width="1" height="4" alt="" border="0"/></td></tr>
+		</table>
+	</isform>
+</isif>

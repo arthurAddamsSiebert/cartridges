@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Retrieve contract orders and revenue">
+<parameters>
+	<parameter name="ContractUUID" type="java.lang.String" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="OrderBO" type="bo-orm" class="com.intershop.beehive.bts.internal.orderprocess.fulfillment.OrderPO" mapperclass="OrderPOToOrderBOMapper">
+		<return-attribute name="orderuuid"/>
+	</return-mapping>
+	<return-mapping name="DocumentNo" type="rename">
+		<return-attribute name="orderdocumentno"/>
+	</return-mapping>
+	<return-mapping name="Revenue" type="constructor" class="com.intershop.beehive.foundation.quantity.Money">
+		<return-attribute name="contractrevenuecurrency"/>
+		<return-attribute name="contractrevenuevalue"/>
+	</return-mapping>
+	<return-mapping name="OrderExists" type="constructor" class="java.lang.Boolean">
+		<return-attribute name="orderexists"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	select
+		count(*) over() as "rowcount",
+		cra.orderuuid as orderuuid,
+		cra.orderdocumentno as orderdocumentno,
+		cra.revenuecode as contractrevenuecurrency,
+		sum(cra.revenuevalue) as contractrevenuevalue,
+		case when o.uuid is null then 'false' else 'true' end as orderexists
+
+	from contractrevenueassignment cra
+
+	left outer join isorder o on
+		cra.orderuuid = o.uuid
+
+	where
+		cra.contractbaseuuid = <template-variable value="ContractUUID"/> 
+
+	group by cra.orderuuid, cra.orderdocumentno, cra.revenuecode, o.uuid
+
+	<template-variable value="orderBy('cra.orderdocumentno',descending(),nullsLast())" processing="text"/>
+
+</template>
+</query>

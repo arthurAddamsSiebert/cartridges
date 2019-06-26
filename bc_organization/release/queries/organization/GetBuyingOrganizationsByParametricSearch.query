@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="@Deprecated since 7.10. Currently unused and will be removed in a future release. Gets buying organizations by parametric search">
+<parameters>
+    <parameter name="OwningDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="ID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="Name" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="Description" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="SupplierOrganizationID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="SupplierDisplayName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="SortBy" type="java.lang.String" optional="true"/>
+    <parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Organization" type="orm" class="com.intershop.component.organization.internal.organization.OrganizationPO">
+        <return-attribute name="UUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="cID" input="ID" processing="SearchExpression2Contains"/>
+    <processor-preprocessing output="cName" input="Name" processing="SearchExpression2Contains"/>
+    <processor-preprocessing output="cDescription" input="Description" processing="SearchExpression2Contains"/>
+    <processor-preprocessing output="cSupplierOrganizationID" input="SupplierOrganizationID" processing="SearchExpression2Contains"/>
+    <processor-preprocessing output="cSupplierDisplayName" input="SupplierDisplayName" processing="SearchExpression2Contains"/>
+</processor>
+<template type="countedobjects">
+    <sql-dialect name="Microsoft">
+    select * from (
+    </sql-dialect>
+    
+    
+    SELECT DISTINCT o.uuid as UUID, 
+    
+    <template-if condition="isDefined(SortBy) 
+                                 AND ( lcase(SortBy) eq &apos;displayname&apos; 
+                                       OR lcase(SortBy) eq &apos;description&apos; )">
+        o_av.stringvalue AS sorting, 
+    <if-elseif condition="isDefined(SortBy) 
+                                 AND ( lcase(SortBy) eq &apos;typecode&apos; )" />
+        o.typecode AS sorting,
+    <if-else />
+        o.id AS sorting,
+    </template-if>              
+    count(o.uuid) over() AS "rowcount"
+
+    FROM organization o
+    
+    <template-if condition=" (isDefined(SortBy) 
+                                 AND ( 
+                                      lcase(SortBy) eq &apos;displayname&apos; 
+                                      OR lcase(SortBy) eq &apos;description&apos; )
+                             )">
+        LEFT OUTER JOIN 
+            organization_av o_av ON (o.uuid = o_av.ownerid)
+            AND o_av.name = <template-variable value="SortBy"/>
+            AND o_av.localeid = <template-variable value="Locale:LocaleID"/>
+    </template-if>
+    
+    <!-- is used for 'buyer-supplier relation' -->
+    <template-if condition=" (isDefined(SupplierOrganizationID)  and SupplierOrganizationID:NotEmpty) 
+                                      OR (isDefined(SupplierDisplayName)  and SupplierDisplayName:NotEmpty)
+                              ">
+        JOIN 
+            relation rel ON o.organizationdomainid = rel.domain1_id
+            AND(rel.relationdefinitionname LIKE 'BUYING' ESCAPE '\')
+        JOIN
+            organization o1 ON o1.organizationdomainid = rel.domain2_id
+    </template-if>
+
+    WHERE o.domainid=<template-variable value="OwningDomain:UUID"/>
+          AND o.typecode = 1 
+    
+    <template-if condition="isDefined(ID)  and ID:NotEmpty">
+        <template-call name="inc/SearchExpression2Like">
+            <call-parameter name="SearchExpression" value="ID"/>
+            <call-parameter name="ColumnNames" value="&quot;o.id&quot;"/>
+            <call-parameter name="CaseInsensitive" value="true()"/>
+            <call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+        </template-call>
+    </template-if>
+    
+    <template-if condition="isDefined(Name) and Name:NotEmpty">
+        AND o.uuid IN (
+            SELECT ownerid FROM organization_av
+            WHERE name=&apos;displayName&apos; 
+                AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag = 0)
+                <sql-dialect name="Oracle">
+                    AND CONTAINS(stringvalue,<template-variable value="cName"/>)&gt;0
+                </sql-dialect>
+                <sql-dialect name="Microsoft">
+                    AND CONTAINS(stringvalue, <template-variable value="cName"/>)
+                </sql-dialect>
+                
+        )
+    </template-if>
+    
+    <template-if condition="isDefined(Description) and Description:NotEmpty">
+        AND o.uuid IN (
+            SELECT ownerid FROM organization_av
+            WHERE name=&apos;description&apos;
+                AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag = 0)
+                <sql-dialect name="Oracle">
+                    AND CONTAINS(stringvalue,<template-variable value="cDescription"/>)&gt;0
+                </sql-dialect>
+                <sql-dialect name="Microsoft">
+                    AND CONTAINS(stringvalue, <template-variable value="cDescription"/>)
+                </sql-dialect>
+        )
+    </template-if>
+
+    <!-- filters by 'ID' and 'displayName' wich are used for related supplying org. 
+    (in case 'b-s relation') -->
+    <template-if condition=" (isDefined(SupplierOrganizationID)  and SupplierOrganizationID:NotEmpty) 
+                                      OR (isDefined(SupplierDisplayName)  and SupplierDisplayName:NotEmpty)
+                                     ">
+        AND o1.domainid=<template-variable value="OwningDomain:UUID"/>
+        AND o1.typecode = 2
+        
+        <template-if condition=" (isDefined(SupplierOrganizationID)  and SupplierOrganizationID:NotEmpty)">
+            <template-call name="inc/SearchExpression2Like">
+                <call-parameter name="SearchExpression" value="SupplierOrganizationID"/>
+                <call-parameter name="ColumnNames" value="&quot;o1.id&quot;"/>
+                <call-parameter name="CaseInsensitive" value="true()"/>
+                <call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+            </template-call>
+        </template-if>
+        
+        <template-if condition=" (isDefined(SupplierDisplayName)  and SupplierDisplayName:NotEmpty)">
+            AND o1.uuid IN (
+                SELECT ownerid FROM organization_av
+                WHERE name=&apos;displayName&apos; 
+                    AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag = 0)
+                <sql-dialect name="Oracle">
+                    AND CONTAINS(stringvalue,<template-variable value="cSupplierDisplayName"/>)&gt;0
+                </sql-dialect>
+                <sql-dialect name="Microsoft">
+                    AND CONTAINS(stringvalue, <template-variable value="cSupplierDisplayName"/>)
+                </sql-dialect>
+            )
+        </template-if>
+        
+    </template-if>
+        
+    <!-- sorting by sort attribute -->       
+    <sql-dialect name="Microsoft">
+        )a ORDER BY CASE WHEN sorting IS NULL THEN 1 ELSE 0 END ASC, SORTING ASC
+    </sql-dialect>
+    <sql-dialect name="Oracle">
+        ORDER BY sorting
+        ASC NULLS LAST
+    </sql-dialect>
+        
+</template>
+</query>

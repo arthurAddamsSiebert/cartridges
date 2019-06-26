@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Manages the catalog maintenance related activities.
+@Group Catalog-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCatalogMaintenance" type="process">
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="Update" callMode="Private">
+    <nodeSuccessors name="next" next="Decision1"/>
+<!--The catalog to be updated.-->
+    <parameters name="Catalog" type="com.intershop.component.mvc.capi.catalog.Catalog"/>
+<!--Flag to indicate if a period should be set.-->
+    <parameters name="PeriodDefined" type="java.lang.String" optional="true"/>
+    <parameters name="StartMaintenance_Day" type="java.lang.String" optional="true"/>
+    <parameters name="StartMaintenance_Time" type="java.lang.String" optional="true"/>
+    <parameters name="EndMaintenance_Day" type="java.lang.String" optional="true"/>
+    <parameters name="EndMaintenance_Time" type="java.lang.String" optional="true"/>
+    <parameters name="DateFormatString" type="java.lang.String" optional="true"/>
+    <parameters name="TimeFormatString" type="java.lang.String" optional="true"/>
+<!--The new online status if no period is defined.-->
+    <parameters name="Status" type="java.lang.String"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="PeriodDefined"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode1"/>
+<!--@BendPoints 5,3-->
+    <nodeSuccessors name="decision_no" next="UpdateCatalogMaintenance4"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 1,12-->
+    <nodeSuccessors name="next" next="CallNode2"/>
+<!--@BendPoints 5,12-->
+    <nodeSuccessors name="DateFormatError" next="EndNode2"/>
+<!--@BendPoints 3,14-->
+    <nodeSuccessors name="InvalidTimePeriod" next="EndNode4"/>
+<!--@BendPoints 7,10-->
+    <nodeSuccessors name="DatesMissing" next="EndNode10"/>
+    <startNode referencedName="ProcessCatalogMaintenance-ValidateDates"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 1,14-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <startNode referencedName="ProcessCatalogMaintenance-UpdateMaintenance"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="DateFormatError"/>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="InvalidTimePeriod"/>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name="DatesMissing"/>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCatalogMaintenance4">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateCatalogMaintenance.xml"/>
+    <nodeSuccessors name="next" next="JoinNode15"/>
+<!--@BendPoints 6,5 6,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode15"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+<!--@BendPoints 5,8-->
+    <nodeSuccessors name="next" next="EndNode12"/>
+  </nodes>
+<!--ERROR
+@Location 2,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12"/>
+<!--@Location 9,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="UpdateMaintenance"
+      callMode="Private">
+<!--@BendPoints 19,2-->
+    <nodeSuccessors name="next" next="UpdateCatalogMaintenance1"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCatalogMaintenance1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateCatalogMaintenance.xml"/>
+    <nodeSuccessors name="next" next="JoinNode12"/>
+<!--@BendPoints 20,3 20,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="EndMaintenance" objectPath="EndDate"/>
+    <parameterBindings name="StartMaintenance" objectPath="StartDate"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 19,6-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="ValidateDates" callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet10"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet10">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="Pipelet4"/>
+    <parameterBindings name="String0" objectPath="DateFormatString"/>
+    <parameterBindings name="String1" constant=","/>
+    <parameterBindings name="String2" objectPath="TimeFormatString"/>
+    <returnValueBindings name="Concatenated" objectPath="DatePattern"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="Pipelet9"/>
+<!--@BendPoints 12,5 15,5 15,11 15,19 12,19-->
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+    <parameterBindings name="FilledString" objectPath="StartMaintenance_Day"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet9">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="Pipelet13"/>
+<!--@BendPoints 13,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+    <parameterBindings name="FilledString" objectPath="StartMaintenance_Time"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet13">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDate.xml"/>
+    <nodeSuccessors name="next" next="ConcatenateStrings1"/>
+    <nodeSuccessors name="pipelet_error" next="Pipelet14"/>
+    <parameterBindings name="DatePattern" objectPath="TimeFormatString"/>
+    <parameterBindings name="DateString" objectPath="StartMaintenance_Time"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <returnValueBindings name="Date" nullBinding="true"/>
+    <returnValueBindings name="ErrorCode" objectPath="StartTime_ErrorCode"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="String0" objectPath="StartMaintenance_Day"/>
+    <parameterBindings name="String1" constant=","/>
+    <parameterBindings name="String2" objectPath="StartMaintenance_Time"/>
+    <returnValueBindings name="Concatenated" objectPath="StartMaintenance"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="VerifyDate2"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyDate2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDate.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue2"/>
+    <parameterBindings name="DateString" objectPath="StartMaintenance"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <returnValueBindings name="Date" objectPath="StartDate"/>
+    <returnValueBindings name="ErrorCode" objectPath="StartDay_ErrorCode"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="Pipelet16"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet16">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="Pipelet5"/>
+<!--@BendPoints 15,21 15,35-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="FilledString" objectPath="EndMaintenance_Day"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="Pipelet12"/>
+<!--@BendPoints 13,23-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="FilledString" objectPath="EndMaintenance_Time"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet12">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDate.xml"/>
+    <nodeSuccessors name="next" next="Pipelet17"/>
+    <nodeSuccessors name="pipelet_error" next="Pipelet11"/>
+    <parameterBindings name="DatePattern" objectPath="TimeFormatString"/>
+    <parameterBindings name="DateString" objectPath="EndMaintenance_Time"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <returnValueBindings name="Date" nullBinding="true"/>
+    <returnValueBindings name="ErrorCode" objectPath="EndTime_ErrorCode"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet17">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="String0" objectPath="EndMaintenance_Day"/>
+    <parameterBindings name="String1" constant=","/>
+    <parameterBindings name="String2" objectPath="EndMaintenance_Time"/>
+    <returnValueBindings name="Concatenated" objectPath="EndMaintenance"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="Pipelet6"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDate.xml"/>
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <nodeSuccessors name="pipelet_error" next="Pipelet15"/>
+    <parameterBindings name="DateString" objectPath="EndMaintenance"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <returnValueBindings name="Date" objectPath="EndDate"/>
+    <returnValueBindings name="ErrorCode" objectPath="EndDay_ErrorCode"/>
+  </nodes>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,17-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 4,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="ErrorCode"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="DecisionNode8"/>
+    <nodeSuccessors name="decision_no" next="End5"/>
+  </nodes>
+<!--@Location 4,19-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="StartDate">
+    <nodeSuccessors name="decision_yes" next="DecisionNode4"/>
+<!--@BendPoints 13,39-->
+    <nodeSuccessors name="decision_no" next="DecisionNode6"/>
+  </nodes>
+<!--@Location 4,20-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="EndDate">
+    <nodeSuccessors name="decision_yes" next="Decision3"/>
+    <nodeSuccessors name="decision_no" next="EndNode5"/>
+  </nodes>
+<!--@Location 4,22-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="StartDate:Time"
+      operator="lt" conditionItem="EndDate:Time">
+    <nodeSuccessors name="decision_yes" next="EndNode3"/>
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue5"/>
+  </nodes>
+<!--@Location 4,23-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3"/>
+<!--@Location 5,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue5">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="InvalidTimePeriod"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="End6"/>
+  </nodes>
+<!--@Location 6,22-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6" name="InvalidTimePeriod"/>
+<!--@Location 5,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5"/>
+<!--@Location 6,20-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="EndDate">
+    <nodeSuccessors name="decision_yes" next="EndNode9"/>
+    <nodeSuccessors name="decision_no" next="Pipelet18"/>
+  </nodes>
+<!--@Location 6,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9"/>
+<!--@Location 7,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet18">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="DatesMissing"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 8,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="DatesMissing"/>
+<!--@Location 5,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5" name="DateFormatError"/>
+<!--@Location 5,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet15">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="DateFormatError"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 12,31 12,33-->
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 5,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet11">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="DateFormatError"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+  </nodes>
+<!--@Location 6,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 13,29-->
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="InValue_1" objectPath="EndMaintenance_Day"/>
+    <returnValueBindings name="OutValue_1" objectPath="EndMaintenance"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="DateFormatError"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 12,15 12,17-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet14">
+    <configurationValues name="Name" value="ErrorCode"/>
+    <configurationValues name="Value" value="DateFormatError"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 13,13-->
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="InValue_1" objectPath="StartMaintenance_Day"/>
+    <returnValueBindings name="OutValue_1" objectPath="StartMaintenance"/>
+  </nodes>
+</pipeline:Pipeline>

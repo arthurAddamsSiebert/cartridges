@@ -1,0 +1,154 @@
+<!--- TEMPLATENAME: EditConditionTypeGroup.isml --->
+<iscontent type="text/html" charset="UTF-8" compact="true"/>
+
+<!--- 			
+API:			Name				  		Type	  				Required	Description
+				---------------------------------------------------------------------------------------------------------------
+Input:			ChannelDomain				Domain					yes			will be used in configuration templates
+				ConditionTypesMap			Map<String, String>		yes			to display localized names of condition types
+				NewConditionForm			Form					yes			holds transient information for new condition
+				TargetConditionID			String					no			target where new condition will be created
+				EditConditionTypeGroup		Condition				no			for editing selected condition type group
+				TypeConditionDescriptors	Iterator<String>		yes			available condition descriptors
+--->
+
+
+<!---
+	ConditionTypeGroup.isml will be displayed if:
+		a) condition is type group
+		b) EditCondition is defined and condition:UUID eq EditCondition:UUID ( = ThisEditMode)
+		c) EditConditionGroup is defined
+	
+	ThisGroup : either type group operator or 'fake' ordinary condition 
+--->
+
+<isif condition="#ThisGroup:TypeGroupOperator#">
+	<!--- we can use AV of type-group-condition --->
+	<isset scope="request" name="ConditionType" value="#ConditionTypesMap:get(ThisGroup:ConditionType)#"/>
+	<!--- Check if there is editing condition part of type group --->
+	<isif condition="#isDefined(EditCondition) and ThisGroup:isInSubConditions(EditCondition)#">
+		<% getPipelineDictionary().put("ThisEditGroupMode", true); %>
+	<iselseif condition="#isDefined(EditConditionTypeGroup) and (ThisGroup:UUID eq EditConditionTypeGroup:UUID)#"/>
+		<% getPipelineDictionary().put("ThisEditGroupMode", true); %>
+	</isif>
+<iselse/>
+	<!--- Currently there is no real type group but only one condition 'plays' the role --->
+	<isset scope="request" name="ThisCondition" value="#ThisGroup#"/>			
+	<isset scope="request" name="ConditionType" value="#ConditionDescriptorRegistry:Descriptor(ThisGroup):Type#"/>
+</isif>
+
+<!--- Remember edit mode for condition type group --->
+<isif condition="#(EditCondition:UUID EQ ThisGroup:UUID) OR (EditConditionTypeGroup:UUID EQ ThisGroup:UUID)#">
+	<input type="hidden" name="EditConditionTypeGroupID" value="<isprint value="#ThisGroup:UUID#"/>"/>
+	<!--- Prepare condition type for 'addCondition' --->
+	<input type="hidden" name="ConditionType" value="<isprint value="#ConditionType#"/>"/>
+</isif>
+
+
+<table cellpadding="0" <isif condition="#ThisEditGroupMode#">cellspacing="6" class="editbox aldi"<iselse/>cellspacing="0"</isif> width="100%">
+	<tr>
+		<td class="table_detail">
+			<isif condition="#ThisEditGroupMode#">
+				<istext key="sld_enterprise_app.Edit.subject" encoding="off"/> <isprint value="#ConditionTypesMap:get(ConditionType)#"/> <istext key="ConditionEditor.Condition.subject" encoding="off"/>
+			<iselse/>
+				<isif condition="#NOT(isDefined(readonly) AND (readonly EQ 'true'))#">
+					<a class="emValue" href="#URL(Action(DispatchPipeline), Parameter(ContextObjectIDName, ContextObjectID), 
+							Parameter('EditConditionTypeGroupID', ThisGroup:UUID), Parameter('editConditionTypeGroup', 'submit'),
+							Parameter(parametername1, parametervalue1), Parameter(parametername2, parametervalue2), 
+							Parameter(parametername3, parametervalue3), Parameter(parametername4, parametervalue4),
+							Parameter(parametername5, parametervalue5))#">
+						<isprint value="#ConditionTypesMap:get(ConditionType)#"/>
+					</a>
+				<iselse>
+					<isprint value="#ConditionTypesMap:get(ConditionType)#"/>
+				</isif>
+			</isif>
+		</td>
+	</tr>
+
+	<isif condition="#ThisGroup:TypeGroupOperator and hasLoopElements(ThisGroup:SortedSubConditions)#">
+		<isloop iterator="ThisGroup:SortedSubConditions" alias="ThisCondition">
+			<tr>
+				<isif condition="#ThisEditGroupMode#">
+					<td class="aldi">
+						<table cellpadding="0" cellspacing="6" width="100%">
+							<tr>
+								<td class="w100"><isinclude template="conditioneditor/Condition"/></td>
+								<td class="right top">
+									<isif condition="#NOT(isDefined(readonly) AND (readonly EQ 'true'))#">
+										<input type="checkbox" name="SelectedCondition_<isprint value="#ThisCondition:UUID#">"
+											<isif condition="#isDefined(ConditionClipboard:ObjectUUID(ThisCondition:UUID))#">checked="checked"</isif>
+										/>
+									<iselse>
+										&nbsp;
+									</isif>
+								</td>
+							</tr>
+						</table>
+					</td>
+				<iselse/>
+					<td class="table_detail">
+						<isinclude template="conditioneditor/Condition"/>
+					</td>
+				</isif>
+			</tr>
+		</isloop>
+	<iselse/><!--- only one condition --->
+		<tr>
+			<td class="aldi">
+				<table cellpadding="0" cellspacing="6" width="100%">
+					<tr>
+						<td class="w100">
+							<isinclude template="conditioneditor/Condition"/>
+						</td>
+						<td class="right top">
+							<isif condition="#NOT(isDefined(readonly) AND (readonly EQ 'true'))#">
+								<input type="checkbox" name="SelectedCondition_<isprint value="#ThisCondition:UUID#">"
+									<isif condition="#isDefined(ConditionClipboard:ObjectUUID(ThisCondition:UUID))#">checked="checked"</isif>
+								/>
+							<iselse>
+								&nbsp;
+							</isif>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</isif>
+	<!---  User tries to create a new condition currently --->
+	<isif condition="#isDefined(NewConditionForm) and (TargetConditionID eq ThisGroup:UUID)#">
+		<tr>
+			<td>
+				<table cellpadding="0" cellspacing="0" border="0" width="100%" class="aldi editbox">
+					<tr><td><isinclude template="conditioneditor/NewCondition"/></td></tr>
+				</table>
+			</td>
+		</tr>
+	</isif>
+
+	<!---  Buttons bar --->
+	<isif condition="#ThisEditGroupMode#">
+		<tr>
+			<td width="100%" class="<isif condition="#NOT isDefined(EditCondition)#"></isif>" align="right">
+				<table cellspacing="0" cellpadding="0" border="0">
+					<tr>
+						<isif condition="#isDefined(EditCondition) or isDefined(NewConditionForm)#">
+							<td class="button"><input type="submit" class="button" value="#localizeText('ConditionEditor.Add.button')#" name="" disabled/></td>
+							<td ><img src="#WebRoot()#/images/space.gif" width="4" height="6" alt="" border="0"/></td>
+							<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Delete.button')#" name="" disabled/></td>
+							<td ><img src="#WebRoot()#/images/space.gif" width="20" height="6" alt="" border="0"/></td>
+							<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Cancel.button')#" name="" disabled/></td>
+						<iselse/>
+							<td class="button"><input type="submit" class="button" value="#localizeText('ConditionEditor.Add.button')#" name="newCondition"/></td>
+							<td ><img src="#WebRoot()#/images/space.gif" width="4" height="6" alt="" border="0"/></td>
+							<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Delete.button')#" name="confirmDeleteCondition"/></td>
+							<td ><img src="#WebRoot()#/images/space.gif" width="20" height="6" alt="" border="0"/></td>
+							<td class="button"><input type="submit" class="button" value="#localizeText('sld_enterprise_app.Cancel.button')#" name="cancelCondition"/></td>
+						</isif>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</isif>
+</table>
+

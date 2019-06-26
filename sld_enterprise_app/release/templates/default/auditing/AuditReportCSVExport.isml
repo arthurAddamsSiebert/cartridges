@@ -1,0 +1,48 @@
+<iscontent type="application/octet-stream" templatemarker="false"><%
+%><%@page import="com.intershop.component.auditing.capi.audititem.AuditItemBO"%><%
+%><%@page import="com.intershop.beehive.core.capi.request.Request"%><%
+%><%@page import="com.intershop.beehive.core.capi.paging.PageableIterator"%><%
+%><ismodule template = "inc/FormatObjectDisplay.isml"
+			name = "FormatObjectDisplay"
+			attribute = "displayObject"
+			strict = "true"
+><%
+%><ismodule template = "inc/FormatItemDisplayCSV.isml"
+			name = "FormatItemDisplay"
+			attribute = "displayItem"
+			strict = "true"
+	><%
+%><isif condition="#isDefined(AuditItemBOs) AND hasElements(AuditItemBOs)#"><%
+	Request.getCurrent().getServletResponse().setHeader("Content-Disposition", "attachment;filename=\"AuditReportCSVExport.csv\"");
+	// convert to sequence
+/* Do not destroy the pageable as long as the pageable is used in the UI (e.g. for paging or restarting the export)	
+	ResettableIterator<AuditItemBO> pageable = (ResettableIterator<AuditItemBO>)getObject("AuditItemBOs");
+    getPipelineDictionary().put("AuditItemBOs", pageable.toSequence());
+*/
+	PageableIterator<AuditItemBO> pageable = (PageableIterator<AuditItemBO>)getObject("AuditItemBOs");
+	pageable.setPageSize(0);
+    getPipelineDictionary().put("LINE_SEPARATOR", System.getProperty("line.separator"));
+%><!---isnoloc--->User ID;Context;Date/Time;Object Type;Domain;Action Type;Comment;Detail
+;;;;;;;Attribute Name;Locale ID;Old Value;New Value<!---/isnoloc---><%
+%><isloop iterator="AuditItemBOs" alias="AuditItemBO"><%
+%><isset scope="request" name="AuditItem" value="#AuditItemBO:Extension("(Class)com.intershop.sellside.enterprise.capi.auditing.AuditItemBODisplayExtension")#"/><%
+%>
+<isprint value="#AuditItem:UserID#"/>;<%
+%><isprint value="#AuditItem:ApplicationName#"/>;<%
+%><isprint value="#AuditItem:CreationDate#"/> <isprint value="#AuditItem:CreationDate#" style="DATE_TIME"/>;<%
+%><isprint value="#replace(AuditItem:ObjectType, LINE_SEPARATOR, '|')#"/>;<%
+%><isprint value="#AuditItemBO:DomainRef:DomainName#"/>;<%
+%><isprint value="#AuditItem:ActionType#"/>;<%
+%><isprint value="#replace(AuditItem:Comment, LINE_SEPARATOR, '|')#"/><% 
+%><isset value="#AuditItem:AuditAttributeChanges#" name="AuditAttributeChanges" scope="request"><%
+%><isif condition="#hasElements(AuditAttributeChanges)#"><%
+%><isset value="#1#" name="AuditAttributeChangeCount" scope="request"><%
+%><isloop iterator="AuditAttributeChanges" alias="Change"><%
+%><isset value="#AuditAttributeChangeCount + 1#" name="AuditAttributeChangeCount" scope="request"><%
+%>;<isprint value="#Change:Name#"/>;<isprint value="#Change:LocaleID#"/>;<ISFormatObjectDisplay displayObject = "#Change:OldValue#">;<ISFormatObjectDisplay displayObject = "#Change:NewValue#"><isif condition="#AuditAttributeChanges:Size > 1#"><%
+%><isif condition="#AuditAttributeChangeCount <= AuditAttributeChanges:Size#">
+;;;;;;</isif></isif><%
+%></isloop><%
+%></isif><%
+%></isloop><%
+%></isif>

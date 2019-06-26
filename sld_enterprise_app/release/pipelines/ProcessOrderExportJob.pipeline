@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Order-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessOrderExportJob" overrideMode="Inherit" type="process">
+<!--Overwrite this to limit order search to a subset of all domains.
+If null is return orders of all daomins are exported.
+@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="GetAllPermittedDomains"
+      callMode="Private">
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="GetOrganizationByDomain1"/>
+    <parameters name="Config" type="com.intershop.component.order.impex.capi.export.scenario.ExportScenario"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByDomain1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByDomain.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+<!--@BendPoints 5,5 5,6-->
+    <nodeSuccessors name="pipelet_error" next="AddObjectToVector1"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Config:JobConfiguration:Domain"/>
+    <returnValueBindings name="Organization" objectPath="CurrentOrganization"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="AddObjectToVector3"/>
+    <startNode referencedName="ProcessChannelList-ListAll"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector3">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="OrderDomains"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Repositories">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <entry key="Repository">
+<!--@BendPoints 3,12-->
+      <nodeSuccessors name="loop_entry_next" next="AddObjectToVector2"/>
+    </entry>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 3,14 2,14 2,11-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <parameterBindings name="InVector" objectPath="OrderDomains"/>
+    <parameterBindings name="Object" objectPath="Repository:RepositoryDomain"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="OrderDomains"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true">
+    <returnValues name="OrderDomains" type="java.util.Collection"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" objectPath="Config:JobConfiguration:Domain"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="OrderDomains"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" strict="true" name="GetOrderBORepository"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+    <parameters name="Config" type="com.intershop.component.order.impex.capi.export.scenario.ExportScenario"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode9"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Extension(&quot;Order&quot;):OrderBORepositoryOfOwningRepository"/>
+    <returnValueBindings name="OutValue_1" objectPath="OrderBORepository"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" strict="true">
+    <returnValues name="OrderBORepository" type="com.intershop.component.order.capi.OrderBORepository"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" strict="true" name="RunExportActions"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode5"/>
+<!--Configuration of the order export-->
+    <parameters name="Config" type="com.intershop.component.order.impex.capi.export.scenario.ExportScenario"/>
+    <parameters name="DataPushObjects" type="com.intershop.component.service.capi.push.DataPushResult"
+        optional="true"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode5" loop="DataPushObjects:Success">
+<!--@BendPoints 19,5-->
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <entry key="OrderBO">
+<!--@BendPoints 15,6-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode5"/>
+    </entry>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="Config:Actions:CanceledToCanceledExported"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode2"/>
+<!--@BendPoints 16,7 16,11-->
+    <nodeSuccessors name="decision_no" next="JoinNode9"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="currentOrderStatus" constant="CANCELLED"/>
+    <parameterBindings name="newOrderStatus" constant="CANCELLEDANDEXPORTED"/>
+    <startNode referencedName="This:UpdateOrderStatus"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+<!--@BendPoints 15,12-->
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="Config:Actions:NewToInProgress"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 15,14-->
+    <nodeSuccessors name="decision_yes" next="CallNode3"/>
+<!--@BendPoints 16,13 16,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode10"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <parameterBindings name="currentOrderStatus" constant="NEW"/>
+    <parameterBindings name="newOrderStatus" constant="INPROGRESS"/>
+    <startNode referencedName="This:UpdateOrderStatus"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 15,18-->
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="Config:Actions:LICanceledToCanceledExported"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode4"/>
+<!--@BendPoints 16,19 16,23-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="currentPLIStatus" constant="CANCELLED"/>
+    <parameterBindings name="newPLIStatus" constant="CANCELLEDANDEXPORTED"/>
+    <startNode referencedName="This:UpdateOrderPLIStatus"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 15,24-->
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="Config:Actions:LINewToInProgress"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode5"/>
+<!--@BendPoints 16,25 16,29-->
+    <nodeSuccessors name="decision_no" next="JoinNode12"/>
+  </nodes>
+<!--@Location 7,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <parameterBindings name="currentPLIStatus" constant="NEW"/>
+    <parameterBindings name="newPLIStatus" constant="INPROGRESS"/>
+    <startNode referencedName="This:UpdateOrderPLIStatus"/>
+  </nodes>
+<!--@Location 7,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 7,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Config:Actions:ExportFailedToInProgress"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 15,32-->
+    <nodeSuccessors name="decision_yes" next="CallNode6"/>
+<!--@BendPoints 16,31 16,35-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 7,16-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="currentOrderStatus" constant="EXPORTFAILED"/>
+    <parameterBindings name="newOrderStatus" constant="INPROGRESS"/>
+    <startNode referencedName="This:UpdateOrderStatus"/>
+  </nodes>
+<!--@Location 7,17-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 14,35 14,5-->
+    <nodeSuccessors name="next" next="LoopNode5_Entry"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="DataPushObjects:Failures">
+    <nodeSuccessors name="next" next="EndNode6"/>
+    <entry key="OrderBO">
+      <nodeSuccessors name="loop_entry_next" next="KeyMapper0"/>
+    </entry>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameterBindings name="InValue_1" objectPath="DataPushObjects:FailureReason(OrderBO)"/>
+    <returnValueBindings name="OutValue_1" objectPath="CurrentFailure"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="CurrentFailure">
+    <nodeSuccessors name="decision_yes" next="KeyMapper1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 21,13-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentFailure:Reason"/>
+    <parameterBindings name="InValue_2" objectPath="CurrentFailure:ReasonDescription"/>
+    <returnValueBindings name="OutValue_1" objectPath="StatusReason"/>
+    <returnValueBindings name="OutValue_2" objectPath="StatusReasonDescription"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 9,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+<!--@BendPoints 17,15 17,9 17,7-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <parameterBindings name="currentOrderStatus" objectPath="OrderBO:Status"/>
+    <parameterBindings name="newOrderStatus" constant="EXPORTFAILED"/>
+    <startNode referencedName="This:UpdateOrderStatus"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true"/>
+<!--@Location 13,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="UpdateOrderPLIStatus"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode9"/>
+<!--The OrderBO to find the OrderProductLineItemBOs to update.-->
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+<!--The new ProductLineItem status to be set.-->
+    <parameters name="newPLIStatus" type="java.lang.String"/>
+<!--Has to be the current status of a PLI to be updated.-->
+    <parameters name="currentPLIStatus" type="java.lang.String"/>
+  </nodes>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode9" loop="OrderBO:ProductLineItemBOs">
+<!--@BendPoints 28,5-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <entry key="OrderProductLineItemBO">
+<!--@BendPoints 27,6-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode2"/>
+    </entry>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="OrderProductLineItemBO:FulfillmentStatus"
+      operator="str_eq" conditionItem="currentPLIStatus">
+    <nodeSuccessors name="decision_yes" next="UpdateOrderProductLineItemBOStatus3"/>
+<!--@BendPoints 28,7 28,11-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateOrderProductLineItemBOStatus3">
+    <pipelet href="enfinity:/bc_order/pipelets/UpdateOrderProductLineItemBOStatus.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="newStatusName" objectPath="newPLIStatus"/>
+  </nodes>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 26,11 26,5-->
+    <nodeSuccessors name="next" next="LoopNode9_Entry"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true"/>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="UpdateOrderStatus"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+<!--the OrderBO to update-->
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+<!--The order status to be set.
+-->
+    <parameters name="newOrderStatus" type="java.lang.String"/>
+<!--Has to be the current status of an order to be updated.-->
+    <parameters name="currentOrderStatus" type="java.lang.String"/>
+<!--Optional reason for the current status update-->
+    <parameters name="StatusReason" type="java.lang.String" optional="true"/>
+<!--Optional detailed description of the reason for the status update-->
+    <parameters name="StatusReasonDescription" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="OrderBO:Status"
+      operator="str_eq" conditionItem="currentOrderStatus">
+<!--@BendPoints 23,6-->
+    <nodeSuccessors name="decision_yes" next="UpdateOrderBOStatus3"/>
+<!--@BendPoints 24,5 24,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode7"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateOrderBOStatus3">
+    <pipelet href="enfinity:/bc_order/pipelets/UpdateOrderBOStatus.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 23,10-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+</pipeline:Pipeline>

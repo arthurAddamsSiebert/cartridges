@@ -1,0 +1,537 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Organization-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="CreateSalesOrganization" type="extension">
+<!--Create Master Repository
+@Location 2,12-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode2" height="1" width="1"/>
+<!--Create RecycleBin
+@Location 2,9-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1" height="1" width="1"/>
+<!--Creates an attribute group with the given parameters. A group is not created twice if a group with ID already exists. In that case, the error exit is used. There is no fallback to a lead locale etc. if LocaleId is undefined.
+@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CreateAttributeGroup"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--The Fixed flag of the attribute group.-->
+    <parameters name="FixedFlag" type="java.lang.Boolean" optional="true"/>
+<!--The ID of the attribute group.-->
+    <parameters name="ID" type="java.lang.String"/>
+<!--The domain to which the attribute belongs.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The type code of the attribute group.-->
+    <parameters name="TypeCode" type="java.lang.Integer" optional="true"/>
+<!--The title of the attribute group.-->
+    <parameters name="DisplayName" type="java.lang.String" optional="true"/>
+<!--A meaningful text describing the attribute group.-->
+    <parameters name="Description" type="java.lang.String" optional="true"/>
+<!--The ID of a locale, e.g. "en_US".-->
+    <parameters name="LocaleId" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="LocaleId">
+    <nodeSuccessors name="decision_yes" next="GetLocale1"/>
+<!--@BendPoints 30,3 30,7-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 29,8-->
+    <nodeSuccessors name="next" next="Pipelet2"/>
+  </nodes>
+<!--create attribute group for back office advanced search
+@Location 14,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateAttributeGroup.xml"/>
+    <nodeSuccessors name="next" next="Pipelet1"/>
+<!--@BendPoints 31,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+  </nodes>
+<!--@Location 14,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateAttributeGroup.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="ID" nullBinding="true"/>
+  </nodes>
+<!--@Location 14,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+<!--The created attribute group.-->
+    <returnValues name="AttributeGroup" type="com.intershop.component.foundation.capi.attributegroup.AttributeGroup"
+        optional="true"/>
+  </nodes>
+<!--@Location 15,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 31,12-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 15,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="Error" strict="true"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" strict="true" name="Start"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Decision1"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="AdminUser" type="com.intershop.beehive.core.capi.user.User"
+        optional="true"/>
+    <parameters name="Site" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="Organization:TypeCode"
+      operator="eq" conditionValue="20">
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="decision_yes" next="CallNode4"/>
+<!--@BendPoints 5,3 5,4-->
+    <nodeSuccessors name="decision_no" next="End1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+    <parameterBindings name="Domain" objectPath="Organization:Domain"/>
+    <startNode referencedName="ProcessInitializeImages-CreateDefinitionDomainPreference"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode3"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="Call1"/>
+    <parameterBindings name="Domain" objectPath="Organization:Domain"/>
+    <parameterBindings name="ImageTypeBORepository" objectPath="ApplicationBO:Repository(&quot;ImageTypeBORepository&quot;, Organization:Domain:UUID)"/>
+    <parameterBindings name="ImageViewBORepository" objectPath="ApplicationBO:Repository(&quot;ImageViewBORepository&quot;, Organization:Domain:UUID)"/>
+    <startNode referencedName="ProcessInitializeImages-CreateInstances"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="AssignUserToUserGroup1"/>
+    <startNode referencedName="AccessRoles-Create"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignUserToUserGroup1">
+    <configurationValues name="UserGroupID" value="SLD_AR_20_ADMINISTRATOR"/>
+    <pipelet href="enfinity:/core/pipelets/AssignUserToUserGroup.xml"/>
+<!--@BendPoints 3,14-->
+    <nodeSuccessors name="next" next="Pipelet3"/>
+<!--@BendPoints 5,13-->
+    <nodeSuccessors name="pipelet_error" next="End3"/>
+    <parameterBindings name="CurrentDomain" objectPath="Organization:Domain"/>
+    <parameterBindings name="CurrentUser" objectPath="AdminUser"/>
+    <parameterBindings name="UserGroupID" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="Name" value="RepositoryTypeCode"/>
+    <configurationValues name="Value" value="22"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Pipelet4"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="Name" value="RepositoryID"/>
+    <configurationValues name="Value" value="RecycleBin"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Pipelet5"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <configurationValues name="DefaultString2" value="-RecycleBin"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameterBindings name="String1" objectPath="Organization:Domain:DomainName"/>
+    <returnValueBindings name="Concatenated" objectPath="DisplayName"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 3,22-->
+    <nodeSuccessors name="next" next="CreateApplicationDomainRelation1"/>
+    <startNode referencedName="ProcessRepository-Create"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateApplicationDomainRelation1">
+    <pipelet href="enfinity:/core/pipelets/CreateApplicationDomainRelation.xml"/>
+<!--@BendPoints 3,24-->
+    <nodeSuccessors name="next" next="Pipelet8"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <parameterBindings name="Domain" objectPath="Repository:RepositoryDomain"/>
+    <parameterBindings name="RelationName" constant="RecycleBinRepository"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet8">
+    <configurationValues name="Name" value="RepositoryTypeCode"/>
+    <configurationValues name="Value" value="21"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Pipelet7"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet7">
+    <configurationValues name="Name" value="RepositoryID"/>
+    <configurationValues name="Value" value="MasterRepository"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Pipelet9"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet9">
+    <configurationValues name="DefaultString2" value="-MasterRepository"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="Pipelet6"/>
+    <parameterBindings name="String1" objectPath="Organization:Domain:DomainName"/>
+    <returnValueBindings name="Concatenated" objectPath="DisplayName"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <configurationValues name="DefaultRelationName" value="SITE"/>
+    <configurationValues name="DefaultRoleName" value="Role A"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateDomainRelation.xml"/>
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <parameterBindings name="Source" objectPath="Site"/>
+    <parameterBindings name="Target" objectPath="Organization:Domain"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <parameterBindings name="Unit" objectPath="Organization:OrganizationDomain"/>
+    <startNode referencedName="ProcessStaticContentRepository-AssignStaticContentRepositoryToApplication"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <parameterBindings name="Unit" objectPath="Organization:OrganizationDomain"/>
+    <startNode referencedName="ProcessImpexRepository-AssignImpexRepositoryToApplication"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="CreateApplicationDomainRelation2"/>
+    <startNode referencedName="ProcessRepository-Create"/>
+  </nodes>
+<!--@Location 1,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateApplicationDomainRelation2">
+    <pipelet href="enfinity:/core/pipelets/CreateApplicationDomainRelation.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <parameterBindings name="Domain" objectPath="Repository:RepositoryDomain"/>
+    <parameterBindings name="RelationName" constant="DefaultRepository"/>
+  </nodes>
+<!--@Location 1,20-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+<!--@BendPoints 7,41 7,2 9,2-->
+    <nodeSuccessors name="next" next="SetDictionaryValue6"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <parameterBindings name="Repository" objectPath="Repository"/>
+    <startNode referencedName="ProcessContentRepository-AssignManagementApplicationToContentRepository"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue6">
+    <configurationValues name="Name" value="TAX_DomainName"/>
+    <configurationValues name="Value" value="Operations"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="GetDomain2"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomain2">
+    <pipelet href="enfinity:/core/pipelets/GetDomain.xml"/>
+    <nodeSuccessors name="next" next="CreateDomainRelation3"/>
+    <parameterBindings name="StagingDomainName" objectPath="TAX_DomainName"/>
+    <returnValueBindings name="StagingDomain" objectPath="TAX_Domain"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateDomainRelation3">
+    <configurationValues name="DefaultRelationName" value="TAX_JURISDICTION"/>
+    <configurationValues name="DefaultRoleName" value="Role B"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateDomainRelation.xml"/>
+    <nodeSuccessors name="next" next="CreateDomainRelation2"/>
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue5"/>
+    <parameterBindings name="Source" objectPath="Organization:Domain"/>
+    <parameterBindings name="Target" objectPath="TAX_Domain"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateDomainRelation2">
+    <configurationValues name="DefaultRelationName" value="TAX_CLASS"/>
+    <configurationValues name="DefaultRoleName" value="Role B"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateDomainRelation.xml"/>
+    <nodeSuccessors name="next" next="CreateDomainRelation4"/>
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue7"/>
+    <parameterBindings name="Source" objectPath="Organization:Domain"/>
+    <parameterBindings name="Target" objectPath="TAX_Domain"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateDomainRelation4">
+    <configurationValues name="DefaultRelationName" value="SHIPPING_METHOD"/>
+    <configurationValues name="DefaultRoleName" value="Role B"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateDomainRelation.xml"/>
+    <nodeSuccessors name="next" next="CreateDomainRelation5"/>
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue13"/>
+    <parameterBindings name="Source" objectPath="Organization:Domain"/>
+    <parameterBindings name="Target" objectPath="TAX_Domain"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateDomainRelation5">
+    <configurationValues name="DefaultRelationName" value="PAYMENT_METHOD"/>
+    <configurationValues name="DefaultRoleName" value="Role B"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateDomainRelation.xml"/>
+    <nodeSuccessors name="next" next="CreateDomainRelation1"/>
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue14"/>
+    <parameterBindings name="Source" objectPath="Organization:Domain"/>
+    <parameterBindings name="Target" objectPath="TAX_Domain"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateDomainRelation1">
+    <configurationValues name="DefaultRelationName" value="MANAGED_SERVICE"/>
+    <configurationValues name="DefaultRoleName" value="Role B"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateDomainRelation.xml"/>
+    <nodeSuccessors name="next" next="SetDomainPreference1"/>
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue1"/>
+    <parameterBindings name="Source" objectPath="Organization:Domain"/>
+    <parameterBindings name="Target" objectPath="TAX_Domain"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDomainPreference1">
+    <configurationValues name="DefaultPreferenceKey" value="ShippingCosts"/>
+    <configurationValues name="DefaultPreferenceValue" value="Provided"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue15"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Organization:Domain"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 9,20-->
+    <nodeSuccessors name="next" next="SetDomainPreference7"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDomainPreference7">
+    <configurationValues name="DefaultPreferenceKey" value="InactivityPeriod"/>
+    <configurationValues name="DefaultPreferenceValue" value="90"/>
+    <configurationValues name="Type" value="Integer"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDomainPreference.xml"/>
+<!--@BendPoints 9,23 15,23 15,1 17,1-->
+    <nodeSuccessors name="next" next="SetDictionaryValue12"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Organization:OrganizationDomain"/>
+    <parameterBindings name="PreferenceDoubleValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceIntValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceKey" nullBinding="true"/>
+    <parameterBindings name="PreferenceStringValue" nullBinding="true"/>
+    <parameterBindings name="PreferenceValue" nullBinding="true"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue12">
+    <configurationValues name="Name" value="UnitName"/>
+    <configurationValues name="Value" value="Operations"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="DetermineUnit1"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUnit1">
+    <pipelet href="enfinity:/core/pipelets/DetermineUnit.xml"/>
+<!--@BendPoints 17,6-->
+    <nodeSuccessors name="next" next="GetCatalogs1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogs1">
+    <configurationValues name="CatalogType" value="Classification Catalog"/>
+    <configurationValues name="ProxyFilter" value="ON - Exclude Proxy Catalogs"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogs.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Unit"/>
+    <returnValueBindings name="Catalogs" objectPath="ClassificationCatalogs"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="ClassificationCatalogs">
+<!--@BendPoints 19,9-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <entry key="ClassificationCatalog">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode2"/>
+    </entry>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="ClassificationCatalog:ClassificationSystem:Name"
+      operator="str_neq" conditionValue="System">
+    <nodeSuccessors name="decision_yes" next="CreateProxyCatalog2"/>
+<!--@BendPoints 19,11-->
+    <nodeSuccessors name="decision_no" next="JoinNode17"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateProxyCatalog2">
+    <configurationValues name="DefaultCatalogID" value="eclass"/>
+    <configurationValues name="DefaultCatalogType" value="2"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/CreateProxyCatalog.xml"/>
+    <nodeSuccessors name="next" next="CopyCustomAttributes1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode17"/>
+    <parameterBindings name="Catalog" objectPath="ClassificationCatalog"/>
+    <parameterBindings name="CatalogID" objectPath="ClassificationCatalog:Id"/>
+    <parameterBindings name="CatalogType" objectPath="ClassificationCatalog:TypeCode"/>
+    <parameterBindings name="Domain" objectPath="Organization:Domain"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyCustomAttributes1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CopyCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="SetCatalogClassificationSystem2"/>
+    <parameterBindings name="CustomAttributes" objectPath="ClassificationCatalog:CustomAttributes"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Proxy"/>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetCatalogClassificationSystem2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/SetCatalogClassificationSystem.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="Catalog" objectPath="Proxy"/>
+    <parameterBindings name="ClassificationSystem" objectPath="ClassificationCatalog:ClassificationSystem"/>
+  </nodes>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 16,19 16,9-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+<!--@BendPoints 19,19-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 20,5 20,3-->
+    <nodeSuccessors name="next" next="CallNode6"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 23,3-->
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="DisplayName" nullBinding="true"/>
+    <parameterBindings name="Domain" objectPath="Organization:Domain"/>
+    <parameterBindings name="FixedFlag" constant="(Boolean)true"/>
+    <parameterBindings name="ID" constant="BACKOFFICE_SEARCH_ATTRIBUTES"/>
+    <parameterBindings name="LocaleId" nullBinding="true"/>
+    <parameterBindings name="TypeCode" nullBinding="true"/>
+    <startNode referencedName="CreateSalesOrganization-CreateAttributeGroup"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+<!--@BendPoints 23,6-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <parameterBindings name="Domain" objectPath="Organization:Domain"/>
+    <startNode referencedName="ManufacturerAliasesCleanUp-Create"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="next" strict="true"/>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue15">
+    <configurationValues name="Name" value="Error_Channel"/>
+    <configurationValues name="Value" value="CouldNotCreateDomainPreference 'ShippingCosts'"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Join11"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join11">
+<!--@BendPoints 13,19-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="Error_Channel"/>
+    <configurationValues name="Value" value="CouldNotCreateDomainRelation MANAGED_SERVICE"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="Join11"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue14">
+    <configurationValues name="Name" value="Error_Channel"/>
+    <configurationValues name="Value" value="CouldNotCreateDomainRelation PAYMENT_METHOD"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Join10"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join10">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue13">
+    <configurationValues name="Name" value="Error_Channel"/>
+    <configurationValues name="Value" value="CouldNotCreateDomainRelation SHIPPING_METHOD"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Join9"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join9">
+    <nodeSuccessors name="next" next="Join10"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue7">
+    <configurationValues name="Name" value="Error_Channel"/>
+    <configurationValues name="Value" value="CouldNotCreateDomainRelation TAX_CLASS"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Join3"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+    <nodeSuccessors name="next" next="Join9"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue5">
+    <configurationValues name="Name" value="Error_Channel"/>
+    <configurationValues name="Value" value="CouldNotCreateDomainRelation TAX_JURISDICTION"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 13,7-->
+    <nodeSuccessors name="next" next="Join3"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3" name="ERROR" strict="true"/>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1" name="next" strict="true"/>
+<!--Updates an attribute group with the given parameters. If LocaleId is not defined the lead locale is used.
+@Location 16,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="UpdateAttributeGroup"
+      callMode="Private">
+<!--@BendPoints 33,2-->
+    <nodeSuccessors name="next" next="GetLocale2"/>
+<!--The attribute group that shall be updated.-->
+    <parameters name="AttributeGroup" type="com.intershop.component.foundation.capi.attributegroup.AttributeGroup"/>
+    <parameters name="FixedFlag" type="java.lang.Boolean" optional="true"/>
+<!--A meaningful description of the attribute group.-->
+    <parameters name="Description" type="java.lang.String" optional="true"/>
+<!--The ID of a locale, e.g. "en_US".-->
+    <parameters name="LocaleId" type="java.lang.String" optional="true"/>
+<!--The domain to which the attribute group belongs.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The type code of the attribute group.-->
+    <parameters name="TypeCode" type="java.lang.Integer" optional="true"/>
+<!--The title of the attribute group.-->
+    <parameters name="DisplayName" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 16,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="Pipelet10"/>
+  </nodes>
+<!--@Location 16,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet10">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateAttributeGroup.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+<!--@BendPoints 35,5 35,6-->
+    <nodeSuccessors name="pipelet_error" next="EndNode5"/>
+    <parameterBindings name="ID" nullBinding="true"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+<!--The created attribute group.-->
+    <returnValues name="AttributeGroup" type="com.intershop.component.foundation.capi.attributegroup.AttributeGroup"
+        optional="true"/>
+  </nodes>
+<!--@Location 17,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="Error" strict="true"/>
+</pipeline:Pipeline>

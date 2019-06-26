@@ -1,0 +1,434 @@
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<%@page import="com.intershop.component.pmc.capi.pagelet.ContentEntryPoint"%>
+<%@page import="com.intershop.component.pmc.capi.pagelet.PlaceholderDefinition"%>
+<%@page import="com.intershop.beehive.core.capi.request.Request"%>
+<% getPipelineDictionary().put("CurrentUser", Request.getCurrent().getSession().getUser()); %>
+
+<isinclude template="content/Modules">
+<ismodule strict="true" template="content/template/PageletTemplateTreeSubTree.isml"
+	name="PageletTemplateTreeSubTree"
+	attribute="PageFlag"
+	attribute="PageletDefinition"
+	attribute="PageletTemplate"
+	attribute="ContentRepository"
+	attribute="Site"
+	attribute="Locale"
+	attribute="SelectionListing"
+	attribute="SelectionType"
+	attribute="SelectionName"
+	attribute="SelectionValue"
+	attribute="SelectionValues"
+	attribute="DepthCounter"
+	attribute="RowCounter"
+	attribute="ExpandedEntries"
+	attribute="HasMoreMap"
+	returnattribute="ReturnRowCounter"
+	attribute="ContextPipeline"
+	attribute="SelectChildren"
+	attribute="ConstraintCtnr"
+	attribute="SelectedPageletDefinitions"
+	attribute="SelectedPagelets"
+	attribute="ReadOnly"
+	attribute="ExcludedPagelets"
+	attribute="PermissionMap"
+	attribute="RestrictByConstraintCtnr"
+	attribute="PageletModelRepository"
+>
+
+<ISPageletModelUtils PageletModelUtils="PageletModelUtils">
+
+<%@page import="java.util.Map,java.util.Iterator,java.util.Collection,
+	com.intershop.sellside.enterprise.internal.pagelet.PageletTemplateTree,
+	com.intershop.component.pmc.capi.definition.pagelet.PageletDefinition,
+	com.intershop.component.pmc.capi.pagelet.Pagelet,
+	com.intershop.beehive.core.capi.domain.Domain,
+	com.intershop.component.mvc.capi.catalog.Repository,
+	com.intershop.component.pmc.capi.model.PageletModelRepository"
+%>
+<% 
+	PageletTemplateTree tree = null;
+	Map hasMoreMap = (Map)getObject("HasMoreMap");
+	Double depthCounter = (Double)getObject("DepthCounter");
+%>
+<isif condition="#isDefined(SelectionType) AND ((SelectionType EQ "radio_templates_pagelets") OR (SelectionType EQ "radio_pagelets"))#">
+	<isset name="ChildPageletsMode" value="all" scope="request">
+<iselse>
+	<isset name="ChildPageletsMode" value="templates" scope="request">
+</isif>
+
+<!--- create collection over pageletdefinition qualified names for contains evaluation (direct object comparison leads to problems with sharing) --->
+<isif condition="#isDefined(SelectedPageletDefinitions)#">
+	<isset name="PageletDefinitionNames" value="#PageletModelUtils:QualifiedNames(SelectedPageletDefinitions)#" scope="request">
+<iselseif condition="#isDefined(ConstraintCtnr)#">
+	<isset name="PageletDefinitionNames" value="#PageletModelUtils:QualifiedNames(ConstraintCtnr:PageletDefinitions)#" scope="request">
+</isif>
+
+<isif condition="#isDefined(PageletTemplate)#">
+	<% 
+		tree = PageletTemplateTree.newInstance((Repository)getObject("ContentRepository"), (PageletModelRepository)getObject("PageletModelRepository"), (Collection<String>)getObject("ExcludedPagelets"));
+		getPipelineDictionary().put("Tree", tree);
+	%>
+	<isset name="Children" value="#Tree:getChildren(Locale, PageletTemplate, ChildPageletsMode)#" scope="request">
+	<isset name="ParentID" value="#PageletTemplate:UUID#" scope="request">
+<iselseif condition="#isDefined(PageletDefinition)#">
+	<% 
+		tree = PageletTemplateTree.newInstance((PageletDefinition)getObject("PageletDefinition"), (Repository)getObject("ContentRepository"), (PageletModelRepository)getObject("PageletModelRepository"), (Collection<String>)getObject("ExcludedPagelets"));
+		getPipelineDictionary().put("Tree", tree);
+	%>
+	<isset name="Children" value="#Tree:getChildren(Locale, PageletDefinition, ChildPageletsMode)#" scope="request">
+	<isset name="ParentID" value="#PageletDefinition:QualifiedName#" scope="request">
+<iselse>
+	<% 
+		tree = PageletTemplateTree.newInstance(null, (Repository)getObject("ContentRepository"), (PageletModelRepository)getObject("PageletModelRepository"), (Collection<String>)getObject("ExcludedPagelets"));
+		getPipelineDictionary().put("Tree", tree);
+	%>
+	<isif condition="#isDefined(ContextObject)#">
+		<% if (getObject("ContextObject") instanceof ContentEntryPoint) { %>
+			<isif condition="#isDefined(RestrictByConstraintCtnr)#">
+				<isset name="Children" value="#Tree:getChildren(Locale, ContextObject, RestrictByConstraintCtnr)#" scope="request">
+			<iselse>
+				<isset name="Children" value="#Tree:getChildren(Locale, ContextObject)#" scope="request">
+			</isif>
+		<% } else if (getObject("ContextObject") instanceof PlaceholderDefinition) { %>	
+			<isset name="Children" value="#Tree:getChildren(Locale, ContextObject)#" scope="request">
+		<% } else { %>
+			<isset name="Children" value="#Tree:getChildren(Locale, PageFlag)#" scope="request">
+		<% } %>
+	<iselse>
+		<isset name="Children" value="#Tree:getChildren(Locale, PageFlag)#" scope="request">
+	</isif>
+	<isset name="ParentID" value="root" scope="request">
+</isif>
+
+<isif condition="#hasLoopElements(Children)#">
+	<isloop iterator="Children" alias="ChildElement">
+
+		<isif condition="#(ChildElement:Class:SimpleName EQ "PageletDefinitionImpl")#">
+			<isset name="ChildValue" value="#ChildElement:QualifiedName#" scope="request">
+			<isset name="ChildType" value="PageletDefinition" scope="request">
+		<iselse>
+			<isset name="ChildValue" value="#ChildElement:UUID#" scope="request">
+			<isset name="ChildType" value="Pagelet" scope="request">
+		</isif>
+
+		<isif condition="#((isDefined(SelectionType) AND (SelectionType EQ "wizard")) AND ((ChildType EQ "PageletDefinition") AND NOT(Tree:isNode(ChildElement, ChildPageletsMode))))#">
+			<!--- in wizard selection mode filter out PageletDefinitions that have no PageletTemplate instances --->
+		<iselse>
+
+			<tr class="<% if ((Double)getObject("RowCounter")%2 == 1.00) {%>odd <%}%> <isif condition="#(SelectionValue EQ ChildValue) AND  isDefined(SelectionListing)#">active</isif>"> 
+				<isif condition="#isDefined(SelectionType)#">
+					<td class="table_detail w top center" nowrap="nowrap">
+						<isif condition="#(SelectionType EQ "wizard") AND NOT(ChildType EQ "PageletDefinition") #">
+							<input type="checkbox" id="<isprint value="#ChildValue#">" name="<isprint value="#SelectionName#">" value="<isprint value="#ChildValue#">"
+								<isif condition="#(SelectionValues:Contains(ChildValue))#">checked="checked"</isif>>
+						<iselseif condition="#(SelectionType EQ "radio") OR ((SelectionType EQ "radio_templates_pagelets") AND NOT(ChildType EQ "PageletDefinition")) OR ((SelectionType EQ "radio_pagelets") AND (NOT ChildElement:Template))#">
+							<input type="radio" name="<isprint value="#SelectionName#">" value="<isprint value="#ChildValue#">" onclick="switchActive(this)"
+								<isif condition="#(SelectionValue EQ ChildValue)#">checked="checked"</isif>>
+						<iselseif condition="#SelectionType EQ "constraint"#">
+							<isif condition="#(isDefined(SelectChildren) AND SelectChildren) 
+											OR (isDefined(ConstraintCtnr) AND (ConstraintCtnr:Pagelets:Contains(ChildElement) OR PageletDefinitionNames:Contains(ChildValue)))
+											OR (isDefined(SelectedPageletDefinitions) AND (PageletDefinitionNames:Contains(ChildValue)))
+											OR (isDefined(SelectedPagelets) AND (SelectedPagelets:Contains(ChildElement)))
+											OR (NOT(isDefined(ConstraintCtnr)) AND NOT(isDefined(SelectedPageletDefinitions)) AND NOT(isDefined(SelectedPagelets)))#">
+								<isset name="Selected" value="#1==1#" scope="request"/>
+							<iselse>
+								<isset name="Selected" value="#1!=1#" scope="request"/>
+							</isif>
+							<script type="text/javascript">
+								SelectionTree.addNode("<isprint value="#ChildValue#">", SelectionTree.Nodes["<isprint value="#ParentID#">"]);
+							</script>
+							<input type="checkbox"
+								id="<isprint value="#ChildValue#">"
+								name="<isprint value="#SelectionName."_".ChildType#">"
+								value="<isprint value="#ChildValue#">" 
+								onclick="SelectionTree.updateConstraints(this)"
+								<isif condition="#Selected#">checked="checked"</isif>
+								<isif condition="#((isDefined(ReadOnly) AND ReadOnly) OR (isDefined(SelectChildren) AND SelectChildren)) OR NOT(isDefined(PermissionMap:SLD_MANAGE_TEMPLATES))#"> disabled="disabled"</isif>
+							>
+						<iselse>
+							&nbsp;
+						</isif>
+					</td>
+				</isif>
+				<td class="table_tree w e">
+					<table border="0" cellspacing="0" cellpadding="0" height="100%">
+						<tr>
+						<%
+							for ( int i = 0; i < depthCounter.intValue(); i ++ ) 
+							{
+								if ((hasMoreMap.get("level"+i) != null) && (hasMoreMap.get("level"+i).equals(true)))
+								{
+									%><td style="width:22px;background: url(#WebRoot()#/images/cb_I.gif) repeat-y center;">&nbsp;</td><%
+								}
+								else
+								{
+									%><td><img src="#WebRoot()#/images/space.gif" width="22" height="1" alt="" border="0" /></td><%
+								}
+							}
+						%>
+						<isif condition="#Tree:isNode(ChildElement, ChildPageletsMode)#">
+							<isif condition="#hasNext(ChildElement)#">
+								<isif condition="#(SelectionType EQ "constraint") OR (SelectionType EQ "wizard")#">
+									<td style="width:22px;background: url(#WebRoot()#/images/cb_L_join.gif) no-repeat right;">
+									   <img src="#WebRoot()#/images/space.gif" width="22"  alt="" border="0" />
+									</td>
+								<iselseif condition="#ExpandedEntries:Contains(ChildValue)#">
+									<td style="width:22px;background: url(#WebRoot()#/images/cb_minus.gif) no-repeat center;">
+											<a class="tree_icon_link" href="#URL(Action('ViewPageletTemplatesTree-Collapse'), Parameter('Entry', ChildValue), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#><isprint value="#'#'.ChildValue#">">
+												<img src="#WebRoot()#/images/space.gif" width="22"  alt="" border="0" />
+											</a>
+									</td>
+								<iselse>
+									<td style="width:22px;background: url(#WebRoot()#/images/cb_plus.gif) no-repeat center;">
+										<a class="tree_icon_link" href="#URL(Action('ViewPageletTemplatesTree-Expand'), Parameter('Entry', ChildValue), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#<isprint value="#'#'.ChildValue#">">
+											<img src="#WebRoot()#/images/space.gif" width="22"  alt="" border="0" />
+										</a>
+									</td>
+								</isif>
+							<iselse>
+								<isif condition="#(SelectionType EQ "constraint") OR (SelectionType EQ "wizard")#">
+									<td style="width: 22px; background: url(#WebRoot()#/images/cb_L.gif) no-repeat right;"><img src="#WebRoot()#/images/space.gif" width="22"  alt="" border="0"/></td>
+								<iselseif condition="#ExpandedEntries:Contains(ChildValue)#">
+									<td style="width:22px;background: url(#WebRoot()#/images/cb_minus_bottom.gif) no-repeat center;">
+										<a class="tree_icon_link" href="#URL(Action('ViewPageletTemplatesTree-Collapse'), Parameter('Entry', ChildValue), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#<isprint value="#'#'.ChildValue#">">
+											<img src="#WebRoot()#/images/space.gif" width="22" alt="" border="0" />
+										</a>
+									</td>
+								<iselse>
+									<td style="width:22px;background: url(#WebRoot()#/images/cb_plus_bottom.gif) no-repeat center;">
+										<a class="tree_icon_link" href="#URL(Action('ViewPageletTemplatesTree-Expand'), Parameter('Entry', ChildValue), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#<isprint value="#'#'.ChildValue#">">
+											<img src="#WebRoot()#/images/space.gif" width="22" alt="" border="0" />
+										</a>
+									</td>
+								</isif>
+							</isif>
+						<iselse>
+							<isif condition="#hasNext(ChildElement)#">
+								<td style="width:22px;background: url(#WebRoot()#/images/cb_L_join.gif) no-repeat right;"></td>
+							<iselse>
+								<td style="width:22px;background: url(#WebRoot()#/images/cb_L.gif) no-repeat right;"></td>
+							</isif>
+						</isif>
+						
+						<isif condition="#ChildType EQ "Pagelet"#">
+							<td>
+								<table>
+									<tr>
+										<td>
+											<isif condition="#SelectionType EQ "constraint"#">
+												<isif condition="#isDefined(PermissionMap:SLD_MANAGE_TEMPLATES)#">
+													<a class="table_detail_link" href="javascript:SelectionTree.updateConstraints(document.getElementById('<isprint value="#ChildValue#">'), true);"><ISPageletDisplayName Pagelet="#ChildElement#" Locale="#Locale#"></a>
+												<iselse>
+													<ISPageletDisplayName Pagelet="#ChildElement#" Locale="#Locale#">
+												</isif>
+											<iselseif condition="#SelectionType EQ "wizard"#">
+												<a class="table_detail_link" href="javascript:toggleSelected(document.getElementById('<isprint value="#ChildValue#">'));"><ISPageletDisplayName Pagelet="#ChildElement#" Locale="#Locale#"></a>
+											<iselse>
+												<!--- default: view pagelet details : when creating a new instance use selection mode --->
+												<isif condition="#isDefined(SelectionListing)#">
+													<a class="table_detail_link" href="#URL(Action('ViewPageletTemplatesTree-Select'), Parameter('SelectedPageletTemplateUUID', ChildValue), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#<isprint value="#'#'.ChildValue#">" name="<isprint value="#ChildValue#">"><ISPageletDisplayName Pagelet="#ChildElement#" Locale="#Locale#"></a>
+												<iselse>
+													<a class="table_detail_link" href="#URL(Action('ViewPagelet-View'), Parameter('PageletUUID', ChildValue), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#<isprint value="#'#'.ChildValue#">" name="<isprint value="#ChildValue#">"><ISPageletDisplayName Pagelet="#ChildElement#" Locale="#Locale#"></a>
+												</isif>
+											</isif>
+											
+											<ISContentElementTooltip ContentElement="#ChildElement#">
+										</td>
+										<td nowrap="nowrap">
+											<ISPageletStatus Pagelet="#ChildElement#" ContentRepository="#ContentRepository#">
+										</td>
+									</tr>
+								</table>
+							</td>
+							</tr>
+						</table>
+					</td>
+					<td class="table_detail bold e">
+						<isif condition="#NOT(SelectionListing EQ 'true') OR (isDefined(SelectionType) AND (SelectionType EQ "constraint"))#">
+							<a class="table_detail_link" href="#URL(Action('ViewPagelet-View'), Parameter('PageletUUID', ChildValue), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#" title="<isprint value="#ChildElement:Id#">">
+								<ISCropString String="#ChildElement:Id#" MaxLength="#50#" CropString="...">
+							</a>
+						<iselse>
+							<div title="<isprint value="#ChildElement:Id#">"><ISCropString String="#ChildElement:Id#" MaxLength="#50#" CropString="..."></div>
+						</isif>
+					</td>
+					<td class="table_detail e"><isprint value="#PageletModelUtils:DisplayGroup(ChildElement:PageletDefinition, Locale)#"></td>
+					<td class="table_detail e"><isprint value="#PageletModelUtils:DisplayName(ChildElement:PageletDefinition, Locale)#"></td>
+					<td class="table_detail e">
+						<isif condition="#ChildElement:Description(Locale) NE ''#">
+							<ISCropString String="#ChildElement:Description(Locale)#" MaxLength="#50#" CropString="...">
+						<iselse>
+							&nbsp;
+						</isif>
+					</td>
+					<isif condition="#NOT(SelectionListing EQ 'true')#">
+						<td nowrap="nowrap" class="table_detail_actions e">
+							<isif condition="#isDefined(PermissionMap:SLD_MANAGE_TEMPLATES)#">
+								<ISCreateMap mapname="ProcessPageletLockParams"
+								key0="Pagelet" value0="#ChildElement#"
+								key1="PreferenceDomain" value1="#ContentRepository:RepositoryDomain#"
+								key2="User" value2="#CurrentUser#">
+								<ispipeline pipeline="ProcessPageletLock-Lookup" params="#ProcessPageletLockParams#" alias="PageletLockInfoDictionary" />
+													
+								<ISPageletLocking Pagelet="#ChildElement#" ContentRepository="#ContentRepository#" User="#CurrentUser#" LockInfoDictionary="#PageletLockInfoDictionary#">
+								
+								<isif condition="#NOT(isDefined(PageletLockInfoDictionary:AllPageletsLocked)) OR (PageletLockInfoDictionary:AllPageletsLocked EQ 'false')#">
+									<ISCopyPagelet Pagelet="#ChildElement#" ContentRepository="#ContentRepository#" CopyOfPrefix="Copy of ">
+									
+									<!---  delete pagelet template instance per row --->
+									<isif condition="#not(isDefined(SelectedPageletDefinition) OR (ChildElement:DomainID NE ContentRepository:RepositoryDomainID) OR (ChildElement:InUse))#">
+										<a href="#URL(Action('ViewPageletTemplatesTree-Dispatch')
+										, Parameter('confirmDelete', 'Delete')
+										, Parameter('ChannelID', ChannelID)
+										, Parameter('ContentRepositoryUUID', ContentRepository:UUID)
+										, Parameter('SelectedPageletTemplateUUID', ChildValue)
+										, Parameter('TemplateFlag', 'true')
+										, Parameter('PageFlag', PageFlag)
+										)#"><img src="#WebRoot()#/images/delete.png" alt="#localizeText('PageletTemplateTreeSubTree.Delete.alt')#" title="#localizeText('PageletTemplateTreeSubTree.Delete.title')#"/></a>&nbsp;</isif>
+								</isif>
+							</isif>
+							<isif condition="#isDefined(PermissionMap:SLD_VIEW_STOREFRONT)#">
+								<ISPreviewPagelet Pagelet="#ChildElement#" 
+									ContentRepository="#ContentRepository#"
+									PageFlag="#PageFlag#"
+									TemplateFlag="true"
+									contextPipeline="ViewPageletTemplatesTree-List" 
+									contextParameter0="ContentRepositoryUUID" contextValue0="#ContentRepository:UUID#" 
+									contextParameter1="continuedSession" contextValue1="true"
+									contextParameter2="SelectedPageletTemplateUUID" contextValue2="#ChildValue#"
+									contextParameter3="PageFlag" contextValue3="#PageFlag#"
+									>
+							</isif>
+						</td>
+					</isif>
+				<iselse>
+					<td <isif condition="#(SelectionType EQ "wizard")#">class="table_detail bold"</isif>>
+						<isif condition="#SelectionType EQ "constraint"#">
+							<isif condition="#isDefined(PermissionMap:SLD_MANAGE_TEMPLATES)#">
+								<a class="table_detail_link" href="javascript:SelectionTree.updateConstraints(document.getElementById('<isprint value="#ChildValue#">'), true);">
+									<isprint value="#PageletModelUtils:DisplayName(ChildElement, Locale)#">
+								</a>
+							<iselse>
+								<isprint value="#PageletModelUtils:DisplayName(ChildElement, Locale)#">
+							</isif>
+							<ISContentElementTooltip ContentElement="#ChildElement:PageletModel#">
+						<iselseif condition="#NOT(SelectionType EQ "wizard")#">
+							<!--- used to create a new instance - link is required  --->
+							<isif condition="#isDefined(SelectionListing)#">
+								<a class="table_detail_link" href="#URL(Action('ViewPageletTemplatesTree-Select'), Parameter('SelectedPageletDefinitionQualifiedName', ChildElement:QualifiedName), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#<isprint value="#'#'.ChildValue#">" name="<isprint value="#ChildValue#">">
+									<isprint value="#PageletModelUtils:DisplayName(ChildElement, Locale)#">
+								</a>
+								<ISContentElementTooltip ContentElement="#ChildElement:PageletModel#">
+							<iselse>
+								<!--- in list view, show link if there are child elements  --->
+								<isif condition="#Tree:isNode(ChildElement, ChildPageletsMode)#">
+									<a class="table_detail_link" href="#URL(Action('ViewPageletTemplatesTree-Select'), Parameter('SelectedPageletDefinitionQualifiedName', ChildElement:QualifiedName), Parameter('ContentRepositoryUUID', ContentRepository:UUID))#<isprint value="#'#'.ChildValue#">" name="<isprint value="#ChildValue#">">
+										<isprint value="#PageletModelUtils:DisplayName(ChildElement, Locale)#">
+									</a>
+									<ISContentElementTooltip ContentElement="#ChildElement:PageletModel#">
+								<iselse>
+									<!--- in list view, no link, no actions   --->
+									&nbsp;<span><isprint value="#PageletModelUtils:DisplayName(ChildElement, Locale)#"></span>
+									<ISContentElementTooltip ContentElement="#ChildElement:PageletModel#">
+								</isif>
+							</isif>
+						<iselse> <!---  SelectionType EQ "wizard" --->
+							<isprint value="#PageletModelUtils:DisplayName(ChildElement, Locale)#">
+						</isif>
+					</td>
+					</tr>
+					</table>
+				</td>
+				<td class="table_detail bold e">&nbsp;<!-- <isprint value="#ChildElement:QualifiedName#"> --></td>
+				<td class="table_detail e"><isprint value="#PageletModelUtils:DisplayGroup(ChildElement, Locale)#"></td>
+				<td class="table_detail e"><isprint value="#PageletModelUtils:DisplayName(ChildElement, Locale)#"></td>
+				<td class="table_detail e">
+					<isif condition="#ChildElement:Description:get(Locale:LocaleID) NE ''#">
+						<ISCropString String="#ChildElement:Description:get(Locale:LocaleID)#" MaxLength="#50#" CropString="...">
+					<iselse>
+						&nbsp;
+					</isif>
+				</td>
+				<isif condition="#NOT(SelectionListing EQ 'true')#">
+					<td nowrap="nowrap" class="table_detail_actions e">&nbsp;</td>
+				</isif>
+			</isif>
+		</tr>
+		
+		<isset name="RowCounter" value="#RowCounter+1#" scope="request"/>
+		<isif condition="#Tree:isNode(ChildElement, ChildPageletsMode) AND ((isDefined(ExpandedEntries) AND ExpandedEntries:Contains(ChildValue)) OR (isDefined(SelectionType) AND ((SelectionType EQ "constraint") OR (SelectionType EQ "wizard"))))#">
+			
+			<isif condition="#hasNext(ChildElement)#">
+				<%
+					hasMoreMap.put("level"+depthCounter.intValue(), true);
+					getPipelineDictionary().put("HasMoreMap", hasMoreMap);
+				%>
+			<iselse>
+				<%
+					hasMoreMap.put("level"+depthCounter.intValue(), false);
+					getPipelineDictionary().put("HasMoreMap", hasMoreMap);
+				%>
+			</isif>
+
+			<isif condition="#ChildType EQ "Pagelet"#">
+				<ISPageletTemplateTreeSubTree
+					PageFlag="#PageFlag#"
+					PageletTemplate="#ChildElement#"
+					ContentRepository="#ContentRepository#"
+					Site="#Site#"
+					Locale="#Locale#"
+					SelectionListing="#SelectionListing#"
+					SelectionType="#SelectionType#"
+					SelectionName="#SelectionName#"
+					SelectionValue="#SelectionValue#"
+					SelectionValues="#SelectionValues#"
+					DepthCounter="#DepthCounter+1#"
+					RowCounter="#RowCounter#"
+					ExpandedEntries="#ExpandedEntries#"
+					HasMoreMap="#HasMoreMap#"
+					ReturnRowCounter="RowCounter"
+					ConstraintCtnr="#ConstraintCtnr#"
+					SelectedPageletDefinitions="#SelectedPageletDefinitions#"
+					SelectedPagelets="#SelectedPagelets#"
+					SelectChildren="#Selected#"
+					ReadOnly="#ReadOnly#"
+					ExcludedPagelets="#ExcludedPagelets#"
+					PermissionMap="#PermissionMap#"
+					RestrictByConstraintCtnr="#RestrictByConstraintCtnr#"
+					PageletModelRepository="#PageletModelRepository#"
+					>
+			<iselse>
+				<ISPageletTemplateTreeSubTree
+					PageFlag="#PageFlag#"
+					PageletDefinition="#ChildElement#"
+					ContentRepository="#ContentRepository#"
+					Site="#Site#"
+					Locale="#Locale#"
+					SelectionListing="#SelectionListing#"
+					SelectionType="#SelectionType#"
+					SelectionName="#SelectionName#"
+					SelectionValue="#SelectionValue#"
+					SelectionValues="#SelectionValues#"
+					DepthCounter="#DepthCounter+1#"
+					RowCounter="#RowCounter#"
+					ExpandedEntries="#ExpandedEntries#"
+					HasMoreMap="#HasMoreMap#"
+					ReturnRowCounter="RowCounter"
+					ConstraintCtnr="#ConstraintCtnr#"
+					SelectedPageletDefinitions="#SelectedPageletDefinitions#"
+					SelectedPagelets="#SelectedPagelets#"
+					SelectChildren="#Selected#"
+					ReadOnly="#ReadOnly#"
+					ExcludedPagelets="#ExcludedPagelets#"
+					PermissionMap="#PermissionMap#"
+					RestrictByConstraintCtnr="#RestrictByConstraintCtnr#"
+					PageletModelRepository="#PageletModelRepository#"
+					>
+			</isif>
+		</isif>
+	</isif>
+	</isloop>
+</isif>
+
+<isset name="ReturnRowCounter" value="#RowCounter#" scope="request">

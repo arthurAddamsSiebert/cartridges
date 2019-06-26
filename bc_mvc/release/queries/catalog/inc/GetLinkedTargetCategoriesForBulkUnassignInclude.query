@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="ProductUUIDIterator" type="java.util.Iterator" optional="true"/>
+    <parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="AdvancedProductSearchParameters" type="java.util.Map" optional="true"/>
+	<parameter name="TypeCodeIterator" type="java.util.Iterator" optional="true"/>
+	<parameter name="TargetCategoryTypeCodeIDsIterator" type="java.util.Iterator" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	SELECT tpca.CATALOGCATEGORYID as CATALOGCATEGORYID, tpca.productid as productid, tpca.domainid as domainid, tpca.typecode as typecode
+	FROM TYPEDPRODUCTCATEGORYASSM tpca, typecodedefinition tcd
+	WHERE tcd.typecode=tpca.typecode
+	AND   tcd.typecodegroup='TypedProductCategoryAssignment'
+	AND   tpca.domainid=<template-variable value="Domain:UUID" />
+    <template-if condition="isDefined(ProductUUIDIterator) AND hasElements(ProductUUIDIterator)">		    
+  <template-comment>the IN (1,x) construct allows to use more than the limit of 1000 parameters</template-comment>
+    <sql-dialect name="Microsoft">
+    	AND tpca.PRODUCTID IN
+      (
+        <template-loop alias="ProductUUID" iterator="ProductUUIDIterator">
+          <loop-statement>'1',<template-variable value="ProductUUID"/></loop-statement>
+          <loop-separator>,</loop-separator>
+        </template-loop> 
+      )
+    </sql-dialect>
+    <sql-dialect name="Oracle">
+    	AND   (1,tpca.PRODUCTID) IN
+      (
+        <template-loop alias="ProductUUID" iterator="ProductUUIDIterator">
+          <loop-statement>(1,<template-variable value="ProductUUID"/>)</loop-statement>
+          <loop-separator>,</loop-separator>
+        </template-loop> 
+      )
+    </sql-dialect>
+    <if-elseif condition="isDefined(NameOrID)"/>		    
+		AND tpca.PRODUCTID IN (select p.uuid FROM 
+		(
+	    <template-call name="product/SimpleProductSearch">
+            <call-parameter name="ProductDomain" value="Domain"/>
+		    <call-parameter name="NameOrID" value="NameOrID"/>
+		    <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+	    </template-call>
+	    ) p )
+    <if-else/>
+		AND tpca.PRODUCTID IN (select p.uuid FROM 
+		(
+	    <template-call name="product/GetProductsByAdvancedSearch">
+            <call-parameter name="ProductDomain" value="Domain"/>
+	   		<call-addall map="AdvancedProductSearchParameters"/>
+	    </template-call>
+	    ) p )
+	</template-if>
+    <template-if condition="isDefined(TargetCategoryTypeCodeIDsIterator) AND hasElements(TargetCategoryTypeCodeIDsIterator)">		    
+	      <sql-dialect name="Microsoft">
+    	   AND tcd.name IN
+	      (
+	        <template-loop alias="TargetCategoryTypeCodeID" iterator="TargetCategoryTypeCodeIDsIterator">
+	          <loop-statement><template-variable value="TargetCategoryTypeCodeID:TypeCodeName"/></loop-statement>
+	          <loop-separator>,</loop-separator>
+	        </template-loop> 
+	      )
+	      AND tpca.CATALOGCATEGORYID IN 
+	      (
+	        <template-loop alias="TargetCategoryTypeCodeID" iterator="TargetCategoryTypeCodeIDsIterator">
+	          <loop-statement><template-variable value="TargetCategoryTypeCodeID:Id"/></loop-statement>
+	          <loop-separator>,</loop-separator>
+	        </template-loop> 
+	      )
+    	</sql-dialect>
+    	<sql-dialect name="Oracle">
+    		AND (tcd.name,tpca.CATALOGCATEGORYID) IN
+	      (
+	        <template-loop alias="TargetCategoryTypeCodeID" iterator="TargetCategoryTypeCodeIDsIterator">
+	          <loop-statement>(<template-variable value="TargetCategoryTypeCodeID:TypeCodeName"/>,<template-variable value="TargetCategoryTypeCodeID:Id"/>)</loop-statement>
+	          <loop-separator>,</loop-separator>
+	        </template-loop> 
+	      )
+    	</sql-dialect>
+    <if-else/>
+    	<sql-dialect name="Microsoft">
+    	   AND tcd.name IN
+	       (
+	        select <template-loop alias="TypeCodeName" iterator="TypeCodeIterator">
+	          	   		<loop-statement><template-variable value="TypeCodeName"/></loop-statement>
+	          	   		<loop-separator>,</loop-separator>
+	               </template-loop> 
+	       )
+    	</sql-dialect>
+    	<sql-dialect name="Oracle">
+    		AND tcd.name IN
+	        (
+	        	<template-loop alias="TypeCodeName" iterator="TypeCodeIterator">
+	          		<loop-statement><template-variable value="TypeCodeName"/></loop-statement>
+	          		<loop-separator>,</loop-separator>
+	       		</template-loop> 
+	      	)
+    	</sql-dialect>
+	</template-if>
+</template>
+</query>

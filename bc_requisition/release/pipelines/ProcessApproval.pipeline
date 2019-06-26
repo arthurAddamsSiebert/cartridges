@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline is responsible for perfoming preview, submitting and processing requisition approval workflows. It can be customized overwritting the ProcessApprovalCustomized pipeline.
+@Group Approval-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessApproval" type="process">
+<!--WFA_STATE_COMPLETED = 3
+@Location 10,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1" height="1" width="2"/>
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="CheckCompletion" callMode="Private">
+    <nodeSuccessors name="next" next="Decision1"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="WorkflowActivity:State"
+      operator="eq" conditionValue="3">
+    <nodeSuccessors name="decision_yes" next="Call6"/>
+<!--@BendPoints 18,3 18,7-->
+    <nodeSuccessors name="decision_no" next="Join1"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call6">
+    <nodeSuccessors name="next" next="Join1"/>
+    <startNode referencedName="ProcessApprovalCustomized-AWFCompletion"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="End4"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="PreviewApproval" callMode="Private">
+    <nodeSuccessors name="next" next="DetermineUserProfile2"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUserProfile2">
+    <pipelet href="enfinity:/core/pipelets/DetermineUserProfile.xml"/>
+    <nodeSuccessors name="next" next="GetBasket1"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetBasket1">
+    <configurationValues name="BasketType" value="REQUISITION"/>
+    <pipelet href="enfinity:/bts/pipelets/GetBasket.xml"/>
+    <nodeSuccessors name="next" next="Call3"/>
+    <parameterBindings name="CurrentDomain" objectPath="Profile:Domain"/>
+    <returnValueBindings name="Basket" objectPath="Requisition"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call3">
+    <nodeSuccessors name="next" next="CreateApprovalPreviews1"/>
+    <startNode referencedName="ProcessApprovalCustomized-CreateApprovalObject"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateApprovalPreviews1">
+    <pipelet href="enfinity:/bc_approval/pipelets/CreateApprovalPreviews.xml"/>
+    <nodeSuccessors name="next" next="End1"/>
+    <parameterBindings name="CompoundObject" objectPath="ApprovalCompound"/>
+    <parameterBindings name="CurrentUser" objectPath="CurrentDelegator"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start7" name="Recalculate" callMode="Private">
+    <nodeSuccessors name="next" next="RecalculateNextApprovalStep1" action="begin"/>
+<!--the WorkflowActivity-->
+    <parameters name="WorkflowActivity" type="com.intershop.beehive.core.capi.workflow.WorkflowActivity"
+        optional="true"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RecalculateNextApprovalStep1">
+    <pipelet href="enfinity:/bc_approval/pipelets/RecalculateNextApprovalStep.xml"/>
+    <nodeSuccessors name="next" next="Call8"/>
+    <parameterBindings name="CurrentActivity" objectPath="WorkflowActivity"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call8">
+    <nodeSuccessors name="next" next="End6" action="commit"/>
+    <startNode referencedName="ProcessApproval-CheckCompletion"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="StartApproval" callMode="Private">
+    <nodeSuccessors name="next" next="DetermineUserProfile1"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUserProfile1">
+    <pipelet href="enfinity:/core/pipelets/DetermineUserProfile.xml"/>
+    <nodeSuccessors name="next" next="Call2"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+    <nodeSuccessors name="next" next="Call7"/>
+    <startNode referencedName="ProcessApprovalCustomized-CreateApprovalObject"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call7">
+    <nodeSuccessors name="next" next="JoinNode1" action="begin"/>
+    <startNode referencedName="ProcessApprovalCustomized-PreProcessStartApproval"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="StartApproval1" action="savepoint"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="StartApproval1">
+    <configurationValues name="Type" value="2"/>
+    <pipelet href="enfinity:/bc_approval/pipelets/StartApproval.xml"/>
+    <nodeSuccessors name="next" next="UpdateCustomAttributes1"/>
+    <parameterBindings name="CompoundObject" objectPath="ApprovalCompound"/>
+    <parameterBindings name="CurrentUser" objectPath="Requisition:User"/>
+    <parameterBindings name="WorkflowUnit" objectPath="Requisition:Domain"/>
+    <returnValueBindings name="ApprovalActivity" objectPath="WorkflowActivity"/>
+  </nodes>
+<!--Sets the UUID of the WorkflowActivity as a custom Attribute at the Requisition. This is used for viewing the status of theworkflow.
+@Location 4,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes1">
+    <configurationValues name="Attribute_1_Name" value="ApprovalWorkflowActivityUUID"/>
+    <configurationValues name="Attribute_1_Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="Call4"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="WorkflowActivity:UUID"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Requisition"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call4">
+    <nodeSuccessors name="next" next="End2" action="commit"/>
+    <startNode referencedName="ProcessApproval-CheckCompletion"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="Submit" callMode="Private">
+    <nodeSuccessors name="next" next="UpdateRequisitionStatus1" action="begin"/>
+<!--The requisition to submit.-->
+    <parameters name="Requisition" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"
+        optional="true"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRequisitionStatus1">
+    <configurationValues name="StatusID" value="11"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateRequisitionStatus.xml"/>
+    <nodeSuccessors name="next" next="UpdateLineItemStatus1"/>
+    <parameterBindings name="InputStatusID" objectPath="StatusID"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus1">
+    <configurationValues name="StatusGroup" value="Approval"/>
+    <configurationValues name="StatusID" value="2"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="Call5"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call5">
+    <nodeSuccessors name="next" next="Call1"/>
+    <startNode referencedName="ProcessApprovalCustomized-MakeStaticAddresses"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="RemoveRequisitionFromSession1" action="commit"/>
+    <startNode referencedName="ProcessApproval-StartApproval"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveRequisitionFromSession1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/RemoveRequisitionFromSession.xml"/>
+    <nodeSuccessors name="next" next="End3"/>
+    <parameterBindings name="Requisition" objectPath="Requisition"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+</pipeline:Pipeline>

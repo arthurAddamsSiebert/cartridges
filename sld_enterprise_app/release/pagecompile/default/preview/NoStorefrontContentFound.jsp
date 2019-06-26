@@ -1,0 +1,29 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% URLPipelineAction action336 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("EditView-Dispatch",null),context.getFormattedValue(getObject("null"),null),context.getFormattedValue(getObject("null"),null),context.getFormattedValue(getObject("null"),null),context.getFormattedValue(getObject("null"),null),context.getFormattedValue(getObject("ManagementApplicationBO:UrlIdentifier"),null)))),null));String site336 = null;String serverGroup336 = null;String actionValue336 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("EditView-Dispatch",null),context.getFormattedValue(getObject("null"),null),context.getFormattedValue(getObject("null"),null),context.getFormattedValue(getObject("null"),null),context.getFormattedValue(getObject("null"),null),context.getFormattedValue(getObject("ManagementApplicationBO:UrlIdentifier"),null)))),null);if (site336 == null){  site336 = action336.getDomain();  if (site336 == null)  {      site336 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup336 == null){  serverGroup336 = action336.getServerGroup();  if (serverGroup336 == null)  {      serverGroup336 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("EditView-Dispatch",null),context.getFormattedValue(getObject("null"),null),context.getFormattedValue(getObject("null"),null),context.getFormattedValue(getObject("null"),null),context.getFormattedValue(getObject("null"),null),context.getFormattedValue(getObject("ManagementApplicationBO:UrlIdentifier"),null)))),null));out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue336, site336, serverGroup336,true)); %><input type="hidden" name="ContentRepositoryUUID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("ContentRepository:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {4}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>">
+<table id="nocontent" width="50%" cellpadding="10" cellspacing="0" border="0">
+<tr>
+<td><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/emptyCone.jpg" alt="" style="width: 250px;"/></td>
+<td>
+<table id="nocontent" cellpadding="10" cellspacing="0" border="0">
+<tr>
+<td class="overview_title_description"><% processOpenTag(response, pageContext, "apptext", new TagParameter[] {
+new TagParameter("parameter0",context.getFormattedValue(context.webRoot(),null) + context.getFormattedValue("/help/task_content_impex.html#task_content_impex_prepare",null)),
+new TagParameter("encoding","off"),
+new TagParameter("key","content.preview.NoStorefrontContentFound.description1")}, 12); %></td>
+</tr>
+<tr>
+<td class="overview_title_description"><% processOpenTag(response, pageContext, "apptext", new TagParameter[] {
+new TagParameter("encoding","off"),
+new TagParameter("key","content.preview.NoStorefrontContentFound.description2")}, 15); %></td>
+</tr><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("PermissionMap")))).booleanValue() && ((Boolean) (disableErrorMessages().isDefined(getObject("PermissionMap:SLD_MANAGE_CONTENT")))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",17,e);}if (_boolean_result) { %><tr class="buttons">
+<td nowrap="nowrap" colspan="2"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("WhiteChannelContent"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",20,e);}if (_boolean_result) { %><input class="button" type="submit" name="prepare" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("NoStorefrontContentFound.PrepareApplicationContent.button",null)),null)%>">&nbsp;
+<% } %><input class="button" type="submit" name="scratch" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("NoStorefrontContentFound.StartFromScratch.button",null)),null)%>">
+</td>
+</tr><% } %></table>
+</td>
+</tr>
+</table><% out.print("</form>"); %><% printFooter(out); %>

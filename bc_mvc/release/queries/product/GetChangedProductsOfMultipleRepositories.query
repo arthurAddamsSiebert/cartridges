@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductRepositories" type="java.util.Iterator" optional="false"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="NameOrIDOrDescription" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="CustomNonLocalizedAttributeName" type="java.lang.String" optional="true"/>
+	<parameter name="CustomNonLocalizedAttributeValue" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="CustomLocalizedAttributeName" type="java.lang.String" optional="true"/>
+	<parameter name="CustomLocalizedAttributeValue" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+    <parameter name="SortLocalizedFlag" type="java.lang.Integer" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Product" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="cNameOrIDOrDescription" input="NameOrIDOrDescription" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cCustomNonLocalizedAttributeValue" input="CustomNonLocalizedAttributeValue" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cCustomLocalizedAttributeValue" input="CustomLocalizedAttributeValue" processing="SearchExpression2Contains"/>
+</processor>
+<template type="countedobjects">
+	SELECT * FROM (
+		SELECT
+			p.uuid AS UUID, 
+			count(*) over() as "ROWCOUNT",
+			<template-call name="product/inc/ProductSorting">
+				<call-parameter name="ProductAlias" value="'p'"/>
+				<call-parameter name="SortAttribute" value="SortBy"/>
+				<call-parameter name="SortAttributeLocalizedFlag" value="SortLocalizedFlag"/>
+				<call-parameter name="LocaleInformation" value="LocaleInformation"/>
+			</template-call> AS SORTING
+		FROM 
+		product p, changedproducts cp
+	WHERE 
+		cp.uuid = p.uuid
+		AND cp.domainid = p.domainid
+		AND p.domainid IN
+		(
+			<template-loop iterator="ProductRepositories" alias="Repository">
+				<loop-statement>
+				<template-variable value="Repository:DomainID"/>
+				</loop-statement>
+				<loop-separator>,</loop-separator>
+			</template-loop>
+		)
+		<template-call name="product/inc/NameOrIDOrDescriptionFilter">
+			<call-parameter name="ProductAlias" value="'p'"/>
+			<call-parameter name="NameOrIDOrDescription" value="NameOrIDOrDescription"/>
+			<call-parameter name="LocaleInformation" value="LocaleInformation"/>
+		</template-call>
+		<sql-dialect name="Oracle">
+			<template-if condition="isDefined(CustomNonLocalizedAttributeName) and isDefined(CustomNonLocalizedAttributeValue) and CustomNonLocalizedAttributeValue:NotEmpty">
+				AND contains(p.attributes, '('||<template-variable value="cCustomNonLocalizedAttributeValue"/>||') INPATH (//attrs/attr[@name="' || <template-variable value="CustomNonLocalizedAttributeName"/> || '"]/string)')>0
+			</template-if>
+			<template-if condition="isDefined(CustomLocalizedAttributeName) AND isDefined(CustomLocalizedAttributeValue) and CustomLocalizedAttributeValue:NotEmpty">
+				AND contains(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, '('||<template-variable value="cCustomLocalizedAttributeValue"/>||') INPATH (//attrs/attr[@name="' || <template-variable value="CustomLocalizedAttributeName"/> || '"]/string)')>0
+			</template-if>
+		</sql-dialect>
+		<sql-dialect name="Microsoft">
+			<template-if condition="isDefined(CustomNonLocalizedAttributeName) AND isDefined(CustomNonLocalizedAttributeValue) and CustomNonLocalizedAttributeValue:NotEmpty">
+				AND p.attributes.exist('//attrs/attr[@name="<template-variable value="CustomNonLocalizedAttributeName"/>"]/string [contains(., "<template-variable value="cCustomNonLocalizedAttributeValue"/>")]')>0
+			</template-if>
+			<template-if condition="isDefined(CustomLocalizedAttributeName) AND isDefined(CustomLocalizedAttributeValue) and CustomLocalizedAttributeValue:NotEmpty">
+				AND p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>.exist('//attrs/attr[@name="<template-variable value="CustomLocalizedAttributeName"/>"]/string [contains(., "<template-variable value="cCustomLocalizedAttributeValue"/>")]')>0
+			</template-if>
+		</sql-dialect>
+	)a
+	ORDER BY CASE WHEN SORTING IS NULL THEN 1 ELSE 0 END ASC, SORTING ASC
+</template>
+</query>

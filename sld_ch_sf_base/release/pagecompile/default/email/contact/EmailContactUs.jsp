@@ -1,0 +1,41 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%%><%@ page session="false"%><%setEncodingType("text/html"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"email/mailTemplate/MailConfig", null, "3");} %><subject><% {out.write(localizeISText("email.contactus.heading",null,null,getObject("ChannelName"),null,null,null,null,null,null,null,null,null));} %></subject><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"email/mailTemplate/MailHeader", null, "7");} %><p class="header"><% {out.write(localizeISText("email.contactus.heading","",null,getObject("ChannelName"),null,null,null,null,null,null,null,null,null));} %></p><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("SenderName"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",13,e);}if (_boolean_result) { %><p><% {out.write(localizeISText("email.dear.label.name","",null,getObject("SenderName"),null,null,null,null,null,null,null,null,null));} %></p><% } %><p><% {out.write(localizeISText("email.contactus.thanks","",null,null,null,null,null,null,null,null,null,null,null));} %></p>
+<p><% {out.write(localizeISText("email.contactus.message","",null,null,null,null,null,null,null,null,null,null,null));} %></p>
+<table cellpadding="0" cellspacing="0" class="pattern">
+<tr class="mobileTable">
+<td width="600">
+<table cellpadding="0" cellspacing="0" width="100%" class="dataList">
+<tr>
+<td><% {out.write(localizeISText("email.contactus.name.label","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td><% {String value = null;try{value=context.getFormattedValue(getObject("SenderName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {35}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr>
+<tr>
+<td><% {out.write(localizeISText("email.contactus.email.label","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td><% {String value = null;try{value=context.getFormattedValue(getObject("MailFrom"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {43}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr>
+<tr>
+<td><% {out.write(localizeISText("email.contactus.phone_number.label","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td> 
+<% {String value = null;try{value=context.getFormattedValue(getObject("SenderPhone"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {51}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("AboutOrder")))).booleanValue() && ((Boolean) (((!(context.getFormattedValue(getObject("AboutOrder"),null).equals(context.getFormattedValue("",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",54,e);}if (_boolean_result) { %><tr>
+<td valign="top"><% {out.write(localizeISText("email.contactus.order_number.label","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td valign="top"><% {String value = null;try{value=context.getFormattedValue(getObject("AboutOrder"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {60}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr><% } %><tr>
+<td valign="top"><% {out.write(localizeISText("email.contactus.subject.label","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td valign="top"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("ContactUsEnumerationKeyProvider"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",69,e);}if (_boolean_result) { %><% while (loop("ContactUsEnumerationKeyProvider:AllKeys","CurrentKey",null)) { %><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("Subject"),null).equals(context.getFormattedValue(getObject("CurrentKey"),null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",71,e);}if (_boolean_result) { %><% {out.write(localizeISText(context.getFormattedValue(context.getFormattedValue("helpdesk.contactus.subject.option.",null) + context.getFormattedValue(getObject("CurrentKey"),null),null),"",null,null,null,null,null,null,null,null,null,null,null));} %><% if (getLoopStack().isEmpty()) {Logger.error(this,"ISBREAK occured outside ISLOOP. Line: {}",73);}else{getLoopStack().pop();break;} %><% } %><% } %><% } %></td>
+</tr>
+<tr>
+<td valign="top"><% {out.write(localizeISText("email.contactus.questions_comments.label","",null,null,null,null,null,null,null,null,null,null,null));} %>&nbsp;
+</td>
+<td valign="top"><% {String value = null;try{value=context.getFormattedValue(getObject("ContactUsForm:Comments:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {84}",e);}if (value==null) value="";value = encodeString(value,"nl2br,html");out.write(value);} %></td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+<p><% {out.write(localizeISText("email.questions",null,null,url(true,(new URLPipelineAction(context.getFormattedValue("ViewHomepage-Start",null)))),encodeString(context.getFormattedValue(getObject("ChannelName"),null)),url(true,(new URLPipelineAction(context.getFormattedValue("ViewContent-Start",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("PageletEntryPointID",null),context.getFormattedValue("systempage.helpdesk.index.pagelet2-Page",null)))),null,null,null,null,null,null,null));} %></p>
+<p><% {out.write(localizeISText("email.best_regards.label","",null,null,null,null,null,null,null,null,null,null,null));} %><br /><% {out.write(localizeISText("email.user_services.label",null,null,url(true,(new URLPipelineAction(context.getFormattedValue("ViewHomepage-Start",null)))),encodeString(context.getFormattedValue(getObject("ChannelName"),null)),null,null,null,null,null,null,null,null));} %></p><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"email/mailTemplate/MailFooter", null, "106");} %><% printFooter(out); %>

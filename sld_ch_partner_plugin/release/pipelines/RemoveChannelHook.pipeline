@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline removes all orgs, catalogs and master repositories depending to the submitted channel.
+@Group Channel-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="RemoveChannelHook" type="process">
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="Decision3"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="DeleteRepository:TypeCode"
+      operator="eq" conditionValue="32">
+    <nodeSuccessors name="decision_yes" next="Decision4"/>
+    <nodeSuccessors name="decision_no" next="End4"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision4" conditionKey="DeletionStack"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="CreateStack1"/>
+<!--@BendPoints 4,5 4,9-->
+    <nodeSuccessors name="decision_no" next="Join14"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStack1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStack.xml"/>
+    <nodeSuccessors name="next" next="Join14"/>
+    <returnValueBindings name="Stack" objectPath="DeletionStack"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join14">
+    <nodeSuccessors name="next" next="ManipulateStack1"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack1">
+    <configurationValues name="ProcessMethod" value="PUSH"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizations1"/>
+    <parameterBindings name="AddElement" objectPath="DeleteRepository"/>
+    <parameterBindings name="Stack" objectPath="DeletionStack"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizations1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizations.xml"/>
+    <nodeSuccessors name="next" next="ManipulateStack5"/>
+    <parameterBindings name="OrganizationType" nullBinding="true"/>
+    <parameterBindings name="Owner" objectPath="DeleteRepository:Domain"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack5">
+    <configurationValues name="ProcessMethod" value="PUSH"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+    <parameterBindings name="AddElement" objectPath="Organizations"/>
+    <parameterBindings name="Stack" objectPath="DeletionStack"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="Organizations">
+<!--@BendPoints 9,17-->
+    <nodeSuccessors name="next" next="ManipulateStack4"/>
+    <entry key="Organization">
+      <nodeSuccessors name="loop_entry_next" next="ExecuteCartridgePipelines5"/>
+    </entry>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCartridgePipelines5">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelinePropertyName" value="OrganizationDeletionHook"/>
+    <configurationValues name="ProcessReversely" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCartridgePipelines.xml"/>
+    <nodeSuccessors name="next" next="ManipulateStack3"/>
+<!--@BendPoints 5,19-->
+    <nodeSuccessors name="pipelet_error" next="Join3"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack3">
+    <configurationValues name="ProcessMethod" value="PEEK"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="Stack" objectPath="DeletionStack"/>
+    <returnValueBindings name="GetElement" objectPath="Organizations"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Organization:Domain:Site:DomainID"
+      operator="str_neq" conditionItem="Organization:OwningDomain:Site:DomainID">
+    <nodeSuccessors name="decision_yes" next="SetDomainStatus1"/>
+    <nodeSuccessors name="decision_no" next="Join3"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDomainStatus1">
+    <configurationValues name="DefaultStatus" value="ToBeDeleted"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDomainStatus.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="Domain" objectPath="Organization:Domain:Site"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 3,30 2,30 2,17-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+<!--@BendPoints 5,27-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack4">
+    <configurationValues name="ProcessMethod" value="POP"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="ManipulateStack6"/>
+    <parameterBindings name="Stack" objectPath="DeletionStack"/>
+    <returnValueBindings name="GetElement" objectPath="Organizations"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack6">
+    <configurationValues name="ProcessMethod" value="POP"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationState1"/>
+    <parameterBindings name="Stack" objectPath="DeletionStack"/>
+    <returnValueBindings name="GetElement" objectPath="DeleteRepository"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationState1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetApplicationState.xml"/>
+    <nodeSuccessors name="next" next="Decision2"/>
+<!--@BendPoints 11,23-->
+    <nodeSuccessors name="pipelet_error" next="Join13"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="ApplicationState:ChannelID"
+      operator="str_eq" conditionItem="DeleteRepository:UUID">
+    <nodeSuccessors name="decision_yes" next="RemoveStringValueFromApplicationState1"/>
+    <nodeSuccessors name="decision_no" next="Join13"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveStringValueFromApplicationState1">
+    <configurationValues name="DefaultKey" value="ChannelID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveStringValueFromApplicationState.xml"/>
+    <nodeSuccessors name="next" next="Join8"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join8">
+    <nodeSuccessors name="next" next="End2"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 5,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join13">
+<!--@BendPoints 11,29-->
+    <nodeSuccessors name="next" next="Join8"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+</pipeline:Pipeline>

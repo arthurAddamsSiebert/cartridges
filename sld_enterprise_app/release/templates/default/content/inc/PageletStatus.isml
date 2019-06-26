@@ -1,0 +1,59 @@
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<%@page import="com.intershop.component.pmc.capi.pagelet.Pagelet,
+    com.intershop.beehive.core.capi.pipeline.PipelineDictionary,
+    com.intershop.component.application.capi.ApplicationBO,
+    com.intershop.beehive.core.capi.app.AppContextUtil,
+    com.intershop.sellside.pmc.capi.modelrepository.ApplicationBOPageletModelRepositoryHelper,
+    java.util.Date" %>
+<!--- Check that we've been called with a pagelet view. 
+If not, then produce one based on pagelet and content-repository --->
+<isif condition="#NOT(isDefined(Pagelet:View) AND Pagelet:View)#">
+    <ispipeline pipeline="ViewPageletSearch-GetPageletView" params="#paramMap(paramEntry('Pagelet', Pagelet), paramEntry('ContextDomain', ContentRepository:RepositoryDomain))#" alias="PageletViewDictionary"/>
+    <isset name="Pagelet" value="#PageletViewDictionary:PageletView#" scope="request"/>
+</isif>
+<% 
+    Pagelet pagelet = (Pagelet)getPipelineDictionary().get("Pagelet"); 
+    long validFrom = pagelet.getValidFrom() != null ? pagelet.getValidFrom().getTime() : Long.MIN_VALUE;
+    long validTo = pagelet.getValidTo() != null ? pagelet.getValidTo().getTime() : Long.MAX_VALUE;
+    Date currentDateDate = (Date)getPipelineDictionary().get("Date");
+    long currentDate = currentDateDate != null ? currentDateDate.getTime() : new Date().getTime();
+    PipelineDictionary dict = getPipelineDictionary();
+    dict.put("CurrentDate", currentDate);
+    dict.put("ValidFrom", validFrom);
+    dict.put("ValidTo", validTo);
+    dict.put("ModelRepositoryHelper", ApplicationBOPageletModelRepositoryHelper.INSTANCE);
+%>
+<isif condition="#Pagelet:Template#">
+	<img class="status_icon" src="#WebRoot()#/images/ic_content_template.gif" alt="#localizeText('PageletStatus.Template.alt')#" title="#localizeText('PageletStatus.Template.title')#" border="0"/>
+	<isif condition="#not(Pagelet:Active)#">
+	    <img class="status_icon" src="#WebRoot()#/images/status_content_not_published.gif" alt="#localizeText('PageletStatus.NotActive.alt')#" title="#localizeText('PageletStatus.NotActive.title')#" border="0"/>
+	<iselse>
+	    <img class="status_icon" src="#WebRoot()#/images/status_online.gif" alt="#localizeText('PageletStatus.CurrentlyActive.alt')#" title="#localizeText('PageletStatus.CurrentlyActive.title')#" border="0"/>
+	</isif>
+<iselse>
+	<isif condition="#not(Pagelet:Active)#">
+	    <img class="status_icon" src="#WebRoot()#/images/status_content_not_published.gif" alt="#localizeText('PageletStatus.NotPublished.alt')#" title="#localizeText('PageletStatus.NotPublished.title')#" border="0"/>
+	<iselse>
+	    <isif condition="#ValidTo < CurrentDate#">
+	        <img class="status_icon" src="#WebRoot()#/images/status_content_published_past.gif" alt="#localizeText('PageletStatus.CurrentlyNotPublishedButInThePast.alt')#" title="#localizeText('PageletStatus.CurrentlyNotPublishedButInThePast.title')#" border="0"/>
+	    <iselseif condition="#ValidFrom > CurrentDate#">
+	        <img class="status_icon" src="#WebRoot()#/images/status_content_published_future.gif" alt="#localizeText('PageletStatus.CurrentlyNotPublishedButInTheFuture.alt')#" title="#localizeText('PageletStatus.CurrentlyNotPublishedButInTheFuture.title')#" border="0"/>
+	    <iselse>
+	        <img class="status_icon" src="#WebRoot()#/images/status_online.gif" alt="#localizeText('PageletStatus.CurrentlyPublished.alt')#" title="#localizeText('PageletStatus.CurrentlyPublished.title')#" border="0"/>
+	    </isif>
+	</isif>
+</isif>
+<isif condition="#(Pagelet:Domain NE ContentRepository:RepositoryDomain) OR (Pagelet:isView AND Pagelet:isShared)#">
+    <isif condition="#Pagelet:isView AND Pagelet:isShared#">
+	    <ISGetContentRepositoryDisplayName contentDomain="#Pagelet:Base:Domain#" contentRepositoryDisplayName="contentRepositoryDisplayName">
+    <iselse>
+    	<ISGetContentRepositoryDisplayName contentDomain="#Pagelet:Domain#" contentRepositoryDisplayName="contentRepositoryDisplayName">
+    </isif>
+    <isif condition="#ModelRepositoryHelper:isPageletDefinitionOverridden(Pagelet:PageletDefinition)#">
+	    <img class="status_icon" src="#WebRoot()#/images/status_shared_content_overridden.gif" alt="#localizeTextEx('PageletStatus.SharedFrom0.alt',ParameterList(encodeValue(contentRepositoryDisplayName)))#" title="#localizeTextEx('PageletStatus.SharedFrom0.title',ParameterList(encodeValue(contentRepositoryDisplayName)))#" border="0"/>
+    <iselseif condition="#Pagelet:View AND Pagelet:isDerived#">
+	    <img class="status_icon" src="#WebRoot()#/images/status_shared_content_overridden.gif" alt="#localizeTextEx('PageletStatus.SharedFrom1.alt',ParameterList(encodeValue(contentRepositoryDisplayName)))#" title="#localizeTextEx('PageletStatus.SharedFrom1.title',ParameterList(encodeValue(contentRepositoryDisplayName)))#" border="0"/>
+    <iselse>
+	    <img class="status_icon" src="#WebRoot()#/images/status_shared_content_from.gif" alt="#localizeTextEx('PageletStatus.SharedFrom0.alt1',ParameterList(encodeValue(contentRepositoryDisplayName)))#" title="#localizeTextEx('PageletStatus.SharedFrom0.title1',ParameterList(encodeValue(contentRepositoryDisplayName)))#" border="0"/>
+    </isif>
+</isif>

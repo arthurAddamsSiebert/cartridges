@@ -1,0 +1,187 @@
+<iscontent type="text/xml" templatemarker="false" charset="utf-8" session="false" compact="false">
+<%@ page import="java.util.*,
+	com.intershop.adapter.bmecat.util.BMEcatExportUtil,
+	com.intershop.beehive.core.capi.localization.*,
+	com.intershop.beehive.core.capi.naming.NamingMgr,
+	com.intershop.beehive.xcs.capi.catalog.*,
+	com.intershop.beehive.xcs.capi.product.*,
+	com.intershop.beehive.xcs.internal.catalog.ProductCategoryAssignment,
+	com.intershop.beehive.xcs.capi.producttype.*,
+	com.intershop.beehive.core.capi.domain.AttributeValue,
+	com.intershop.component.mvc.capi.catalog.Catalog" 
+%>
+<%!
+	private ProductTypeMgr productTypeMgr = (ProductTypeMgr)NamingMgr.getInstance().
+		lookupManager(ProductTypeMgr.REGISTRY_NAME);
+%>
+<%
+	Product product = (Product)getObject("Product");
+	LocaleInformation locale = (LocaleInformation)getObject("Locale");
+	
+	for (Iterator classificationCatalogs = (Iterator)getObject("ClassificationCatalogs");
+		 classificationCatalogs.hasNext(); )
+	{
+		String catalogDomainUUID=null,pcaCatalogCategoryDomainUUID=null,catalogID=null,categoryName=null;
+		Catalog catalog = (Catalog)classificationCatalogs.next();
+		if(catalog!=null)
+	    {
+	    	catalogDomainUUID = catalog.getCatalogDomain().getUUID();
+	    	catalogID = catalog.getId();
+	    }
+		
+		Iterator<CatalogCategory> cci = product.createCatalogCategoriesIterator();
+		while (cci.hasNext())
+		{
+		    CatalogCategory catalogCategory = cci.next();
+		    categoryName = catalogCategory.getName();
+		    pcaCatalogCategoryDomainUUID = catalogCategory.getDomain().getUUID(); 
+
+			if (pcaCatalogCategoryDomainUUID!=null && catalogDomainUUID!=null
+				&& catalogDomainUUID.equals(pcaCatalogCategoryDomainUUID))
+			{
+				out.println("<ARTICLE_FEATURES>");
+				BMEcatExportUtil.writeElement(out, this, "Catalog:Id", 
+					catalogID, "REFERENCE_FEATURE_SYSTEM_NAME", 50, true);
+				out.println();
+				BMEcatExportUtil.writeElement(out, this, "Category:Name", 
+					categoryName, "REFERENCE_FEATURE_GROUP_ID", 60, true);
+				out.println();
+				
+	
+				ProductType productType = productTypeMgr.
+					getProductTypeByName(categoryName, catalog.getDomain());
+	
+				if (productType == null)
+				{
+					productType = productTypeMgr.getProductTypeByName(
+						catalogID + "_" + categoryName, catalog.getDomain());
+				}
+	
+				if (productType != null)
+				{
+					for (Iterator pas = productType.createCustomProductAttributesIterator(); pas.hasNext(); )
+					{
+						ProductAttribute pa = (ProductAttribute)pas.next();
+						String name = pa.getName();
+						Object value = null;
+	
+						if (pa.isLocalized())
+						{
+							value = product.getLocalizedAttribute(name, locale);
+							value = value != null ? value : pa.getDefaultValue(locale);
+						}
+						else
+						{
+							value = product.getAttribute(name);
+							value = value != null ? value : pa.getDefaultValue();
+						}
+	
+						if (value == null ||
+							((value instanceof String) && ((String)value).trim().equals(""))) continue;
+						
+						out.println("<FEATURE>");
+						BMEcatExportUtil.writeElement(out, this, "ProductAttribute:Name", 
+							name, "FNAME", 60, false);
+						out.println();
+						BMEcatExportUtil.writeElement(out, this, "Product:" + name, 
+							getFormattedValue(value, null), "FVALUE", 60, false);
+						out.println();
+						BMEcatExportUtil.writeElement(out, this, "ProductAttribute:Unit",
+							pa.getUnit(), "FUNIT", 20, true);
+						out.println();
+						out.println("</FEATURE>");
+					}
+				}
+	
+				out.println("</ARTICLE_FEATURES>");
+			} // if (categoryName != null && !categoryName.equals("")) 
+		} // for(ProductCategoryAssignment pca:pcas)
+	}
+
+	outer:for (int i = 1;;++i)
+	{
+		out.println("<ARTICLE_FEATURES>");
+		
+		String classSystemName = product.getString("BME_ARTICLE_FEATURES_" + i + "_FEATURE_SYSTEMNAME");
+		if (classSystemName != null)
+		{
+			BMEcatExportUtil.writeElement(out, this, "Product:BME_ARTICLE_FEATURES_" + i + "_FEATURE_SYSTEMNAME",
+				classSystemName, "REFERENCE_FEATURE_SYSTEM_NAME", 50, true);
+			out.println();
+			String classCodeID = null;
+			AttributeValue classCodeName = null;
+			
+			if ((classCodeID = product.getString("BME_ARTICLE_FEATURES_" + i + "_FEATURE_GROUPID")) != null)
+			{
+				BMEcatExportUtil.writeElement(out, this, "Product:BME_ARTICLE_FEATURES_" + i + "_FEATURE_GROUPID", 
+					classCodeID, "REFERENCE_FEATURE_GROUP_ID", 60, false);
+				out.println();
+			}
+			else if ((classCodeName = product.getAttributeValue("BME_ARTICLE_FEATURES_" + i + "_FEATURE_GROUPID", locale)) != null)
+			{
+				BMEcatExportUtil.writeElement(out, this, "Produt:BME_ARTICLE_FEATURES_" + i + "_FEATURE_GROUPID", 
+					classCodeName.getStringValue(), "REFERENCE_FEATURE_GROUP_NAME", 60, true);
+				out.println();
+			}
+		}
+
+		for (int j = 1;; ++j)
+		{
+			String key = "BME_ARTICLE_FEATURES_" + i + "_FEATURE_" + j;
+			String fname = product.getString(key + "_FNAME");
+
+			if (classSystemName == null && fname == null) 
+			{
+				out.println("</ARTICLE_FEATURES>");
+				break outer;
+			}
+
+			if (fname == null) break;	
+
+			out.println("<FEATURE>");
+			BMEcatExportUtil.writeElement(out, this, "Product:" + key + "_FNAME", 
+				fname, "FNAME", 60, false);
+			out.println();
+
+			for (int k = 1;; ++k)
+			{
+				AttributeValue fvalue = product.getAttributeValue(key + "_FVALUE" + k, locale);
+
+				if (fvalue == null) break;
+
+				out.println("<FVALUE>" + encodeString(fvalue.getStringValue()) + "</FVALUE>");
+				BMEcatExportUtil.writeElement(out, this, "Product:" + key + "_FVALUE" + k, 
+					fvalue.getStringValue(), "FVALUE", 60, false);
+				out.println();	
+			}
+
+			BMEcatExportUtil.writeElement(out, this, "Product:" + key + "_FUNIT", 
+				product.getString(key + "_FUNIT"), "FUNIT", 0, true);
+			out.println();
+
+			BMEcatExportUtil.writeElement(out, this, "Product:" + key + "_FORDER", 
+				product.getString(key + "_FORDER"), "FORDER", 10, true);
+			out.println();
+
+			AttributeValue fdescr = product.getAttributeValue(key + "_FDESCR", locale);
+			if (fdescr != null)
+			{
+				BMEcatExportUtil.writeElement(out, this, "Product:" + key + "_FDESCR", 
+					fdescr.getStringValue(), "FDESCR", 250, false);
+				out.println();
+			}
+
+			AttributeValue fvalueDetails = product.getAttributeValue(key + "_FVALUE_DETAILS", locale);
+			if (fvalueDetails != null)
+			{
+				BMEcatExportUtil.writeElement(out, this, "Product:" + key + "_FAVALUE_DETAILS", 
+					fvalueDetails.getStringValue(), "FVALUE_DETAILS", 250, false);
+				out.println();
+			}
+
+			out.println("</FEATURE>");	
+		}
+
+		out.println("</ARTICLE_FEATURES>");
+	}
+%>

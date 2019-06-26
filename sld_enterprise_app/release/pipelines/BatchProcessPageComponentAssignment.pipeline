@@ -1,0 +1,578 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Pipeline provides batch process functionality to remove PageComponentAssignments and to update Online/Offline period of PageComponentAssignments.
+@Group Job-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="BatchProcessPageComponentAssignment" type="process">
+<!--@Location 1,19-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="CreateLogEntry"
+      callMode="Private">
+<!--@BendPoints 3,40-->
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameters name="BatchError" type="java.lang.String"/>
+  </nodes>
+<!--@Location 1,20-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="BatchError:ErrorCode"
+      operator="str_eq" conditionValue="Locked">
+    <nodeSuccessors name="decision_yes" next="GetPageletByUUID1"/>
+<!--@BendPoints 7,41-->
+    <nodeSuccessors name="decision_no" next="Pipelet1"/>
+  </nodes>
+<!--@Location 1,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPageletByUUID1">
+    <pipelet href="enfinity:/bc_pmc/pipelets/GetPageletByUUID.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+<!--@BendPoints 4,45 4,47-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="PageletUUID" objectPath="BatchError:ObjectID"/>
+  </nodes>
+<!--@Location 1,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 1,24-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Pagelet:Page"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 3,50-->
+    <nodeSuccessors name="decision_yes" next="LoopNode1"/>
+<!--@BendPoints 5,49-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 1,25-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Pagelet:PageletAssignmentPOs">
+<!--@BendPoints 4,51 4,56 3,56-->
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <entry key="Assignment">
+      <nodeSuccessors name="loop_entry_next" next="GetCatalogCategoryPath2"/>
+    </entry>
+  </nodes>
+<!--@Location 1,26-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogCategoryPath2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogCategoryPath.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="CatalogCategoryID" objectPath="Assignment:ObjectID"/>
+  </nodes>
+<!--@Location 1,27-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 2,55 2,51-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 1,28-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="ParentCategories"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="LoopNode3"/>
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 1,30-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="ParentCategories">
+<!--@BendPoints 4,61 4,65 3,65-->
+    <nodeSuccessors name="next" next="Pipelet4"/>
+    <entry key="ParentCategory">
+<!--@BendPoints 3,62-->
+      <nodeSuccessors name="loop_entry_next" next="ConcatenateStrings3"/>
+    </entry>
+  </nodes>
+<!--@Location 1,31-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+<!--@BendPoints 3,64 2,64 2,61-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+    <parameterBindings name="String0" objectPath="CategoryPath"/>
+    <parameterBindings name="String1" constant=" / "/>
+    <parameterBindings name="String2" objectPath="ParentCategory:DisplayName"/>
+    <returnValueBindings name="Concatenated" objectPath="CategoryPath"/>
+  </nodes>
+<!--@Location 1,33-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="LogLevel" value="Error"/>
+    <configurationValues name="MessageKey" value="bc_foundation.batch.Locked"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateLogEntry.xml"/>
+<!--@BendPoints 3,69-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="Object0" objectPath="CategoryPath"/>
+    <parameterBindings name="Object1" objectPath="BatchError:Exception"/>
+    <parameterBindings name="Object2" objectPath="BatchError:ObjectID"/>
+  </nodes>
+<!--@Location 2,34-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode17"/>
+  </nodes>
+<!--@Location 2,35-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" strict="true"/>
+<!--@Location 2,28-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="Pipelet3"/>
+  </nodes>
+<!--@Location 2,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="LogLevel" value="Error"/>
+    <configurationValues name="MessageKey" value="bc_foundation.batch.Locked"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateLogEntry.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="Object0" objectPath="Pagelet:DisplayName"/>
+    <parameterBindings name="Object1" objectPath="BatchError:Exception"/>
+    <parameterBindings name="Object2" objectPath="BatchError:ObjectID"/>
+  </nodes>
+<!--@Location 3,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="LogLevel" value="Error"/>
+    <configurationValues name="MessageKey" value="bc_foundation.batch.Unknown"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateLogEntry.xml"/>
+<!--@BendPoints 7,69-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="Object0" objectPath="BatchError:ObjectType"/>
+    <parameterBindings name="Object1" objectPath="BatchError:Exception"/>
+    <parameterBindings name="Object2" objectPath="BatchError:ObjectID"/>
+    <parameterBindings name="Object3" objectPath="BatchError:ErrorCode"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" strict="true" name="Finish"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameters name="BatchErrors" type="java.util.Iterator" optional="true"/>
+<!--The JDBC connection to be closed.-->
+    <parameters name="Connection" type="java.sql.Connection"/>
+    <parameters name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration"
+        optional="true"/>
+<!--The log scope all registered target should be removed for.-->
+    <parameters name="LogScope" type="com.intershop.beehive.core.capi.log.LogScope"
+        optional="true"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+<!--@BendPoints 1,14-->
+    <nodeSuccessors name="next" next="CloseJDBCConnection2"/>
+    <startNode referencedName="BatchProcessLog-CleanLogger"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CloseJDBCConnection2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CloseJDBCConnection.xml"/>
+<!--@BendPoints 1,16-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="FinishRemoveSlotPageletAssignments"
+      callMode="Private">
+<!--@BendPoints 9,2-->
+    <nodeSuccessors name="next" next="CallNode4"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 9,4-->
+    <nodeSuccessors name="next" next="Pipelet8"/>
+    <startNode referencedName="This:Finish"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet8">
+    <configurationValues name="PersistentClassName_0" value="com.intershop.component.pmc.internal.pagelet.SlotPageletAssignmentPO"/>
+    <configurationValues name="PersistentClassName_1" value="com.intershop.component.pmc.internal.pagelet.PageletPO"/>
+    <configurationValues name="PersistentClassName_2" value="com.intershop.component.pmc.internal.pagelet.SlotPO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue4"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue4">
+    <configurationValues name="Name" value="TableNames"/>
+    <configurationValues name="Value" value="slotpageletassignment;pagelet;slot"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="CallNode2"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 9,10-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <startNode referencedName="ProcessAnalyzeTables-AnalyzeTables"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4"/>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="FinishUpdateSlotPageletAssignments"
+      callMode="Private">
+<!--@BendPoints 21,2-->
+    <nodeSuccessors name="next" next="CallNode6"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 21,4-->
+    <nodeSuccessors name="next" next="Pipelet2"/>
+    <startNode referencedName="This:Finish"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="PersistentClassName_0" value="com.intershop.component.pmc.internal.pagelet.SlotPageletAssignmentPO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+<!--@BendPoints 21,6-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="Init" callMode="Private">
+    <nodeSuccessors name="next" next="OpenJDBCConnection1"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="OpenJDBCConnection1">
+    <configurationValues name="AutoCommit" value="false"/>
+    <configurationValues name="ConnectionCartridge" value="core"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/OpenJDBCConnection.xml"/>
+<!--@BendPoints 1,4-->
+    <nodeSuccessors name="next" next="CreateBatchProcessor1"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateBatchProcessor1">
+    <configurationValues name="BatchProcessorClassName" value="com.intershop.component.pmc.capi.batch.DeleteSlotPageletAssignmentBatchProcessor"/>
+    <configurationValues name="ConstructorParameterClassName_01" value="java.sql.Connection"/>
+    <configurationValues name="ConstructorParameterClassName_02" value="com.intershop.beehive.core.capi.user.User"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateBatchProcessor.xml"/>
+<!--@BendPoints 1,6-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+<!--@BendPoints 3,5 3,8-->
+    <nodeSuccessors name="pipelet_error" next="EndNode16"/>
+    <parameterBindings name="ConstructorParameter_01" objectPath="Connection"/>
+    <parameterBindings name="ConstructorParameter_02" objectPath="JobConfiguration:CurrentProcess:User"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 1,8-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <startNode referencedName="BatchProcessLog-PrepareLogger"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" name="Error" strict="true"/>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" name="InitUpdateSlotPageletAssignments"
+      callMode="Private">
+<!--@BendPoints 13,2-->
+    <nodeSuccessors name="next" next="OpenJDBCConnection2"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="OpenJDBCConnection2">
+    <configurationValues name="AutoCommit" value="false"/>
+    <configurationValues name="ConnectionCartridge" value="core"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/OpenJDBCConnection.xml"/>
+<!--@BendPoints 13,4-->
+    <nodeSuccessors name="next" next="GetLocale1"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <configurationValues name="LocaleFallback" value="Session Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+<!--@BendPoints 13,6-->
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <parameterBindings name="LocaleId" objectPath="LocaleID"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+<!--@BendPoints 13,8-->
+    <nodeSuccessors name="next" next="CreateBatchProcessor2"/>
+<!--@BendPoints 15,8-->
+    <nodeSuccessors name="ERROR" next="JoinNode1"/>
+    <startNode referencedName="This:VerifyOnlinePeriod"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateBatchProcessor2">
+    <configurationValues name="BatchProcessorClassName" value="com.intershop.component.pmc.capi.batch.UpdateSlotPageletAssignmentBatchProcessor"/>
+    <configurationValues name="ConstructorParameterClassName_01" value="java.sql.Connection"/>
+    <configurationValues name="ConstructorParameterClassName_02" value="com.intershop.beehive.core.capi.user.User"/>
+    <configurationValues name="ConstructorParameterClassName_03" value="java.lang.Boolean"/>
+    <configurationValues name="ConstructorParameterClassName_04" value="java.util.Date"/>
+    <configurationValues name="ConstructorParameterClassName_05" value="java.util.Date"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateBatchProcessor.xml"/>
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="ConstructorParameter_01" objectPath="Connection"/>
+    <parameterBindings name="ConstructorParameter_02" objectPath="JobConfiguration:CurrentProcess:User"/>
+    <parameterBindings name="ConstructorParameter_03" objectPath="OnlineFlag"/>
+    <parameterBindings name="ConstructorParameter_04" objectPath="ValidFrom"/>
+    <parameterBindings name="ConstructorParameter_05" objectPath="ValidTo"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+<!--@BendPoints 13,12-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+    <startNode referencedName="BatchProcessLog-PrepareLogger"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7"/>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode14"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" name="Error"/>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="LogBatchErrors"
+      callMode="Private">
+<!--@BendPoints 1,22-->
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameters name="BatchErrors" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 0,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="BatchErrors"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+<!--@BendPoints 3,23 3,24-->
+    <nodeSuccessors name="decision_no" next="LoopNode2"/>
+  </nodes>
+<!--@Location 0,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="EndNode15"/>
+  </nodes>
+<!--@Location 0,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true"/>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="BatchErrors">
+<!--@BendPoints 4,25 4,31-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <entry key="BatchError">
+<!--@BendPoints 3,26-->
+      <nodeSuccessors name="loop_entry_next" next="CallNode10"/>
+    </entry>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+<!--@BendPoints 3,29 2,29 2,25-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <startNode referencedName="BatchProcessPageComponentAssignment-CreateLogEntry"/>
+  </nodes>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="RemoveSlotPageletAssignments"
+      callMode="Private">
+<!--@BendPoints 5,2-->
+    <nodeSuccessors name="next" next="ExecuteBatchProcessor2"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteBatchProcessor2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExecuteBatchProcessor.xml"/>
+<!--@BendPoints 5,4-->
+    <nodeSuccessors name="next" next="CallNode8"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+<!--@BendPoints 5,6-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <startNode referencedName="This:LogBatchErrors"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3"/>
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="UpdateSlotPageletAssignments"
+      callMode="Private">
+<!--@BendPoints 17,2-->
+    <nodeSuccessors name="next" next="ExecuteBatchProcessor1"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteBatchProcessor1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExecuteBatchProcessor.xml"/>
+<!--@BendPoints 17,4-->
+    <nodeSuccessors name="next" next="CallNode9"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+<!--@BendPoints 17,6-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <startNode referencedName="This:LogBatchErrors"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5"/>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" strict="true" name="VerifyOnlinePeriod"
+      callMode="Private">
+<!--@BendPoints 9,16-->
+    <nodeSuccessors name="next" next="VerifyBoolean1"/>
+<!--An optional pattern.-->
+    <parameters name="DatePattern" type="java.lang.String" optional="true"/>
+<!--An optional locale. Fallback is the session locale.-->
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"
+        optional="true"/>
+    <parameters name="OnlineFlag" type="java.lang.String"/>
+    <parameters name="ValidFrom_Day" type="java.lang.String" optional="true"/>
+    <parameters name="ValidFrom_Time" type="java.lang.String" optional="true"/>
+    <parameters name="ValidTo_Day" type="java.lang.String" optional="true"/>
+    <parameters name="ValidTo_Time" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyBoolean1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyBoolean.xml"/>
+<!--@BendPoints 9,18-->
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+<!--@BendPoints 10,17-->
+    <nodeSuccessors name="pipelet_error" next="EndNode12"/>
+    <parameterBindings name="NoneLocalizedString" objectPath="OnlineFlag"/>
+    <returnValueBindings name="BooleanValue" objectPath="OnlineFlag"/>
+    <returnValueBindings name="ErrorCode" objectPath="ErrorOnlineFlagIncorrect"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="OnlineFlag"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 9,20-->
+    <nodeSuccessors name="decision_yes" next="CheckForEmptyString1"/>
+<!--@BendPoints 11,19-->
+    <nodeSuccessors name="decision_no" next="EndNode10"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+<!--@BendPoints 11,21 11,22-->
+    <nodeSuccessors name="pipelet_error" next="CheckForEmptyString2"/>
+    <parameterBindings name="FilledString" objectPath="ValidFrom_Day"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="ConcatenateStrings1"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+<!--@BendPoints 9,28-->
+    <nodeSuccessors name="next" next="VerifyDate1"/>
+    <parameterBindings name="String0" objectPath="ValidFrom_Day"/>
+    <parameterBindings name="String1" constant=","/>
+    <parameterBindings name="String2" objectPath="ValidFrom_Time"/>
+    <returnValueBindings name="Concatenated" objectPath="ValidFrom"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDate.xml"/>
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode11"/>
+    <parameterBindings name="DateString" objectPath="ValidFrom"/>
+    <returnValueBindings name="Date" objectPath="ValidFrom"/>
+    <returnValueBindings name="DateIncorrect" objectPath="ErrorValidFromIncorrect"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 9,32-->
+    <nodeSuccessors name="next" next="CheckForEmptyString4"/>
+  </nodes>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="JoinNode11"/>
+<!--@BendPoints 11,33 11,34-->
+    <nodeSuccessors name="pipelet_error" next="CheckForEmptyString3"/>
+    <parameterBindings name="FilledString" objectPath="ValidTo_Day"/>
+  </nodes>
+<!--@Location 4,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+<!--@BendPoints 9,38-->
+    <nodeSuccessors name="next" next="ConcatenateStrings2"/>
+  </nodes>
+<!--@Location 4,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+<!--@BendPoints 9,40-->
+    <nodeSuccessors name="next" next="VerifyDate2"/>
+    <parameterBindings name="String0" objectPath="ValidTo_Day"/>
+    <parameterBindings name="String1" constant=","/>
+    <parameterBindings name="String2" objectPath="ValidTo_Time"/>
+    <returnValueBindings name="Concatenated" objectPath="ValidTo"/>
+  </nodes>
+<!--@Location 4,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyDate2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDate.xml"/>
+    <nodeSuccessors name="next" next="JoinNode13"/>
+<!--@BendPoints 11,41-->
+    <nodeSuccessors name="pipelet_error" next="EndNode9"/>
+    <parameterBindings name="DateString" objectPath="ValidTo"/>
+    <returnValueBindings name="Date" objectPath="ValidTo"/>
+    <returnValueBindings name="DateIncorrect" objectPath="ErrorValidToIncorrect"/>
+  </nodes>
+<!--@Location 4,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+<!--@BendPoints 9,44-->
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 4,22-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="ValidFrom:Time">
+<!--@BendPoints 9,46-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode6"/>
+<!--@BendPoints 13,45-->
+    <nodeSuccessors name="decision_no" next="JoinNode15"/>
+  </nodes>
+<!--@Location 4,23-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="ValidTo:Time">
+<!--@BendPoints 9,48-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode7"/>
+    <nodeSuccessors name="decision_no" next="JoinNode15"/>
+  </nodes>
+<!--@Location 4,24-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="ValidFrom:Time"
+      operator="lt" conditionItem="ValidTo:Time">
+    <nodeSuccessors name="decision_yes" next="JoinNode14"/>
+<!--@BendPoints 11,49-->
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue1"/>
+  </nodes>
+<!--@Location 4,25-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+<!--@BendPoints 9,54-->
+    <nodeSuccessors name="next" next="EndNode8"/>
+  </nodes>
+<!--@Location 4,27-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" strict="true">
+    <returnValues name="OnlineFlag" type="java.lang.Boolean"/>
+    <returnValues name="ValidFrom" type="java.lang.String" optional="true"/>
+    <returnValues name="ValidTo" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 5,26-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="ErrorPeriodIncorrect"/>
+    <configurationValues name="Value" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 11,54-->
+    <nodeSuccessors name="next" next="EndNode13"/>
+  </nodes>
+<!--@Location 5,27-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" name="ERROR" strict="true">
+    <returnValues name="ErrorPeriodIncorrect" type="java.lang.String"/>
+  </nodes>
+<!--@Location 6,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+<!--@BendPoints 13,51-->
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+<!--@Location 6,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="ERROR" strict="true">
+    <returnValues name="ErrorValidToIncorrect" type="java.lang.String"/>
+  </nodes>
+<!--@Location 5,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+<!--@BendPoints 11,37-->
+    <nodeSuccessors name="next" next="JoinNode11"/>
+<!--@BendPoints 12,35 12,43-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode13"/>
+    <parameterBindings name="FilledString" objectPath="ValidTo_Time"/>
+  </nodes>
+<!--@Location 6,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" name="ERROR" strict="true">
+    <returnValues name="ErrorValidFromIncorrect" type="java.lang.String"/>
+  </nodes>
+<!--@Location 5,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+<!--@BendPoints 11,25-->
+    <nodeSuccessors name="next" next="JoinNode9"/>
+<!--@BendPoints 12,23 12,31-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="FilledString" objectPath="ValidFrom_Time"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" strict="true">
+    <returnValues name="OnlineFlag" type="java.lang.Boolean"/>
+    <returnValues name="ValidFrom_Day" type="java.lang.String" optional="true"/>
+    <returnValues name="ValidFrom_Time" type="java.lang.String" optional="true"/>
+    <returnValues name="ValidTo_Day" type="java.lang.String" optional="true"/>
+    <returnValues name="ValidTo_Time" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" name="ERROR" strict="true">
+    <returnValues name="ErrorOnlineFlagIncorrect" type="java.lang.String" optional="true"/>
+  </nodes>
+</pipeline:Pipeline>

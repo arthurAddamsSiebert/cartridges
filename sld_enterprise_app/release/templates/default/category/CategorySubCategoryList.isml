@@ -1,0 +1,345 @@
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<ISCategoryDisplayName Category="#Category#" UseIDFallback="true" SkipPrint="true" CatDisplayNameResult="CatDisplayName">
+<ISBreadCrumbTrail listview="true" id="#Category:UUID#" link="#URL(Action('ViewCategorySubCategory-ListAll'), Parameter('CatalogCategoryID', Category:UUID), Parameter('CatalogUUID', Catalog:UUID))#" text="#CatDisplayName#" text1="#' - '.localizeText('CategorySubCategoryList.SubCategories.text1')#">
+
+<!-- Working Area -->  
+
+<!-- tabs -->
+<isset scope="request" name="SelectedTab" value="SubCategories">
+<isinclude template="category/CategoryTabs">
+<!-- EO tabs -->
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td width="100%" class="w e s table_title"><isprint value="#CatDisplayName#"> - <istext key="CategorySubCategoryList.SubCategories.table_title" encoding="off"/></td>
+	</tr>
+	<isif condition="#isDefined(CurrentUserPermissionMap:SLD_MANAGE_CATALOGS)#">
+		<!-- delete confirmation for sub-categories -->
+		<isif condition="#isDefined(confirmCategoriesDelete) AND (hasLoopElements(SortedCategoryUUIDIterator) OR hasLoopElements(UnsortedCategoryUUIDIterator))#">
+			<tr>
+				<td>
+					<isform action="#URL(Action('ViewCategorySubCategory-Dispatch'))#" method="post" name="deleteCategoryForm">
+						<table border="0" cellpadding="0" cellspacing="0" width="100%" class="w e s">
+							<ISMessageBox subject="#localizeText('sld_enterprise_app.Categorie.subject')#"
+											type="mdc"
+											okbtnname="deleteCategories"
+											cancelbtnname="cancelDelete"
+											parametername1="CatalogCategoryID"
+											parametervalue1="#Category:UUID#"
+											parametername2="CatalogUUID"
+											parametervalue2="#Catalog:UUID#"
+											class="w100">
+						</table>
+					</isform>
+				</td>
+			</tr>
+		</isif>
+		<!-- delete confirmation if nothing is selected-->
+		<isif condition="#isDefined(confirmCategoriesDelete) AND NOT hasLoopElements(SortedCategoryUUIDIterator) AND NOT hasLoopElements(UnsortedCategoryUUIDIterator)#">
+			<ISMessageBox subject="#localizeText('sld_enterprise_app.Categorie.subject')#" type="mde">
+		</isif>
+		<isif condition="#isDefined(copyCategories) and not(hasLoopElements(CategoryUUIDIterator))#">
+			<ISMessageBox type="nse" message="#localizeText('CategorySubCategoryList.YouHaveNotSelectedAnythingSelectAtLeastOneCategory.message')#">     
+		</isif>
+		<isif condition="#isDefined(ERROR_SELECTION_MOVE_CATEGORY_UP)#">
+			<ISMessageBox subject="#localizeText('sld_enterprise_app.Categorie.subject')#" type="sortup">
+		</isif>
+		<isif condition="#isDefined(ERROR_SELECTION_MOVE_CATEGORY_DOWN)#">
+			<ISMessageBox subject="#localizeText('sld_enterprise_app.Categorie.subject')#" type="sortdown">
+		</isif>
+	</isif>
+	<!-- sort confirmation-->
+	<isif condition="#isDefined(sortCategories) AND (NOT(hasElements(UnsortedCategoryUUIDIterator)))#">
+		<tr>
+			<td class="w e s">
+				<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box">
+					<tr>
+						<td class="error_icon e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+						<td class="error" width="100%">
+						<istext key="CategorySubCategoryList.YouHaveNotSelectedAnythingSelectUnsortedCategories.error" encoding="off"/>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</isif>
+	<isif condition="#isDefined(unsortCategories) AND (NOT(hasElements(SortedCategoryUUIDIterator)))#">
+		<tr>
+			<td class="w e s">
+				<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box">
+					<tr>
+						<td class="error_icon e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+						<td class="error" width="100%">
+							<istext key="CategorySubCategoryList.YouHaveNotSelectedAnythingSelectAtLeastOneSortedCa.error" encoding="off"/>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</isif>
+</table>
+<isform action="#URL(Action('ViewCategorySubCategory-Dispatch'))#" method="post" name="CategoryForm">
+	<table width="100%" border="0" cellspacing="0" cellpadding="0">
+		<isif condition="#isDefined(ERROR_SELECTION_CATEGORY_SORT)#">
+			<tr>
+				<td >
+				<ISMessageBox type="nse" message="#localizeText('CategorySubCategoryList.YouHaveNotSelectedAnythingYouMustFirstSelectASubCa.message')#"> 
+				</td>
+			</tr>
+		<iselse>
+			<isif condition="#isDefined(confirmSortCategories)#">
+				<tr>
+					<td>
+						<ISMessageBox type="mda" class="w e s" okbtnname="sortCategories" message="#localizeText('CategorySubCategoryList.IfYouApplyManualSortingTheSettingsForDynamicSortin.message')#">
+					</td>
+				</tr>
+			</isif>
+		</isif>
+		<tr>
+			<td class="table_title_description w e s">
+				<isif condition="#Catalog:isProxy#">
+					<img src="#WebRoot()#/images/status_shared_product_from.gif" alt="#localizeText('CategorySubCategoryList.SharedFromAnother.alt')#" title="#localizeText('CategorySubCategoryList.SharedFromAnother.title')#" border="0"/> 
+					<istext key="CategorySubCategoryList.ThisCatalogIsSharedFrom0" parameter0="#encodeValue(Catalog:OriginalCatalog:OwningDomain:DomainInformation:DomainName)#" encoding="off"/><br/>
+				</isif>
+				<istext key="CategorySubCategoryList.TheListShowsAllSubCategoriesOfThisCategory" encoding="off"/>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<isif condition="#hasLoopElements(SubCategories)#">
+					<table width="100%" border="0" cellspacing="0" cellpadding="0" class="w">
+						<!--- count subcategories with position attribute --->
+						<isset scope="request" name ="CategoryRowSpan" value="#0#">
+						<isloop iterator="SubCategories" alias = "SubCategory">
+							<isif condition="#NOT SubCategory:PositionNull#">
+								<isset scope="request" name ="CategoryRowSpan" value="#CategoryRowSpan + 1#">
+							</isif>
+						</isloop>
+						<tr>
+							<isif condition="#(NOT(Catalog:isProxy))AND ((not isdefined(Catalog:ClassificationSystem)) or (Catalog:ClassificationSystem:Name NE 'System')) AND isDefined(CurrentUserPermissionMap:SLD_MANAGE_CATALOGS)#">
+								<td class="table_header e s" nowrap="nowrap" width="80">
+									<div id="A">
+										<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+											<tr>
+												<td nowrap="nowrap">
+													<a href="javascript:selectAll('CategoryForm','CategoryUUID','A','B');" class="tableheader"><istext key="CategorySubCategoryList.SelectAll.link" encoding="off"/></a>
+												</td>
+											</tr>
+										</table>
+									</div>
+									<div id="B" style="display:none">
+										<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+											<tr>
+												<td nowrap="nowrap">
+													<a href="javascript:selectAll('CategoryForm','CategoryUUID','A','B');" class="tableheader"><istext key="CategorySubCategoryList.ClearAll.link" encoding="off"/></a>
+												</td>
+											</tr>
+										</table>
+									</div>
+								</td>
+							</isif>
+							<td class="table_header e s"><istext key="CategorySubCategoryList.Name.table_header" encoding="off"/></td>
+							<td class="table_header e s"><istext key="CategorySubCategoryList.ID.table_header" encoding="off"/></td>
+							<td class="table_header e s" width="50%"><istext key="CategorySubCategoryList.Description.table_header" encoding="off"/></td>
+							<td class="table_header e s" width="10%">&nbsp;</td>
+							<!--- show 'Sorting' tab if there are any subcategories with position attribute --->
+							<isif condition="#isDefined(CurrentUserPermissionMap:SLD_MANAGE_CATALOGS) AND (CategoryRowSpan > 0)#">
+								<td class="table_header e s left" nowrap="nowrap"><istext key="CategorySubCategoryList.Sorting.table_header" encoding="off"/></td>
+							</isif>
+						</tr>
+						<isset scope="request" name="StartCategorySorted" value="False">
+						<isset scope="request" name="StartCategoryUnsorted" value="False">
+						<isloop iterator="SubCategories" alias="SubCategory">
+						<!-- Checks if the sub-category has dynamic product binding (SQD in the current channel domain) -->
+						<ISCreateMap mapname="GetSQDByNameParamMap" key0="Name" value0="#SubCategory:SearchQueryDefinitionName#">
+						<ispipeline
+						  pipeline="ProcessSearchQueryDefinitionBySearchIndex-GetCategorySQDByName"
+						  params="#GetSQDByNameParamMap#"
+						  alias="GetSubCategorySQDByNameResultDict" />
+						  <isprint value="#GetSubCategorySQDByNameResultDict:SQD#">
+						
+						<!--- show sorted categories --->
+							<isif condition="#not(SubCategory:PositionNull)#">
+								<tr>
+									<isif condition="#(NOT(Catalog:isProxy))AND ((not isdefined(Catalog:ClassificationSystem)) or (Catalog:ClassificationSystem:Name NE 'System')) AND isDefined(CurrentUserPermissionMap:SLD_MANAGE_CATALOGS)#">
+										<td class="table_detail top e s center">
+											<input type="hidden" name="SortedCategoryUUID" value="#SubCategory:UUID#"/>
+											<input type="checkbox" name="SelectedSortedCategoryUUID" value="#SubCategory:UUID#"	<isif condition="#isDefined(SortedCategoryClipboard) AND (SortedCategoryClipboard:contains(SubCategory:UUID))#">checked="checked"</isif>
+											<isif condition="#isDefined(Clipboard) AND (Clipboard:contains(SubCategory:UUID))#">checked="checked"</isif>/>
+										</td>
+									</isif>
+									<td class="table_detail3 top bold e s" nowrap="nowrap"><ISCategoryDisplayName Category="#SubCategory#">&nbsp;<isif condition="#SubCategory:isOnline#"><img src="#WebRoot()#/images/status_online.gif" alt="#localizeText('CategorySubCategoryList.Online.alt')#" border="0"/></isif><isif condition="#SubCategory:ProductBindingType == 1#"><img src="#WebRoot()#/images/status_implicitly_bound.gif" alt="#localizeText('CategorySubCategoryList.ImplicitProductBinding.alt')#" border="0"/></isif></td>
+									<td class="table_detail3 top bold e s" nowrap="nowrap"><isprint value="#SubCategory:Name#">&nbsp;<isif condition="#SubCategory:isOnline#"><img src="#WebRoot()#/images/status_online.gif" alt="#localizeText('CategorySubCategoryList.Online.alt1')#" border="0"/></isif><isif condition="#SubCategory:ProductBindingType == 1#"><img src="#WebRoot()#/images/status_implicitly_bound.gif" alt="#localizeText('CategorySubCategoryList.ImplicitProductBinding.alt1')#" border="0"/></isif></td>
+									<td class="table_detail top e s">
+										<isif condition="#SubCategory:Description NE ''#">
+											<isprint value="#SubCategory:Description#">
+										<iselse>
+											&nbsp;
+										</isif>
+									</td>
+									<td class="table_detail top center e s">										
+										<isif condition="#isDefined(CurrentUserPermissionMap:SLD_MANAGE_CATALOGS) AND (NOT(Catalog:isProxy))#">
+											<a href="#URL(Action('ViewCategory-Edit'),Parameter('CatalogUUID', Catalog:UUID), Parameter('CatalogCategoryID', SubCategory:UUID))#" class="action_link"><istext key="CategorySubCategoryList.Edit.link" encoding="off"/></a>
+										<iselse>
+											<a href="#URL(Action('ViewCategory-Edit'),Parameter('CatalogUUID', Catalog:UUID), Parameter('CatalogCategoryID', SubCategory:UUID))#" class="action_link"><istext key="CategorySubCategoryList.View.link" encoding="off"/></a>
+										</isif>										
+									</td>
+									<!--- show manual sorting buttons for subcategories with position attribute --->
+									<isif condition="#isDefined(CurrentUserPermissionMap:SLD_MANAGE_CATALOGS) AND (StartCategorySorted EQ 'False')#">
+										<td class="table_detail e s center sort" nowrap="nowrap" rowspan="<isprint value = "#CategoryRowSpan#" style="INTEGER">">
+											<table border="0" cellpadding="0" cellspacing="0" align="center">
+												<tr>
+													<td><input type="image" name="moveCategoriesUp" src="#WebRoot()#/images/sort_up.gif" alt=""/></td>
+												</tr>
+												<tr><td><img src="#WebRoot()#/images/space.gif" width="1" height="4" alt="" border="0"/></td></tr>
+												<tr>
+													<td><input type="image" name="moveCategoriesDown" src="#WebRoot()#/images/sort_down.gif" alt=""/></td>
+												</tr>
+											</table>
+										</td>
+										<isset scope="request" name="StartCategorySorted" value="True">
+									</isif>
+								</tr>
+							<!--- show unsorted categories --->	
+							<iselse>
+								<isif condition="#(StartCategorySorted EQ 'True') AND(StartCategoryUnsorted EQ 'False')#">
+									<tr><td class="w e s" colspan="6"><img src="#WebRoot()#/images/space.gif" width="1" height="2" alt="" border="0"/></td></tr>
+								</isif>
+								<isset scope="request" name="StartCategoryUnsorted" value="True">
+								<tr>
+									<isif condition="#(NOT(Catalog:isProxy))AND ((not isdefined(Catalog:ClassificationSystem)) or (Catalog:ClassificationSystem:Name NE 'System')) AND isDefined(CurrentUserPermissionMap:SLD_MANAGE_CATALOGS)#">
+										<td class="table_detail top e s center">
+											<input type="hidden" name="UnsortedCategoryUUID" value="#SubCategory:UUID#"/>
+											<input type="checkbox" name="SelectedUnsortedCategoryUUID" value="#SubCategory:UUID#"	<isif condition="#isDefined(UnsortedCategoryClipboard) AND (UnsortedCategoryClipboard:contains(SubCategory:UUID))#">checked="checked"</isif>
+										</td>
+									</isif>
+									<td class="table_detail3 top bold e s" nowrap="nowrap"><ISCategoryDisplayName Category="#SubCategory#">&nbsp;<isif condition="#SubCategory:isOnline#"><img src="#WebRoot()#/images/status_online.gif" alt="#localizeText('CategorySubCategoryList.Online.alt2')#" border="0"/></isif><isif condition="#SubCategory:ProductBindingType == 1#"><img src="#WebRoot()#/images/status_implicitly_bound.gif" alt="#localizeText('CategorySubCategoryList.ImplicitProductBinding.alt2')#" border="0"/></isif></td>
+									<td class="table_detail3 top bold e s" nowrap="nowrap">
+										<isprint value="#SubCategory:Name#">&nbsp;
+										<isif condition="#SubCategory:isOnline#">
+											<img src="#WebRoot()#/images/status_online.gif" alt="#localizeText('CategorySubCategoryList.Online.alt3')#" border="0"/>
+										</isif>
+										<isif condition="#SubCategory:ProductBindingType == 1#">
+											<img src="#WebRoot()#/images/status_implicitly_bound.gif" alt="#localizeText('CategorySubCategoryList.ImplicitProductBinding.alt3')#" border="0"/>
+										</isif>
+										<isif condition="#isDefined(GetSubCategorySQDByNameResultDict:SearchQueryDefinition)#">
+											<img src="#WebRoot()#/images/status_implicitly_bound.gif" alt="#localizeText('CategorySubCategoryList.DynamicProductBinding.alt')#" title="#localizeText('CategorySubCategoryList.DynamicProductBinding.title')#" border="0"/>
+										</isif>
+									</td>
+									<td class="table_detail top e s">
+										<isif condition="#SubCategory:Description NE ''#">
+											<isprint value="#SubCategory:Description#">
+										<iselse>
+											&nbsp;
+										</isif>
+									</td>
+									<td class="table_detail top center e s">										
+										<isif condition="#isDefined(CurrentUserPermissionMap:SLD_MANAGE_CATALOGS) AND (NOT(Catalog:isProxy))#">
+											<a href="#URL(Action('ViewCategory-Edit'),Parameter('CatalogUUID', Catalog:UUID), Parameter('CatalogCategoryID', SubCategory:UUID))#" class="action_link"><istext key="CategorySubCategoryList.Edit.link1" encoding="off"/></a>
+										<iselse>
+											<a href="#URL(Action('ViewCategory-Edit'),Parameter('CatalogUUID', Catalog:UUID), Parameter('CatalogCategoryID', SubCategory:UUID))#" class="action_link"><istext key="CategorySubCategoryList.View.link1" encoding="off"/></a>
+										</isif>
+									</td>
+								</tr>
+							</isif>
+						</isloop>
+					</table>
+					<!--- buttons --->
+					<isif condition="#(NOT(Catalog:isProxy))AND ((not isdefined(Catalog:ClassificationSystem)) or (Catalog:ClassificationSystem:Name NE 'System')) AND isDefined(CurrentUserPermissionMap:SLD_MANAGE_CATALOGS)#">
+					<table width="100%" cellspacing="0" cellpadding="0" border="0" class="w e s">
+						<tr>
+							<td align="right">
+								<table border="0" cellspacing="4" cellpadding="0">
+									<tr>
+										<td class="button">
+											<input type="submit" name="confirmSortCategories" value="#localizeText('CategorySubCategoryList.Sort.button')#" class="button" <isif condition="#StartCategoryUnsorted EQ 'False'#">disabled="disabled"</isif> />
+										</td>
+										<td class="button">
+											<input type="submit" name="unsortCategories" value="#localizeText('CategorySubCategoryList.Unsort.button')#" class="button" <isif condition="#CategoryRowSpan == 0#">disabled="disabled"</isif> />
+										</td>
+										<td class="button">
+											<input type="hidden" name="ParentCategoryID" value="<isprint value="#Category:UUID#">"/>
+											<input type="submit" name="newCategory" value="#localizeText('CategorySubCategoryList.New.button')#" class="button"/>
+										</td>
+										<td class="button">
+											<input type="hidden" name="NewCategoryNamePrefix" value="Copy of "/>
+											<input type="submit" name="copyCategories" value="#localizeText('CategorySubCategoryList.Copy.button')#" class="button"/>
+										</td>
+										<isif condition="#hasLoopElements(SubCategories)#">
+											<td class="button">
+												<input type="submit" name="confirmCategoriesDelete" value="#localizeText('CategorySubCategoryList.Delete.button')#" class="button"/>
+											</td>
+										</isif>
+									</tr>
+								</table>
+							</td>
+						</tr>
+					</table>
+					</isif>
+					<div><img src="#WebRoot()#/images/space.gif" width="1" height="6" alt="" border="0"/></div>
+					<!--- EO buttons --->
+					<!--- Page Cursor --->
+					<isif condition="#hasLoopElements(SubCategories)#">
+						<table width="100%" border="0" cellspacing="0" cellpadding="0">
+							<tr>
+								<td width="100%">
+									<input type="hidden" name="CatalogUUID" value="<isprint value="#Catalog:UUID#">"/>
+									<input type="hidden" name="CatalogCategoryID" value="<isprint value="#Category:UUID#">"/>
+									<ISPagingBar pageable="SubCategories">
+								</td>
+							</tr>
+						</table>
+					</isif>
+					<!--- EO Page Cursor --->
+				<iselse>
+					<table width="100%" border="0" cellspacing="0" cellpadding="0">
+						<tr>
+							<td class="table_detail w e s">
+								<istext key="CategorySubCategoryList.ThisCategoryDoesNotContainAnySubCategories.table_detail" encoding="off"/><br/>
+								<isif condition="#(NOT(Catalog:isProxy))AND ((not isdefined(Catalog:ClassificationSystem)) or (Catalog:ClassificationSystem:Name NE 'System')) AND isDefined(CurrentUserPermissionMap:SLD_MANAGE_CATALOGS)#">
+									<istext key="CategorySubCategoryList.ClickNewToCreateANewSubCategory.table_detail" encoding="off"/>
+								</isif>	
+							</td>
+						</tr>
+					</table>
+					<table width="100%" cellspacing="0" cellpadding="0" border="0">
+						<tr>
+							<isif condition="#(NOT(Catalog:isProxy))AND ((not isdefined(Catalog:ClassificationSystem)) or (Catalog:ClassificationSystem:Name NE 'System')) AND isDefined(CurrentUserPermissionMap:SLD_MANAGE_CATALOGS)#">
+							<td align="right" class="w e s">
+								<table border="0" cellspacing="4" cellpadding="0">
+									<tr>
+										<isif condition="#NOT(Catalog:isProxy)#">
+											<td class="button">
+												<input type="hidden" name="CatalogUUID" value="<isprint value="#Catalog:UUID#">"/>
+												<input type="hidden" name="ParentCategoryID" value="<isprint value="#Category:UUID#">"/>
+												<input type="submit" name="newCategory" value="#localizeText('CategorySubCategoryList.New.button')#" class="button"/>
+											</td>
+										</isif>
+									</tr>
+								</table>	
+							</td>
+							</isif>
+						</tr>
+					</table>
+				</isif>
+			</td>
+		</tr>
+	</table>
+</isform>
+<!-- Form for SubCategory sorting. Shown for local or root categories-->
+<isset scope="request" name="canHaveSorting" value="#(NOT(Catalog:isProxy) or Category:isRootCategory) AND ( (not isdefined(Catalog:ClassificationSystem)) or (Catalog:ClassificationSystem:Name NE 'System') )#">
+<isif condition="#canHaveSorting#">
+	<table width="100%" cellpadding="0" cellspacing="0" border="0">
+		<tr><td style="height:14px"/></tr>
+		<tr>
+			<td style="width:100%" class="n e w s">
+				<isExpandableSection contenttemplate="category/SubCategorySortingForm" 
+						headertext="#localizeText('CategorySubCategoryList.SubCategorySorting.headertext')#" sectionexpanded="true" 
+						headerclassname="table_title2">
+			</td>
+		</tr>
+		<tr><td style="height:7px"/></tr>
+	</table>
+</isif>
+<isinclude template="inc/BackToList">
+<!--- EO Working Area --->

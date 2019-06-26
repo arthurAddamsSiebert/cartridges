@@ -1,0 +1,449 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Includes all the processes a SearchQueryDefinition does with a SearchIndex
+@Group Search-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessSearchQueryDefinitionBySearchIndex" type="process">
+<!--@TODO: Pipeline Rework
+* still uses CurrentRequest
+** CurrentRequest must be reached in explicitly!
+@Location 12,2-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@TODO: Pipeline Rework
+* still uses CurrentRequest
+** CurrentRequest must be reached in explicitly!
+@Location 12,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--checks the search index query against the search index configuration to ensure conditions on attributes that exist in the index configuration.
+@Location 1,12-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" visibility="Protected"
+      name="CheckQueryConditions" callMode="Private">
+<!--@BendPoints 3,26-->
+    <nodeSuccessors name="next" next="LoopNode0"/>
+<!--the search index -->
+    <parameters name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex"/>
+    <parameters name="SearchIndexQuery" type="com.intershop.component.search.capi.SearchIndexQuery"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="SearchIndexQuery:Conditions">
+<!--@BendPoints 7,27-->
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <entry key="Condition">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode4"/>
+    </entry>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="SearchIndex:Configuration:AttributeByName(Condition:AttributeName)">
+<!--@BendPoints 3,31-->
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+<!--@BendPoints 5,29-->
+    <nodeSuccessors name="decision_no" next="DecisionNode0"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 1,33 1,27-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 2,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Condition:AttributeName"
+      operator="str_eq" conditionValue="ContextCategoryUUID">
+<!--@BendPoints 5,32-->
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+    <nodeSuccessors name="decision_no" next="GetSubString0"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSubString0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetSubString.xml"/>
+<!--@BendPoints 7,33-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+<!--@BendPoints 8,32-->
+    <nodeSuccessors name="pipelet_error" next="EndNode13"/>
+    <parameterBindings name="BeginIndex" nullBinding="true"/>
+    <parameterBindings name="EndIndex" nullBinding="true"/>
+    <parameterBindings name="MaximumLength" nullBinding="true"/>
+    <parameterBindings name="MinimumLength" nullBinding="true"/>
+    <parameterBindings name="PadRight" nullBinding="true"/>
+    <parameterBindings name="Pattern" constant="^CategoryUUID.*"/>
+    <parameterBindings name="String" objectPath="Condition:AttributeName"/>
+  </nodes>
+<!--@Location 3,17-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" name="ERROR" strict="true"/>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--executes the searchQuery in the SearchQueryDefinition for a specific locale upon the passed search index and resolves the objects from the search result.
+@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="ExecuteSearchQuery"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+<!--the search index -->
+    <parameters name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex"/>
+    <parameters name="PageSize" type="java.lang.Integer" optional="true"/>
+    <parameters name="SearchQueryDefinition" type="com.intershop.component.search.capi.querydefinition.SearchQueryDefinition"
+        optional="true"/>
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+    <parameters name="Page" type="java.lang.Integer"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="CatalogCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"
+        optional="true"/>
+    <parameters name="SortingAttribute" type="java.lang.String" optional="true"/>
+    <parameters name="SearchParameter" type="java.lang.String" optional="true"/>
+    <parameters name="SearchTerm" type="java.lang.String" optional="true"/>
+<!--Default Sort Attribute that has been configured in Backoffice will be used if no Sorting has been defined-->
+    <parameters name="DefaultSortAttribute" type="java.lang.String" optional="true"/>
+<!--Default Sort Direction that has been configured in Backoffice will be used if no Sorting has been defined -->
+    <parameters name="DefaultSortDirection" type="java.lang.String" optional="true"/>
+    <parameters name="IgnoreMasteredCondition" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="SearchQueryDefinition:SearchQuery:ContextCategoryID"
+      operator="str_empty">
+<!--@BendPoints 13,5-->
+    <nodeSuccessors name="decision_yes" next="CreateSearchIndexQueryFromSearchQueryDefinition0"/>
+    <nodeSuccessors name="decision_no" next="CreateSearchIndexQueryFromSearchQueryDefinition1"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateSearchIndexQueryFromSearchQueryDefinition0">
+    <pipelet href="enfinity:/bc_search/pipelets/CreateSearchIndexQueryFromSearchQueryDefinition.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="CatalogDomain" objectPath="Domain"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="CallNode8"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="CallNode0"/>
+<!--@BendPoints 13,15-->
+    <nodeSuccessors name="ERROR" next="JoinNode6"/>
+    <startNode referencedName="ProcessSearchQueryDefinitionBySearchIndex-CheckQueryConditions"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <startNode referencedName="ProcessSearchBySearchIndex-FilterConditionsByUser"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="CallNode11"/>
+    <startNode referencedName="ProcessSearchBySearchIndex-AddCatalogFilterCondition"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <startNode referencedName="ProcessSearchBySearchIndex-AddApprovalStatusCondition"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <startNode referencedName="ProcessSearchBySearchIndex-ProcessSelectedCatalogCategory"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="CallNode9"/>
+    <startNode referencedName="ProcessSearchBySearchIndex-AddOnlineCondition"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+    <startNode referencedName="ProcessSearchBySearchIndex-ProcessGrossNetFilter"/>
+  </nodes>
+<!--When Update Product Assignments job is ran the condition is ignored.
+@Location 4,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="IgnoreMasteredCondition">
+<!--@BendPoints 10,29 10,33-->
+    <nodeSuccessors name="decision_yes" next="JoinNode0"/>
+    <nodeSuccessors name="decision_no" next="CallNode_Ei9VUP9PEeaLyYPLH8itjA"/>
+  </nodes>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="QuerySearchIndex1"/>
+  </nodes>
+<!--@Location 4,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="QuerySearchIndex1">
+    <pipelet href="enfinity:/bc_search/pipelets/QuerySearchIndex.xml"/>
+<!--@BendPoints 9,36-->
+    <nodeSuccessors name="next" next="ResolveObjectsFromSearchResult1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ResolveObjectsFromSearchResult1">
+    <pipelet href="enfinity:/bc_search/pipelets/ResolveObjectsFromSearchResult.xml"/>
+<!--@BendPoints 9,38-->
+    <nodeSuccessors name="next" next="EndNode9"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,19-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" strict="true">
+<!--an iterator of resolved objects -->
+    <returnValues name="Objects" type="java.util.Iterator"/>
+    <returnValues name="SearchResult" type="com.intershop.component.search.capi.SearchResult"/>
+  </nodes>
+<!--@Location 5,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 6,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 13,38-->
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 6,19-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name="ERROR" strict="true"/>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_Ei9VUP9PEeaLyYPLH8itjA">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <startNode referencedName="ProcessSearchBySearchIndex-AddMasteredCondition"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateSearchIndexQueryFromSearchQueryDefinition1">
+    <pipelet href="enfinity:/bc_search/pipelets/CreateSearchIndexQueryFromSearchQueryDefinition.xml"/>
+<!--@BendPoints 9,12-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="CatalogDomain" objectPath="Domain"/>
+  </nodes>
+<!--gets an online product search index (FeatureID="SFProductSearch")
+This will lookup the appropriate searchIndex for the search index type (FeatureID) domain and locale. 
+If necessary the Locale is determined from the current request. 
+@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetProductSearchIndex"
+      callMode="Private">
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="SetDictionaryValue1"/>
+<!--The domain object.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The locale of the SearchIndex.-->
+    <parameters name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+  </nodes>
+<!--@displayNearNode@FeatureID = SFProductSearch
+@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="FeatureID"/>
+    <configurationValues name="Value" value="SFProductSearch"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="GetOnlineSearchIndexByFeatureID1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOnlineSearchIndexByFeatureID1">
+    <pipelet href="enfinity:/bc_search/pipelets/GetOnlineSearchIndexByFeatureID.xml"/>
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+<!--@BendPoints 6,7-->
+    <nodeSuccessors name="pipelet_error" next="EndNode3"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+<!--The search index-->
+    <returnValues name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="NO_SEARCHINDEX" strict="true"/>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="GetProducts"
+      callMode="Private">
+<!--@BendPoints 23,4-->
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+    <parameters name="PageSize" type="java.lang.Integer" optional="true"/>
+    <parameters name="SearchQueryDefinitionID" type="java.lang.String"/>
+    <parameters name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="Page" type="java.lang.Integer"/>
+    <parameters name="CatalogDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="CatalogCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"
+        optional="true"/>
+    <parameters name="SortingAttribute" type="java.lang.String" optional="true"/>
+    <parameters name="SearchParameter" type="java.lang.String" optional="true"/>
+    <parameters name="SearchTerm" type="java.lang.String" optional="true"/>
+<!--The Site to which the SearchQueryDefinition (SQD) is associated.
+If the SQD is shared it must be given in order to be possible to find the correct SQD!-->
+    <parameters name="SQDOwningDomainID" type="java.lang.String" optional="true"/>
+<!--Default Sort Attribute that has been configured in Backoffice will be used if no Sorting has been defined-->
+    <parameters name="DefaultSortAttribute" type="java.lang.String" optional="true"/>
+<!--Default Sort Direction that has been configured in Backoffice will be used if no Sorting has been defined -->
+    <parameters name="DefaultSortDirection" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 23,6-->
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentRequest:Locale"/>
+    <returnValueBindings name="OutValue_1" objectPath="Locale"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="SQDOwningDomainID">
+<!--@BendPoints 23,8-->
+    <nodeSuccessors name="decision_yes" next="CallNode6"/>
+    <nodeSuccessors name="decision_no" next="CallNode4"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 23,10-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <nodeSuccessors name="NotFound" next="JoinNode1"/>
+    <parameterBindings name="DomainUUID" objectPath="SQDOwningDomainID"/>
+    <parameterBindings name="SQDName" objectPath="SearchQueryDefinitionID"/>
+    <startNode referencedName="ProcessSearchQueryDefinitionBySearchIndex-GetSQDByName"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <nodeSuccessors name="NO_SEARCHINDEX" next="EndNode4"/>
+    <parameterBindings name="Domain" objectPath="ProductDomain"/>
+    <startNode referencedName="ProcessSearchQueryDefinitionBySearchIndex-GetProductSearchIndex"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 23,15 23,16-->
+    <nodeSuccessors name="next" next="GetFilterEntriesWithoutSearchQueryDefinitionConditions1"/>
+    <nodeSuccessors name="ERROR" next="EndNode5"/>
+    <parameterBindings name="Domain" objectPath="CatalogDomain"/>
+    <startNode referencedName="ProcessSearchQueryDefinitionBySearchIndex-ExecuteSearchQuery"/>
+    <returnValueBindings name="Objects" objectPath="Products"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFilterEntriesWithoutSearchQueryDefinitionConditions1">
+    <pipelet href="enfinity:/bc_search/pipelets/GetFilterEntriesWithoutSearchQueryDefinitionConditions.xml"/>
+<!--@BendPoints 23,18-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true">
+    <returnValues name="Products" type="java.util.Iterator"/>
+    <returnValues name="SearchResult" type="com.intershop.component.search.capi.SearchResult"/>
+    <returnValues name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex"/>
+    <returnValues name="FilterEntries" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 13,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="ERROR" strict="true"/>
+<!--@Location 10,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="NO_SEARCHINDEX" strict="true"/>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="CallNode1"/>
+<!--@BendPoints 27,10-->
+    <nodeSuccessors name="NotFound" next="JoinNode1"/>
+    <parameterBindings name="Name" objectPath="SearchQueryDefinitionID"/>
+    <startNode referencedName="ProcessSearchQueryDefinitionBySearchIndex-GetSearchQueryDefinitionByName"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="GetSQDByName"
+      callMode="Private">
+<!--@BendPoints 15,16-->
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+    <parameters name="DomainUUID" type="java.lang.String"/>
+    <parameters name="SQDName" type="java.lang.String"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="ParameterName_01" value="DomainUUID"/>
+    <configurationValues name="ParameterName_02" value="SQDName"/>
+    <configurationValues name="QueryName" value="GetSQDByNameAndDomain"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 15,18-->
+    <nodeSuccessors name="next" next="CheckForEmptyIterator1"/>
+<!--@BendPoints 17,17 17,22-->
+    <nodeSuccessors name="pipelet_error" next="EndNode12"/>
+    <parameterBindings name="ParameterValue_01" objectPath="DomainUUID"/>
+    <parameterBindings name="ParameterValue_02" objectPath="SQDName"/>
+    <returnValueBindings name="SearchResult" objectPath="SQDIterator"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyIterator.xml"/>
+<!--@BendPoints 15,20-->
+    <nodeSuccessors name="next" next="GetFirstElementOfIterator1"/>
+<!--@BendPoints 17,19 17,22-->
+    <nodeSuccessors name="pipelet_error" next="EndNode12"/>
+    <parameterBindings name="FilledIterator" objectPath="SQDIterator"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFirstElementOfIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFirstElementOfIterator.xml"/>
+<!--@BendPoints 15,22-->
+    <nodeSuccessors name="next" next="EndNode8"/>
+<!--@BendPoints 17,21 17,22-->
+    <nodeSuccessors name="pipelet_error" next="EndNode12"/>
+    <parameterBindings name="Iterator" objectPath="SQDIterator"/>
+    <returnValueBindings name="FirstElement" objectPath="SearchQueryDefinition"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" strict="true">
+    <returnValues name="SearchQueryDefinition" type="com.intershop.component.search.capi.querydefinition.SearchQueryDefinition"
+        optional="true"/>
+  </nodes>
+<!--@Location 8,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" name="NotFound" strict="true"/>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" strict="true" name="GetSearchQueryDefinitionByName"
+      callMode="Private">
+<!--@BendPoints 15,6-->
+    <nodeSuccessors name="next" next="GetSearchQueryDefinition1"/>
+    <parameters name="Name" type="java.lang.String"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSearchQueryDefinition1">
+    <pipelet href="enfinity:/bc_search/pipelets/GetSearchQueryDefinition.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="SearchQueryDefinition">
+    <nodeSuccessors name="decision_yes" next="EndNode2"/>
+<!--@BendPoints 16,9-->
+    <nodeSuccessors name="decision_no" next="EndNode7"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="SearchQueryDefinition" type="com.intershop.component.search.capi.querydefinition.SearchQueryDefinition"
+        optional="true"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="NotFound" strict="true"/>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="GetSearchQueryDefinitionByUUID"
+      callMode="Private">
+<!--@BendPoints 19,6 15,6-->
+    <nodeSuccessors name="next" next="GetSearchQueryDefinition1"/>
+    <parameters name="UUID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="GetSearchQueryDefinitions"
+      callMode="Private">
+<!--@BendPoints 3,16-->
+    <nodeSuccessors name="next" next="GetSearchQueryDefinitions1"/>
+    <parameters name="GlobalVisible" type="java.lang.Boolean" optional="true"/>
+    <parameters name="Type" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSearchQueryDefinitions1">
+    <pipelet href="enfinity:/bc_search/pipelets/GetSearchQueryDefinitions.xml"/>
+    <nodeSuccessors name="next" next="SortIteratorByComparator0"/>
+    <returnValueBindings name="SearchQueryDefinitions" objectPath="SQDIterator"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SortIteratorByComparator0">
+    <configurationValues name="DefaultSortingAttribute" value="DisplayName"/>
+    <configurationValues name="DefaultSortingOrder" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SortIteratorByComparator.xml"/>
+    <nodeSuccessors name="next" next="CreatePageableFromIterator1"/>
+    <parameterBindings name="Iterator" objectPath="SQDIterator"/>
+    <returnValueBindings name="SortedIterator" objectPath="SQDIterator"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePageableFromIterator1">
+    <configurationValues name="Pagesize" value="10"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableFromIterator.xml"/>
+    <nodeSuccessors name="next" next="EndNode11"/>
+    <parameterBindings name="Iterator" objectPath="SQDIterator"/>
+    <returnValueBindings name="Pageable" objectPath="SearchQueryDefinitions"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" strict="true">
+    <returnValues name="SearchQueryDefinitions" type="com.intershop.beehive.core.capi.paging.PageableIterator"/>
+  </nodes>
+</pipeline:Pipeline>

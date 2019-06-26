@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="RecommendationsNumber" type="java.lang.Integer" optional="true"/>
+    <parameter name="Product" type="com.intershop.beehive.xcs.capi.product.Product" optional="false"/>
+    <parameter name="Currency" type="java.lang.String" optional="true"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Product" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+		<return-attribute name="UUID" />
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+<sql-dialect name="Microsoft">
+SELECT TOP 5 * FROM (
+	</sql-dialect>
+		<sql-dialect name="Oracle">
+		
+		</sql-dialect>
+		
+	SELECT p.uuid  as UUID	FROM 
+	(
+	    <template-call name="product/GetProductsByAdvancedSearch">
+            <call-parameter name="ProductDomain" value="Product:Domain"/>
+            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+            <call-parameter name="Online" value="'(Integer)1'"/>
+            <call-parameter name="Currency" value="Currency"/>
+        </template-call> 
+	) p
+	inner join ieproductcategoryassignment iepca on iepca.productid = p.uuid
+	WHERE iepca.categoryid IN 		
+	(
+		SELECT uuid FROM 
+		(
+	   		<template-call name="catalog/GetCategoriesByCatalogTypeAndProductID">
+	          	<call-parameter name="Product" value="Product"/>
+	          	<call-parameter name="PCATableName" value="ieproductcategoryassignment"/>
+	     	</template-call> 
+      	)a
+	)
+	AND p.uuid  &lt;&gt;<template-variable value="Product:UUID"/>
+	<sql-dialect name="Microsoft">
+	)A   ORDER BY NEWID()
+	</sql-dialect>
+		<sql-dialect name="Oracle">
+		AND rownum &lt;= <template-if condition="isDefined(RecommendationsNumber)">
+    					<template-variable value="RecommendationsNumber"/>
+    				<if-else/>
+    					5
+					</template-if>
+     ORDER BY dbms_random.value
+		</sql-dialect>
+	
+</template>
+</query>

@@ -1,0 +1,542 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline includes the main logic pipelines around new user address handling. 
+@Group Checkout-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCheckoutNewUserAddresses" overrideMode="Inherit" type="process">
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="AddAddresses_PreCreationHook"
+      callMode="Private">
+<!--@BendPoints 17,2-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name=""/>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CreateAddresses"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode16" action="begin"/>
+    <parameters name="CurrentCart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+<!--The used App context.-->
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="BillingAddress" type="com.intershop.beehive.core.capi.webform.Form"/>
+    <parameters name="EmailAddress" type="com.intershop.beehive.core.capi.webform.Form"/>
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"/>
+    <parameters name="CurrentRequest" type="com.intershop.beehive.core.capi.request.Request"
+        optional="true"/>
+    <parameters name="CurrentDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--Form containing the shipping address data in case ShippingAddressOption=2-->
+    <parameters name="ShippingAddress" type="com.intershop.beehive.core.capi.webform.Form"
+        optional="true"/>
+    <parameters name="AddressValidationCheckout" type="java.lang.String" optional="true"/>
+    <parameters name="BasketEmailOptIn" type="java.lang.String"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"/>
+    <parameters name="ShippingAddressOption" type="java.lang.String" optional="true"/>
+    <parameters name="StoreAddressID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode16">
+    <nodeSuccessors name="next" next="CallNode15"/>
+    <startNode referencedName="ProcessCheckoutNewUserAddresses-AddAddresses_PreCreationHook"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode15">
+    <nodeSuccessors name="next" next="KeyMapper3"/>
+<!--@BendPoints 17,5-->
+    <nodeSuccessors name="Error" next="JoinNode26"/>
+    <parameterBindings name="Cart" objectPath="CurrentCart"/>
+    <parameterBindings name="CartBO" objectPath="CurrentCartBO"/>
+    <parameterBindings name="CustomerBORepository" objectPath="ApplicationBO:Repository(&quot;CustomerBORepository&quot;)"/>
+    <parameterBindings name="Email" objectPath="EmailAddress"/>
+    <parameterBindings name="InvoiceToAddressForm" objectPath="BillingAddress"/>
+    <parameterBindings name="UserBORepository" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <startNode referencedName="ProcessCheckoutAddresses-CreateInvoiceToAddress"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationPreference0"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentCartBO"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:Repository(&quot;ServiceConfigurationBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="AddressBORepository"/>
+    <returnValueBindings name="OutValue_2" objectPath="ServiceConfigurationBORepository"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationPreference0">
+    <configurationValues name="DefaultApplicationPreferenceKey" value="AddressValidationCheckout"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/GetApplicationPreference.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+<!--@BendPoints 11,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="Application" objectPath="CurrentRequest:RequestApplication"/>
+    <parameterBindings name="ApplicationPreferenceKey" nullBinding="true"/>
+    <parameterBindings name="DomainPreference" objectPath="CurrentDomain"/>
+    <returnValueBindings name="ApplicationPreferenceStringValue" objectPath="AddressValidationCheckout"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="AddressValidationCheckout"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="GetUserBO0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserBO0">
+    <pipelet href="enfinity:/bc_user/pipelets/GetUserBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameterBindings name="UserBORepository" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <parameterBindings name="UserID" objectPath="CurrentUser:ID"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameterBindings name="InValue_1" objectPath="UserBO:Extension(&quot;UserBOTempAddressStorageExtension&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="UserBOTempAddressStorage"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <parameterBindings name="AddressBORepository" objectPath="UserBOTempAddressStorage"/>
+    <startNode referencedName="ProcessAddress-DeleteAllAddresses"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 11,25 9,25-->
+    <nodeSuccessors name="FAILED" next="KeyMapper5"/>
+    <nodeSuccessors name="NO_SERVICE" next="JoinNode4"/>
+    <nodeSuccessors name="OK" next="JoinNode4"/>
+    <nodeSuccessors name="SUGGESTLIST" next="CallNode5"/>
+    <nodeSuccessors name="ERROR" next="JoinNode23"/>
+    <parameterBindings name="AddressBO" objectPath="InvoiceToAddressBO"/>
+    <startNode referencedName="ProcessAddressValidation-ValidateAddressBO"/>
+    <returnValueBindings name="AddressValidationResponse" objectPath="BillingAddressValidation"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="InValue_1" constant="true"/>
+    <returnValueBindings name="OutValue_1" objectPath="BillingAddressValidationFailed"/>
+  </nodes>
+<!--@Location 5,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 11,29-->
+    <nodeSuccessors name="next" next="CheckUserLoggedIn0"/>
+  </nodes>
+<!--@Location 6,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckUserLoggedIn0">
+    <pipelet href="enfinity:/core/pipelets/CheckUserLoggedIn.xml"/>
+    <nodeSuccessors name="next" next="CallNode6"/>
+<!--@BendPoints 15,29-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+  </nodes>
+<!--@Location 6,15-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <nodeSuccessors name="ERROR" next="JoinNode9"/>
+    <parameterBindings name="CustomerBORepository" objectPath="ApplicationBO:Repository(&quot;CustomerBORepository&quot;)"/>
+    <parameterBindings name="UserBORepository" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <startNode referencedName="ProcessCheckoutAddresses-GetProfile"/>
+  </nodes>
+<!--@Location 6,17-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <parameterBindings name="City" objectPath="BillingAddress:City:Value"/>
+    <parameterBindings name="CountryCode" objectPath="BillingAddress:CountryCode:Value"/>
+    <parameterBindings name="FirstName" objectPath="BillingAddress:FirstName:Value"/>
+    <parameterBindings name="LastName" objectPath="BillingAddress:LastName:Value"/>
+    <parameterBindings name="PhoneHome" objectPath="BillingAddress:Phone:Value"/>
+    <parameterBindings name="PostalCode" objectPath="BillingAddress:PostalCode:Value"/>
+    <parameterBindings name="State" objectPath="BillingAddress:State:Value"/>
+    <parameterBindings name="Street" objectPath="BillingAddress:Address1:Value"/>
+    <parameterBindings name="Street2" objectPath="BillingAddress:Address2:Value"/>
+    <parameterBindings name="Title" objectPath="BillingAddress:Title:Value"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="ProcessUserAddresses-UpdateDataSheet"/>
+  </nodes>
+<!--@Location 6,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+  </nodes>
+<!--@Location 6,19-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="ShippingAddressOption">
+    <nodeSuccessors name="decision_yes" next="DecisionNode9"/>
+<!--@BendPoints 11,39-->
+    <nodeSuccessors name="decision_no" next="JoinNode12"/>
+  </nodes>
+<!--@Location 6,20-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="ShippingAddressOption"
+      operator="str_eq" conditionValue="2">
+    <nodeSuccessors name="decision_yes" next="CallNode10"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode12"/>
+  </nodes>
+<!--@Location 6,21-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+    <nodeSuccessors name="Error" next="JoinNode26"/>
+    <parameterBindings name="Cart" objectPath="CurrentCart"/>
+    <parameterBindings name="CartBO" objectPath="CurrentCartBO"/>
+    <parameterBindings name="CustomerBORepository" objectPath="ApplicationBO:Repository(&quot;CustomerBORepository&quot;)"/>
+    <parameterBindings name="ShipToAddressForm" objectPath="ShippingAddress"/>
+    <parameterBindings name="UserBORepository" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <startNode referencedName="ProcessCheckoutAddresses-CreateShipToAddress"/>
+  </nodes>
+<!--@Location 6,22-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="AddressValidationCheckout"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode11"/>
+    <nodeSuccessors name="decision_no" next="JoinNode12"/>
+  </nodes>
+<!--@Location 6,23-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+<!--@BendPoints 9,49-->
+    <nodeSuccessors name="FAILED" next="KeyMapper4"/>
+    <nodeSuccessors name="NO_SERVICE" next="JoinNode11"/>
+    <nodeSuccessors name="OK" next="JoinNode11"/>
+    <nodeSuccessors name="SUGGESTLIST" next="CallNode8"/>
+    <nodeSuccessors name="ERROR" next="JoinNode10"/>
+    <parameterBindings name="AddressBO" objectPath="ShipToAddressBO"/>
+    <startNode referencedName="ProcessAddressValidation-ValidateAddressBO"/>
+    <returnValueBindings name="AddressValidationResponse" objectPath="ShippingAddressValidation"/>
+  </nodes>
+<!--@Location 4,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode15"/>
+    <parameterBindings name="InValue_1" constant="true"/>
+    <returnValueBindings name="OutValue_1" objectPath="ShippingAddressValidationFailed"/>
+  </nodes>
+<!--@Location 6,28-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="DecisionNode13"/>
+  </nodes>
+<!--@Location 6,29-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="BillingAddressValidationFailed">
+    <nodeSuccessors name="decision_yes" next="EndNode5" action="commit"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode14"/>
+  </nodes>
+<!--@Location 7,30-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="Failed" strict="true">
+    <returnValues name="ShipToAddressBO" type="com.intershop.component.address.capi.AddressBO"
+        optional="true"/>
+    <returnValues name="InvoiceToAddressBO" type="com.intershop.component.address.capi.AddressBO"
+        optional="true"/>
+    <returnValues name="ShippingAddressValidationFailed" type="java.lang.String" optional="true"/>
+    <returnValues name="BillingAddressValidationFailed" type="java.lang.String" optional="true"/>
+    <returnValues name="BillingAddressValidationSuggestedAddresses" type="java.util.Iterator"
+        optional="true"/>
+    <returnValues name="ShippingAddressValidationSuggestedAddresses" type="java.util.Iterator"
+        optional="true"/>
+  </nodes>
+<!--@Location 6,30-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="ShippingAddressValidationFailed">
+    <nodeSuccessors name="decision_yes" next="EndNode5" action="commit"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode15"/>
+  </nodes>
+<!--@Location 6,31-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode15" conditionKey="ShippingAddressValidationSuggestedAddresses">
+    <nodeSuccessors name="decision_yes" next="EndNode4" action="commit"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode16"/>
+  </nodes>
+<!--@Location 7,32-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="SuggestList" strict="true">
+    <returnValues name="ShippingAddressValidationSuggestedAddresses" type="java.util.Iterator"
+        optional="true"/>
+    <returnValues name="ShipToAddressBO" type="com.intershop.component.address.capi.AddressBO"
+        optional="true"/>
+    <returnValues name="BillingAddressValidationSuggestedAddresses" type="java.util.Iterator"
+        optional="true"/>
+    <returnValues name="InvoiceToAddressBO" type="com.intershop.component.address.capi.AddressBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 6,32-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode16" conditionKey="BillingAddressValidationSuggestedAddresses">
+    <nodeSuccessors name="decision_yes" next="EndNode4" action="commit"/>
+    <nodeSuccessors name="decision_no" next="ExtensionPointNode0"/>
+  </nodes>
+<!--@Location 6,33-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode0" name="NewUserAddressCreating">
+    <nodeSuccessors name="next" next="CallNode12"/>
+  </nodes>
+<!--@Location 6,34-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode12">
+    <nodeSuccessors name="next" next="EndNode2" action="commit"/>
+    <startNode referencedName="ProcessCheckoutAddresses-EmailOptInt"/>
+  </nodes>
+<!--@Location 6,35-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 6,25-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="JoinNode15"/>
+  </nodes>
+<!--@Location 7,25-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="SourceAddressBOs" objectPath="ShippingAddressValidation:SuggestedAddresses"/>
+    <parameterBindings name="TargetAddressBORepository" objectPath="UserBOTempAddressStorage"/>
+    <startNode referencedName="ProcessAddress-CopyAddresses"/>
+    <returnValueBindings name="CopiedAddressesIterator" objectPath="ShippingAddressValidationSuggestedAddresses"/>
+  </nodes>
+<!--@Location 7,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 5,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 11,57-->
+    <nodeSuccessors name="next" next="JoinNode15"/>
+  </nodes>
+<!--@Location 8,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode26">
+    <nodeSuccessors name="next" next="EndNode6" action="rollback"/>
+  </nodes>
+<!--@Location 8,22-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="Error" strict="true">
+    <returnValues name="AddressCreationResult" type="com.intershop.component.address.capi.handler.AddressCreationResult"/>
+  </nodes>
+<!--@Location 9,20-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="ShippingAddressOption"
+      operator="str_eq" conditionValue="4">
+    <nodeSuccessors name="decision_yes" next="DecisionNode17"/>
+    <nodeSuccessors name="decision_no" next="CallNode9"/>
+  </nodes>
+<!--@Location 10,20-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode17" conditionKey="StoreAddressID">
+    <nodeSuccessors name="decision_yes" next="UpdateShipToAddress0"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper8"/>
+  </nodes>
+<!--@Location 10,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateShipToAddress0">
+    <pipelet href="enfinity:/bc_orderprocess/pipelets/UpdateShipToAddress.xml"/>
+    <nodeSuccessors name="next" next="JoinNode22"/>
+    <parameterBindings name="AddressID" objectPath="StoreAddressID"/>
+    <parameterBindings name="Basket" objectPath="CurrentCartBO"/>
+  </nodes>
+<!--@Location 10,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode22">
+    <nodeSuccessors name="next" next="CheckUserLoggedIn4"/>
+  </nodes>
+<!--@Location 10,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckUserLoggedIn4">
+    <pipelet href="enfinity:/core/pipelets/CheckUserLoggedIn.xml"/>
+<!--@BendPoints 21,50-->
+    <nodeSuccessors name="next" next="SetDefaultAddress3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode24"/>
+  </nodes>
+<!--@Location 10,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDefaultAddress3">
+    <configurationValues name="DefaultAddress" value="nochange"/>
+    <configurationValues name="DefaultInstallToAddress" value="nochange"/>
+    <configurationValues name="DefaultInvoiceToAddress" value="true"/>
+    <configurationValues name="DefaultServiceToAddress" value="nochange"/>
+    <configurationValues name="DefaultShipFromAddress" value="nochange"/>
+    <configurationValues name="DefaultShipToAddress" value="true"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/SetDefaultAddress.xml"/>
+    <nodeSuccessors name="next" next="JoinNode24"/>
+    <parameterBindings name="Address" objectPath="InvoiceToAddress"/>
+    <parameterBindings name="Profile" objectPath="CurrentUser:Profile"/>
+  </nodes>
+<!--@Location 10,27-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode24">
+    <nodeSuccessors name="next" next="JoinNode25"/>
+  </nodes>
+<!--@Location 9,27-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode25">
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 9,28-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode21">
+    <nodeSuccessors name="next" next="JoinNode15"/>
+  </nodes>
+<!--@Location 11,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper8">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode22"/>
+    <parameterBindings name="InValue_1" constant="true"/>
+    <returnValueBindings name="OutValue_1" objectPath="ShippingAddressValidationFailed"/>
+  </nodes>
+<!--@Location 9,22-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="CheckUserLoggedIn1"/>
+    <parameterBindings name="AddressID" objectPath="InvoiceToAddressBO:URN"/>
+    <parameterBindings name="CurrentCart" objectPath="CurrentCart"/>
+    <parameterBindings name="CustomerBORepository" objectPath="ApplicationBO:Repository(&quot;CustomerBORepository&quot;)"/>
+    <parameterBindings name="UserBORepository" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <startNode referencedName="ProcessCheckoutAddresses-SetAsShippingAddress"/>
+  </nodes>
+<!--@Location 9,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckUserLoggedIn1">
+    <pipelet href="enfinity:/core/pipelets/CheckUserLoggedIn.xml"/>
+<!--@BendPoints 19,48-->
+    <nodeSuccessors name="next" next="SetDefaultAddress1"/>
+<!--@BendPoints 20,47 20,51-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode13"/>
+  </nodes>
+<!--@Location 9,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDefaultAddress1">
+    <configurationValues name="DefaultAddress" value="nochange"/>
+    <configurationValues name="DefaultInstallToAddress" value="nochange"/>
+    <configurationValues name="DefaultInvoiceToAddress" value="true"/>
+    <configurationValues name="DefaultServiceToAddress" value="nochange"/>
+    <configurationValues name="DefaultShipFromAddress" value="nochange"/>
+    <configurationValues name="DefaultShipToAddress" value="true"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/SetDefaultAddress.xml"/>
+    <nodeSuccessors name="next" next="JoinNode13"/>
+    <parameterBindings name="Address" objectPath="InvoiceToAddress"/>
+    <parameterBindings name="Profile" objectPath="CurrentUser:Profile"/>
+  </nodes>
+<!--@Location 9,25-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="JoinNode25"/>
+  </nodes>
+<!--@Location 7,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+<!--@BendPoints 15,37-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 6,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="CheckUserLoggedIn0"/>
+  </nodes>
+<!--@Location 7,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="SourceAddressBOs" objectPath="BillingAddressValidation:SuggestedAddresses"/>
+    <parameterBindings name="TargetAddressBORepository" objectPath="UserBOTempAddressStorage"/>
+    <startNode referencedName="ProcessAddress-CopyAddresses"/>
+    <returnValueBindings name="CopiedAddressesIterator" objectPath="BillingAddressValidationSuggestedAddresses"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode23">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="ValidateAddress"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="billingAddressOriginAddressID" type="java.lang.String" optional="true"/>
+    <parameters name="billingAddressSelection" type="java.lang.String" optional="true"/>
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+    <parameters name="CartBO" type="com.intershop.component.basket.capi.BasketBO"
+        optional="true"/>
+    <parameters name="shippingAddressOriginAddressID" type="java.lang.String" optional="true"/>
+    <parameters name="shippingAddressSelection" type="java.lang.String" optional="true"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;ServiceConfigurationBORepository&quot;)"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:Repository(&quot;CustomerBORepository&quot;)"/>
+    <parameterBindings name="InValue_3" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ServiceConfigurationBORepository"/>
+    <returnValueBindings name="OutValue_2" objectPath="CustomerBORepository"/>
+    <returnValueBindings name="OutValue_3" objectPath="UserBORepository"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="billingAddressSelection">
+    <nodeSuccessors name="decision_yes" next="DecisionNode4"/>
+<!--@BendPoints 2,5 2,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="billingAddressSelection"
+      operator="str_eq" conditionItem="billingAddressOriginAddressID">
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="shippingAddressSelection">
+    <nodeSuccessors name="decision_yes" next="DecisionNode0"/>
+<!--@BendPoints 2,11 2,15-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="shippingAddressSelection"
+      operator="str_eq" conditionItem="shippingAddressOriginAddressID">
+    <nodeSuccessors name="decision_yes" next="JoinNode0"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <startNode referencedName="ProcessCart-Calculate"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0"/>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="shippingAddressOriginAddressID"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="JoinNode1"/>
+<!--@BendPoints 6,13-->
+    <nodeSuccessors name="decision_no" next="CallNode1"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 8,13 8,15-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <nodeSuccessors name="ERROR" next="JoinNode18"/>
+    <parameterBindings name="AddressID" objectPath="shippingAddressOriginAddressID"/>
+    <parameterBindings name="AddressSuggestID" objectPath="shippingAddressSelection"/>
+    <parameterBindings name="CurrentCart" objectPath="Cart"/>
+    <parameterBindings name="CustomerBORepository" objectPath="ApplicationBO:Repository(&quot;CustomerBORepository&quot;)"/>
+    <parameterBindings name="OwningDomain" objectPath="CurrentProductRepository:OwningDomain"/>
+    <parameterBindings name="UserBORepository" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <startNode referencedName="ProcessCheckoutAddresses-ApplyAddressSuggest"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="Error" strict="true"/>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="billingAddressOriginAddressID"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="JoinNode3"/>
+<!--@BendPoints 6,7-->
+    <nodeSuccessors name="decision_no" next="CallNode2"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 8,7 8,9-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <nodeSuccessors name="ERROR" next="JoinNode18"/>
+    <parameterBindings name="AddressID" objectPath="billingAddressOriginAddressID"/>
+    <parameterBindings name="AddressSuggestID" objectPath="billingAddressSelection"/>
+    <parameterBindings name="CurrentCart" objectPath="Cart"/>
+    <parameterBindings name="CustomerBORepository" objectPath="ApplicationBO:Repository(&quot;CustomerBORepository&quot;)"/>
+    <parameterBindings name="OwningDomain" objectPath="CurrentProductRepository:OwningDomain"/>
+    <parameterBindings name="UserBORepository" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <startNode referencedName="ProcessCheckoutAddresses-ApplyAddressSuggest"/>
+  </nodes>
+</pipeline:Pipeline>

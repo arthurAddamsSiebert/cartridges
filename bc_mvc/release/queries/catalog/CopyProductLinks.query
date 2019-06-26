@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="SourceProductUUID" type="java.lang.String" optional="false"/>
+    <parameter name="TargetProductUUID" type="java.lang.String" optional="false"/>
+    <parameter name="SourceDomainID" type="java.lang.String" optional="false"/>
+    <parameter name="TargetDomainID" type="java.lang.String" optional="false"/>
+    <parameter name="LinkType" type="java.lang.Integer" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template sqlDialect="Oracle">
+DECLARE 
+                 tgtLinkUUID VARCHAR2(28); 
+                 srcProductUUID VARCHAR2(28) := <template-variable value="SourceProductUUID"/>; 
+                 tgtProductUUID VARCHAR2(28) := <template-variable value="TargetProductUUID"/>; 
+                 srcDomainID VARCHAR2(28) := <template-variable value="SourceDomainID"/>; 
+                 tgtDomainID VARCHAR2(28) := <template-variable value="TargetDomainID"/>; 
+                 sUUID VARCHAR2(28); 
+                 tUUID VARCHAR2(28); 
+                 positionCount NUMBER;
+                 linkPosition FLOAT; 
+                BEGIN 
+                 DELETE FROM productlink_av WHERE ownerid IN ( 
+                  SELECT uuid FROM productlink WHERE (sourceid = tgtProductUUID OR targetid = tgtProductUUID) 
+                 <template-if condition="isDefined(LinkType)">
+                    AND typecode = <template-variable value="LinkType"/>);
+                 <if-else/>
+                    );
+                 </template-if>      
+                 DELETE FROM productlinkposition WHERE linkid IN (SELECT uuid FROM productlink
+                 WHERE (sourceid = tgtProductUUID OR targetid = tgtProductUUID) 
+                 <template-if condition="isDefined(LinkType)">
+                    AND typecode = <template-variable value="LinkType"/>);
+                 <if-else/>
+                    );
+                 </template-if>      
+                 DELETE FROM productlink WHERE ((sourceid = tgtProductUUID OR targetid = tgtProductUUID) 
+                 <template-if condition="isDefined(LinkType)">
+                    AND typecode = <template-variable value="LinkType"/>);
+                 <if-else/>
+                    );
+                 </template-if>      
+                 FOR i IN (SELECT * 
+                             FROM productlink 
+                            WHERE (sourceid = srcProductUUID OR targetid = srcProductUUID) 
+                              AND domainid = srcDomainID 
+                 <template-if condition="isDefined(LinkType)">
+                    AND typecode = <template-variable value="LinkType"/>)
+                 <if-else/>
+                    )
+                 </template-if>      
+                 LOOP 
+                  tgtLinkUUID := 'PL_'||sf_create_uuid('A', 24); 
+                  BEGIN 
+                   SELECT uuid INTO sUUID FROM product WHERE offeredproductid=i.sourceid AND domainid=tgtDomainID;
+                   SELECT uuid INTO tUUID FROM product WHERE offeredproductid=i.targetid AND domainid=tgtDomainID;
+                   INSERT INTO productlink (UUID, SOURCEID, TARGETID, DOMAINID, TYPECODE, LASTMODIFIED, OCA) 
+                      VALUES(tgtLinkUUID, sUUID, tUUID, tgtDomainID, i.typecode, UTCTIMESTAMP(), 1); 
+                   INSERT INTO productlink_av (OWNERID,NAME,LOCALEID,LOCALIZEDFLAG,TYPE,INTVALUE,DOUBLEVALUE,STRINGVALUE,OCA,OBJECTVALUE,OBJECTTYPE,LASTMODIFIED) 
+                      SELECT tgtLinkUUID,NAME,LOCALEID,LOCALIZEDFLAG,TYPE,INTVALUE,DOUBLEVALUE,STRINGVALUE,1,OBJECTVALUE,OBJECTTYPE,UTCTIMESTAMP() 
+                      FROM productlink_av 
+                      WHERE ownerid=i.uuid; 
+                   SELECT count(position) INTO positionCount FROM productLinkPosition WHERE linkid = i.uuid; 
+                   IF positionCount &gt; 0 THEN 
+                      SELECT position INTO linkPosition FROM productLinkPosition WHERE linkid = i.uuid; 
+                      INSERT INTO productLinkPosition (LINKID, DOMAINID, POSITION, OCA) 
+                         VALUES(tgtLinkUUID, tgtDomainID, linkPosition, 1); 
+                   END IF; 
+                  EXCEPTION 
+                   WHEN no_data_found THEN 
+                     NULL; 
+                  END; 
+                 END LOOP; 
+                END; 
+</template>
+<template sqlDialect="Microsoft">
+SET NOCOUNT ON;
+DECLARE 
+                @tgtLinkUUID VARCHAR(28), 
+                @srcProductUUID VARCHAR(28) = <template-variable value="SourceProductUUID"/>, 
+                @tgtProductUUID VARCHAR(28) = <template-variable value="TargetProductUUID"/>, 
+                @srcDomainID VARCHAR(28) = <template-variable value="SourceDomainID"/>, 
+                @tgtDomainID VARCHAR(28) = <template-variable value="TargetDomainID"/>, 
+                @sUUID VARCHAR(28), 
+                @tUUID VARCHAR(28), 
+                @positionCount INT,
+                @linkPosition INT,
+				@counter INT = 1,
+				@count	 INT = 0;
+
+DECLARE @ProductLinktb TABLE
+(
+	ID						INT IDENTITY,
+	SOURCEID				NVARCHAR(28) COLLATE Latin1_General_100_BIN2,
+	TARGETID				NVARCHAR(28) COLLATE Latin1_General_100_BIN2,
+	LINKEDCATALOGCATEGORYID NVARCHAR(28),
+	TYPECODE				NUMERIC(11,0),
+	QUANTITY				NUMERIC(38,6),
+	UUID					NVARCHAR(30),
+	DOMAINID				NVARCHAR(30),
+	OCA						NUMERIC(11,0)
+); 
+                BEGIN 
+                 DELETE FROM productlink_av WHERE ownerid IN ( 
+                  SELECT uuid FROM productlink WHERE (sourceid = @tgtProductUUID OR targetid = @tgtProductUUID) 
+                 <template-if condition="isDefined(LinkType)">
+                    AND typecode = <template-variable value="LinkType"/>);
+                 <if-else/>
+                    );
+                 </template-if>      
+                 DELETE FROM productlinkposition WHERE linkid IN (SELECT uuid FROM productlink
+                 WHERE (sourceid = @tgtProductUUID OR targetid = @tgtProductUUID) 
+                 <template-if condition="isDefined(LinkType)">
+                    AND typecode = <template-variable value="LinkType"/>);
+                 <if-else/>
+                    );
+                 </template-if>      
+                 DELETE FROM productlink WHERE ((sourceid = @tgtProductUUID OR targetid = @tgtProductUUID) 
+                 <template-if condition="isDefined(LinkType)">
+                    AND typecode = <template-variable value="LinkType"/>);
+                 <if-else/>
+                    );
+                 </template-if>      
+                 INSERT INTO @ProductLinktb
+				SELECT SOURCEID, TARGETID, LINKEDCATALOGCATEGORYID, TYPECODE, QUANTITY, UUID, DOMAINID, OCA FROM productlink 
+				WHERE (sourceid = @srcProductUUID OR targetid = @srcProductUUID) 
+				                              AND domainid = @srcDomainID 
+				                 <template-if condition="isDefined(LinkType)">
+				                    AND typecode = <template-variable value="LinkType"/>
+				                 <if-else/>
+								 </template-if>  
+				SELECT @count = COUNT(1) FROM @ProductLinktb;
+				WHILE @counter &lt;= @count
+				BEGIN
+					BEGIN TRY
+						DECLARE @uuidstr NVARCHAR(30),
+								@typeCode NUMERIC(38,6);
+						SELECT @uuidstr = UUID, @typeCode = TYPECODE FROM @ProductLinktb WHERE ID = @counter;
+						SET @tgtLinkUUID = CONCAT('PL_',dbo.sf_create_uuid());
+
+						SELECT @sUUID = p.uuid FROM product p
+						INNER JOIN @ProductLinktb PB ON p.offeredproductid = PB.SOURCEID AND PB.ID = @counter
+						WHERE p.domainid = @tgtDomainID;
+	
+						SELECT @tUUID = p.uuid FROM product p 
+						INNER JOIN @ProductLinktb PB ON p.offeredproductid = PB.targetid AND PB.ID = @counter
+						WHERE p.domainid = @tgtDomainID;
+						IF NOT(@sUUID IS NULL OR @tUUID IS NULL)
+						BEGIN
+							INSERT INTO productlink (UUID, SOURCEID, TARGETID, DOMAINID, TYPECODE, LASTMODIFIED, OCA) 
+								VALUES(@tgtLinkUUID, @sUUID, @tUUID, @tgtDomainID, @typeCode, GETUTCDATE(), 1); 
+						END
+						INSERT INTO productlink_av (OWNERID,NAME,LOCALEID,LOCALIZEDFLAG,TYPE,INTVALUE,DOUBLEVALUE,STRINGVALUE,OCA,OBJECTVALUE,OBJECTTYPE,LASTMODIFIED) 
+							SELECT @tgtLinkUUID, NAME, LOCALEID, LOCALIZEDFLAG, TYPE, INTVALUE, DOUBLEVALUE, STRINGVALUE, 1, OBJECTVALUE, OBJECTTYPE, GETUTCDATE() 
+							FROM productlink_av 
+							WHERE ownerid = @uuidstr;
+
+						INSERT INTO productLinkPosition (LINKID, DOMAINID, POSITION, OCA) 
+							SELECT @tgtLinkUUID, @tgtDomainID, position, 1 FROM productLinkPosition  WHERE linkid = @uuidstr; 
+					END TRY
+					BEGIN CATCH
+						-- DO NOTHING
+					END CATCH
+					SET @counter = @counter + 1;
+				END
+			END
+</template>
+</query>

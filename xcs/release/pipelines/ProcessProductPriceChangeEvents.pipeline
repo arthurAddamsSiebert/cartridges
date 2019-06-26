@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Provides logic for processing of product price change events.
+@Group Price-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessProductPriceChangeEvents" type="process">
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="GetFeatureStatus"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+    <parameters name="DomainName" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Domain">
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+<!--@BendPoints 13,5 13,6-->
+    <nodeSuccessors name="decision_no" next="GetDomainByName1"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 11,10-->
+    <nodeSuccessors name="next" next="GetDomainPreference1"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference1">
+    <configurationValues name="DefaultPreferenceKey" value="AllowProductPriceChangeEvents"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+<!--@BendPoints 11,12-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Domain"/>
+    <parameterBindings name="PreferenceKey" nullBinding="true"/>
+    <returnValueBindings name="Preference" nullBinding="true"/>
+    <returnValueBindings name="PreferenceDoubleValue" nullBinding="true"/>
+    <returnValueBindings name="PreferenceIntValue" nullBinding="true"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="AllowProductPriceChangeEvents"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="AllowProductPriceChangeEvents"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 11,14-->
+    <nodeSuccessors name="decision_yes" next="EndNode2"/>
+<!--@BendPoints 13,13-->
+    <nodeSuccessors name="decision_no" next="EndNode3"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="ENABLED" strict="true"/>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="DISABLED" strict="true"/>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByName1">
+    <pipelet href="enfinity:/core/pipelets/GetDomainByName.xml"/>
+<!--@BendPoints 13,9-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Refresh"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DetermineProductPriceChangeEvents1"/>
+<!--The domain of the desired product price change events.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The reason code of the product price change event must match this reason code (if defined).-->
+    <parameters name="ReasonCode" type="java.lang.String" optional="true"/>
+<!--The desired product price change events must have an event date newer than this date.-->
+    <parameters name="TimeFrameStart" type="java.util.Date" optional="true"/>
+<!--The desired product price change events must have an event date older than this date.-->
+    <parameters name="TimeFrameEnd" type="java.util.Date" optional="true"/>
+<!--The configuration domain for the event handler.-->
+    <parameters name="Site" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineProductPriceChangeEvents1">
+    <configurationValues name="ReasonCode" value="PriceListPrice"/>
+    <pipelet href="enfinity:/xcs/pipelets/DetermineProductPriceChangeEvents.xml"/>
+    <nodeSuccessors name="next" next="HandleProductPriceChangeEvents1"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="HandleProductPriceChangeEvents1">
+    <pipelet href="enfinity:/xcs/pipelets/HandleProductPriceChangeEvents.xml"/>
+<!--@BendPoints 5,8-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+<!--The refreshed product price change events.-->
+    <returnValues name="ProductPriceChangeEvents" type="java.util.Iterator&lt;com.intershop.beehive.xcs.capi.price.ProductPriceChangeEvent>"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" visibility="Private"
+      name="RemoveUserFromProductPriceChangeEvents" callMode="Private">
+    <nodeSuccessors name="next" next="DetermineUser0"/>
+    <parameters name="UserID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUser0">
+    <pipelet href="enfinity:/core/pipelets/DetermineUser.xml"/>
+    <nodeSuccessors name="next" next="RemoveUserFromProductPriceChangeEvents0"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveUserFromProductPriceChangeEvents0">
+    <pipelet href="enfinity:/xcs/pipelets/RemoveUserFromProductPriceChangeEvents.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+</pipeline:Pipeline>

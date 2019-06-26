@@ -1,0 +1,738 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Holds the general processing Pipelines for the handling of the Prefix\-Pipelines of the storefront applications.
+@Group Common-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessPrefix" overrideMode="Inherit" type="process">
+<!--@TODO: pipeline rework
+\- internally still retrieves current Request.
+Has to be passed in via parameter!
+@Location 8,8-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text9"/>
+<!--This fallback won't work with arrays,
+because the Pipelet CreateURL
+expects only Strings as Parameter
+value and not an Array.
+@Location 30,4-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2"/>
+<!--@TODO: pipeline rework
+\- Pipelet internally still retrieves
+current Request.
+Has to be passed in via parameter!
+@Location 6,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text10"/>
+<!--But if there was a 
+fallback locale/currency
+used the one within
+the request URL is invalid,
+so return with error.
+@Location 24,11-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--Site available in state 'Live' and in 'Maintenance' for StorefrontEditing 
+(state is maintenance and StorefrontEditingContext exist
+or the pipeline start node name contains "BackOfficevView").
+In state 'Maintenance' site is not available for end user.
+@Location 9,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@displayNearNode@Checks that important parameters used internally for dynamically triggering a 
+pipeline/pagelet entry point/template. These are not allowed to be passed in as
+request parameters! (If you need to make an exception for a certain pipeline like
+ViewContent\-Start, that performs its own security checks, use the pipelet CheckIsStartNode.)
+@Location 40,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" strict="true" name="CheckForControlParameterInjection"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode14"/>
+<!--possibly injected PageletEntryPointID-->
+    <parameters name="PageletEntryPointID" type="java.lang.String" optional="true"/>
+<!--possibly injected PageletEntryPointUUID-->
+    <parameters name="PageletEntryPointUUID" type="java.lang.String" optional="true"/>
+<!--possibly injected WorkingTemplate-->
+    <parameters name="WorkingTemplate" type="java.lang.String" optional="true"/>
+<!--For exception of ViewContent\-Start-->
+    <parameters name="CurrentPipelineName" type="java.lang.String" optional="true"/>
+<!--For exception of ViewContent\-Start-->
+    <parameters name="CurrentStartNodeName" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 40,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="PageletEntryPointUUID">
+<!--@BendPoints 83,3-->
+    <nodeSuccessors name="decision_yes" next="JoinNode18"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode13"/>
+  </nodes>
+<!--@Location 41,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+    <nodeSuccessors name="next" next="CheckIsStartNode2"/>
+  </nodes>
+<!--@Location 41,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckIsStartNode2">
+    <configurationValues name="Pipeline" value="ViewContent-Start"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckIsStartNode.xml"/>
+<!--@BendPoints 82,7-->
+    <nodeSuccessors name="next" next="JoinNode19"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode20"/>
+    <parameterBindings name="PipelineName" objectPath="CurrentPipelineName"/>
+    <parameterBindings name="StartNodeName" objectPath="CurrentStartNodeName"/>
+  </nodes>
+<!--@Location 40,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+    <nodeSuccessors name="next" next="DecisionNode15"/>
+  </nodes>
+<!--@Location 40,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode15" conditionKey="WorkingTemplate">
+    <nodeSuccessors name="decision_yes" next="JoinNode20"/>
+<!--@BendPoints 81,10-->
+    <nodeSuccessors name="decision_no" next="EndNode7"/>
+  </nodes>
+<!--@Location 41,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+    <nodeSuccessors name="next" next="EndNode11"/>
+  </nodes>
+<!--@Location 41,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" name="CONTROL_PARAMETER_INJECTED"
+      strict="true"/>
+<!--@Location 40,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="OK" strict="true"/>
+<!--@Location 40,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="PageletEntryPointID">
+    <nodeSuccessors name="decision_yes" next="JoinNode18"/>
+    <nodeSuccessors name="decision_no" next="JoinNode19"/>
+  </nodes>
+<!--Checks: 
+\- whether the Organization and Domain belong together
+\- whether the Organization state is 1
+\- whether the Repository can be resolved by the owning Domain of the Organization
+@Location 15,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="CheckOrganization"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+<!--The current organization.-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+<!--The associated Domain.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="Organization:OrganizationDomain:Site:UUID"
+      operator="str_eq" conditionItem="Domain:UUID">
+    <nodeSuccessors name="decision_yes" next="DecisionNode4"/>
+<!--@BendPoints 35,3 35,7-->
+    <nodeSuccessors name="decision_no" next="JoinNode8"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="Organization:State"
+      operator="eq" conditionValue="1">
+    <nodeSuccessors name="decision_yes" next="GetRepositoryByRepositoryDomain0"/>
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue1"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+<!--@BendPoints 31,10-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="RepositoryDomain" objectPath="Organization:OwningDomain"/>
+    <returnValueBindings name="Repository" objectPath="CurrentProductRepository"/>
+  </nodes>
+<!--@Location 15,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+<!--The Repository of the owning Domain of the Organization.-->
+    <returnValues name="CurrentProductRepository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="SetDictionaryValue3"/>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue3">
+    <configurationValues name="Name" value="Error_ApplicationContext"/>
+    <configurationValues name="Value" value="ChannelRepositoryNotFound"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="EndNode12"/>
+  </nodes>
+<!--The error Code can be:
+\- ChannelRepositoryNotFound
+\- OrganizationIsOffline
+@Location 16,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" name="Error" strict="true">
+<!--The Error\-Code:
+\- ChannelRepositoryNotFound
+\- OrganizationIsOffline-->
+    <returnValues name="Error_ApplicationContext" type="java.lang.String"/>
+  </nodes>
+<!--@Location 16,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="Error_ApplicationContext"/>
+    <configurationValues name="Value" value="OrganizationIsOffline"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 34,5 34,11-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--Site available in state 'Live' and in 'Maintenance' for StorefrontEditing 
+(state is maintenance and StorefrontEditingContext exist
+or the pipeline start node name contains "BackOfficeView").
+In state 'Maintenance' site is not available for end user.
+@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CheckSite"
+      callMode="Private">
+<!--@BendPoints 15,2-->
+    <nodeSuccessors name="next" next="CheckIsSiteLive0"/>
+<!--The current Domain.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The Session.-->
+    <parameters name="Session" type="com.intershop.beehive.core.capi.request.Session"/>
+<!--The current Request.-->
+    <parameters name="Request" type="com.intershop.beehive.core.capi.request.Request"/>
+<!--The Application BO.-->
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--The current Pipeline Name. Checked if in preview mode.-->
+    <parameters name="CurrentPipelineName" type="java.lang.String" optional="true"/>
+<!--The current start node Name. Checked if in preview mode.-->
+    <parameters name="CurrentStartNodeName" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckIsSiteLive0">
+    <pipelet href="enfinity:/core/pipelets/CheckIsSiteLive.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+<!--@BendPoints 17,3 17,4-->
+    <nodeSuccessors name="pipelet_error" next="DecisionNode2"/>
+    <parameterBindings name="CurrentDomain" objectPath="Domain"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Session:getObject(&quot;T_StorefrontEditingContext&quot;)">
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+<!--@BendPoints 19,5-->
+    <nodeSuccessors name="decision_no" next="CheckIsStartNode1"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 17,10-->
+    <nodeSuccessors name="next" next="CheckIsSiteOnMaintenance0"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckIsSiteOnMaintenance0">
+    <pipelet href="enfinity:/core/pipelets/CheckIsSiteOnMaintenance.xml"/>
+<!--@BendPoints 17,13-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="CurrentDomain" objectPath="Domain"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="SetDictionaryValue0"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue0">
+    <configurationValues name="Name" value="Error_ApplicationContext"/>
+    <configurationValues name="Value" value="SiteIsNotLive"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+  </nodes>
+<!--@Location 9,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="SetSessionLocale0"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:DefaultLocale:LocaleID"/>
+    <parameterBindings name="InValue_10" nullBinding="true"/>
+    <parameterBindings name="InValue_2" nullBinding="true"/>
+    <parameterBindings name="InValue_3" nullBinding="true"/>
+    <parameterBindings name="InValue_4" nullBinding="true"/>
+    <parameterBindings name="InValue_5" nullBinding="true"/>
+    <parameterBindings name="InValue_6" nullBinding="true"/>
+    <parameterBindings name="InValue_7" nullBinding="true"/>
+    <parameterBindings name="InValue_8" nullBinding="true"/>
+    <parameterBindings name="InValue_9" nullBinding="true"/>
+    <returnValueBindings name="OutValue_1" objectPath="DefaultLocale"/>
+    <returnValueBindings name="OutValue_10" nullBinding="true"/>
+    <returnValueBindings name="OutValue_2" nullBinding="true"/>
+    <returnValueBindings name="OutValue_3" nullBinding="true"/>
+    <returnValueBindings name="OutValue_4" nullBinding="true"/>
+    <returnValueBindings name="OutValue_5" nullBinding="true"/>
+    <returnValueBindings name="OutValue_6" nullBinding="true"/>
+    <returnValueBindings name="OutValue_7" nullBinding="true"/>
+    <returnValueBindings name="OutValue_8" nullBinding="true"/>
+    <returnValueBindings name="OutValue_9" nullBinding="true"/>
+  </nodes>
+<!--@Location 9,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetSessionLocale0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetSessionLocale.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+<!--@BendPoints 20,17 20,19-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="LocaleID" objectPath="DefaultLocale"/>
+    <returnValueBindings name="ErrorCode" nullBinding="true"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 19,20-->
+    <nodeSuccessors name="next" next="InteractionNode0"/>
+  </nodes>
+<!--@Location 9,10-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode0">
+    <template referencedName="application/SiteOffline"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckIsStartNode1">
+    <configurationValues name="Pipeline" value="ViewPreviewConfiguration-UpdateSession"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckIsStartNode.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <nodeSuccessors name="pipelet_error" next="CheckIsStartNode0"/>
+    <parameterBindings name="PipelineName" objectPath="CurrentPipelineName"/>
+    <parameterBindings name="StartNodeName" objectPath="CurrentStartNodeName"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckIsStartNode0">
+    <configurationValues name="Pipeline" value="Default-DefaultBackOfficeView"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckIsStartNode.xml"/>
+<!--@BendPoints 18,9-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="PipelineName" objectPath="CurrentPipelineName"/>
+    <parameterBindings name="StartNodeName" objectPath="CurrentStartNodeName"/>
+  </nodes>
+<!--Takes the current Request and its parameters and creates a new URL with the given URL elements.
+@Location 29,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" strict="true" visibility="Private"
+      name="RedirectCorrectLocale" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode12"/>
+<!--The current Servlet Request from the current Request.-->
+    <parameters name="ServletRequest" type="javax.servlet.ServletRequest"/>
+<!--The new Site.-->
+    <parameters name="TargetSite" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The targeted Locale-->
+    <parameters name="TargetLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+<!--The targeted Currency-->
+    <parameters name="TargetCurrency" type="com.intershop.beehive.core.capi.currency.Currency"/>
+<!--The targeted protocol, if needed.-->
+    <parameters name="Protocol" type="java.lang.String" optional="true"/>
+<!--The current Pipeline Name. If not set, Pipeline "Default" is used.-->
+    <parameters name="CurrentPipelineName" type="java.lang.String" optional="true"/>
+<!--The current start node name. If not set, start node "Start" is used.-->
+    <parameters name="CurrentStartNodeName" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 29,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="CurrentRequest:ServletRequest:Method"
+      operator="str_eq" conditionItem="&quot;GET&quot;">
+    <nodeSuccessors name="decision_yes" next="ConcatenateStrings0"/>
+<!--@BendPoints 63,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode17"/>
+  </nodes>
+<!--@Location 29,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings0">
+    <configurationValues name="DefaultString0" value="Default"/>
+    <configurationValues name="DefaultString1" value="-"/>
+    <configurationValues name="DefaultString2" value="Start"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="String0" objectPath="CurrentPipelineName"/>
+    <parameterBindings name="String1" nullBinding="true"/>
+    <parameterBindings name="String2" objectPath="CurrentStartNodeName"/>
+    <parameterBindings name="String3" nullBinding="true"/>
+    <parameterBindings name="String4" nullBinding="true"/>
+    <parameterBindings name="String5" nullBinding="true"/>
+    <parameterBindings name="String6" nullBinding="true"/>
+    <parameterBindings name="String7" nullBinding="true"/>
+    <parameterBindings name="String8" nullBinding="true"/>
+    <parameterBindings name="String9" nullBinding="true"/>
+    <returnValueBindings name="Concatenated" objectPath="TargetPipeline"/>
+  </nodes>
+<!--@Location 29,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="CurrentRequest:ServletRequest:ParameterNames">
+    <nodeSuccessors name="next" next="CreateURL0"/>
+    <entry key="ParameterName">
+<!--@BendPoints 59,8-->
+      <nodeSuccessors name="loop_entry_next" next="LoopNode0"/>
+    </entry>
+  </nodes>
+<!--@Location 29,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="CurrentRequest:ServletRequest:ParameterValues(ParameterName)">
+<!--@BendPoints 60,9 60,12 57,12 57,7-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <entry key="ParameterValue">
+<!--@BendPoints 59,10-->
+      <nodeSuccessors name="loop_entry_next" next="AddEntryToMap0"/>
+    </entry>
+  </nodes>
+<!--@Location 29,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+<!--@BendPoints 58,11 58,9-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <parameterBindings name="InMap" objectPath="TargetParams"/>
+    <parameterBindings name="Key" objectPath="ParameterName"/>
+    <parameterBindings name="Value" objectPath="ParameterValue"/>
+    <returnValueBindings name="Keys" nullBinding="true"/>
+    <returnValueBindings name="OutMap" objectPath="TargetParams"/>
+  </nodes>
+<!--@Location 30,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateURL0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateURL.xml"/>
+    <nodeSuccessors name="next" next="JoinNode17"/>
+    <parameterBindings name="Action" objectPath="TargetPipeline"/>
+    <parameterBindings name="CurrencyMnemonic" objectPath="TargetCurrency:Mnemonic"/>
+    <parameterBindings name="DomainName" objectPath="TargetSite:DomainName"/>
+    <parameterBindings name="LocaleID" objectPath="TargetLocale:LocaleID"/>
+    <parameterBindings name="Params" objectPath="TargetParams"/>
+    <returnValueBindings name="CreatedURL" objectPath="TargetURL"/>
+  </nodes>
+<!--@Location 31,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+    <nodeSuccessors name="next" next="KeyMapper6"/>
+  </nodes>
+<!--@Location 31,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper6">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode2"/>
+    <parameterBindings name="InValue_1" constant="(Boolean)true"/>
+    <returnValueBindings name="OutValue_1" objectPath="EnablePageCache"/>
+  </nodes>
+<!--@Location 31,6-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode2">
+    <template referencedName="application/Redirect.isml"/>
+  </nodes>
+<!--Sets the Session parameter T_SecureURL to http or https redargs the domain preference.
+Also sets the Session parameter T_InecureURL to http.
+@Location 35,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="SetSecurityProtocol"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ExchangeSessionObject2"/>
+<!--The associated Domain of the session to get the Domain preference from.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The Session to set the protocol for.-->
+    <parameters name="Session" type="com.intershop.beehive.core.capi.request.Session"/>
+  </nodes>
+<!--@Location 35,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject2">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_SecureURL"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="JoinNode10"/>
+<!--@BendPoints 72,3 72,4 72,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="SaveObject" constant="https"/>
+    <parameterBindings name="TargetSession" objectPath="Session"/>
+    <returnValueBindings name="LoadObject" nullBinding="true"/>
+  </nodes>
+<!--@Location 35,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="ExchangeSessionObject3"/>
+  </nodes>
+<!--@Location 35,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject3">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_InsecureURL"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="JoinNode12"/>
+<!--@BendPoints 72,7 72,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode12"/>
+    <parameterBindings name="SaveObject" constant="http"/>
+    <parameterBindings name="TargetSession" objectPath="Session"/>
+    <returnValueBindings name="LoadObject" nullBinding="true"/>
+  </nodes>
+<!--@Location 35,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 71,10-->
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 35,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name="" strict="true"/>
+<!--@Since IS 7.3.2
+Sets a SessionValue about the ViewType if this value was not existing and changes this SessionValue if a new DictionaryValue was available. 
+=> Used for preselection on productView1 and switch selections from productView1 to productView2
+
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="SetViewType"
+      callMode="Private">
+<!--@BendPoints 3,2-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--The view Type.-->
+    <parameters name="ViewType" type="java.lang.Object" optional="true"/>
+<!--The Session.-->
+    <parameters name="Session" type="com.intershop.beehive.core.capi.request.Session"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Session:getObject(&quot;T_ViewType&quot;)">
+    <nodeSuccessors name="decision_yes" next="DecisionNode0"/>
+<!--@BendPoints 7,3-->
+    <nodeSuccessors name="decision_no" next="ExchangeSessionObject0"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="ViewType">
+    <nodeSuccessors name="decision_yes" next="ExchangeSessionObject1"/>
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject1">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_ViewType"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="SaveObject" objectPath="ViewType"/>
+    <parameterBindings name="TargetSession" objectPath="Session"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject0">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="T_ViewType"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+<!--@BendPoints 7,9-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="SaveObject" constant="1"/>
+    <parameterBindings name="TargetSession" objectPath="Session"/>
+  </nodes>
+<!--Checks whether thecurrency of the Request is allowed and is no fallback currency.
+@Location 25,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" visibility="Private"
+      name="ValidateCurrency" callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+<!--The Application BO assigned with the Request to be validated.-->
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--The Request to check the currency from.-->
+    <parameters name="Request" type="com.intershop.beehive.core.capi.request.Request"/>
+  </nodes>
+<!--@Location 25,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode8"/>
+    <parameterBindings name="InValue_1" objectPath="Request:Currency"/>
+    <parameterBindings name="InValue_2" objectPath="Request:FallbackCurrency"/>
+    <returnValueBindings name="OutValue_1" objectPath="RequestCurrency"/>
+    <returnValueBindings name="OutValue_2" objectPath="IsFallbackCurrency"/>
+  </nodes>
+<!--@Location 25,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="ApplicationBO:isCurrencyAllowed(RequestCurrency)"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="DecisionNode6"/>
+<!--@BendPoints 53,23-->
+    <nodeSuccessors name="decision_no" next="JoinNode23"/>
+  </nodes>
+<!--@Location 25,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="IsFallbackCurrency"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="JoinNode23"/>
+    <nodeSuccessors name="decision_no" next="EndNode6"/>
+  </nodes>
+<!--@Location 26,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode23">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--Returns, if the Locale in the Request is not allowed in the Application or if it is a FallbackLocale.
+@Location 26,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="ERROR" strict="true"/>
+<!--@Location 25,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true"/>
+<!--Checks whether the locale of the Request is allowed and is no fallback locale.
+@Location 23,9-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" visibility="Private"
+      name="ValidateLocale" callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+<!--The Application BO assigned with the Request to be validated.-->
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--The Request to check the locale from.-->
+    <parameters name="Request" type="com.intershop.beehive.core.capi.request.Request"/>
+  </nodes>
+<!--@Location 23,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+    <parameterBindings name="InValue_1" objectPath="Request:Locale"/>
+    <parameterBindings name="InValue_2" objectPath="Request:FallbackLocale"/>
+    <returnValueBindings name="OutValue_1" objectPath="RequestLocale"/>
+    <returnValueBindings name="OutValue_2" objectPath="IsFallbackLocale"/>
+  </nodes>
+<!--@Location 23,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="ApplicationBO:isLocaleAllowed(RequestLocale)"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="DecisionNode5"/>
+<!--@BendPoints 49,23-->
+    <nodeSuccessors name="decision_no" next="JoinNode22"/>
+  </nodes>
+<!--@Location 23,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="IsFallbackLocale"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="JoinNode22"/>
+    <nodeSuccessors name="decision_no" next="EndNode5"/>
+  </nodes>
+<!--@Location 24,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode22">
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--Returns, if the Currency in the Request is not allowed in the Application or if it is a FallbackCurrency.
+@Location 24,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="ERROR" strict="true"/>
+<!--@Location 23,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--Checks the Request. If it is a TopLevelRequest and the PreviewContext is not enabled, it validates the Locale and Currency.
+@Location 23,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="ValidateRequest"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+<!--The Request to check.-->
+    <parameters name="Request" type="com.intershop.beehive.core.capi.request.Request"/>
+<!--The Application BO assigned with the Request to be validated.-->
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--Requests by the WA don't need this check
+@Location 23,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="Request:isTopLevelRequest"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="DecisionNode10"/>
+<!--@BendPoints 43,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode16"/>
+  </nodes>
+<!--@displayNearNode@If preview mode is enabled, determine selected user groups and ABTests.
+@Location 23,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="ApplicationBO:Extension(&quot;PreviewExtension&quot;):PreviewContext">
+    <nodeSuccessors name="decision_yes" next="JoinNode16"/>
+    <nodeSuccessors name="decision_no" next="CallNode1"/>
+  </nodes>
+<!--@Location 21,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+    <nodeSuccessors name="next" next="JoinNode15"/>
+  </nodes>
+<!--@Location 21,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 21,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="OK" strict="true"/>
+<!--@Location 23,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 45,7-->
+    <nodeSuccessors name="next" next="CallNode0"/>
+<!--@BendPoints 49,7-->
+    <nodeSuccessors name="ERROR" next="CallNode2"/>
+    <startNode referencedName="ProcessPrefix-ValidateLocale"/>
+  </nodes>
+<!--@Location 22,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="JoinNode15"/>
+<!--@BendPoints 47,9-->
+    <nodeSuccessors name="ERROR" next="KeyMapper3"/>
+    <startNode referencedName="ProcessPrefix-ValidateCurrency"/>
+  </nodes>
+<!--@Location 23,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 47,13-->
+    <nodeSuccessors name="next" next="JoinNode14"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Site"/>
+    <parameterBindings name="InValue_10" nullBinding="true"/>
+    <parameterBindings name="InValue_2" objectPath="Request:Locale"/>
+    <parameterBindings name="InValue_3" objectPath="ApplicationBO:DefaultCurrency"/>
+    <parameterBindings name="InValue_4" constant="Default-Start"/>
+    <parameterBindings name="InValue_5" nullBinding="true"/>
+    <parameterBindings name="InValue_6" nullBinding="true"/>
+    <parameterBindings name="InValue_7" nullBinding="true"/>
+    <parameterBindings name="InValue_8" nullBinding="true"/>
+    <parameterBindings name="InValue_9" nullBinding="true"/>
+    <returnValueBindings name="OutValue_1" objectPath="TargetSite"/>
+    <returnValueBindings name="OutValue_10" nullBinding="true"/>
+    <returnValueBindings name="OutValue_2" objectPath="TargetLocale"/>
+    <returnValueBindings name="OutValue_3" objectPath="TargetCurrency"/>
+    <returnValueBindings name="OutValue_4" objectPath="TargetPipeline"/>
+    <returnValueBindings name="OutValue_5" nullBinding="true"/>
+    <returnValueBindings name="OutValue_6" nullBinding="true"/>
+    <returnValueBindings name="OutValue_7" nullBinding="true"/>
+    <returnValueBindings name="OutValue_8" nullBinding="true"/>
+    <returnValueBindings name="OutValue_9" nullBinding="true"/>
+  </nodes>
+<!--@Location 24,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+    <nodeSuccessors name="next" next="EndNode8"/>
+  </nodes>
+<!--@Location 24,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="ERROR" strict="true">
+<!--The Site of the ApplicationBO.-->
+    <returnValues name="TargetSite" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The valid locale or the default locale.-->
+    <returnValues name="TargetLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+<!--The valid currency or the default currency.-->
+    <returnValues name="TargetCurrency" type="com.intershop.beehive.core.capi.currency.Currency"/>
+<!--Default\-Start-->
+    <returnValues name="TargetPipeline" type="java.lang.String"/>
+  </nodes>
+<!--@Location 24,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 49,10-->
+    <nodeSuccessors name="next" next="KeyMapper4"/>
+<!--@BendPoints 51,9-->
+    <nodeSuccessors name="ERROR" next="KeyMapper5"/>
+    <startNode referencedName="ProcessPrefix-ValidateCurrency"/>
+  </nodes>
+<!--@Location 24,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode14"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Site"/>
+    <parameterBindings name="InValue_10" nullBinding="true"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:DefaultLocale"/>
+    <parameterBindings name="InValue_3" objectPath="Request:Currency"/>
+    <parameterBindings name="InValue_4" constant="Default-Start"/>
+    <parameterBindings name="InValue_5" nullBinding="true"/>
+    <parameterBindings name="InValue_6" nullBinding="true"/>
+    <parameterBindings name="InValue_7" nullBinding="true"/>
+    <parameterBindings name="InValue_8" nullBinding="true"/>
+    <parameterBindings name="InValue_9" nullBinding="true"/>
+    <returnValueBindings name="OutValue_1" objectPath="TargetSite"/>
+    <returnValueBindings name="OutValue_10" nullBinding="true"/>
+    <returnValueBindings name="OutValue_2" objectPath="TargetLocale"/>
+    <returnValueBindings name="OutValue_3" objectPath="TargetCurrency"/>
+    <returnValueBindings name="OutValue_4" objectPath="TargetPipeline"/>
+    <returnValueBindings name="OutValue_5" nullBinding="true"/>
+    <returnValueBindings name="OutValue_6" nullBinding="true"/>
+    <returnValueBindings name="OutValue_7" nullBinding="true"/>
+    <returnValueBindings name="OutValue_8" nullBinding="true"/>
+    <returnValueBindings name="OutValue_9" nullBinding="true"/>
+  </nodes>
+<!--@Location 25,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 51,13-->
+    <nodeSuccessors name="next" next="JoinNode14"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Site"/>
+    <parameterBindings name="InValue_10" nullBinding="true"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:DefaultLocale"/>
+    <parameterBindings name="InValue_3" objectPath="ApplicationBO:DefaultCurrency"/>
+    <parameterBindings name="InValue_4" constant="Default-Start"/>
+    <parameterBindings name="InValue_5" nullBinding="true"/>
+    <parameterBindings name="InValue_6" nullBinding="true"/>
+    <parameterBindings name="InValue_7" nullBinding="true"/>
+    <parameterBindings name="InValue_8" nullBinding="true"/>
+    <parameterBindings name="InValue_9" nullBinding="true"/>
+    <returnValueBindings name="OutValue_1" objectPath="TargetSite"/>
+    <returnValueBindings name="OutValue_10" nullBinding="true"/>
+    <returnValueBindings name="OutValue_2" objectPath="TargetLocale"/>
+    <returnValueBindings name="OutValue_3" objectPath="TargetCurrency"/>
+    <returnValueBindings name="OutValue_4" objectPath="TargetPipeline"/>
+    <returnValueBindings name="OutValue_5" nullBinding="true"/>
+    <returnValueBindings name="OutValue_6" nullBinding="true"/>
+    <returnValueBindings name="OutValue_7" nullBinding="true"/>
+    <returnValueBindings name="OutValue_8" nullBinding="true"/>
+    <returnValueBindings name="OutValue_9" nullBinding="true"/>
+  </nodes>
+</pipeline:Pipeline>

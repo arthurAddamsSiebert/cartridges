@@ -1,0 +1,95 @@
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/BundledProductLineItem.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/ProductLineItemPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/Domain.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObjectPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+external ProductRef type "com.intershop.beehive.xcs.common.ProductRef";
+
+namespace com.intershop.beehive.bts.internal.orderprocess
+{
+    /*
+     * Represents products making up a bundle.
+     * 
+     * <P>Product attributes copied into a bundled product line-item: ProductRef, ProductName, ProductShortDescription, SKU
+     * 
+     * <P>The quantity held by a BundledProductLineItem is the quantity of the represented product <I>per bundle</I>, i.e. if 10 bundles are ordered and the bundle has a bundled product with a quantity 2, a total of 20 units have been ordered.
+     */
+    partitionable orm class BundledProductLineItemPO extends ExtensibleObjectPO implements BundledProductLineItem table "BundledProductLineItem"
+    {
+        index(productLineItemID);
+
+        attribute productLineItemID : uuid;
+
+        /*
+         * The ProductRef instance identifying the <i>offer</i> represented by this BundledProductLineItem.
+         * 
+         * <br>Whereas the  <i>offered Product</i> is defined by one unit, and identified by the <i>DefinitionProductRef</i>, the <i>offer</i> may be owned by a 2nd selling unit, and is identified by the <i>sellerProductRef</i>.
+         * 
+         * @return The ProductRef instance identifying the offer
+         * @see com.intershop.beehive.capi.bts.BundledProductLineItem#getSellingDomain()
+         * @see com.intershop.beehive.capi.bts.BundledProductLineItem#getDefinitionProductRef()
+         * @see com.intershop.beehive.capi.bts.BundledProductLineItem#getProductDefiningDomain()
+         */
+        attribute offerProductRef : ProductRef;
+
+        /*
+         * The ProductRef instance identifying the <i>offered Product</i> represented by this BundledProductLineItem.
+         * 
+         * <br>Whereas the  <i>offered Product</i> is defined by one unit, and identified by the <i>DefinitionProductRef</i>, the <i>Offer</i> may be owned by a 2nd selling unit, and is identified by the <i>sellerProductRef</i>.
+         * 
+         * @return The ProductRef instance identifying the offered Product
+         * @see com.intershop.beehive.capi.bts.BundledProductLineItem#getSellerProductRef()
+         * @see com.intershop.beehive.capi.bts.BundledProductLineItem#getSellingDomain()
+         * @see com.intershop.beehive.capi.bts.BundledProductLineItem#getProductDefiningDomain()
+         */
+        attribute definitionProductRef : ProductRef;
+
+        /*
+         * Name of product, copied when product is added to LineItemCtnr.
+         */
+        attribute productName : string<256>;
+
+        /*
+         * Short description of product, copied when product is added to LineItemCtnr.
+         */
+        attribute productShortDescription : string<256>;
+
+        /*
+         * Image used to represent the product thumbnail,  copied when product is added to LineItemCtnr.
+         */
+        attribute productThumbnail : string<256>;
+        
+   
+        /*
+         * Quantity of bundled product, <I>per bundle</I>.  i.e. if 10 bundles are ordered and the bundle has a bundled product with a quantity 2, a total of 20 units have been ordered.
+         */
+        attribute quantity : Quantity;
+
+        attribute supplierDomainID : uuid;
+
+        attribute parentID : uuid;
+
+        relation parentItemPO : BundledProductLineItemPO[0..1] inverse childItemPOs
+        {
+            foreign key(parentID) -> (UUID);
+        }
+
+        relation childItemPOs : BundledProductLineItemPO[0..n] inverse parentItemPO cached strong delete propagate;
+
+        relation productLineItemPO : ProductLineItemPO[0..1] inverse bundledProductLineItemPOs
+        {
+            foreign key(productLineItemID) -> (UUID);
+        }
+
+        /*
+         * The business unit responsible for supplying the BundledProductLineItem. By default this is set to be identical to the product defining business unit.
+         * 
+         * @return The business unit responsible for supplying the BundledProductLineItem
+         */
+        dependency supplyingDomain : Domain handler "com.intershop.beehive.core.capi.domain.DomainMgr"
+        {
+            foreign key(supplierDomainID);
+        }
+    }
+}

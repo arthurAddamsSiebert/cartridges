@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Payment-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="PaymentServiceAssignmentHook" type="process">
+<!--Removes a given payment service from all partner organizations of a given partner channel when the service is unassigned from the partner channel.
+@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="OnUnassign"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetRepositoryByRepositoryDomain1"/>
+    <parameters name="PaymentServiceAssignmentDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="PaymentServiceID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+<!--@BendPoints 13,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="RepositoryDomain" objectPath="PaymentServiceAssignmentDomain"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Repository:TypeCode"
+      operator="eq" conditionValue="32">
+<!--@BendPoints 9,6-->
+    <nodeSuccessors name="decision_yes" next="Pipelet4"/>
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="DefaultOrganizationType" value="30"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizations.xml"/>
+    <nodeSuccessors name="next" next="LoopNode7"/>
+    <parameterBindings name="Owner" objectPath="Repository:RepositoryDomain"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode7" loop="Organizations">
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <entry key="Organization">
+      <nodeSuccessors name="loop_entry_next" next="UnassignPaymentService1"/>
+    </entry>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UnassignPaymentService1">
+    <pipelet href="enfinity:/bts/pipelets/UnassignPaymentService.xml"/>
+<!--@BendPoints 9,12-->
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameterBindings name="AssignedDomain" objectPath="Organization:OrganizationDomain"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 9,14-->
+    <nodeSuccessors name="next" next="ExecuteCartridgePipelines2"/>
+    <parameterBindings name="InValue_1" objectPath="Organization:OrganizationDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="PaymentServiceAssignmentDomain"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCartridgePipelines2">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelinePropertyName" value="PaymentServiceAssignmentDeletionHook"/>
+    <configurationValues name="ProcessReversely" value="false"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCartridgePipelines.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 10,15 10,17-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 8,17 8,9-->
+    <nodeSuccessors name="next" next="LoopNode7_Entry"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 14,5-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+</pipeline:Pipeline>

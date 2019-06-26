@@ -1,0 +1,341 @@
+<!--- TEMPLATENAME: ViewContextSearch.isml --->
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<ISCreateMap mapname="SearchStateParams"
+		key0="ContentRepository" value0="#ContentRepository#"
+		key1="StartFlag" value1="#StartFlag#"
+		key2="TargetViewPipeline" value2="#TargetViewPipeline#"
+		key3="TargetViewPipelineParams" value3="#TargetViewPipelineParams#">
+<ISPipeline pipeline="ViewViewContextSearch-PrepareSearchState" params="#SearchStateParams#" alias="SearchStateDict">
+
+
+<ISCreateMap mapname="SearchParams"
+		key0="ContentRepository" value0="#ContentRepository#"
+		key1="Locale" value1="#Locale#"
+		key2="SortBy" value2="#SortBy#"
+		key3="SortDirection" value3="#SortDirection#"
+		key4="PerformSearch" value4="#PerformSearch#"
+		key5="PageletModelRepository" value5="#PageletModelRepository#">
+<ISPipeline pipeline="ViewViewContextSearch-GetPageable" params="#SearchParams#" alias="SearchResultDict">
+
+<ISPageletModelUtils PageletModelUtils="PageletModelUtils">
+<ISContentPermissionMap
+	ContentRepository="#ContentRepository#"
+	PermissionMap="PermissionMap"
+>
+
+
+<%@page import="java.util.TreeSet"%>
+<%@page import="java.text.Collator"%>
+<%@page import="com.intershop.beehive.emf.core.GroupableElement"%>
+<%@page import="com.intershop.sellside.pmc.capi.PageletModelUtils"%>
+ 
+<% TreeSet<String> groups = new TreeSet<String>(Collator.getInstance(getRequest().getLocale().getJavaLocale())); %>
+<isloop iterator="PageletModelUtils:PageContextObjectRelations(PageletModelRepository)" alias="ContextObjectRelation">
+	<% 
+		String g = PageletModelUtils.INSTANCE.getDisplayGroup((GroupableElement)getObject("ContextObjectRelation"),getRequest().getLocale());
+		if (g != null)
+		{
+			groups.add(g);
+		}
+	%>
+</isloop>
+<isloop iterator="PageletModelUtils:ComponentContextObjectRelations(PageletModelRepository)" alias="ContextObjectRelation">
+	<% 
+		String g = PageletModelUtils.INSTANCE.getDisplayGroup((GroupableElement)getObject("ContextObjectRelation"),getRequest().getLocale());
+		if (g != null)
+		{
+			groups.add(g);
+		}
+	%>
+</isloop>
+<% getPipelineDictionary().put("groups", groups); %>
+
+<isform action="#URL(Action('ViewViewContextSearch-Dispatch'))#" method="post" name="ViewContextSearch">
+	<input type="hidden" name="ContentRepositoryUUID" value="<isprint value="#ContentRepository:UUID#"/>"/>
+
+	<isif condition="#isDefined(HeaderTemplate) AND existsTemplate(HeaderTemplate)#">
+		<isinclude template = "#HeaderTemplate#">
+	<iselse>
+		<isinclude template = "content/viewcontext/ViewContextSearchHeader"/>
+	</isif>
+	
+	<!--- Simple Search --->
+	<table border="0" cellpadding="5" cellspacing="0" width="100%" class="infobox w e s">
+		<tr>
+			<td class="infobox_title"><istext key="ViewContextSearch.SearchPanel.infobox_title" encoding="off"/></td>
+		</tr>
+		<tr>
+			<td>
+				<table border="0" cellpadding="5" cellspacing="0">
+					<tr>
+						<td class="label" nowrap="nowrap">
+							<label class="label label_light" for="ViewContextSearch_NameOrID"><istext key="ViewContextSearch.NameOrID.label" encoding="off"/>:</label>
+						</td>
+						<td>
+							<input type="text" name="ViewContextSearch_NameOrID" id="ViewContextSearch_NameOrID" class="inputfield_en" value="<isif condition="#isDefined(SearchResultDict:ViewContextSearch_NameOrID) and (SearchResultDict:ViewContextSearch_NameOrID NE '')#"><isprint value="#SearchResultDict:ViewContextSearch_NameOrID#"></isif>" style="width:225px;" />&#160;
+							<!--- IE needs a second text input to submit the form with the submit button value on enter --->
+							<!--[if IE]><input type="text" style="display: none;" disabled="disabled"/><![endif]-->
+						</td>
+						<td>&nbsp;</td>
+					</tr>
+					<tr>
+						<td nowrap="nowrap" class="label_select"><label class="label label_select label_light" for="ViewContextSearch_Group"><istext key="ViewContextSearch.Group.label" encoding="off"/>:</label></td>
+						<td colspan="2">
+							<table border="0" cellpadding="0" cellspacing="0">
+								<tr>
+									<td>
+										<select name="ViewContextSearch_Group" id="ViewContextSearch_Group" class="select inputfield_en" style="max-width:225px;">
+											<option value=""><istext key="ViewContextSearch.All.option" encoding="off"/></option>
+											<isif condition="#isDefined(groups)#">
+												<isloop iterator="groups" alias="group">
+													<option value="<isprint value="#group#">"
+														<isif condition="#group EQ SearchResultDict:ViewContextSearch_Group#">
+															selected="selected"
+														</isif> >
+														<isprint value="#group#">
+													</option>
+												</isloop>
+											</isif>
+										</select>
+									<td/>
+									<td class="label_select" nowrap="nowrap">
+										<label class="label label_select label_light label_horizontal_align" for="ViewContextSearch_Type"><istext key="ViewContextSearch.Type.label" encoding="off"/>:</label>
+									</td>
+									<td>
+										<select class="select inputfield_en" name="ViewContextSearch_Type" id="ViewContextSearch_Type" style="max-width:225px;">
+											<option value=""><istext key="ViewContextSearch.All.option1" encoding="off"/></option>
+											<optgroup label="Category - Page">
+												<ISContextObjectRelationSelectOptions Page="true" ObjectType="Category" SelectedContextObjectRelation="#SearchResultDict:ViewContextSearch_Type#" PageletModelRepository="#PageletModelRepository#" Locale="#Locale#">
+											</optgroup>
+											<optgroup label="Product - Page">
+												<ISContextObjectRelationSelectOptions Page="true" ObjectType="Product" SelectedContextObjectRelation="#SearchResultDict:ViewContextSearch_Type#" PageletModelRepository="#PageletModelRepository#" Locale="#Locale#">
+											</optgroup>
+											<optgroup label="Category - Include">
+												<ISContextObjectRelationSelectOptions Page="false" ObjectType="Category" SelectedContextObjectRelation="#SearchResultDict:ViewContextSearch_Type#" PageletModelRepository="#PageletModelRepository#" Locale="#Locale#">
+											</optgroup>
+											<optgroup label="Product - Include">
+												<ISContextObjectRelationSelectOptions Page="false" ObjectType="Product" SelectedContextObjectRelation="#SearchResultDict:ViewContextSearch_Type#" PageletModelRepository="#PageletModelRepository#" Locale="#Locale#">
+											</optgroup>
+										</select>
+									<td/>
+									<isif condition="#PageletModelRepository:ApplicationTypes:Size > 1#">
+										<td nowrap="nowrap" class="label_select"><label class="label label_select label_light label_horizontal_align" for="PageletSearch_Application_Type_ID"><istext key="PageletEntryPointSearchMask.ApplicationType.label" encoding="off"/>:</label></td>
+										<td>
+											<isApplicationTypeSelector 	SelectedApplicationTypeID="#SelectedApplicationTypeID#" 
+																PageletModelRepository="#PageletModelRepository#" 
+																SelectBoxID="PageletSearch_Application_Type_ID"
+																SelectBoxClass="select inputfield_en">
+										</td>
+									</isif>
+									
+									<isif condition="#SearchStateDict:SharingContentDomains:isEmpty#">
+										<td>&nbsp;</td>
+										<td>
+											<table border="0" cellspacing="4" cellpadding="0">
+												<tr>
+													<td class="button">
+														<input type="submit" name="find" value="#localizeText('ViewContextSearch.Find.button')#" class="button"/>
+													</td>
+												</tr>
+											</table>
+										</td>
+									</isif>
+								</tr>
+							</table>
+						</td>
+					</tr>
+					<isif condition="#NOT SearchStateDict:SharingContentDomains:isEmpty#">
+						<tr>
+							<td class="label_radio" nowrap="nowrap">
+								<label class="label label_light label_radio"><istext key="ViewContextSearch.Sharing.label" encoding="off"/>:</label>
+							</td>
+							<td colspan="2">
+								<table border="0" cellpadding="0" cellspacing="0">
+									<tr>
+										<td class="input_radio">
+											<input type="radio" name="ViewContextSearch_SharingSearchType" id="ViewContextSearch_SharingSearchType_All" value="all" <isif condition="#(not isDefined(SearchResultDict:ViewContextSearch_SharingSearchType)) or (SearchResultDict:ViewContextSearch_SharingSearchType eq 'all')#">checked="checked"</isif> />
+										</td>
+										<td class="label_radio">
+											<label class="label label_radio label_light label_horizontal" for="ViewContextSearch_SharingSearchType_All"><istext key="ViewContextSearch.All.label" encoding="off"/></label>
+										</td>
+										<td class="input_radio">
+											<input type="radio" name="ViewContextSearch_SharingSearchType" id="ViewContextSearch_SharingSearchType_Locale"value="local" <isif condition="#SearchResultDict:ViewContextSearch_SharingSearchType eq 'local'#">checked="checked"</isif> />
+										</td>
+										<td class="label_radio">
+											<label class="label label_radio label_light label_horizontal" for="ViewContextSearch_SharingSearchType_Locale"><istext key="ViewContextSearch.Local.label" encoding="off"/></label>
+										</td>
+										<td class="input_radio">
+											<input type="radio" name="ViewContextSearch_SharingSearchType" id="ViewContextSearch_SharingSearchType_SharedFrom" value="sharedFromRepository" <isif condition="#SearchResultDict:ViewContextSearch_SharingSearchType eq 'sharedFromRepository'#">checked="checked"</isif> />
+										</td>
+										<td class="label_radio">
+											<label class="label label_radio label_light label_horizontal" for="ViewContextSearch_SharingSearchType_SharedFrom" style="padding-right:"><istext key="ViewContextSearch.SharedFrom.label" encoding="off"/></label>
+										</td>
+										<td>
+											<select name="ViewContextSearch_SharedRepositoryDomainID" class="select inputfield_en" style="width:200;">
+												<option value="all"><istext key="ViewContextSearch.All.option2" encoding="off"/></option>
+												<isloop iterator="SearchStateDict:SharingContentDomains" alias="sharingDomain">
+													<ISGetContentRepositoryDisplayName contentDomain="#sharingDomain#" contentRepositoryDisplayName="sharingDomainDisplayName">
+													<option value="<isprint value="#sharingDomain:UUID#">"
+															<isif condition="#sharingDomain:UUID EQ SearchResultDict:ViewContextSearch_SharedRepositoryDomainID#"> selected="selected" </isif> >
+														<isprint value="#sharingDomainDisplayName#">
+													</option>
+												</isloop>
+											</select>
+										</td>
+										<td>&nbsp;</td>
+										<td>
+											<table border="0" cellspacing="4" cellpadding="0">
+												<tr>
+													<td class="button">
+														<input type="submit" name="find" value="#localizeText('ViewContextSearch.Find.button')#" class="button"/>
+													</td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+					</isif>
+				</table>
+			</td>
+		</tr>
+	</table>
+	
+	<isif condition="#isDefined(SearchResultDict:ViewContexts) and hasLoopElements(SearchResultDict:ViewContexts)#">
+		<table width="100%" border="0" cellspacing="0" cellpadding="0" class="stickyHeader">
+			<thead>
+				<isif condition="#isDefined(PermissionMap:SLD_MANAGE_CONTENT) AND (submitbuttonincludetype EQ 'objectlist')#">
+					<tr>
+						<td colspan="6">
+							<isif condition="#isDefined(SubmitButtonsTemplate) AND existsTemplate(SubmitButtonsTemplate)#">
+								<isinclude template = "#SubmitButtonsTemplate#">
+							<iselse>
+								<isinclude template = "content/viewcontext/ViewContextSearchSubmitButtons"/>
+							</isif>
+						</td>
+					</tr>
+				</isif>
+				<tr>
+					<isif condition="#isDefined(PermissionMap:SLD_MANAGE_CONTENT)#">
+						<th class="table_header w e s" nowrap="nowrap" width="80">
+							<div id="A">
+								<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+									<tr>
+										<td nowrap="nowrap">
+												<a href="javascript:selectAll('ViewContextSearch','SelectedViewContextUUID','A','B');" class="tableheader"><istext key="ViewContextSearch.SelectAll.link" encoding="off"/></a>
+										</td>
+									</tr>
+								</table>
+							</div>
+							<div id="B" style="display:none">
+								<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+									<tr>
+										<td nowrap="nowrap">		 
+												<a href="javascript:selectAll('ViewContextSearch','SelectedViewContextUUID','A','B');" class="tableheader"><istext key="ViewContextSearch.ClearAll.link" encoding="off"/></a>
+										</td>
+									</tr>
+								</table>
+							</div>
+						</th>
+						<th class="table_header e s" nowrap="nowrap">
+							<ISSortingURL columnname="Name" sortbyalias="SortBy" sortbyvalue="Name" sortdirectionalias="SortDirection" sortdirectionvalues="asc,desc" pipeline="ViewViewContextSearch-Sort" parametername="ContentRepositoryUUID" parametervalue="#ContentRepository:UUID#" style="tableheader">
+						</th>
+					<iselse>
+						<th class="table_header w e s" nowrap="nowrap">
+							<ISSortingURL columnname="Name" sortbyalias="SortBy" sortbyvalue="Name" sortdirectionalias="SortDirection" sortdirectionvalues="asc,desc" pipeline="ViewViewContextSearch-Sort" parametername="ContentRepositoryUUID" parametervalue="#ContentRepository:UUID#" style="tableheader">
+						</th>
+					</isif>	  
+					<th class="table_header e s" nowrap="nowrap">
+						<ISSortingURL columnname="ID" sortbyalias="SortBy" sortbyvalue="ID" sortdirectionalias="SortDirection" sortdirectionvalues="asc,desc" pipeline="ViewViewContextSearch-Sort" parametername="ContentRepositoryUUID" parametervalue="#ContentRepository:UUID#" style="tableheader">
+					</th>
+					<th class="table_header e s">
+						<istext key="ViewContextSearch.Description.table_header" encoding="off"/>
+					</th>
+					<th class="table_header e s" nowrap="nowrap">
+						<ISSortingURL columnname="Group" sortbyalias="SortBy" sortbyvalue="Group" sortdirectionalias="SortDirection" sortdirectionvalues="asc,desc" pipeline="ViewViewContextSearch-Sort" parametername="ContentRepositoryUUID" parametervalue="#ContentRepository:UUID#" style="tableheader">
+					</th>
+					<th class="table_header e s" nowrap="nowrap">
+						<ISSortingURL columnname="Type" sortbyalias="SortBy" sortbyvalue="Type" sortdirectionalias="SortDirection" sortdirectionvalues="asc,desc" pipeline="ViewViewContextSearch-Sort" parametername="ContentRepositoryUUID" parametervalue="#ContentRepository:UUID#" style="tableheader">
+					</th>
+				</tr>
+			</thead>
+			<tbody>
+				<isloop iterator="SearchResultDict:ViewContexts" alias="ViewContext">
+					<tr>
+						<ISCreateMap mapname="ViewContextLockParams" 
+							key0="ViewContext" value0="#ViewContext#" 
+							key1="PreferenceDomain" value1="#ContentRepository:RepositoryDomain#"
+							key2="LockingDomain" value2="#ContentRepository:RepositoryDomain#"
+							key3="User" value3="#CurrentUser#">
+						<ispipeline pipeline="ViewViewContext-LookupViewContextLock" params="#ViewContextLockParams#" alias="ViewContextLockInfoDictionary"/>
+						
+						<isif condition="#isDefined(ViewContextLockInfoDictionary:ViewContextLockedForOther)#">
+							<isset scope="request" name="DisableViewContextAttribute" value="#'disabled="disabled"'#">
+						<iselse>
+							<isif condition="#isDefined(PermissionMap:SLD_MANAGE_CONTENT)#">
+								<isset scope="request" name="DisableViewContextAttribute" value="#''#">
+							<iselse>
+								<isset scope="request" name="DisableViewContextAttribute" value="#'disabled="disabled"'#">
+							</isif>
+						</isif>
+						
+						<isif condition="#isDefined(PermissionMap:SLD_MANAGE_CONTENT)#">				
+							<td class="w e s center">
+								<input type="checkbox" name="SelectedViewContextUUID" value="<isprint value="# ViewContext:UUID#"/>" <isif condition="#ViewContext:UUID EQ Clipboard:ObjectUUID(ViewContext:UUID)#">checked="checked"</isif> <isprint value="#DisableViewContextAttribute#"> />
+								<input type="hidden" name="AllViewContextUUIDs" value="<isprint value="#ViewContext:UUID#"/>"/>&#160;
+							</td>
+							<td class="table_detail e s" nowrap="nowrap">
+						<iselse>
+							<td class="table_detail w e s" nowrap="nowrap">
+						</isif>
+							<a href="#URL(Action('ViewViewContext-View'), Parameter('ViewContextUUID', ViewContext:UUID), Parameter('ContentRepositoryUUID', ContentRepository:UUID), Parameter('PageLocatorName', PageLocatorName))#" class="table_detail_link">
+								<ISDisplayName Nameable="#ViewContext#" Locale="#Locale#">
+							</a>
+							<ISContentElementTooltip ContentElement="#ViewContext#">
+							&nbsp;<ISViewContextStatus ViewContext="#ViewContext#" ContentRepository="#ContentRepository#">
+						</td>
+						<td class="table_detail e s" nowrap="nowrap">
+							<a href="#URL(Action('ViewViewContext-View'), Parameter('ViewContextUUID', ViewContext:UUID), Parameter('ContentRepositoryUUID', ContentRepository:UUID), Parameter('PageLocatorName', PageLocatorName))#" class="table_detail_link">
+								<ISCropString String="#ViewContext:Id#" MaxLength="#23#" CropString="...">
+							</a>
+						</td>
+						<td class="table_detail e s">
+							<isprint value="#ViewContext:Description(Locale)#">&nbsp;
+						</td>
+						<td class="table_detail e s" nowrap="nowrap">
+							<isprint value="#PageletModelUtils:DisplayGroup(ViewContext:ContextObjectRelation, Locale)#">
+						</td>
+						<td class="table_detail e s" nowrap="nowrap">
+							<isprint value="#PageletModelUtils:DisplayName(ViewContext:ContextObjectRelation, Locale)#">
+						</td>
+					</tr>
+				</isloop>
+			</tbody>
+		</table>
+		
+		<isif condition="#isDefined(PermissionMap:SLD_MANAGE_CONTENT) AND (submitbuttonincludetype NE 'objectlist')#">		
+				<isif condition="#isDefined(SubmitButtonsTemplate) AND existsTemplate(SubmitButtonsTemplate)#">
+					<isinclude template = "#SubmitButtonsTemplate#">
+				<iselse>
+					<isinclude template = "content/viewcontext/ViewContextSearchSubmitButtons"/>
+				</isif>
+		</isif>
+		
+		<ISPagingBar pageable = "SearchResultDict:ViewContexts">
+		
+	<iselse>
+		<isif condition="#isDefined(NoResultTemplate) AND existsTemplate(NoResultTemplate)#">
+			<isinclude template = "#NoResultTemplate#">
+		<iselse>
+			<isinclude template = "content/viewcontext/ViewContextSearchNoResult"/>
+		</isif>
+		<isif condition="#isDefined(SubmitButtonsTemplate) AND existsTemplate(SubmitButtonsTemplate)#">
+			<isinclude template = "#SubmitButtonsTemplate#">
+		<iselse>
+			<isinclude template = "content/viewcontext/ViewContextSearchSubmitButtons"/>
+		</isif>
+	</isif>
+	
+</isform>

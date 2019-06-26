@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Product-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="DeleteDerivedProductData" type="job">
+<!--Refreshes the database cache
+@Location 5,10-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode2"/>
+<!--Refreshes the database cache
+@Location 4,9-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="Start" callMode="Private">
+<!--@BendPoints 3,2-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ChannelID">
+    <nodeSuccessors name="decision_yes" next="Pipelet1"/>
+<!--@BendPoints 7,3 7,4-->
+    <nodeSuccessors name="decision_no" next="GetDomainByName1"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 4,5-->
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+    <parameterBindings name="DomainUUID" objectPath="ChannelID"/>
+    <returnValueBindings name="Domain" objectPath="Channel"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="OnlyUnshared"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+<!--@BendPoints 5,9 5,10-->
+    <nodeSuccessors name="decision_no" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 3,14-->
+    <nodeSuccessors name="next" next="Pipelet2"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="Name_01" value="ProductDomain"/>
+    <configurationValues name="Name_02" value="LocaleInformation"/>
+    <configurationValues name="Name_03" value="Currency"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+    <parameterBindings name="InDictionary" nullBinding="true"/>
+    <parameterBindings name="Value_01" objectPath="Channel"/>
+    <parameterBindings name="Value_02" objectPath="CurrentSession:Locale"/>
+    <parameterBindings name="Value_03" objectPath="CurrentSession:CurrencyCode"/>
+    <returnValueBindings name="OutDictionary" objectPath="ProductSearchParameters"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="QueryName" value="product/SimpleProductSearch"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 3,18-->
+    <nodeSuccessors name="next" next="LoopNode1" action="begin"/>
+<!--@BendPoints 6,17-->
+    <nodeSuccessors name="pipelet_error" next="EndNode4"/>
+    <parameterBindings name="Parameters" objectPath="ProductSearchParameters"/>
+    <returnValueBindings name="SearchResult" objectPath="Products"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Products">
+<!--@BendPoints 8,19-->
+    <nodeSuccessors name="next" next="CallNode2" action="commit"/>
+    <entry key="Product">
+<!--@BendPoints 3,20-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode2"/>
+    </entry>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Product:DerivedProductChanged"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="DiscardDerivedProductChanges1"/>
+<!--@BendPoints 7,21-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DiscardDerivedProductChanges1">
+    <pipelet href="enfinity:/xcs/pipelets/DiscardDerivedProductChanges.xml"/>
+    <nodeSuccessors name="next" next="UpdateDictionary1"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary1">
+    <configurationValues name="Name_01" value="Product"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="Pipelet3"/>
+    <parameterBindings name="Value_01" objectPath="Product"/>
+    <returnValueBindings name="OutDictionary" objectPath="PCAQueryParameters"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="QueryName" value="catalog/GetProductCategoryAssignmentsByProduct"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="LoopNode3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="Parameters" objectPath="PCAQueryParameters"/>
+    <returnValueBindings name="SearchResult" objectPath="PCAs"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="PCAs">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <entry key="PCA">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode3"/>
+    </entry>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="PCA:DomainID"
+      operator="str_eq" conditionItem="Channel:UUID">
+    <nodeSuccessors name="decision_yes" next="GetCategoryByUUID1"/>
+<!--@BendPoints 4,31 4,37-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoryByUUID1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoryByUUID.xml"/>
+    <nodeSuccessors name="next" next="RemoveProductCategoryBinding1"/>
+    <parameterBindings name="CatalogCategoryID" objectPath="PCA:CatalogCategoryID"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveProductCategoryBinding1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveProductCategoryBinding.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="CatalogCategory" objectPath="Category"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 2,37 2,29-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 7,38 1,38 1,19-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 10,19-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <startNode referencedName="DevelopmentHelpers-RunRefreshCache"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true"/>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="OnlyUnshared"
+      operator="str_neq" conditionValue="true">
+<!--@BendPoints 5,13-->
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+<!--@BendPoints 11,11-->
+    <nodeSuccessors name="decision_no" next="UpdateDictionary2"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary2">
+    <configurationValues name="Name_01" value="ProductDomain"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="ExecuteUpdateQuery1"/>
+    <parameterBindings name="InDictionary" nullBinding="true"/>
+    <parameterBindings name="Value_01" objectPath="Channel"/>
+    <returnValueBindings name="OutDictionary" objectPath="Parameters"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteUpdateQuery1">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="QueryName" value="product/RemovePCAEntriesOfUnsharedProducts"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteUpdateQuery.xml"/>
+    <nodeSuccessors name="next" next="ExecuteUpdateQuery2"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteUpdateQuery2">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="QueryName" value="product/RemoveDerivedProductEntriesOfUnsharedProducts"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteUpdateQuery.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 5,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 11,22-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <startNode referencedName="DevelopmentHelpers-RunRefreshCache"/>
+  </nodes>
+<!--@Location 5,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByName1">
+    <pipelet href="enfinity:/core/pipelets/GetDomainByName.xml"/>
+<!--@BendPoints 7,7-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 8,5-->
+    <nodeSuccessors name="pipelet_error" next="EndNode2"/>
+    <parameterBindings name="DomainName" objectPath="ChannelName"/>
+    <returnValueBindings name="Domain" objectPath="Channel"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+</pipeline:Pipeline>

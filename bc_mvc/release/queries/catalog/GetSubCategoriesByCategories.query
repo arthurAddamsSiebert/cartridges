@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="CategoryUUIDs" type="java.util.Iterator" optional="false" description="Contains the UUIDs of the categories to find the all subcategories for."/>
+	<parameter name="OnlineFlag" type="java.lang.Integer" optional="true" description="get online/offline sub category trees if set to true"/>
+	<parameter name="Recursive" type="java.lang.String" optional="true" description="get the sub categories recursively"/>
+	<parameter name="SortingDirection" type="java.lang.String" optional="true" description="Will be evaluated only if Recursive is true. Possible values are 'desc' or 'asc'."/>
+</parameters>
+<return-mappings>
+	<return-mapping name="CatalogCategory" type="orm" class="com.intershop.beehive.xcs.internal.catalog.CatalogCategoryPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="CatalogConfiguration" input="" processing="CatalogConfigurationQueryProcessor"/>
+</processor>
+<template type="countedobjects">	
+	<template-if condition="isDefined(Recursive) AND (Recursive EQ 'true')" >
+		WITH n(uuid, parentcategoryid, onlineflag, num) AS (
+			SELECT a.uuid, a.parentcategoryid, a.onlineflag, 1 as num FROM catalogcategory a
+		    WHERE uuid IN (
+		   	<template-loop iterator="CategoryUUIDs" alias="CategoryUUID">
+		       <loop-statement>
+				  <template-variable value="CategoryUUID"/>
+			   </loop-statement>
+			   <loop-separator>,</loop-separator>
+		   	</template-loop>
+		   	)
+		    UNION ALL
+		    SELECT b.uuid, b.parentcategoryid, b.onlineflag, (1+n.num) as num FROM catalogcategory b, n
+		    WHERE b.parentcategoryid = n.uuid
+		)
+		SELECT uuid, count(*) over() as "ROWCOUNT" FROM n	
+	    <template-if condition="isDefined(OnlineFlag) AND NOT (CatalogConfiguration:CatalogIgnoreOnline)" >
+	        WHERE onlineflag = <template-variable value="OnlineFlag"/>
+	    </template-if>	   
+        <template-if condition="isDefined(SortingDirection)">
+            <template-if condition="SortingDirection eq 'desc'">
+                ORDER BY num DESC
+            <if-else/>
+                ORDER BY num ASC
+            </template-if>
+        </template-if>
+	<if-else/>
+	   SELECT uuid AS UUID, count(*) over() as "ROWCOUNT"
+	   FROM catalogcategory 
+	   WHERE parentcategoryid IN (
+	   <template-loop iterator="CategoryUUIDs" alias="CategoryUUID">
+	       <loop-statement>
+			<template-variable value="CategoryUUID"/>
+		  </loop-statement>
+		  <loop-separator>,</loop-separator>
+	   </template-loop>
+	   ) 
+	   <template-if condition="isDefined(OnlineFlag) AND NOT (CatalogConfiguration:CatalogIgnoreOnline)">
+	       AND onlineflag = <template-variable value="OnlineFlag"/>
+	   </template-if>
+	</template-if>
+</template>
+</query>

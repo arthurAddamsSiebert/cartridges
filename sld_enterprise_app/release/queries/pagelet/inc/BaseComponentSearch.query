@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This pipelet searches pagelets for a domain with a specified name, type, public flag and pageflag.">
+<parameters>
+	<parameter name="ComponentSearchParameters" type="java.util.Map" optional="false" description="A Map containing the Pagelet Search parameters for the base subquery of the searched Components."/>	
+	<parameter name="ParentPageSearchParameters" type="java.util.Map" optional="true" description="A Map containing the Pagelet Search parameters for the base subquery of parent Pages filter."/>
+
+	<parameter name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the pagelet belongs to."/>	
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false" description="Search in context of the given locale."/>
+	<parameter name="AllLocales" type="java.util.Iterator" optional="false" description="All available locales."/>
+	<parameter name="SortedNames" type="java.util.Map" optional="true" description="A Map of pagelet qualified names sorted according to the display name of page components, localize in current locale."/>
+	<parameter name="SortBy" type="java.lang.String" optional="true" description="The column by which the result set should be sorted."/>
+	<parameter name="PublishedFromSinceDate" type="java.util.Date" optional="true"/>
+	<parameter name="PublishedFromTillDate" type="java.util.Date" optional="true"/>
+	<parameter name="PublishedToSinceDate" type="java.util.Date" optional="true"/>
+	<parameter name="PublishedToTillDate" type="java.util.Date" optional="true"/>
+	<parameter name="LastModifiedFrom" type="java.util.Date" optional="true"/>
+	<parameter name="LastModifiedTo" type="java.util.Date" optional="true"/>
+	<parameter name="WritePrefix" type="java.lang.String" optional="true" description="Will be delegated to the template 'BasePageletSearch' to decide if the 'ConfigurationParameterFilterPrefix' has to be included or not."/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Pagelet" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletPO" description="This is the found pagelet.">
+		<return-attribute name="PageletUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="objects">
+	select bc.pageletuuid, bc.onlineflag
+	     <template-if condition="isDefined(SortedNames)">
+	       , bc.sorting
+	     </template-if>
+	 from (<template-call name="pagelet/inc/BasePageletSearch">
+	         <call-addall map="ComponentSearchParameters"/>
+             <call-parameter name="PublishedFromSinceDate" value="PublishedFromSinceDate"/>
+             <call-parameter name="PublishedFromTillDate" value="PublishedFromTillDate"/>
+             <call-parameter name="PublishedToSinceDate" value="PublishedToSinceDate"/>
+             <call-parameter name="PublishedToTillDate" value="PublishedToTillDate"/>
+             <call-parameter name="LastModifiedFrom" value="LastModifiedFrom"/>
+             <call-parameter name="LastModifiedTo" value="LastModifiedTo"/>
+             <call-parameter name="Repository" value="Repository"/>
+	         <call-parameter name="Locale" value="Locale"/>
+	         <call-parameter name="AllLocales" value="AllLocales"/>
+	         <call-parameter name="SortedNames" value="SortedNames"/>
+	         <call-parameter name="SortBy" value="SortBy"/>
+	         <call-parameter name="WritePrefix" value="WritePrefix" />
+	         
+	       </template-call>) bc
+
+	<template-if condition = "(not isDefined(ComponentSearchParameters:PageAssignments) or ComponentSearchParameters:PageAssignments eq &apos;all&apos;) 
+	                      and (not isDefined(ComponentSearchParameters:ComponentAssignments) or ComponentSearchParameters:ComponentAssignments eq &apos;all&apos;)
+	                      and (   (isDefined(ComponentSearchParameters:AssignmentsVisibility) and ComponentSearchParameters:AssignmentsVisibility eq &apos;notPublished&apos;)
+	                           or (isDefined(ComponentSearchParameters:AssignmentsVisibleFrom) and ComponentSearchParameters:AssignmentsVisibleFrom ne &apos;all&apos;) 
+	                           or (isDefined(ComponentSearchParameters:AssignmentsVisibleTo) and ComponentSearchParameters:AssignmentsVisibleTo ne &apos;all&apos;) )">
+	  <!-- Assignments Visibility (Hidden) or Visible from Date/Visible to Date parameter(s) set, but without filtering by parent Pages or Components,
+	       so retrieve all Components which are assigned to whatever and have at least 1 assignment with Visible from/to Date 
+	       corresponding to this/these parameter(s) -->
+	  join (
+	       <template-call name = "pagelet/inc/GetAssignedComponents">
+	         <call-parameter name = "AssignmentType" value = "&apos;all&apos;"/>
+	         <call-parameter name = "ComponentSearchParameters" value = "ComponentSearchParameters"/>
+	         <call-parameter name = "AssignmentFilterType" value = "ComponentSearchParameters:PageAssignments"/>
+	       </template-call> 
+	       UNION
+	       	(select distinct pepa.pageletid as pageletuuid
+				from pageletentrypoint_pa pepa 
+			  where
+			  	pepa.entrypointid in 
+			  	(select pep.uuid
+			  		from pageletentrypoint pep
+			  		where pep.pageflag = 0 AND pep.dynamicflag = 0
+			  	)
+			  	<template-if condition="not isDefined(UsePublishingFilter) or UsePublishingFilter">
+              		<template-call name="pagelet/inc/PublishingFilter">
+	            		<call-parameter name="TableAlias" value="&apos;pepa&apos;"/>
+	            		<call-parameter name="WhereClause" value="false()"/>
+	            		<call-parameter name="PublishingOption" value="ComponentSearchParameters:AssignmentsVisibility"/>
+	            		<call-parameter name="PublishedFromOption" value="ComponentSearchParameters:AssignmentsVisibleFrom"/>
+	            		<call-parameter name="PublishedToOption" value="ComponentSearchParameters:AssignmentsVisibleTo"/>
+	            		<call-parameter name="PublishedFromSinceDate" value="ComponentSearchParameters:AssignmentsVisibleFromSinceDate"/>
+	            		<call-parameter name="PublishedFromTillDate" value="ComponentSearchParameters:AssignmentsVisibleFromTillDate"/>
+	            		<call-parameter name="PublishedToSinceDate" value="ComponentSearchParameters:AssignmentsVisibleToSinceDate"/>
+	            		<call-parameter name="PublishedToTillDate" value="ComponentSearchParameters:AssignmentsVisibleToTillDate"/>
+	          		</template-call>
+	    		</template-if>
+			 )
+	       ) all_assigned_components
+	    on (bc.pageletuuid = all_assigned_components.pageletuuid)
+	</template-if> 
+	
+	<template-if condition="isDefined(ComponentSearchParameters:IncludeAssignments) AND (ComponentSearchParameters:IncludeAssignments ne &apos;all&apos;)">
+		<template-if condition="ComponentSearchParameters:IncludeAssignments eq &apos;notAssigned&apos;">
+			left outer
+		</template-if>
+				join (select distinct pepa.pageletid as pageletuuid
+						from pageletentrypoint_pa pepa 
+			   		where
+			   			pepa.entrypointid in 
+			   			(select pep.uuid
+			   				from pageletentrypoint pep
+			   	  			where pep.pageflag = 0 AND pep.dynamicflag = 0
+			  			)
+			 		) all_assigned_includes 
+				on (bc.pageletuuid = all_assigned_includes.pageletuuid)
+		  where 1 = 1
+		<template-if condition="ComponentSearchParameters:IncludeAssignments eq &apos;notAssigned&apos;">
+		    and all_assigned_includes.pageletuuid is NULL
+		</template-if>
+	<if-else/>
+		 where 1 = 1
+	</template-if>
+
+	<template-call name = "pagelet/inc/ComponentAssignmentsFilter">
+	  <call-parameter name = "ComponentTableAlias" value = "'bc'"/>
+	  <call-parameter name = "AssignmentType" value = "'page'"/>
+	  <call-parameter name = "PageletAssignmentsOption" value = "ComponentSearchParameters:PageAssignments"/>
+	  <call-parameter name = "ComponentSearchParameters" value = "ComponentSearchParameters"/>
+	  <call-parameter name = "ParentPageletSearchParameters" value = "ParentPageSearchParameters"/>
+	  <call-parameter name = "Repository" value = "Repository"/>
+	  <call-parameter name = "Locale" value = "Locale"/>
+	  <call-parameter name="AllLocales" value="AllLocales"/>
+	</template-call>
+
+    <template-if condition="&apos;unassigned&apos; eq ComponentSearchParameters:AssignmentsVisibility">
+        and not exists (
+            select 1
+              from slotpageletassignment spa
+             where spa.subpageletid = bc.pageletuuid)
+    <if-else/>
+      <!-- Filtering components by assignment to page variants having type specified by user parent Page Variant Definition -->
+      <template-if condition="isDefined(ComponentSearchParameters) and isDefined(ComponentSearchParameters:AssignedToPageVariantType)
+                        and (&apos;all&apos; ne ComponentSearchParameters:AssignedToPageVariantType)">
+        and exists (
+            select 1
+              from slotpageletassignment spa,
+                   slot s,
+                   pagelet parent_page_variant
+             where spa.subpageletid = bc.pageletuuid
+               and spa.parentslotid = s.uuid
+               and s.parentpageletid = parent_page_variant.uuid
+               and parent_page_variant.definitionqualifiedname = <template-variable value="ComponentSearchParameters:AssignedToPageVariantType"/>
+             <template-if condition="not isDefined(UsePublishingFilter) or UsePublishingFilter">
+               <template-call name="pagelet/inc/PublishingFilter">
+                 <call-parameter name="TableAlias" value="&apos;spa&apos;"/>
+                 <call-parameter name="WhereClause" value="false()"/>
+                 <call-parameter name="PublishingOption" value="ComponentSearchParameters:AssignmentsVisibility"/>
+                 <call-parameter name="PublishedFromOption" value="ComponentSearchParameters:AssignmentsVisibleFrom"/>
+                 <call-parameter name="PublishedToOption" value="ComponentSearchParameters:AssignmentsVisibleTo"/>
+                 <call-parameter name="PublishedFromSinceDate" value="ComponentSearchParameters:AssignmentsVisibleFromSinceDate"/>
+                 <call-parameter name="PublishedFromTillDate" value="ComponentSearchParameters:AssignmentsVisibleFromTillDate"/>
+                 <call-parameter name="PublishedToSinceDate" value="ComponentSearchParameters:AssignmentsVisibleToSinceDate"/>
+                 <call-parameter name="PublishedToTillDate" value="ComponentSearchParameters:AssignmentsVisibleToTillDate"/>
+               </template-call>
+              </template-if>)
+      </template-if>
+
+      <template-call name="pagelet/inc/PageletContextObjectRelationsFilter">
+        <call-parameter name="PageletTableAlias" value="&apos;bc&apos;"/>
+        <call-parameter name="AssignmentTable" value="&apos;product_pepa&apos;"/>
+        <call-parameter name="AssignmentsSelection" value="ComponentSearchParameters:ProductPageIncludeAssignments"/>
+        <call-parameter name="ContentEntryPointDefinitionInclusion" value="ComponentSearchParameters:AssignedToProductPageIncludeType"/>
+        <call-parameter name="PageletSearchParameters" value="ComponentSearchParameters"/>
+      </template-call>
+      <template-call name="pagelet/inc/PageletContextObjectRelationsFilter">
+        <call-parameter name="PageletTableAlias" value="&apos;bc&apos;"/>
+        <call-parameter name="AssignmentTable" value="&apos;catalogcategory_pepa&apos;"/>
+        <call-parameter name="AssignmentsSelection" value="ComponentSearchParameters:CategoryPageIncludeAssignments"/>
+        <call-parameter name="ContentEntryPointDefinitionInclusion" value="ComponentSearchParameters:AssignedToCategoryPageIncludeType"/>
+        <call-parameter name="PageletSearchParameters" value="ComponentSearchParameters"/>
+      </template-call>
+      <template-call name="pagelet/inc/PageletSystemOrNonSystemPEPsFilter">
+        <call-parameter name="PageletTableAlias" value="&apos;bc&apos;"/>
+        <call-parameter name="SystemManaged" value="true()"/>
+        <call-parameter name="AssignmentsSelection" value="ComponentSearchParameters:SystemIncludeAssignements"/>
+        <call-parameter name="PageletEntryPointDefinitionQualifiedName" value="ComponentSearchParameters:AssignedToSystemIncludeType"/>
+        <call-parameter name="PageletSearchParameters" value="ComponentSearchParameters"/>
+      </template-call>
+      <template-call name="pagelet/inc/PageletSystemOrNonSystemPEPsFilter">
+        <call-parameter name="PageletTableAlias" value="&apos;bc&apos;"/>
+        <call-parameter name="SystemManaged" value="false()"/>
+        <call-parameter name="AssignmentsSelection" value="ComponentSearchParameters:ContentIncludeAssignements"/>
+        <call-parameter name="PageletEntryPointDefinitionQualifiedName" value="ComponentSearchParameters:AssignedToContentIncludeType"/>
+        <call-parameter name="PageletSearchParameters" value="ComponentSearchParameters"/>
+      </template-call>
+    </template-if>
+</template>
+</query>

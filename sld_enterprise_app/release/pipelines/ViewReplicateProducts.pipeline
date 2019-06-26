@@ -1,0 +1,580 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Replication-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ViewReplicateProducts" type="view">
+<!--In case of enabled product approval feature in a channel 
+then publish to live system only approved products.
+@Location 15,7-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" name="Dispatch">
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="cancel"
+      operator="str_eq" conditionValue="Cancel">
+    <nodeSuccessors name="decision_yes" next="DecisionNode6"/>
+    <nodeSuccessors name="decision_no" next="DispatchFormAction1"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="CurrentChannel">
+<!--@BendPoints 7,3-->
+    <nodeSuccessors name="decision_yes" next="ConcatenateStrings0"/>
+    <nodeSuccessors name="decision_no" next="JumpNode6"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings0">
+    <pipelet href="enfinity:/core/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="JumpNode5"/>
+    <parameterBindings name="String0" constant="ViewProductList_"/>
+    <parameterBindings name="String1" objectPath="CurrentChannel:TypeCode"/>
+    <parameterBindings name="String2" constant="-Dispatch"/>
+    <returnValueBindings name="Concatenated" objectPath="ChannelProductListPipeline"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode5">
+    <startNode objectPath="ChannelProductListPipeline"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode6">
+    <startNode referencedName="ViewProductList-Dispatch"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DispatchFormAction1">
+    <configurationValues name="OutValue_0" value="ViewReplicateProducts-SelectTarget"/>
+    <configurationValues name="OutValue_1" value="ViewReplicateProducts-StartReplication"/>
+    <configurationValues name="OutValue_2" value="ViewProductProcessingWizard-SelectAction"/>
+    <configurationValues name="PagingPipeline" value="ViewReplicateProducts-Paging"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/DispatchFormAction.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+<!--@BendPoints 4,7 4,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="Key_0" objectPath="selectStagingTarget"/>
+    <parameterBindings name="Key_1" objectPath="startReplication"/>
+    <parameterBindings name="Key_2" objectPath="actionList"/>
+    <returnValueBindings name="SelectionKey" objectPath="JumpTarget"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JumpNode2"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode2">
+    <startNode referencedName="SecureJump-Start"/>
+  </nodes>
+<!--Combines the given products with their variations (if available) and returns them sorted by name.
+@Location 6,11-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="GetAffectedItems"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+    <parameters name="Products" type="com.intershop.beehive.core.capi.paging.PageableIterator&lt;E>"/>
+  </nodes>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="UpdatePageSize2"/>
+    <parameterBindings name="InValue_1" objectPath="Products:PageSize"/>
+    <returnValueBindings name="OutValue_1" objectPath="PageSize"/>
+  </nodes>
+<!--Setting page size to 0 ensures an iterating over 
+all elements, not only over elements of the current page.
+@Location 6,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePageSize2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdatePageSize.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToCollection1"/>
+    <parameterBindings name="PageSize" constant="(Integer)0"/>
+    <parameterBindings name="PageableIterator" objectPath="Products"/>
+  </nodes>
+<!--@Location 6,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection1">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="InCollection" nullBinding="true"/>
+    <parameterBindings name="InObject" nullBinding="true"/>
+    <returnValueBindings name="OutCollection" objectPath="AffectedItemsCollection"/>
+    <returnValueBindings name="OutIterator" objectPath="AffectedItemsIterator"/>
+  </nodes>
+<!--@Location 6,15-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Products">
+<!--@BendPoints 15,31-->
+    <nodeSuccessors name="next" next="SortIteratorByComparator1"/>
+    <entry key="Product">
+      <nodeSuccessors name="loop_entry_next" next="CombineIterators0"/>
+    </entry>
+  </nodes>
+<!--@Location 6,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CombineIterators0">
+    <configurationValues name="ProcessMethod" value="Concatenate Iterators and Remove Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CombineIterators.xml"/>
+    <nodeSuccessors name="next" next="CreateCollectionFromIterator0"/>
+    <parameterBindings name="Iterator1" objectPath="Product:createMasteredProductsIterator"/>
+    <parameterBindings name="Iterator2" objectPath="AffectedItemsIterator"/>
+    <returnValueBindings name="Iterator" objectPath="AffectedItemsIterator"/>
+  </nodes>
+<!--@Location 6,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateCollectionFromIterator0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateCollectionFromIterator.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToCollection0"/>
+    <parameterBindings name="ObjectIterator" objectPath="AffectedItemsIterator"/>
+    <returnValueBindings name="ObjectCollection" objectPath="AffectedItemsCollection"/>
+  </nodes>
+<!--@Location 6,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToCollection0">
+    <pipelet href="enfinity:/core/pipelets/AddObjectToCollection.xml"/>
+<!--@BendPoints 11,37 11,31-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <parameterBindings name="InCollection" objectPath="AffectedItemsCollection"/>
+    <parameterBindings name="InObject" objectPath="Product"/>
+    <returnValueBindings name="OutCollection" objectPath="AffectedItemsCollection"/>
+    <returnValueBindings name="OutIterator" objectPath="AffectedItemsIterator"/>
+  </nodes>
+<!--@Location 7,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SortIteratorByComparator1">
+    <configurationValues name="DefaultSortingOrder" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SortIteratorByComparator.xml"/>
+    <nodeSuccessors name="next" next="CreatePageableFromIterator1"/>
+    <parameterBindings name="Iterator" objectPath="AffectedItemsIterator"/>
+    <parameterBindings name="SortingAttribute" constant="Name"/>
+    <parameterBindings name="SortingOrder" constant="true"/>
+  </nodes>
+<!--@Location 7,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePageableFromIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableFromIterator.xml"/>
+    <nodeSuccessors name="next" next="UpdatePageSize1"/>
+    <parameterBindings name="Iterator" objectPath="SortedIterator"/>
+    <parameterBindings name="PageSize" constant="15"/>
+    <returnValueBindings name="Pageable" objectPath="AffectedItems"/>
+  </nodes>
+<!--@Location 7,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePageSize1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdatePageSize.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <parameterBindings name="PageableIterator" objectPath="Products"/>
+  </nodes>
+<!--@Location 7,19-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="Next" strict="true">
+<!--Products and variation products sorted by name.-->
+    <returnValues name="AffectedItems" type="com.intershop.beehive.core.capi.paging.PageableIterator&lt;E>"/>
+  </nodes>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" name="Paging" secure="true">
+    <nodeSuccessors name="next" next="GetPageable1"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPageable1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPageable.xml"/>
+    <nodeSuccessors name="next" next="VerifyInteger0"/>
+    <parameterBindings name="PageableID" objectPath="AffectedItemsPageableID"/>
+    <returnValueBindings name="Pageable" objectPath="AffectedItems"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyInteger0">
+    <configurationValues name="isOptional" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyInteger.xml"/>
+    <nodeSuccessors name="next" next="UpdatePageSize0"/>
+    <parameterBindings name="LocalizedString" objectPath="itemsperpage"/>
+    <returnValueBindings name="IntegerObject" objectPath="PageSize"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePageSize0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdatePageSize.xml"/>
+    <nodeSuccessors name="next" next="VerifyInteger1"/>
+    <parameterBindings name="PageableIterator" objectPath="AffectedItems"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyInteger1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyInteger.xml"/>
+    <nodeSuccessors name="next" next="SetPage0"/>
+    <parameterBindings name="LocalizedString" objectPath="PageNumber"/>
+    <returnValueBindings name="IntegerObject" objectPath="PageNumber"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetPage0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetPage.xml"/>
+    <nodeSuccessors name="next" next="GetPageable3"/>
+    <parameterBindings name="Pageable" objectPath="AffectedItems"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPageable3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPageable.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="PageableID" objectPath="ProductsPageableID"/>
+    <returnValueBindings name="Pageable" objectPath="Products"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="GetTargetClusters1"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetTargetClusters1">
+    <pipelet href="enfinity:/core/pipelets/GetTargetClusters.xml"/>
+    <nodeSuccessors name="next" next="PrepareApplicationView12"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PrepareApplicationView12">
+    <configurationValues name="SelectedMenuItem" value="ChannelProducts"/>
+    <configurationValues name="WorkingTemplate" value="replication/ReplicateProductsWizardSelectTarget"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionEnd12"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionEnd12">
+    <template referencedName="application/ApplicationFrame"/>
+  </nodes>
+<!--@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="Prefix"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="CurrentChannel">
+    <nodeSuccessors name="decision_yes" next="KeyMapper4"/>
+    <nodeSuccessors name="decision_no" next="KeyMapper5"/>
+  </nodes>
+<!--ChannelRepository
+@Location 14,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentProductRepository:RepositoryDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProductDomain"/>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 14,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="ProductDomain" type="java.lang.Object" optional="true"/>
+  </nodes>
+<!--MasterRepository
+@Location 15,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentMasterRepository:RepositoryDomain"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProductDomain"/>
+  </nodes>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="SelectTarget">
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameters name="Products" type="com.intershop.beehive.core.capi.paging.PageableIterator&lt;E>"
+        optional="true"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <startNode referencedName="This:GetAffectedItems"/>
+  </nodes>
+<!--@Location 9,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="StartReplication">
+    <nodeSuccessors name="next" next="GetTargetCluster1"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetTargetCluster1">
+    <pipelet href="enfinity:/core/pipelets/GetTargetCluster.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="DeterminePageablePipeline">
+    <nodeSuccessors name="decision_yes" next="CallNode0"/>
+<!--@BendPoints 21,5-->
+    <nodeSuccessors name="decision_no" next="GetPageable0"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0" callModePermissions="Private">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <startNode objectPath="DeterminePageablePipeline"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="UpdatePageSize3"/>
+  </nodes>
+<!--Setting page size to 0 ensures an iterating over 
+all elements, not only over elements of the current page.
+@Location 9,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePageSize3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdatePageSize.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameterBindings name="PageSize" constant="(Integer)0"/>
+    <parameterBindings name="PageableIterator" objectPath="Objects"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="CurrentChannel">
+<!--@BendPoints 27,13-->
+    <nodeSuccessors name="decision_yes" next="GetDomainPreference0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 13,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference0">
+    <configurationValues name="DefaultPreferenceKey" value="ProductApprovalEnabled"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelRepository:Domain"/>
+    <parameterBindings name="PreferenceKey" objectPath="ProductApprovalEnabled"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="ProductApprovalEnabled"/>
+  </nodes>
+<!--@Location 13,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="ProductApprovalEnabled"
+      operator="str_eq" conditionValue="ON">
+    <nodeSuccessors name="decision_yes" next="KeyMapper3"/>
+    <nodeSuccessors name="decision_no" next="JoinNode12"/>
+  </nodes>
+<!--@Location 13,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;ProductBORepository&quot;)"/>
+    <parameterBindings name="InValue_10" objectPath="ApplicationBO:Repository(&quot;ProductApprovalBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProductBORepository"/>
+    <returnValueBindings name="OutValue_10" objectPath="ProductApprovalBORepository"/>
+  </nodes>
+<!--@Location 13,10-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Objects">
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+    <entry key="Object">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode8"/>
+    </entry>
+  </nodes>
+<!--@Location 13,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="Object:Extension(&quot;PersistentObjectBOExtension&quot;)">
+<!--@BendPoints 29,23-->
+    <nodeSuccessors name="decision_yes" next="KeyMapper6"/>
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 14,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="InValue_1" objectPath="Object:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <returnValueBindings name="OutValue_1" objectPath="Object"/>
+  </nodes>
+<!--@Location 13,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="GetProductBOByID0"/>
+  </nodes>
+<!--@Location 13,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductBOByID0">
+    <pipelet href="enfinity:/bc_product/pipelets/GetProductBOByID.xml"/>
+    <nodeSuccessors name="next" next="GetProductApproval0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="ID" objectPath="Object:UUID"/>
+  </nodes>
+<!--@Location 13,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductApproval0">
+    <pipelet href="enfinity:/bc_product/pipelets/GetProductApproval.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+  </nodes>
+<!--@Location 13,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="ProductApprovalBO:ApprovalStatus:Code"
+      operator="eq" conditionValue="3">
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 13,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 31,33-->
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="InVector" objectPath="ObjectsCollection"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="ObjectsIterator"/>
+    <returnValueBindings name="OutVector" objectPath="ObjectsCollection"/>
+  </nodes>
+<!--@Location 15,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 15,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 15,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 31,21-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 12,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="ObjectsIterator">
+    <nodeSuccessors name="decision_yes" next="JoinNode10"/>
+    <nodeSuccessors name="decision_no" next="AddObjectToVector2"/>
+  </nodes>
+<!--@Location 11,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 11,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+<!--@BendPoints 23,29-->
+    <nodeSuccessors name="next" next="CreatePageableFromIterator0"/>
+  </nodes>
+<!--@Location 9,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePageableFromIterator0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableFromIterator.xml"/>
+    <nodeSuccessors name="next" next="RegisterPageable0"/>
+    <parameterBindings name="Iterator" objectPath="ObjectsIterator"/>
+    <returnValueBindings name="Pageable" objectPath="SelectedObjects"/>
+  </nodes>
+<!--@Location 9,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RegisterPageable0">
+    <pipelet href="enfinity:/core/pipelets/RegisterPageable.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameterBindings name="PageableID" objectPath="SelectedObjects:ID"/>
+    <parameterBindings name="PageableName" constant="SelectedObjects"/>
+    <parameterBindings name="see PageableName" objectPath="SelectedObjects"/>
+  </nodes>
+<!--@Location 9,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <configurationValues name="ValueType" value="Form Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameterBindings name="InValue_1" constant="ProcessReplicateObjects-Init"/>
+    <parameterBindings name="InValue_2" constant="ProcessReplicateObjects-Process"/>
+    <parameterBindings name="InValue_3" constant="ProcessReplicateObjects-Post"/>
+    <parameterBindings name="InValue_4" constant="Catalog_ReplicateProducts"/>
+    <parameterBindings name="InValue_5" constant="SelectedObjects"/>
+    <parameterBindings name="InValue_6" objectPath="SelectedObjects:ID"/>
+    <returnValueBindings name="OutValue_1" objectPath="InitPipeline"/>
+    <returnValueBindings name="OutValue_2" objectPath="ProcessPipeline"/>
+    <returnValueBindings name="OutValue_3" objectPath="PostPipeline"/>
+    <returnValueBindings name="OutValue_4" objectPath="JobName"/>
+    <returnValueBindings name="OutValue_5" objectPath="PageableName"/>
+    <returnValueBindings name="OutValue_6" objectPath="PageableID"/>
+  </nodes>
+<!--@Location 9,17-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="CurrentChannel">
+    <nodeSuccessors name="decision_yes" next="ConcatenateStrings2"/>
+<!--@BendPoints 21,35-->
+    <nodeSuccessors name="decision_no" next="CallNode1"/>
+  </nodes>
+<!--@Location 9,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="ConcatenateStrings3"/>
+    <parameterBindings name="String0" constant="ViewProcessList_"/>
+    <parameterBindings name="String1" objectPath="CurrentChannel:TypeCode"/>
+    <parameterBindings name="String2" constant="-CreateProcess"/>
+    <returnValueBindings name="Concatenated" objectPath="CreateProcessPipeline"/>
+  </nodes>
+<!--@Location 9,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="CallNode6"/>
+    <parameterBindings name="String0" constant="ViewProcessList_"/>
+    <parameterBindings name="String1" objectPath="CurrentChannel:TypeCode"/>
+    <parameterBindings name="String2" constant="-ListAll"/>
+    <returnValueBindings name="Concatenated" objectPath="ListAllPipeline"/>
+  </nodes>
+<!--@Location 9,20-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6" callModePermissions="Private">
+    <nodeSuccessors name="next" next="JumpNode3"/>
+    <startNode objectPath="CreateProcessPipeline"/>
+  </nodes>
+<!--@Location 9,21-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode3">
+    <startNode objectPath="ListAllPipeline"/>
+  </nodes>
+<!--@Location 10,18-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="JumpNode1"/>
+    <startNode referencedName="ViewProcessList-CreateProcess"/>
+  </nodes>
+<!--@Location 10,19-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="ViewProcessList-ListAll"/>
+  </nodes>
+<!--@Location 12,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="ObjectsIterator"/>
+    <returnValueBindings name="OutVector" objectPath="ObjectsCollection"/>
+  </nodes>
+<!--@Location 9,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+  </nodes>
+<!--@Location 9,10-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="Objects">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <entry key="Object">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode2"/>
+    </entry>
+  </nodes>
+<!--@Location 9,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Object:Extension(&quot;PersistentObjectBOExtension&quot;)">
+<!--@BendPoints 21,23-->
+    <nodeSuccessors name="decision_yes" next="KeyMapper0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 10,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InValue_1" objectPath="Object:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <returnValueBindings name="OutValue_1" objectPath="Object"/>
+  </nodes>
+<!--@Location 9,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="AddObjectToVector0"/>
+  </nodes>
+<!--@Location 9,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 17,27 17,21-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <parameterBindings name="InVector" objectPath="ObjectsCollection"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="ObjectsIterator"/>
+    <returnValueBindings name="OutVector" objectPath="ObjectsCollection"/>
+  </nodes>
+<!--@Location 9,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPageable0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPageable.xml"/>
+<!--@BendPoints 21,9-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="PageableID" objectPath="ProductsPageableID"/>
+    <returnValueBindings name="Pageable" objectPath="Objects"/>
+  </nodes>
+<!--@Location 12,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" name="UpdateClipboard"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetFormSelection0"/>
+  </nodes>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFormSelection0">
+    <configurationValues name="DefaultParameterName" value="SelectedProductUUID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFormSelection.xml"/>
+    <nodeSuccessors name="next" next="GetFormSelection1"/>
+    <returnValueBindings name="Selection" objectPath="SelectedProductUUIDIterator"/>
+  </nodes>
+<!--@Location 12,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFormSelection1">
+    <configurationValues name="DefaultParameterName" value="ProductUUID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFormSelection.xml"/>
+    <nodeSuccessors name="next" next="UpdateClipboard0"/>
+    <returnValueBindings name="Selection" objectPath="ProductUUIDIterator"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateClipboard0">
+    <configurationValues name="SessionRegistrationID" value="Products"/>
+    <configurationValues name="StoreFormValues" value="No"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateClipboard.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <parameterBindings name="AllObjectUUIDs" objectPath="ProductUUIDIterator"/>
+    <parameterBindings name="SelectedObjectUUIDs" objectPath="SelectedProductUUIDIterator"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0"/>
+</pipeline:Pipeline>

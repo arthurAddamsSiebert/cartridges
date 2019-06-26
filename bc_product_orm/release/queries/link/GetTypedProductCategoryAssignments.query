@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Retruns the product-category assignments of the given product or category depending on the value of ProductUUID/CategoryUUID parameters one of them must be set). The product sharing is taken into account.">
+<parameters>
+  <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+  <parameter name="ProductUUID" type="java.lang.String" optional="true"/>
+  <parameter name="CategoryUUID" type="java.lang.String" optional="true"/>
+  <parameter name="TypeCode" type="java.lang.Integer" optional="false"/>
+</parameters>
+
+<return-mappings>
+  <return-mapping name="ProductId" type="rename">
+    <return-attribute name="productid"/>
+  </return-mapping>
+  <return-mapping name="CategoryId" type="rename">
+    <return-attribute name="categoryid"/>
+  </return-mapping>
+  <return-mapping name="Local" type="rename">
+    <return-attribute name="local"/>
+  </return-mapping>
+  <return-mapping name="Shared" type="rename">
+    <return-attribute name="shared"/>
+  </return-mapping>
+</return-mappings>
+
+<processor name="OracleSQL">
+  <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+
+<template type="objects">
+  <template-comment>
+  Notes for the "inline" hint:
+      The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+      of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+      not a good practice.
+  Solved problems:
+      Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+      if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+      data were not subsequently deleted.
+  </template-comment>
+  with available_links as
+    (select /*+ inline - to avoid massive not released temporary tablespace data */ tpca.catalogcategoryid as categoryid, tpca.productid, tpca.domainid, tpca.typecode, tpca.position
+       from typedproductcategoryassm tpca
+      where <template-call name="product/inc/AvailableProductsCondition">
+              <call-parameter name = "TableAlias" value = "&quot;tpca&quot;"/>
+              <call-parameter name = "ProductIdColumn" value="&quot;productid&quot;"/>
+              <call-parameter name = "Sharing" value = "Sharing"/>
+            </template-call>
+        and exists (
+           select 1 from product p
+           where p.uuid = tpca.productid
+              and <template-call name="product/inc/AvailableProductsCondition">
+                 <call-parameter name = "TableAlias" value = "&quot;p&quot;"/>
+                 <call-parameter name = "ProductIdColumn" value="&quot;uuid&quot;"/>
+                 <call-parameter name = "Sharing" value = "Sharing" />
+               </template-call>
+            )
+      <template-if condition="isDefined(ProductUUID)">
+        and tpca.productid = <template-variable value="ProductUUID"/>
+      </template-if>
+      <template-if condition="isDefined(CategoryUUID)">
+        and tpca.catalogcategoryid = <template-variable value="CategoryUUID"/>
+      </template-if>
+        and tpca.typecode = <template-variable value="TypeCode"/>
+    )
+  select local_links.categoryid, local_links.productid, '1' as local, '0' as shared, local_links.position
+  	<sql-dialect name="Microsoft">, CASE WHEN local_links.POSITION IS NULL THEN 0 ELSE 1 END as sorting</sql-dialect>
+    from available_links local_links
+   where local_links.domainid = <template-variable value="ProductDomain:UUID"/>
+     and not exists
+             (select 1
+                from available_links shared_links
+               where shared_links.categoryid = local_links.categoryid
+                 and shared_links.productid = local_links.productid
+                 and shared_links.domainid != local_links.domainid
+             )
+  union
+  select shared_links.categoryid, shared_links.productid, 
+  CASE WHEN local_links.productid is null  THEN '0'
+          ELSE '1' END as local,
+  '1' as shared, local_links.position
+  <sql-dialect name="Microsoft">, CASE WHEN local_links.POSITION IS NULL THEN 0 ELSE 1 END as sorting</sql-dialect>
+    from (select distinct categoryid, productid
+            from available_links
+           where domainid != <template-variable value="ProductDomain:UUID" />) shared_links
+    left outer join (select categoryid, productid, position
+                       from available_links
+                      where domainid = <template-variable value="ProductDomain:UUID" />) local_links
+      on (shared_links.categoryid = local_links.categoryid and shared_links.productid = local_links.productid)
+	  	<sql-dialect name="Microsoft">
+			ORDER BY sorting DESC, position ASC
+		</sql-dialect>
+		<sql-dialect name="Oracle">
+			ORDER BY position NULLS LAST
+		</sql-dialect>
+		
+   
+</template>
+</query>

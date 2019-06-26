@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Search the assignments between the given Pagelet and PageletEntryPoints.">
+	<parameters>
+		<parameter optional="false" name="Pagelet" type="com.intershop.component.pmc.capi.pagelet.Pagelet"/>
+		<parameter optional="false" name="ContentRepository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+		<parameter optional="false" name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+		<parameter optional="false" name="PageletModelRepository" type="com.intershop.component.pmc.capi.model.PageletModelRepository"/>
+		<parameter optional="true" name="PageFlag" type="java.lang.Boolean"/>
+		<parameter optional="true" name="ContextObjectRelationType" type="java.lang.String" description="Define the type of ContextObjectRelations to select."/>
+		<parameter optional="true" name="SortedPageletEntryPointQualifiedNames" type="java.util.Map" description="A map of qualified names of PageletEntryPoints sorted according to their localized display name."/>
+		<parameter optional="true" name="SortedViewContextInclusionIdentifiers" type="java.util.Map" description="A map of identifiers for ViewContextInclusions sorted according to their localized display name."/>
+		<parameter optional="true" name="SortBy" type="java.lang.String"/>
+		<parameter optional="true" name="SortDirection" type="java.lang.String"/>
+	</parameters>
+	<return-mappings>
+		<return-mapping name="PageletPageletEntryPointAssignment" type="orm" class="com.intershop.component.pmc.internal.pagelet.entrypoint.assignment.PageletPageletEntryPointAssignmentPO">
+			<return-attribute name="UUID"/>
+		</return-mapping>
+	</return-mappings>
+	<processor name="OracleSQL" />
+	<template type="countedobjects" sqlDialect="Oracle">
+	    SELECT 
+	    	peppa.uuid AS uuid, 
+			COUNT (*) over() AS "rowcount",
+	        <template-if condition="isDefined(SortBy)">
+				<template-if condition="SortBy EQ &apos;ID&apos;">
+					pep.id
+			    <if-elseif condition="SortBy EQ &apos;CategoryID&apos;"/>
+			    	cc.name
+			    <if-elseif condition="SortBy EQ &apos;ProductID&apos;"/>
+			    	pr.sku
+			    <if-elseif condition="SortBy EQ &apos;Type&apos;"/>
+					<template-if condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Category&apos;)">
+		                decode(ccpepa.definitionqualifiedname||ccpepa.viewcontextid
+		                <template-loop iterator="SortedViewContextInclusionIdentifiers:EntrySet" alias="Identifier">
+		                    <loop-statement>
+		                        , <template-variable value="Identifier:Key"/>, <template-variable value="Identifier:Value"/> 
+		                    </loop-statement>
+		                </template-loop>
+		                , 99999)
+					<if-elseif condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Product&apos;)"/>
+		                decode(prpepa.definitionqualifiedname||prpepa.viewcontextid
+		                <template-loop iterator="SortedViewContextInclusionIdentifiers:EntrySet" alias="Identifier">
+		                    <loop-statement>
+		                        , <template-variable value="Identifier:Key"/>, <template-variable value="Identifier:Value"/> 
+		                    </loop-statement>
+		                </template-loop>
+		                , 99999)
+					<if-else/>
+		                decode(pep.definitionqualifiedname
+		                <template-loop alias="QualifiedName" iterator="SortedPageletEntryPointQualifiedNames:EntrySet">
+		                    <loop-statement>
+		                        , <template-variable value="QualifiedName:Key"/>, <template-variable value="QualifiedName:Value"/> 
+		                    </loop-statement>
+		                </template-loop>
+		                , 99999)			
+					</template-if>
+				<if-elseif condition="SortBy EQ &apos;Parent&apos;"/>
+					parentav.stringvalue
+			    <if-elseif condition="SortBy EQ &apos;VisibleFrom&apos;"/>
+					peppa.validfrom
+				<if-elseif condition="SortBy EQ &apos;VisibleTo&apos;"/>
+					peppa.validto
+				<if-else/>
+					<template-if condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Category&apos;)">
+						ccav.stringvalue
+					<if-elseif condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Product&apos;)"/>
+						pr.name_<template-variable value="Locale:LocaleID" processing="text"/>
+					<if-else/>
+						pepav.stringvalue				
+					</template-if>
+				</template-if>
+			<if-else/>
+				<template-if condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Category&apos;)">
+					ccav.stringvalue
+				<if-elseif condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Product&apos;)"/>
+					pr.name_<template-variable value="Locale:LocaleID" processing="text"/>
+				<if-else/>
+					pepav.stringvalue				
+				</template-if>
+			</template-if> AS sorting
+		
+        FROM pageletentrypoint_pa peppa
+        JOIN pageletentrypoint pep ON (peppa.entrypointid = pep.uuid)
+        JOIN pagelet p ON (peppa.pageletid = p.uuid)
+		<template-if condition="isDefined(ContextObjectRelationType)">
+			<template-if condition="ContextObjectRelationType EQ &apos;Category&apos;">
+				JOIN catalogcategory_pepa ccpepa ON (peppa.entrypointid = ccpepa.pageletentrypointid)
+				JOIN catalogcategory cc ON (ccpepa.categoryid = cc.uuid)
+				LEFT OUTER JOIN catalogcategory_av ccav
+					ON (ccpepa.categoryid = ccav.ownerid 
+						AND ccav.name = &apos;displayName&apos; 
+						AND ccav.localeid = <template-variable value="Locale:LocaleID"/>)
+			<if-elseif condition="ContextObjectRelationType EQ &apos;Product&apos;"/>
+				JOIN product_pepa prpepa ON (peppa.entrypointid = prpepa.pageletentrypointid)
+				JOIN product pr ON (prpepa.productid = pr.uuid)
+			</template-if>
+		<if-elseif condition="NOT(isDefined(SortBy)) OR (isDefined(SortBy) AND SortBy EQ &apos;DisplayName&apos;)"/>
+			LEFT OUTER JOIN pageletentrypoint_av pepav
+				ON (peppa.entrypointid = pepav.ownerid 
+		         	AND pepav.name = &apos;displayName&apos; 
+		            AND pepav.localeid = <template-variable value="Locale:LocaleID"/>)
+		</template-if>
+		<template-if condition="isDefined(SortBy) AND SortBy eq &apos;Parent&apos;">
+		  LEFT OUTER JOIN pageletentrypointrelation pepr
+		  LEFT OUTER JOIN pageletentrypoint_av parentav
+		    ON (pepr.parententrypointid = parentav.ownerid
+		        AND parentav.name = &apos;displayName&apos;
+		        AND parentav.localeid = <template-variable value="Locale:LocaleID"/>)
+		    ON (pep.uuid = pepr.entrypointid)
+		</template-if>
+
+        WHERE peppa.pageletid=<template-variable value="Pagelet:UUID"/>
+		AND peppa.domainid IN
+			(
+				<template-call name="pagelet/inc/ContentRepositories">
+			        <call-parameter name="Repository" value="ContentRepository"/>
+			    </template-call>
+			)
+        AND pep.resourcesetid IN 
+			(
+				<template-loop iterator="PageletModelRepository:ResourceSetIds" alias="ResourceSetId">
+					<loop-statement><template-variable value="ResourceSetId"/></loop-statement>
+					<loop-separator>,</loop-separator>
+				</template-loop>
+			)
+		<template-if condition="PageFlag">
+			AND p.pageflag=1
+		<if-else/>
+			AND p.pageflag=0
+		</template-if>
+		<template-if condition="NOT(isDefined(ContextObjectRelationType))">
+	        AND NOT EXISTS (
+				(
+			      SELECT 1 
+			      FROM catalogcategory_pepa
+			      WHERE pageletentrypointid=pep.UUID
+			    )
+			    UNION
+			    (
+			      SELECT 1 
+			      FROM product_pepa
+			      WHERE pageletentrypointid=pep.UUID
+			    )
+			)
+		</template-if>
+		ORDER BY sorting
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			DESC NULLS FIRST
+		<if-else/>
+			ASC NULLS LAST
+		</template-if>
+	</template>
+	<template type="countedobjects" sqlDialect="Microsoft">
+	    SELECT 
+	    	peppa.uuid AS uuid, 
+			COUNT (*) over() AS "rowcount",
+	        <template-if condition="isDefined(SortBy)">
+				<template-if condition="SortBy EQ &apos;ID&apos;">
+					pep.id
+			    <if-elseif condition="SortBy EQ &apos;CategoryID&apos;"/>
+			    	cc.name
+			    <if-elseif condition="SortBy EQ &apos;ProductID&apos;"/>
+			    	pr.sku
+			    <if-elseif condition="SortBy EQ &apos;Type&apos;"/>
+			    	<template-if condition="hasLoopElements(SortedViewContextInclusionIdentifiers:EntrySet) OR hasLoopElements(SortedPageletEntryPointQualifiedNames:EntrySet)">
+						<template-if condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Category&apos;) AND hasLoopElements(SortedViewContextInclusionIdentifiers:EntrySet)">
+			                case ccpepa.definitionqualifiedname+ccpepa.viewcontextid
+			                <template-loop iterator="SortedViewContextInclusionIdentifiers:EntrySet" alias="Identifier">
+			                    <loop-statement>
+			                        when <template-variable value="Identifier:Key"/> then <template-variable value="Identifier:Value"/> 
+			                    </loop-statement>
+			                </template-loop>
+			                else 99999
+			                end
+						<if-elseif condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Product&apos;) AND hasLoopElements(SortedViewContextInclusionIdentifiers:EntrySet)"/>
+			                case prpepa.definitionqualifiedname+prpepa.viewcontextid
+			                <template-loop iterator="SortedViewContextInclusionIdentifiers:EntrySet" alias="Identifier">
+			                    <loop-statement>
+			                        when <template-variable value="Identifier:Key"/> then <template-variable value="Identifier:Value"/> 
+			                    </loop-statement>
+			                </template-loop>
+			                else 99999
+			                end
+						<if-elseif condition="hasLoopElements(SortedPageletEntryPointQualifiedNames:EntrySet)"/>
+			                case pep.definitionqualifiedname
+			                <template-loop alias="QualifiedName" iterator="SortedPageletEntryPointQualifiedNames:EntrySet">
+			                    <loop-statement>
+			                        when <template-variable value="QualifiedName:Key"/> then <template-variable value="QualifiedName:Value"/> 
+			                    </loop-statement>
+			                </template-loop>
+			                else 99999
+			                end
+						</template-if>
+					<if-else/>
+		            	pep.definitionqualifiedname	
+					</template-if>
+				<if-elseif condition="SortBy EQ &apos;Parent&apos;"/>
+					parentav.stringvalue
+			    <if-elseif condition="SortBy EQ &apos;VisibleFrom&apos;"/>
+					peppa.validfrom
+				<if-elseif condition="SortBy EQ &apos;VisibleTo&apos;"/>
+					peppa.validto
+				<if-else/>
+					<template-if condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Category&apos;)">
+						ccav.stringvalue
+					<if-elseif condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Product&apos;)"/>
+						pr.name_<template-variable value="Locale:LocaleID" processing="text"/>
+					<if-else/>
+						pepav.stringvalue				
+					</template-if>
+				</template-if>
+			<if-else/>
+				<template-if condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Category&apos;)">
+					ccav.stringvalue
+				<if-elseif condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Product&apos;)"/>
+					pr.name_<template-variable value="Locale:LocaleID" processing="text"/>
+				<if-else/>
+					pepav.stringvalue				
+				</template-if>
+			</template-if> AS sorting
+		
+        FROM pageletentrypoint_pa peppa
+        JOIN pageletentrypoint pep ON (peppa.entrypointid = pep.uuid)
+        JOIN pagelet p ON (peppa.pageletid = p.uuid)
+		<template-if condition="isDefined(ContextObjectRelationType)">
+			<template-if condition="ContextObjectRelationType EQ &apos;Category&apos;">
+				JOIN catalogcategory_pepa ccpepa ON (peppa.entrypointid = ccpepa.pageletentrypointid)
+				JOIN catalogcategory cc ON (ccpepa.categoryid = cc.uuid)
+				LEFT OUTER JOIN catalogcategory_av ccav
+					ON (ccpepa.categoryid = ccav.ownerid 
+						AND ccav.name = &apos;displayName&apos; 
+						AND ccav.localeid = <template-variable value="Locale:LocaleID"/>)
+			<if-elseif condition="ContextObjectRelationType EQ &apos;Product&apos;"/>
+				JOIN product_pepa prpepa ON (peppa.entrypointid = prpepa.pageletentrypointid)
+				JOIN product pr ON (prpepa.productid = pr.uuid)
+			</template-if>
+		<if-elseif condition="NOT(isDefined(SortBy)) OR (isDefined(SortBy) AND SortBy EQ &apos;DisplayName&apos;)"/>
+			LEFT OUTER JOIN pageletentrypoint_av pepav
+				ON (peppa.entrypointid = pepav.ownerid 
+		         	AND pepav.name = &apos;displayName&apos; 
+		            AND pepav.localeid = <template-variable value="Locale:LocaleID"/>)
+		</template-if>
+		<template-if condition="isDefined(SortBy) AND SortBy eq &apos;Parent&apos;">
+		  LEFT OUTER JOIN pageletentrypointrelation pepr
+		  LEFT OUTER JOIN pageletentrypoint_av parentav
+		    ON (pepr.parententrypointid = parentav.ownerid
+		        AND parentav.name = &apos;displayName&apos;
+		        AND parentav.localeid = <template-variable value="Locale:LocaleID"/>)
+		    ON (pep.uuid = pepr.entrypointid)
+		</template-if>
+
+        WHERE peppa.pageletid=<template-variable value="Pagelet:UUID"/>
+		AND peppa.domainid IN
+			(
+				<template-call name="pagelet/inc/ContentRepositories">
+			        <call-parameter name="Repository" value="ContentRepository"/>
+			    </template-call>
+			)
+        AND pep.resourcesetid IN 
+			(
+				<template-loop iterator="PageletModelRepository:ResourceSetIds" alias="ResourceSetId">
+					<loop-statement><template-variable value="ResourceSetId"/></loop-statement>
+					<loop-separator>,</loop-separator>
+				</template-loop>
+			)
+		<template-if condition="PageFlag">
+			AND p.pageflag=1
+		<if-else/>
+			AND p.pageflag=0
+		</template-if>
+		<template-if condition="NOT(isDefined(ContextObjectRelationType))">
+	        AND NOT EXISTS (
+				(
+			      SELECT 1 
+			      FROM catalogcategory_pepa
+			      WHERE pageletentrypointid=pep.UUID
+			    )
+			    UNION
+			    (
+			      SELECT 1 
+			      FROM product_pepa
+			      WHERE pageletentrypointid=pep.UUID
+			    )
+			)
+		</template-if>
+		ORDER BY 
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+			CASE WHEN  
+				<template-if condition="isDefined(SortBy)">
+					<template-if condition="SortBy EQ &apos;ID&apos;">
+						pep.id
+				    <if-elseif condition="SortBy EQ &apos;CategoryID&apos;"/>
+				    	cc.name
+				    <if-elseif condition="SortBy EQ &apos;ProductID&apos;"/>
+				    	pr.sku
+				    <if-elseif condition="SortBy EQ &apos;Type&apos;"/>
+				    	<template-if condition="hasLoopElements(SortedViewContextInclusionIdentifiers:EntrySet) OR hasLoopElements(ortedPageletEntryPointQualifiedNames:EntrySet)">
+							<template-if condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Category&apos;) AND hasLoopElements(SortedViewContextInclusionIdentifiers:EntrySet)">
+				                case ccpepa.definitionqualifiedname+ccpepa.viewcontextid
+				                <template-loop iterator="SortedViewContextInclusionIdentifiers:EntrySet" alias="Identifier">
+				                    <loop-statement>
+				                        when <template-variable value="Identifier:Key"/> then <template-variable value="Identifier:Value"/> 
+				                    </loop-statement>
+				                </template-loop>
+				                else 99999
+				                end
+							<if-elseif condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Product&apos;) AND hasLoopElements(SortedViewContextInclusionIdentifiers:EntrySet)"/>
+				                case prpepa.definitionqualifiedname+prpepa.viewcontextid
+				                <template-loop iterator="SortedViewContextInclusionIdentifiers:EntrySet" alias="Identifier">
+				                    <loop-statement>
+				                        when <template-variable value="Identifier:Key"/> then <template-variable value="Identifier:Value"/> 
+				                    </loop-statement>
+				                </template-loop>
+				                else 99999
+				                end
+							<if-elseif condition="hasLoopElements(SortedPageletEntryPointQualifiedNames:EntrySet)"/>
+				                case pep.definitionqualifiedname
+				                <template-loop alias="QualifiedName" iterator="SortedPageletEntryPointQualifiedNames:EntrySet">
+				                    <loop-statement>
+				                        when <template-variable value="QualifiedName:Key"/> then <template-variable value="QualifiedName:Value"/> 
+				                    </loop-statement>
+				                </template-loop>
+				                else 99999
+				                end
+							</template-if>
+							<if-else/>
+								pep.definitionqualifiedname
+						</template-if>
+					<if-elseif condition="SortBy EQ &apos;Parent&apos;"/>
+						parentav.stringvalue
+				    <if-elseif condition="SortBy EQ &apos;VisibleFrom&apos;"/>
+						peppa.validfrom
+					<if-elseif condition="SortBy EQ &apos;VisibleTo&apos;"/>
+						peppa.validto
+					<if-else/>
+						<template-if condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Category&apos;)">
+							ccav.stringvalue
+						<if-elseif condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Product&apos;)"/>
+							pr.name_<template-variable value="Locale:LocaleID" processing="text"/>
+						<if-else/>
+							pepav.stringvalue				
+						</template-if>
+					</template-if>
+				<if-else/>
+					<template-if condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Category&apos;)">
+						ccav.stringvalue
+					<if-elseif condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Product&apos;)"/>
+						pr.name_<template-variable value="Locale:LocaleID" processing="text"/>
+					<if-else/>
+						pepav.stringvalue				
+					</template-if>
+				</template-if> 
+				IS NULL THEN 0
+				ELSE 1		
+			END, sorting DESC
+		<if-else/>	
+			CASE WHEN  
+				<template-if condition="isDefined(SortBy)">
+					<template-if condition="SortBy EQ &apos;ID&apos;">
+						pep.id
+				    <if-elseif condition="SortBy EQ &apos;CategoryID&apos;"/>
+				    	cc.name
+				    <if-elseif condition="SortBy EQ &apos;ProductID&apos;"/>
+				    	pr.sku
+				    <if-elseif condition="SortBy EQ &apos;Type&apos;"/>
+				    	<template-if condition="hasLoopElements(SortedViewContextInclusionIdentifiers:EntrySet) OR hasLoopElements(SortedPageletEntryPointQualifiedNames:EntrySet)">
+							<template-if condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Category&apos;) AND hasLoopElements(SortedViewContextInclusionIdentifiers:EntrySet)">
+				                case ccpepa.definitionqualifiedname+ccpepa.viewcontextid
+				                <template-loop iterator="SortedViewContextInclusionIdentifiers:EntrySet" alias="Identifier">
+				                    <loop-statement>
+				                        when <template-variable value="Identifier:Key"/> then <template-variable value="Identifier:Value"/> 
+				                    </loop-statement>
+				                </template-loop>
+				                else 99999
+				                end
+							<if-elseif condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Product&apos;) AND hasLoopElements(SortedViewContextInclusionIdentifiers:EntrySet)"/>
+				                case prpepa.definitionqualifiedname+prpepa.viewcontextid
+				                <template-loop iterator="SortedViewContextInclusionIdentifiers:EntrySet" alias="Identifier">
+				                    <loop-statement>
+				                        when <template-variable value="Identifier:Key"/> then <template-variable value="Identifier:Value"/> 
+				                    </loop-statement>
+				                </template-loop>
+				                else 99999
+				                end
+							<if-elseif condition="hasLoopElements(SortedPageletEntryPointQualifiedNames:EntrySet)"/>
+				                case pep.definitionqualifiedname
+				                <template-loop alias="QualifiedName" iterator="SortedPageletEntryPointQualifiedNames:EntrySet">
+				                    <loop-statement>
+				                        when <template-variable value="QualifiedName:Key"/> then <template-variable value="QualifiedName:Value"/> 
+				                    </loop-statement>
+				                </template-loop>
+				                else 99999
+				                end
+							</template-if>
+						<if-else/>
+	            			pep.definitionqualifiedname
+						</template-if>
+					<if-elseif condition="SortBy EQ &apos;Parent&apos;"/>
+						parentav.stringvalue
+				    <if-elseif condition="SortBy EQ &apos;VisibleFrom&apos;"/>
+						peppa.validfrom
+					<if-elseif condition="SortBy EQ &apos;VisibleTo&apos;"/>
+						peppa.validto
+					<if-else/>
+						<template-if condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Category&apos;)">
+							ccav.stringvalue
+						<if-elseif condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Product&apos;)"/>
+							pr.name_<template-variable value="Locale:LocaleID" processing="text"/>
+						<if-else/>
+							pepav.stringvalue				
+						</template-if>
+					</template-if>
+				<if-else/>
+					<template-if condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Category&apos;)">
+						ccav.stringvalue
+					<if-elseif condition="isDefined(ContextObjectRelationType) AND (ContextObjectRelationType EQ &apos;Product&apos;)"/>
+						pr.name_<template-variable value="Locale:LocaleID" processing="text"/>
+					<if-else/>
+						pepav.stringvalue				
+					</template-if>
+				</template-if> 
+				IS NULL THEN 1
+				ELSE 0		
+			END, sorting ASC
+		</template-if>		
+	</template>
+</query>

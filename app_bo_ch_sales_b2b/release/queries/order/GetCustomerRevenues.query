@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets the summarized revenue of customers beginning with the biggest revenue">
+<parameters>
+	<parameter name="OrderDomains" type="java.util.Iterator" optional="true"/>
+	<parameter name="OrderDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+	<parameter name="Currency" type="com.intershop.beehive.core.capi.currency.Currency" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="CustomerNo" type="rename">
+		<return-attribute name="CUSTOMERNO"/>
+	</return-mapping>
+	<return-mapping name="CustomerID" type="rename">
+		<return-attribute name="CUUID"/>
+	</return-mapping>
+	<return-mapping name="Revenue" type="constructor" class="com.intershop.beehive.foundation.quantity.Money">
+		<return-attribute name="PURCHASECURRENCYCODE"/>
+		<return-attribute name="REVENUE"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"></processor>
+<template type="countedobjects">
+	SELECT 
+		io.CUSTOMERID as CUUID,
+		io.CUSTOMERNO as CUSTOMERNO, 
+		sum(io.grandtotalnetpricepcvalue) as REVENUE,
+		io.PURCHASECURRENCYCODE
+	FROM isorder io 
+	JOIN customer c on io.CUSTOMERID = c.UUID 
+	WHERE
+	 
+	<!-- Domain vs. Domains -->
+     <template-call name="order/AdvancedOrderSearchOrderDomains">
+        <call-parameter name="OrderDomains" value="OrderDomains"/>
+        <call-parameter name="OrderDomain" value="OrderDomain"/>
+     </template-call> AND
+	io.PURCHASECURRENCYCODE = <template-variable value="Currency:Mnemonic"/> 
+	GROUP BY io.CUSTOMERID, io.CUSTOMERNO, io.PURCHASECURRENCYCODE 
+	ORDER BY REVENUE DESC
+</template>
+</query>

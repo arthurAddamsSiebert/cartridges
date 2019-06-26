@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--The pipeline checks the state and rights for a user in a site. It should be called in every pipeline after the start node.
+@Group Common-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="Prefix" type="view">
+<!--For compatibility
+@Location 0,13-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1" height="1" width="1"/>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="CheckApplicationPermission"
+      callMode="Private">
+<!--@BendPoints 23,12-->
+    <nodeSuccessors name="next" next="GetSystemDomain1"/>
+    <parameters name="CurrentApplication" type="com.intershop.beehive.core.capi.domain.Application"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSystemDomain1">
+    <pipelet href="enfinity:/core/pipelets/GetSystemDomain.xml"/>
+<!--@BendPoints 23,14-->
+    <nodeSuccessors name="next" next="GetApplications1"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplications1">
+    <pipelet href="enfinity:/core/pipelets/GetApplications.xml"/>
+<!--@BendPoints 23,16-->
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="Domain" objectPath="SystemDomain"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Applications">
+    <nodeSuccessors name="next" next="JumpNode1"/>
+    <entry key="Application">
+<!--@BendPoints 23,18-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode3"/>
+    </entry>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="CurrentApplication:UUID"
+      operator="str_neq" conditionItem="Application:UUID">
+<!--@BendPoints 23,21 22,21 22,17-->
+    <nodeSuccessors name="decision_yes" next="LoopNode1_Entry"/>
+<!--@BendPoints 24,19-->
+    <nodeSuccessors name="decision_no" next="EndNode5"/>
+  </nodes>
+<!--@Location 12,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--@Location 12,8-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="This:ErrorNoPermissions"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="CheckPasswordExpired"
+      callMode="Private">
+<!--@BendPoints 9,16-->
+    <nodeSuccessors name="next" next="ExchangeSessionObject1"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject1">
+    <configurationValues name="ProcessMethod" value="Get Object from Session"/>
+    <configurationValues name="SessionObjectName" value="PASSWORD_EXPIRED"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+<!--@BendPoints 9,18-->
+    <nodeSuccessors name="next" next="DecisionNode12"/>
+    <returnValueBindings name="LoadObject" objectPath="PasswordExpired"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="PasswordExpired">
+<!--@BendPoints 9,20-->
+    <nodeSuccessors name="decision_yes" next="EndNode26"/>
+<!--@BendPoints 11,19-->
+    <nodeSuccessors name="decision_no" next="EndNode15"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode26" name="ERROR"/>
+<!--@Location 5,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true"/>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="CheckProtocol" callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet1"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="PerformAccessControl" value="false"/>
+    <configurationValues name="PerformClientIPRangeCheck" value="false"/>
+    <configurationValues name="PerformServerGroupCheck" value="false"/>
+    <configurationValues name="PerformUserLoginCheck" value="false"/>
+    <configurationValues name="RequireHTTPS" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/AccessControl.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <nodeSuccessors name="pipelet_error" next="Pipelet3"/>
+    <returnValueBindings name="ErrorMessage" nullBinding="true"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name=""/>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode1"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentDomain:DomainName"/>
+    <returnValueBindings name="OutValue_1" objectPath="RedirectedFromSite"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode1">
+    <template referencedName="application/Redirect.isml"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="CheckUserPermissions"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet5"/>
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"
+        optional="true"/>
+    <parameters name="CurrentPipelineName" type="java.lang.String" optional="true"/>
+    <parameters name="CurrentStartNodeName" type="java.lang.String" optional="true"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+    <parameters name="CurrentDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+    <parameters name="CurrentApplication" type="com.intershop.beehive.core.capi.domain.Application"
+        optional="true"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <configurationValues name="DefaultContext" value="Organization"/>
+    <configurationValues name="ExtendedSecurity" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/GetPipelinePermissionsByContext.xml"/>
+    <nodeSuccessors name="next" next="Loop3"/>
+<!--@BendPoints 19,13-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="Application" objectPath="CurrentApplication"/>
+    <parameterBindings name="Context" nullBinding="true"/>
+    <parameterBindings name="Domain" objectPath="CurrentDomain"/>
+    <parameterBindings name="PipelineName" objectPath="CurrentPipelineName"/>
+    <parameterBindings name="StartNodeName" objectPath="CurrentStartNodeName"/>
+    <returnValueBindings name="PermissionIDs" objectPath="OrgPerms"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop3" loop="OrgPerms">
+<!--@BendPoints 16,15-->
+    <nodeSuccessors name="next" next="End1"/>
+    <entry key="OrgPerm">
+      <nodeSuccessors name="loop_entry_next" next="CheckUserPermission3"/>
+    </entry>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckUserPermission3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckUserPermission.xml"/>
+<!--@BendPoints 15,18 13,18 13,15-->
+    <nodeSuccessors name="next" next="Loop3_Entry"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="AuthorizationObject" objectPath="CurrentOrganization"/>
+    <parameterBindings name="Permission" objectPath="OrgPerm"/>
+  </nodes>
+<!--@Location 9,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JumpNode0"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode0">
+    <startNode referencedName="This:ErrorNoPermissions"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 9,11-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" name="ErrorNoPermissions"
+      callMode="Private">
+    <nodeSuccessors name="next" next="SetDictionaryValue0"/>
+  </nodes>
+<!--@Location 9,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue0">
+    <configurationValues name="Name" value="ERROR_User"/>
+    <configurationValues name="Value" value="UserHasNotPermission"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode0"/>
+  </nodes>
+<!--@Location 9,13-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode0">
+    <template referencedName="application/Error_general"/>
+  </nodes>
+<!--@Location 12,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="ProcessExceptions" callMode="Private">
+<!--@BendPoints 25,3-->
+    <nodeSuccessors name="next" next="Decision6"/>
+  </nodes>
+<!--@Location 13,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision6" conditionKey="CurrentPipelineName"
+      operator="str_eq" conditionValue="Default">
+<!--@BendPoints 31,3-->
+    <nodeSuccessors name="decision_yes" next="Join4"/>
+<!--@BendPoints 27,4 25,4 25,5-->
+    <nodeSuccessors name="decision_no" next="Decision3"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+<!--@BendPoints 37,5-->
+    <nodeSuccessors name="next" next="Join11"/>
+  </nodes>
+<!--@Location 18,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join11">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 19,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 40,9-->
+    <nodeSuccessors name="next" next="End10"/>
+  </nodes>
+<!--@Location 20,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End10" name="NO_CHECK_REQUIRED"/>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="CurrentPipelineName"
+      operator="str_eq" conditionValue="Error">
+    <nodeSuccessors name="decision_yes" next="Join4"/>
+<!--@BendPoints 27,6 25,6 25,7-->
+    <nodeSuccessors name="decision_no" next="Decision10"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision10" conditionKey="CurrentPipelineName"
+      operator="str_eq" conditionValue="ViewApplication">
+<!--@BendPoints 32,7 32,9-->
+    <nodeSuccessors name="decision_yes" next="Decision7"/>
+<!--@BendPoints 27,23-->
+    <nodeSuccessors name="decision_no" next="Join10"/>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision7" conditionKey="CurrentStartNodeName"
+      operator="str_eq" conditionValue="DisplayLogin">
+    <nodeSuccessors name="decision_yes" next="Join11"/>
+<!--@BendPoints 33,11-->
+    <nodeSuccessors name="decision_no" next="Decision1"/>
+  </nodes>
+<!--@Location 17,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="CurrentStartNodeName"
+      operator="str_eq" conditionValue="ProcessLogin">
+<!--@BendPoints 37,11-->
+    <nodeSuccessors name="decision_yes" next="Join11"/>
+<!--@BendPoints 35,13 36,13-->
+    <nodeSuccessors name="decision_no" next="DecisionNode9"/>
+  </nodes>
+<!--@Location 18,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="CurrentStartNodeName"
+      operator="str_eq" conditionValue="ProcessPasswordChange">
+<!--@BendPoints 39,13-->
+    <nodeSuccessors name="decision_yes" next="JoinNode3"/>
+<!--@BendPoints 37,23-->
+    <nodeSuccessors name="decision_no" next="Join10"/>
+  </nodes>
+<!--@Location 14,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join10">
+    <nodeSuccessors name="next" next="End7"/>
+  </nodes>
+<!--@Location 14,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End7"/>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="EnableCSRFGuard1"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EnableCSRFGuard1">
+    <pipelet href="enfinity:/core/pipelets/EnableCSRFGuard.xml"/>
+    <nodeSuccessors name="next" next="SetFrameOptionsHeader0"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetFrameOptionsHeader0">
+    <configurationValues name="DefaultHeaderValue" value="SAMEORIGIN"/>
+    <pipelet href="enfinity:/core/pipelets/SetFrameOptionsHeader.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameterBindings name="HeaderValue" objectPath="CurrentApplication:Configuration:String(&quot;intershop.response.frameOptions&quot;)"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="Call1"/>
+    <startNode referencedName="Prefix-CheckProtocol"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="CheckIsSiteLive1"/>
+    <nodeSuccessors name="ERROR" next="Jump1"/>
+<!--@BendPoints 9,10-->
+    <nodeSuccessors name="NO_CHECK_REQUIRED" next="End4"/>
+    <startNode referencedName="Prefix-ProcessExceptions"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckIsSiteLive1">
+    <pipelet href="enfinity:/core/pipelets/CheckIsSiteLive.xml"/>
+    <nodeSuccessors name="next" next="CheckUserLoggedIn1"/>
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue5"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckUserLoggedIn1">
+    <pipelet href="enfinity:/core/pipelets/CheckUserLoggedIn.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByUser1"/>
+    <nodeSuccessors name="pipelet_error" next="Jump2"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByUser1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByUser.xml"/>
+    <nodeSuccessors name="next" next="Decision2"/>
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue3"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <returnValueBindings name="Organization" objectPath="CurrentOrganization"/>
+    <returnValueBindings name="OrganizationDomain" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="CurrentOrganization:State"
+      operator="eq" conditionValue="1">
+    <nodeSuccessors name="decision_yes" next="GetPermissionsByUser1"/>
+    <nodeSuccessors name="decision_no" next="SetDictionaryValue4"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPermissionsByUser1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetPermissionsByUser.xml"/>
+    <nodeSuccessors name="next" next="Call2"/>
+    <parameterBindings name="AuthorizationObject" nullBinding="true"/>
+    <parameterBindings name="Organization" objectPath="CurrentOrganization"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <returnValueBindings name="PermissionMap" objectPath="CurrentUserPermissionMap"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+<!--@BendPoints 3,24-->
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <startNode referencedName="Prefix-CheckUserPermissions"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+<!--@BendPoints 3,26-->
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <startNode referencedName="Prefix-CheckApplicationPermission"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="Pipelet4"/>
+<!--@BendPoints 5,28-->
+    <nodeSuccessors name="ERROR" next="JumpNode3"/>
+    <startNode referencedName="Prefix-CheckPasswordExpired"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="End8"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentUserPermissionMap"/>
+    <parameterBindings name="InValue_10" objectPath="CurrentOrganization"/>
+    <parameterBindings name="InValue_2" objectPath="CurrentOrganization:OrganizationDomain"/>
+    <parameterBindings name="InValue_3" objectPath="CurrentUser:Profile"/>
+    <returnValueBindings name="OutValue_1" objectPath="PermissionMap"/>
+    <returnValueBindings name="OutValue_10" objectPath="Organization"/>
+    <returnValueBindings name="OutValue_2" objectPath="OrganizationDomain"/>
+    <returnValueBindings name="OutValue_3" objectPath="CurrentUserProfile"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End8"/>
+<!--@Location 2,15-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode3">
+    <startNode referencedName="ViewApplication-ViewPasswordChange"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue4">
+    <configurationValues name="Name" value="ERROR_Organization"/>
+    <configurationValues name="Value" value="IsOffline"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Join5"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+    <nodeSuccessors name="next" next="InteractionEnd2"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionEnd2">
+    <template referencedName="application/Error_general"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue3">
+    <configurationValues name="Name" value="ERROR_Organization"/>
+    <configurationValues name="Value" value="NotFound"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="Join5"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump2">
+    <startNode referencedName="ViewApplication-DisplayLogin"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue5">
+    <configurationValues name="Name" value="ERROR_Organization"/>
+    <configurationValues name="Value" value="SiteIsNotLive"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 7,13-->
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump1">
+    <startNode referencedName="ViewApplication-DisplayLogin"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="backoffice" callMode="Private">
+    <nodeSuccessors name="next" next="End3"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="process" callMode="Private">
+    <nodeSuccessors name="next" next="End2"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 9,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start6" name="urlmapping" callMode="Private">
+    <nodeSuccessors name="next" next="End5"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5"/>
+</pipeline:Pipeline>

@@ -1,0 +1,67 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><!-- Working Area --><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("text1",context.getFormattedValue(getObject("User:Profile:DataSheet:FirstName"),null) + context.getFormattedValue(" ",null) + context.getFormattedValue(getObject("User:Profile:DataSheet:LastName"),null)),
+new TagParameter("text",context.getFormattedValue(localizeText(context.getFormattedValue("DepartmentUserRolesList.EditRoles.text",null)),null) + context.getFormattedValue(":",null))}, 5); %><% URLPipelineAction action235 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewDepartmentUsers-DispatchUpdate",null)))),null));String site235 = null;String serverGroup235 = null;String actionValue235 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewDepartmentUsers-DispatchUpdate",null)))),null);if (site235 == null){  site235 = action235.getDomain();  if (site235 == null)  {      site235 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup235 == null){  serverGroup235 = action235.getServerGroup();  if (serverGroup235 == null)  {      serverGroup235 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewDepartmentUsers-DispatchUpdate",null)))),null));out.print("\"");out.print(" name=\"");out.print("RoleUpdateForm");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue235, site235, serverGroup235,true)); %><table cellpadding="0" cellspacing="0" border="0" width="100%">
+<tr>
+<td><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_DEPARTMENTS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",11,e);}if (_boolean_result) { %><table border="0" cellpadding="0" cellspacing="0" width="100%" class="w e">
+<tr>
+<td width="100%" class="table_title n s"><% {out.write(localizeISText("DepartmentUserRolesList.EditRoles.table_title",null,null,null,null,null,null,null,null,null,null,null,null));} %>: <% {String value = null;try{value=context.getFormattedValue(getObject("User:Profile:DataSheet:FirstName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {14}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>&nbsp;<% {String value = null;try{value=context.getFormattedValue(getObject("User:Profile:DataSheet:LastName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {14}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr>
+<tr>
+<td class="table_title_description"><% {out.write(localizeISText("DepartmentUserRolesList.TheseRolesAreAvailableInThisDepartmentApply.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table><% } else { %><table border="0" cellpadding="0" cellspacing="0" width="100%" class="w e">
+<tr>
+<td width="100%" class="table_title n s"><% {out.write(localizeISText("DepartmentUserRolesList.ViewRoles.table_title",null,null,null,null,null,null,null,null,null,null,null,null));} %>: <% {String value = null;try{value=context.getFormattedValue(getObject("User:Profile:DataSheet:FirstName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {23}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>&nbsp;<% {String value = null;try{value=context.getFormattedValue(getObject("User:Profile:DataSheet:LastName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {23}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+</tr>
+<tr>
+<td class="table_title_description"><% {out.write(localizeISText("DepartmentUserRolesList.TheseRolesAreAvailableInThisDepartmentApplied.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table><% } %><!-- Main Content -->
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+<tr>
+<td class="table_header aldi center" nowrap="nowrap">
+<div id="A">
+<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+<tr><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_DEPARTMENTS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",37,e);}if (_boolean_result) { %><td nowrap="nowrap">
+<a href="javascript:selectAll('RoleUpdateForm','SelectedRole_','A','B');" class="tableheader"><% {out.write(localizeISText("PageletLabels.SelectAll.link",null,null,null,null,null,null,null,null,null,null,null,null));} %></a>
+</td><% } else { %><td class="table_header left" nowrap="nowrap"><% {out.write(localizeISText("ProductIDMapping.Selected",null,null,null,null,null,null,null,null,null,null,null,null));} %></td> 
+<% } %></tr>
+</table>
+</div>
+<div id="B" style="display:none">
+<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+<tr><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_DEPARTMENTS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",50,e);}if (_boolean_result) { %><td nowrap="nowrap">
+<a href="javascript:selectAll('RoleUpdateForm','SelectedRole_','A','B');" class="tableheader"><% {out.write(localizeISText("NewProductSetChannelAssignment.ClearAll.link",null,null,null,null,null,null,null,null,null,null,null,null));} %></a>
+</td><% } else { %><td class="table_header left" nowrap="nowrap"><% {out.write(localizeISText("ProductIDMapping.Selected",null,null,null,null,null,null,null,null,null,null,null,null));} %></td> 
+<% } %></tr>
+</table>
+</div>
+</td>
+<td class="table_header n e s left" nowrap="nowrap"><% {out.write(localizeISText("sld_enterprise_app.Role.table_header",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% while (loop("Roles","UserGroup",null)) { %><tr><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_DEPARTMENTS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",65,e);}if (_boolean_result) { %><td class="w e s center" nowrap="nowrap"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("UserRolesHash:get(UserGroup:ID)"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",67,e);}if (_boolean_result) { %><input type="checkbox" name="SelectedRole_<% {String value = null;try{value=context.getFormattedValue(getObject("UserGroup:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {68}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" checked="checked"/><% } else { %><input type="checkbox" name="SelectedRole_<% {String value = null;try{value=context.getFormattedValue(getObject("UserGroup:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {70}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/><% } %>
+&nbsp;
+</td><% } else { %><td class="w e s center" nowrap="nowrap"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("UserRolesHash:get(UserGroup:ID)"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",76,e);}if (_boolean_result) { %><input type="checkbox" name="SelectedRole_<% {String value = null;try{value=context.getFormattedValue(getObject("UserGroup:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {77}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" checked="checked" disabled="disabled"/><% } else { %><input type="checkbox" name="SelectedRole_<% {String value = null;try{value=context.getFormattedValue(getObject("UserGroup:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {79}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" disabled="disabled"/><% } %>
+&nbsp;
+</td><% } %><td class="table_detail e s left" width="100%" nowrap="nowrap"><% {String value = null;try{value=context.getFormattedValue(getObject("UserGroup:Name"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {84}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>&nbsp;</td>
+</tr><% } %></table>
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+<tr>
+<td align="right" width="100%" colspan="3" class="w e s">
+<table border="0" cellspacing="4" cellpadding="0">
+<tr><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentUserPermissionMap:SLD_MANAGE_DEPARTMENTS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",94,e);}if (_boolean_result) { %><td class="button"><input type="hidden" name="UserUUID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("User:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {95}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/><input type="hidden" name="DepartmentUUID" value="<%=context.getFormattedValue(getObject("Department:UUID"),null)%>"/><input class="button" type="submit" name="update" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("SelectCategory.OK.button",null)),null)%>"/></td>
+<td class="button"><input class="button" type="submit" name="cancel" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("PageletEntryPointSetParent.Cancel.button",null)),null)%>"/></td><% } else { %> 
+<td class="button"><input type="hidden" name="UserUUID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("User:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {98}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/><input type="hidden" name="DepartmentUUID" value="<%=context.getFormattedValue(getObject("Department:UUID"),null)%>"/></td>
+<td class="button"><input class="button" type="submit" name="cancel" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("SelectCategory.OK.button",null)),null)%>"/></td><% } %></tr>
+</table>
+</td>
+</tr>
+</table>
+<!-- EO Main Content -->
+</td>
+</tr>
+</table><% out.print("</form>"); %><!-- EO Working Area --><% printFooter(out); %>

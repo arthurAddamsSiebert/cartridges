@@ -1,0 +1,2 @@
+--EXEC staging_ddl.alter_table('BasicProfile', 'SET UNUSED (country)', -904);
+--EXEC staging_ddl.alter_table('BasicAddress', 'SET UNUSED (country)', -904);

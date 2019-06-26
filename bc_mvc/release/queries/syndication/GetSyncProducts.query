@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ParentRepositories" type="java.util.Iterator" optional="true"/>
+	<parameter name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="true"/>
+	<parameter name="OnlineFlag" type="java.lang.Integer" optional="true"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Product" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+    SELECT p.uuid, count(*) over() as "ROWCOUNT"		
+    FROM product p
+    join changedproducts c on  c.uuid = p.uuid
+    WHERE 1=1   
+    <template-if condition="isDefined(OnlineFlag)">
+        AND p.onlineflag = <template-variable value="OnlineFlag"/>
+    </template-if>  
+    <template-if condition="isDefined(ParentRepositories) AND hasElements(ParentRepositories)">
+        AND(        
+        <template-loop iterator="ParentRepositories" alias="ParentRepository"><loop-statement>
+                (   
+                c.DomainID = <template-variable value="Repository:DomainID"/> 
+                AND 
+                c.parentdomainid=<template-variable value="ParentRepository:DomainID"/>
+                )
+            </loop-statement>
+            <loop-separator>OR</loop-separator>
+        </template-loop>
+        )
+    </template-if>
+	<template-if condition="isDefined(LocaleInformation)">
+		<template-variable value="orderBy('p.name_'.LocaleInformation:LocaleID, direction('ASC'), nullsLast())" processing="text"/>
+	</template-if>
+</template>
+</query>

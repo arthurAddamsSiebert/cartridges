@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Retrieves sorted reviews with specific approval statuses. The column on which the sorting is based is passed as a parameter">
+<parameters>
+	<parameter name="Statuses" type="java.util.Collection" optional="true"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="LeadLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="Author" type="com.intershop.component.user.capi.UserBO" optional="true"/>
+	<parameter name="User" type="com.intershop.component.user.capi.UserBO" optional="true"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="SortAttributeType" type="java.lang.String" optional="true"/>
+	<parameter name="Product" type="com.intershop.component.product.capi.ProductBO" optional="true" description="If this parameter is present only ratingcomments for a concrete product are returned"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false" description="Only ratingcomments for a concrete domain are returned"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="RatingComment" type="orm" class="com.intershop.component.rating.orm.internal.RatingCommentPO">
+		<return-attribute name="RatingCommentUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+
+SELECT rc.uuid RatingCommentUUID 	
+FROM productratingassignment pra,
+	
+	<template-if condition="isDefined(Product)">
+		product p LEFT OUTER JOIN derivedproduct dp ON p.uuid = dp.baseproductid, 
+	</template-if>
+	
+	ratingcomment rc						
+			
+	<template-if condition="isDefined(SortAttribute)">			
+			
+		<template-if condition="SortAttribute EQ 'ReviewName'">
+			LEFT OUTER JOIN ratingcomment_av rcav ON rc.uuid = rcav.ownerid
+			WHERE rcav.name = 'title'														
+										
+		<if-elseif condition="SortAttribute EQ 'ProductName' OR SortAttribute EQ 'ProductSKU'"/>
+			<template-if condition="!isDefined(Product)">
+				,product p LEFT OUTER JOIN derivedproduct dp ON p.uuid = dp.baseproductid
+			</template-if>
+			WHERE p.uuid = pra.productuuid		
+			
+		<if-elseif condition="SortAttribute EQ 'Average'"/>
+			<template-if condition="!isDefined(Product)">
+				,product p LEFT OUTER JOIN derivedproduct dp ON p.uuid = dp.baseproductid 
+			</template-if>,
+			<template-comment>This inner join returns the average rating for a product</template-comment>
+			(select innerp.uuid as productuuid, avg(innerrc.rating) as avgrating
+	                    from ratingcomment innerrc, product innerp, productratingassignment innerpra
+	                    where innerrc.uuid = innerpra.ratingcommentuuid
+	                    and innerp.uuid = innerpra.productuuid
+	                    group by innerp.uuid ) innerpra
+			WHERE p.uuid = innerpra.productuuid
+			AND p.uuid = pra.productuuid					
+					
+		<if-elseif condition="SortAttribute EQ 'AuthorName'"/>
+			<sql-dialect name="Oracle">
+				,(select  innerrc.uuid ratingcommentuuid, bp.firstname || ' ' || bp.lastname authorname				  
+				  from ratingcomment innerrc 
+				  left outer join basicprofile bp on innerrc.authorid = bp.uuid
+				)rcauthor
+				WHERE rc.uuid = rcauthor.ratingcommentuuid
+			</sql-dialect>
+			<sql-dialect name="Microsoft">
+				,(select  innerrc.uuid ratingcommentuuid, bp.firstname + ' ' + bp.lastname authorname
+				  from ratingcomment innerrc 
+				  left outer join basicprofile bp on innerrc.authorid = bp.uuid
+				)rcauthor
+				WHERE rc.uuid = rcauthor.ratingcommentuuid
+			</sql-dialect> 											
+		
+		<if-else/>
+			WHERE 1=1
+		</template-if>		
+													
+	<if-else/>
+		WHERE 1=1
+	</template-if>											
+    
+    AND rc.uuid = pra.ratingcommentuuid
+    
+    <template-comment>If there is filtering of the result set</template-comment>
+    
+    <template-if condition="isDefined(Locale)">
+		AND rc.localeid = '<template-variable value="Locale:LocaleID" processing="text"/>'
+	</template-if>
+	
+	<template-if condition="isDefined(Product) ">
+		AND p.uuid = pra.productuuid  
+		AND p.uuid = '<template-variable value="Product:ID" processing="text"/>'
+	</template-if>
+
+    <template-if condition="isDefined(Author)">
+		AND rc.authorid = '<template-variable value="Author:ID" processing="text"/>'
+	</template-if>
+    
+    <template-comment>Converts statuses from text to numeric values</template-comment>			
+	<template-if condition="hasLoopElements(Statuses)">
+		AND
+		(
+			<template-loop alias="Status" iterator="Statuses">
+				<loop-statement>
+					<template-if condition="Status:Name EQ 'NEW'">
+						rc.approvalStatus = 0 OR rc.approvalStatus IS NULL
+					<if-elseif condition="Status:Name EQ 'APPROVED'"/>
+						rc.approvalStatus = 1
+					<if-elseif condition="Status:Name EQ 'REJECTED'"/>
+						rc.approvalStatus = 2
+					<if-else/>
+						<template-comment>Ensures that we don't get an error if the status is unknown</template-comment>
+						1 = 2
+					</template-if>		
+				</loop-statement>
+				<loop-separator> OR </loop-separator>
+			</template-loop>
+		)
+	</template-if>
+	
+	AND rc.domainid = <template-variable value="Domain:UUID"/>
+	
+	<template-if condition="isDefined(SortAttribute)">			
+	    <template-variable value="orderBy(column(identifier(SortAttribute), names(if(isDefined(Locale),'COALESCE(dp.name_'.Locale:LocaleID.', p.name_'.Locale:LocaleID.')','COALESCE(dp.name_'.LeadLocale:LocaleID.', p.name_'.LeadLocale:LocaleID.')'),'COALESCE(dp.sku, p.sku):ProductSKU', 'rcav.stringvalue:ReviewName', 'rc.rating:Rating', 'innerpra.avgrating:Average', 'rcauthor.authorname:AuthorName', 'rc.creationtime:CreationTime', 'rc.approvalstatus:Status')), direction(SortDirection), if(isAscending(SortDirection), nullsLast(), nullsFirst()))" processing="text"/>
+	</template-if>    
+		
+</template>
+</query>

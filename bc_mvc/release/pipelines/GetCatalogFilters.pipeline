@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Searches for catalog filters, gets catalog filters by user and check accessibilty of product and category.
+@Group Catalog-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="GetCatalogFilters" type="process">
+<!--Input:
+ \- FilterDomain
+ \- SearchValue (optional)
+Output:
+ \- CatalogFilters
+ 
+@Location 1,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--@deprecated since 7.4.3.0
+@Location 11,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="GetEditableFilters"
+      callMode="Private">
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="GetLocale2"/>
+    <parameters name="FilterDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="SearchValue" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale2">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="Pipelet79"/>
+    <parameterBindings name="LocaleId" nullBinding="true"/>
+    <returnValueBindings name="Locale" objectPath="LeadLocale"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet79">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="VerifySearchTerm1"/>
+<!--@BendPoints 5,7 5,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="FilledString" objectPath="SearchValue"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifySearchTerm1">
+    <configurationValues name="AllowFuzzySearch" value="false"/>
+    <configurationValues name="AllowWildcards" value="Multi &amp; Single"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifySearchTerm.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 4,9 4,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="UserSearchTerm" objectPath="SearchValue"/>
+    <returnValueBindings name="SearchExpression" objectPath="NameOrDescExpression"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 3,12-->
+    <nodeSuccessors name="next" next="ExecutePageableQuery1"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePageableQuery1">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="DefaultPageSize" value="20"/>
+    <configurationValues name="ParameterName_01" value="LocaleInformation"/>
+    <configurationValues name="ParameterName_02" value="Domain"/>
+    <configurationValues name="ParameterName_03" value="NameOrDescExpression"/>
+    <configurationValues name="QueryName" value="catalog/GetCatalogFilters"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePageableQuery.xml"/>
+<!--@BendPoints 3,14-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+<!--@BendPoints 5,13 5,14-->
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+    <parameterBindings name="Connection" nullBinding="true"/>
+    <parameterBindings name="PageSize" nullBinding="true"/>
+    <parameterBindings name="ParameterValue_01" objectPath="LeadLocale"/>
+    <parameterBindings name="ParameterValue_02" objectPath="FilterDomain"/>
+    <parameterBindings name="ParameterValue_03" objectPath="NameOrDescExpression"/>
+    <parameterBindings name="Query" nullBinding="true"/>
+    <returnValueBindings name="SearchResult" objectPath="CatalogFilters"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="CatalogFilters" type="com.intershop.beehive.core.capi.paging.PageableIterator"
+        optional="true"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR" strict="true"/>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="GetFilteredCatalogs"
+      callMode="Private">
+<!--@BendPoints 19,4-->
+    <nodeSuccessors name="next" next="Decision6"/>
+    <parameters name="Catalogs" type="java.util.Iterator"/>
+    <parameters name="Filters" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision6" conditionKey="Filters">
+<!--@BendPoints 19,6-->
+    <nodeSuccessors name="decision_yes" next="GetAccessibleCatalogs1"/>
+<!--@BendPoints 20,5 20,9-->
+    <nodeSuccessors name="decision_no" next="Join5"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAccessibleCatalogs1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetAccessibleCatalogs.xml"/>
+    <nodeSuccessors name="next" next="Join5"/>
+    <parameterBindings name="CatalogFilters" objectPath="Filters"/>
+    <parameterBindings name="Catalogs" objectPath="Catalogs"/>
+    <returnValueBindings name="AccessibleCatalogs" objectPath="Catalogs"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+<!--@BendPoints 19,10-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true">
+    <returnValues name="Catalogs" type="java.util.Iterator"/>
+  </nodes>
+<!--get filters for a user and a specified filter domain with configurable fallback to a Everyone usergroup.
+@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetFiltersByUser"
+      callMode="Private">
+<!--@BendPoints 9,4-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--the user to get catalog filters.-->
+    <parameters name="CurrentUser" type="com.intershop.beehive.core.capi.user.User"/>
+<!--the domain used if fallback is used and user is not authenticated.-->
+    <parameters name="EveryoneDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--true if authentication state should be checked and everyone domain usergroup should be used for filter lookup in case of a not\-authenticated user.-->
+    <parameters name="UseFallbackToEveryoneDomain" type="java.lang.String" optional="true"/>
+<!--The domain searched for catalog filters. If not given the user domain is used.-->
+    <parameters name="CatalogFilterDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="UseFallbackToEveryoneDomain">
+<!--@BendPoints 9,6-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode2"/>
+<!--@BendPoints 11,5-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="UseFallbackToEveryoneDomain"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 9,8-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode3"/>
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="CurrentSession:AuthenticationState"
+      operator="eq" conditionValue="1">
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+<!--@BendPoints 13,9 13,10-->
+    <nodeSuccessors name="decision_no" next="CallNode1"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="GetCatalogFiltersByUser0"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogFiltersByUser0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogFiltersByUser.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 9,16-->
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1" strict="true">
+<!--The catalog filter instances retrieved for the given user and state.-->
+    <returnValues name="Filters" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 13,15-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="CatalogFilterDomain" objectPath="CatalogFilterDomain"/>
+    <parameterBindings name="UserGroupDomain" objectPath="EveryoneDomain"/>
+    <parameterBindings name="UserGroupID" nullBinding="true"/>
+    <startNode referencedName="This:GetFiltersByUserGroup"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 11,11-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="GetFiltersByUserGroup"
+      callMode="Private">
+<!--@BendPoints 15,4-->
+    <nodeSuccessors name="next" next="GetUserGroupByID1"/>
+    <parameters name="UserGroupDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="UserGroupID" type="java.lang.String" optional="true"/>
+    <parameters name="CatalogFilterDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserGroupByID1">
+    <configurationValues name="DefaultUserGroupID" value="Everyone"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetUserGroupByID.xml"/>
+<!--@BendPoints 15,6-->
+    <nodeSuccessors name="next" next="GetCatalogFiltersByUserGroup1"/>
+<!--@BendPoints 16,5 16,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="Domain" objectPath="UserGroupDomain"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogFiltersByUserGroup1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogFiltersByUserGroup.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="CatalogFilterDomain" objectPath="CatalogFilterDomain"/>
+    <returnValueBindings name="CatalogFilters" objectPath="Filters"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 15,16-->
+    <nodeSuccessors name="next" next="End2"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2" strict="true">
+    <returnValues name="Filters" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 13,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="IsCategoryVisible"
+      callMode="Private">
+<!--@BendPoints 27,4-->
+    <nodeSuccessors name="next" next="Decision2"/>
+<!--the category to check.-->
+    <parameters name="Category" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"/>
+<!--the catalog filters if there are filters-->
+    <parameters name="Filters" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="Filters">
+    <nodeSuccessors name="decision_yes" next="LoopNode2"/>
+<!--@BendPoints 29,5-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Filters">
+<!--@BendPoints 31,7 31,14-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+    <entry key="Filter">
+<!--@BendPoints 27,8-->
+      <nodeSuccessors name="loop_entry_next" next="CreateCatalogFilterViewingHelper1"/>
+    </entry>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateCatalogFilterViewingHelper1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/CreateCatalogFilterViewingHelper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+    <parameterBindings name="Filter" objectPath="Filter"/>
+    <returnValueBindings name="CatalogFilterViewingHelper" objectPath="ViewingHelper"/>
+  </nodes>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="ViewingHelper:isCurrentlyVisible(Category)"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 27,13-->
+    <nodeSuccessors name="decision_yes" next="JoinNode5"/>
+<!--@BendPoints 28,11 28,14 26,14 26,7-->
+    <nodeSuccessors name="decision_no" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 14,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 29,14-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 14,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true"/>
+<!--@Location 15,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="NOT_VISIBLE" strict="true"/>
+<!--@deprecated singe 7.4.3.0
+@Location 11,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="IsProductVisible"
+      callMode="Private">
+<!--@BendPoints 23,4-->
+    <nodeSuccessors name="next" next="Decision1"/>
+    <parameters name="Filters" type="java.util.Iterator" optional="true"/>
+    <parameters name="Product" type="com.intershop.beehive.xcs.capi.product.Product"
+        optional="true"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="Filters">
+    <nodeSuccessors name="decision_yes" next="GetAccessibleProductRefs1"/>
+<!--@BendPoints 24,5 24,11-->
+    <nodeSuccessors name="decision_no" next="Join1"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAccessibleProductRefs1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetAccessibleProductRefs.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <parameterBindings name="CatalogFilters" objectPath="Filters"/>
+    <parameterBindings name="ProductRef" objectPath="Product:ProductRef"/>
+    <parameterBindings name="ProductRefIDs" nullBinding="true"/>
+    <parameterBindings name="ProductRefs" nullBinding="true"/>
+    <returnValueBindings name="InaccessibleProductRefs" nullBinding="true"/>
+    <returnValueBindings name="InaccessibleProductSKUs" nullBinding="true"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="AccessibleProductRefs"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="Join1"/>
+<!--@BendPoints 25,9-->
+    <nodeSuccessors name="decision_no" next="EndNode5"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="NOT_VISIBLE" strict="true"/>
+</pipeline:Pipeline>

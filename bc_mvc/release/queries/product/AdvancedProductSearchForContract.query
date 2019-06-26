@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="Repositories" type="java.util.Iterator" optional="true"/>
+    <parameter name="RepositoryDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="UserGroupDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+    <parameter name="Currency" type="java.lang.String" optional="true"/>
+    <parameter name="ProductID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="ProductName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="ManufacturerName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="Description" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="Online" type="java.lang.Integer" optional="true"/>
+    <parameter name="Available" type="java.lang.Integer" optional="true"/>
+    <parameter name="TypeCode" type="java.lang.Integer" optional="true"/>
+    <parameter name="PriceFrom" type="java.lang.Double" optional="true"/>
+    <parameter name="PriceTo" type="java.lang.Double" optional="true"/>
+    <parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Product" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+        <return-attribute name="UUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+<sql-dialect name="Microsoft">
+select *, count(uuid) OVER() as "ROWCOUNT" from (
+</sql-dialect>
+SELECT
+    distinct(p.uuid)
+    <template-if condition="SortAttribute EQ &apos;value&apos;">
+   , ps_entry.SINGLEBASEPRICEVALUE AS SORTING
+    <if-elseif condition="(SortAttribute EQ &apos;name&apos;) OR (SortAttribute EQ &apos;SKU&apos;)"/>
+   , p.sorting AS SORTING
+    </template-if>   
+	<sql-dialect name="Oracle">
+	,count(distinct p.uuid) over() as "ROWCOUNT"
+	</sql-dialect>    
+FROM
+(
+    <template-call name="product/GetProductsByAdvancedSearch">
+        <call-parameter name="ProductRepositories" value="Repositories"/>
+        <call-parameter name="ProductDomain" value="RepositoryDomain"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+        <call-parameter name="NameOrID" value="NameOrID"/>
+        <call-parameter name="ProductID" value="ProductID"/>
+        <call-parameter name="ProductName" value="ProductName"/>
+        <call-parameter name="ManufacturerName" value="ManufacturerName"/>
+        <call-parameter name="Description" value="Description"/>
+        <call-parameter name="Online" value="Online"/>
+        <call-parameter name="Available" value="Available"/>
+        <call-parameter name="TypeCode" value="TypeCode"/>
+        <call-parameter name="SortAttribute" value="SortAttribute"/>
+    </template-call>
+) p
+JOIN
+    pricedefinitionproductbinding  pb ON (
+        p.sku = pb.productsku
+        AND pb.DomainID=<template-variable value="RepositoryDomain:UUID"/>
+        AND pb.TypeCode=3)
+JOIN
+    pricescaletable  ps_table ON (
+        pb.pricedefinitionid = ps_table.uuid  
+        AND ps_table.USERGROUPDOMAINID=<template-variable value="UserGroupDomain:UUID"/>
+        AND ps_table.USERGROUPID=&apos;Everyone&apos;)
+JOIN
+    pricescaleentry ps_entry  ON (
+        ps_table.uuid = ps_entry.pricescaletableid
+        AND ps_entry.QUANTITYLEVELVALUE=1.0)
+WHERE 1=1
+<template-if condition="isDefined(Currency) AND (isDefined(PriceFrom) OR isDefined(PriceTo) OR SortAttribute EQ &apos;value&apos;)">
+    AND ps_entry.SINGLEBASEPRICECODE=<template-variable value="Currency"/>    
+</template-if>
+<template-if condition="isDefined(Currency) AND isDefined(PriceFrom)">
+    AND ps_entry.SINGLEBASEPRICEVALUE&gt;=<template-variable value="PriceFrom"/>
+</template-if>
+<template-if condition="isDefined(Currency) AND isDefined(PriceTo)">
+    AND ps_entry.SINGLEBASEPRICEVALUE&lt;=<template-variable value="PriceTo"/>
+</template-if>
+<sql-dialect name="Microsoft">
+    )a
+</sql-dialect>
+<template-if condition="isDefined(SortAttribute)">
+    <template-variable value="orderBy('SORTING',direction(SortDirection),if(isAscending(SortDirection),nullsLast(),nullsFirst()))" processing="text"/>
+</template-if>
+</template>
+</query>

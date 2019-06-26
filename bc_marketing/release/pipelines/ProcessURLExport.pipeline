@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Since 7.4.5
+@Group ImportExport-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessURLExport" type="process">
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="GetURLExportObjects"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetPageable0"/>
+<!--a pagable id of category UUIDs-->
+    <parameters name="PageableID" type="java.lang.String"/>
+    <parameters name="ExportRecursive" type="java.lang.String" optional="true"/>
+    <parameters name="ExportProducts" type="java.lang.String" optional="true"/>
+    <parameters name="ProductDomainUUID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPageable0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPageable.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery0"/>
+<!--@BendPoints 3,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <returnValueBindings name="Pageable" objectPath="CategoryUUIDs"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery0">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="ParameterName_01" value="CategoryUUIDs"/>
+    <configurationValues name="ParameterName_02" value="OnlineFlag"/>
+    <configurationValues name="ParameterName_03" value="Recursive"/>
+    <configurationValues name="QueryName" value="catalog/GetSubCategoriesByCategories"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="ParameterValue_01" objectPath="CategoryUUIDs"/>
+    <parameterBindings name="ParameterValue_02" constant="(Integer)1"/>
+    <parameterBindings name="ParameterValue_03" objectPath="ExportRecursive"/>
+    <returnValueBindings name="SearchResult" objectPath="Categories"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="ExportProducts">
+    <nodeSuccessors name="decision_yes" next="GetDomainByUUID0"/>
+<!--@BendPoints 2,7 2,13 2,15-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="DomainUUID" objectPath="ProductDomainUUID"/>
+    <returnValueBindings name="Domain" objectPath="ProductDomain"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="ProductBORepository" objectPath="ApplicationBO:Extension(&quot;Product&quot;):ProductBORepository(ProductDomain:UUID)"/>
+    <parameterBindings name="UUIDIterator" objectPath="CategoryUUIDs"/>
+    <startNode referencedName="ProcessProductSearch-GetProductBOsByCategories"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+<!--iterator of categories-->
+    <returnValues name="Categories" type="java.util.Iterator"/>
+<!--iterator for products-->
+    <returnValues name="Products" type="com.intershop.beehive.core.capi.paging.PageableIterator"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR" strict="true"/>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+</pipeline:Pipeline>

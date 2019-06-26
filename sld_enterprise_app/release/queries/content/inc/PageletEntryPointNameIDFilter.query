@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="A filter query to be included in page/include advanced search where to filter the set of PageletEntryPoint objects by Product/Category/PageletEntryPoint Name/ID.">
+  <parameters>
+    <parameter name="PageletEntryPointTableAlias" type="java.lang.String" optional="false" description="The PageletEntryPoint table alias from the main search where this filter is included."/>
+    <parameter name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the pagelet belongs to."/>
+    <parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false" description="Search in context of the given locale."/>
+    <parameter name="NameOrIDExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="The Name Or ID expression entered by user in Simple Search mode."/>
+    <parameter name="NameExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="The Name expression entered by user in Advanced Search mode."/>
+    <parameter name="IDExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="The ID expression entered by user in Advanced Search mode."/>
+  </parameters>
+  <processor name="OracleSQL">
+    <processor-preprocessing output="cNameOrID" input="NameOrIDExpression" processing="SearchExpression2Contains"/>
+    <processor-preprocessing output="cName" input="NameExpression" processing="SearchExpression2Contains"/>
+    <processor-preprocessing output="cID" input="IDExpression" processing="SearchExpression2Contains"/>
+    <processor-preprocessing output="ProductSharing" input="Repository:RepositoryDomain" processing="ProductSharingHelper"/>
+  </processor>
+  <template>
+    <template-if condition="isDefined(NameOrIDExpression) and NameOrIDExpression:NotEmpty">
+      and exists (
+          select 1 
+            from pageletentrypoint_av pep_av
+           where pep_av.ownerid = <template-variable value="PageletEntryPointTableAlias" processing="text"/>.uuid
+             and pep_av.name = &apos;displayName&apos;
+             and pep_av.localeid = <template-variable value="Locale:LocaleID"/>
+             and (<template-call name="content/inc/SearchExpression2Like">
+                    <call-parameter name="SearchExpression" value="NameOrIDExpression" />
+                    <call-parameter name="ColumnNames" value="PageletEntryPointTableAlias . '.id pep_av.stringvalue'" />
+                    <call-parameter name="CaseInsensitive" value="true()" />
+                  </template-call>)
+          )
+    <if-else/>
+      <template-if condition="(isDefined(NameExpression) and NameExpression:NotEmpty) or (isDefined(IDExpression) and IDExpression:NotEmpty)">
+        and (
+              (    1 = 1
+             <template-if condition="isDefined(IDExpression) and IDExpression:NotEmpty">
+               and (<template-call name="content/inc/SearchExpression2Like">
+                      <call-parameter name="SearchExpression" value="IDExpression" />
+                      <call-parameter name="ColumnNames" value="PageletEntryPointTableAlias . '.id'" />
+                      <call-parameter name="CaseInsensitive" value="true()" />
+                    </template-call>)
+             </template-if>
+             <template-if condition="isDefined(NameExpression) and NameExpression:NotEmpty">
+               and exists (
+                   select 1
+                     from pageletentrypoint_av pep_av
+                    where pep_av.ownerid = <template-variable value="PageletEntryPointTableAlias" processing="text"/>.uuid
+                      and pep_av.name = &apos;displayName&apos;
+                      and pep_av.localeid = <template-variable value="Locale:LocaleID"/>
+                      and (<template-call name="content/inc/SearchExpression2Like">
+                             <call-parameter name="SearchExpression" value="NameExpression" />
+                             <call-parameter name="ColumnNames" value="'pep_av.stringvalue'" />
+                             <call-parameter name="CaseInsensitive" value="true()" />
+                           </template-call>))
+             </template-if>)
+              or exists (
+                 select 1
+                   from product_pepa product_pepa,
+                        (<template-call name="product/GetProductsByAdvancedSearch">
+                           <call-parameter name="ProductDomain" value="Repository:RepositoryDomain"/>
+                           <call-parameter name="LocaleInformation" value="Locale"/>
+                           <call-parameter name="ProductID" value="IDExpression"/>
+                           <call-parameter name="ProductName" value="NameExpression"/>
+                         </template-call>) product
+                  where product_pepa.pageletentrypointid = <template-variable value="PageletEntryPointTableAlias" processing="text"/>.uuid
+                    and product_pepa.productid = product.uuid)
+              or exists (
+                 select 1
+                   from catalogcategory_pepa category_pepa
+                   join catalogcategory cc
+                     on (category_pepa.categoryid = cc.uuid)
+                 <template-if condition="isDefined(NameExpression) and (NameExpression:NotEmpty)">
+                   join catalogcategory_av cc_av
+                     on (    cc.uuid = cc_av.ownerid
+                         and cc_av.name = &apos;displayName&apos;
+                         and cc_av.localeid = <template-variable value="Locale:LocaleID"/>)
+                 </template-if>
+                  where category_pepa.pageletentrypointid = <template-variable value="PageletEntryPointTableAlias" processing="text"/>.uuid
+                    and category_pepa.domainid = <template-variable value="Repository:RepositoryDomain:UUID"/>
+                    and (1 = 1
+                       <template-if condition="isDefined(IDExpression) and IDExpression:NotEmpty">
+                         and (<template-call name="content/inc/SearchExpression2Like">
+                                <call-parameter name="SearchExpression" value="IDExpression" />
+                                <call-parameter name="ColumnNames" value="'cc.name'" />
+                                <call-parameter name="CaseInsensitive" value="true()" />
+                              </template-call>)
+                       </template-if>
+                       <template-if condition="isDefined(NameExpression) and NameExpression:NotEmpty">
+                         <sql-dialect name="Oracle">and contains(cc_av.stringvalue, <template-variable value="cName"/>) &gt; 0</sql-dialect>
+                         <sql-dialect name="Microsoft">and contains(cc_av.stringvalue, <template-variable value="cName"/>)</sql-dialect> 
+                       </template-if>))
+            )
+      </template-if>
+    </template-if>
+  </template>
+</query>

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="PriceListDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="HideEmptyPriceLists" type="java.lang.Boolean" optional="true"/>
+	<parameter name="PriceType" type="java.lang.String" optional="true" description="the price (list) type name, per default ES_SalePrice"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="PriceList" type="orm" class="com.intershop.component.pricing.internal.pricelist.PriceListPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	SELECT pl.uuid AS uuid, COUNT(*) over() AS "rowcount"
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'Name')">
+			, pl_av.stringvalue AS SORTING
+		</template-if>
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'Type')">
+			, pl.pricetype AS SORTING
+		</template-if>
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'ValidFrom')">
+			, pl.validfrom AS SORTING
+		</template-if>
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'ValidTo')">
+			, pl.validto AS SORTING
+		</template-if>
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'ID')">
+			, pl.id AS SORTING
+		</template-if>
+		FROM pricelist pl
+		INNER JOIN typecodedefinition tcd ON (
+			tcd.typecodegroup=&apos;PriceList&apos;
+	  		AND tcd.name=pl.pricetype
+		)
+		<template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'Name')">
+			LEFT OUTER JOIN pricelist_av pl_av ON (
+			pl_av.ownerid = pl.uuid
+			and pl_av.name = &apos;displayName&apos; 
+			and pl_av.localeid = <template-variable value="Locale:LocaleID"/>)
+		</template-if>
+	  	WHERE pl.DomainID= <template-variable value="PriceListDomain:DomainID"/>
+	  	<template-if condition="isdefined(HideEmptyPriceLists) and (HideEmptyPriceLists)">
+		  	AND EXISTS(select distinct productuuid from PRICESCALETABLEASSIGNMENT where pricelistuuid=pl.uuid)
+		</template-if>
+	  	<template-if condition="isdefined(PriceType) and (PriceType NE '')">
+		  	AND priceType=<template-variable value="PriceType"/>
+		</template-if>
+	<sql-dialect name="Oracle">	
+		ORDER BY
+			<template-if condition="isDefined(SortAttribute)">
+				SORTING
+				<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+					desc NULLS LAST
+				<if-else />
+					asc NULLS LAST
+				</template-if>
+			<if-else />
+				pl.PRIORITY asc NULLS LAST
+			</template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">	
+		ORDER BY
+			<template-if condition="isDefined(SortAttribute)">
+				<template-if condition="SortAttribute EQ 'Name'">
+					CASE WHEN pl_av.stringvalue IS NULL THEN 1 ELSE 0 END ASC, pl_av.stringvalue 
+				</template-if>
+				<template-if condition="SortAttribute EQ 'Type'">
+					CASE WHEN pl.pricetype IS NULL THEN 1 ELSE 0 END ASC, pl.pricetype 
+				</template-if>
+				<template-if condition="SortAttribute EQ 'ValidFrom'">
+					CASE WHEN pl.validfrom IS NULL THEN 1 ELSE 0 END ASC, pl.validfrom 
+				</template-if>
+				<template-if condition="SortAttribute EQ 'ValidTo'">
+					CASE WHEN pl.validto IS NULL THEN 1 ELSE 0 END ASC, pl.validto 
+				</template-if>
+				<template-if condition="SortAttribute EQ 'ID'">
+					CASE WHEN pl.id IS NULL THEN 1 ELSE 0 END ASC, pl.id 
+				</template-if>
+				<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+					desc 
+				<if-else />
+					asc 
+				</template-if>
+			<if-else />
+				CASE WHEN pl.PRIORITY IS NULL THEN 1 ELSE 0 END asc, pl.PRIORITY
+			</template-if>
+	</sql-dialect>
+</template>
+</query>

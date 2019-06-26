@@ -1,0 +1,407 @@
+<!-- TEMPLATENAME: marketing/inc/DynamicMessaging.isml -->
+<iscontent charset="UTF-8">
+
+<ismodule template = "inc/HtmlEditor.isml"
+	name="HtmlEditor"
+	attribute="RepositoryId"
+	attribute="LocaleId"
+	attribute="CategoryLinkPipeline"
+	attribute="CategoryLinkSite"
+	attribute="ProductLinkPipeline"
+	attribute="ProductLinkSite"
+	attribute="Name"
+	attribute="Configuration"
+	attribute="Enabled"
+	attribute="NoRepositoryLinks"
+>
+<ismodule template = "inc/MessageBox.isml"
+	name="MessageBox"
+	attribute="subject"
+	attribute="type"
+	attribute="message"
+	attribute="okbtnname"
+	attribute="cancelbtnname"
+	attribute="colspan"
+	attribute="class"
+	attribute="prefixiterator"
+	attribute="prefix"
+	attribute="iterator"
+	attribute="hiddenname"
+	attribute="parametername1"
+	attribute="parametervalue1"
+	attribute="parametername2"
+	attribute="parametervalue2"
+	attribute="parametername3"
+	attribute="parametervalue3"
+	attribute="parametername4"
+	attribute="parametervalue4"
+	attribute="parametername5"
+	attribute="parametervalue5"
+	attribute="parametername6"
+	attribute="parametervalue6"
+>
+
+<!-- Dynamic Message -->
+<!--- A dynamic message can only be defined for promotions, if the promotion has a dedicated currency defined, 
+	and if there exists at least one condition.
+--->
+<isif condition="#(isDefined(previewDynamicMessageInViewMode) AND (RebateUUID EQ Rebate:UUID)) OR (isDefined(previewDynamicMessageInEditMode))#">
+	<div id="DynamicMessagePreviewDialog" class="js-dialog" data-title="<istext key="dynamicMessaging.message.dialog.title"/>" data-autoopen="true" width="647" height="384">
+		<div class="dialog-content">
+			<isinclude template="marketing/inc/DynamicMessagePreview.isml">
+		</div>
+		<div class="dialog-buttons">
+			<button class="button" data-action="dialog-close" ><istext key="dynamicMessaging.message.dialog.button.close"/></button>
+		</div>
+	</div>
+</isif>
+
+<isif condition="#isDefined(Rebate:Promotion:Currency) AND isDefined(Rebate:Condition)#">
+	<isform action="#url(action('ViewPromotionDiscountDynamicMessage-Dispatch'))#" method="post" name="PromotionDynamicMessage">
+		<input type="hidden" name="ChannelID" value="<isprint value="#CurrentChannel:UUID#">"/>
+		<input type="hidden" name="PromotionUUID" value="<isprint value="#Rebate:Promotion:UUID#">"/>
+		<input type="hidden" name="RebateUUID" value="<isprint value="#Rebate:UUID#">"/>
+		<input type="hidden" name="LocaleID" value="<isprint value="#SelectedLocale:LocaleID#">"/>
+
+		<table cellpadding="0" cellspacing="0" border="0" width="100%" class="s">
+			<tr><td class="w e"><img src="#WebRoot()#/images/space.gif" width="20" height="6" alt="" border="0"/></td></tr>
+			<tr>
+				<td class="table_title3 aldi"><istext key="DynamicMessaging.Message.table_title3" encoding="off"/></td>
+			</tr>
+			
+			<!--- Confirmation and Error Messages --->
+			<isif condition="#(RebateUUID EQ Rebate:UUID) AND isDefined(confirmDeleteDynamicMessageInEditMode)#">	
+				<ISMessageBox subject="#localizeText('sld_ch_base.Message.subject')#" type="sdc" okbtnname="deleteDynamicMessageInEditMode" cancelbtnname="cancelDeleteDynamicMessageInEditMode" colspan="2">
+			<iselseif condition="#(RebateUUID EQ Rebate:UUID) AND isDefined(confirmDeleteDynamicMessageInViewMode)#"/> 
+				<ISMessageBox subject="#localizeText('sld_ch_base.Message.subject')#" type="sdc" okbtnname="deleteDynamicMessageInViewMode" cancelbtnname="cancelDeleteDynamicMessageInViewMode" colspan="2">
+			</isif>
+			
+			<!--- error message in edit mode --->
+			<isif condition="#(DynamicMessageEditMode EQ Rebate:UUID) AND DynamicMessageForm:isInvalid#">
+				<tr>
+					<td>
+						<table border="0" cellpadding="4" cellspacing="0" width="100%" class="error_box s e w">
+							<tr>
+								<td class="error_icon e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+								<td class="error top" width="100%">
+									<isif condition="#(DynamicMessageForm:Money:Invalid EQ 'true')#">
+										<isloop iterator="DynamicMessageForm:Money:Errors" alias="Error">
+											<istext key="#Error#" parameter0="Minimum Order Value"/><br/>
+										</isloop>
+									</isif>
+									<isif condition="#(DynamicMessageForm:Items:Invalid EQ 'true')#">
+										<isloop iterator="DynamicMessageForm:Items:Errors" alias="Error">
+											<istext key="#Error#" parameter0="Minimum Number of Items"/><br/>
+										</isloop>
+									</isif>
+									<isif condition="#(DynamicMessageForm:DynamicMessage:Invalid EQ 'true')#">
+										<isif condition="#DynamicMessageForm:DynamicMessage:Value EQ ''#"><istext key="error.dependson" parameter0="Message"/><br/></isif>
+										<isloop iterator="DynamicMessageForm:DynamicMessage:Errors" alias="Error">
+											<istext key="#Error#" parameter0="${" parameter1="}"/>
+											<isif condition="#(Error EQ 'error.unknownPlaceholders')#">
+												<isloop iterator="UnknownPlaceholders" alias="Unknown">
+													<br/>- <isprint value="#Unknown#"/>
+												</isloop>
+											</isif>
+										</isloop>
+									</isif>
+									<isif condition="#(DynamicMessageForm:OrderCondition:Invalid EQ 'true')#">
+										<isloop iterator="DynamicMessageForm:OrderCondition:Errors" alias="Error">
+											<istext key="#Error#" parameter0="Minimum Order Value" parameter1="Minimum Number of Items"/><br/>
+										</isloop>
+									</isif>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+			</isif>
+			<!--- error message --->
+
+			<tr>
+				<td class="table_title_description e w">
+					<istext key="DynamicMessaging.HereYouCanDefineAMessageWhichMayBeShownOnShoppingCartPage.table_title_description" encoding="off"/>
+				</td>
+			</tr>
+		</table>
+			
+	<!--- No Dynamic Message --->
+		<isif condition="#NOT (isDefined(Rebate:AttributeValue("DynamicMessage", SelectedLocale):TextValue) OR (DynamicMessageEditMode EQ Rebate:UUID))#">
+			<table border="0" cellpadding="0" cellspacing="4" width="100%" class="w s e">
+				<tr>
+					<td class="table_detail">
+						<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_MARKETING)#">
+							<istext key="DynamicMessaging.CurrentlyThereIsNoMessageDefinedClickNew.table_detail" encoding="off"/>
+						<iselse>
+							<istext key="DynamicMessaging.CurrentlyThereIsNoMessageDefined.table_detail" encoding="off"/>
+						</isif>
+					</td>
+				</tr>
+			</table>
+			<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_MARKETING)#">
+				<table width="100%" cellspacing="0" cellpadding="0" border="0" class="w s e">
+					<tr>
+						<td width="100%" align="right">
+							<table cellspacing="4" cellpadding="0" border="0">
+								<tr>
+									<td class="button">
+										<input type="submit" class="button" value="#localizeText('DynamicMessaging.New.button')#" name="newDynamicMessage"/>
+										<input type="hidden" name="DynamicMessageEditMode" value="<isprint value="#Rebate:UUID#">"/>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</table>
+			</isif>
+				
+		<iselse />
+	<!--- View Dynamic Message ("View Mode")--->
+			<isif condition="#NOT (DynamicMessageEditMode EQ Rebate:UUID)#"> 
+				<table border="0" cellpadding="0" cellspacing="4" width="100%" class="w s e">
+					<tr>
+						<td width="100%" class="table_detail">
+							<table width="100%" cellspacing="0" cellpadding="0" border="0" class="aldi">
+								<tr>
+									<td colspan="3"><img width="1" height="4" border="0" alt="" src="#WebRoot()#/images/space.gif" /></td>
+								</tr>
+								<tr>
+									<td>
+										<table cellspacing="0" cellpadding="0" border="0">
+											<tr>
+												<td nowrap="nowrap" class="fielditem2 label_text">
+													<label class="label">
+														<istext key="DynamicMessaging.Trigger.fielditem2" encoding="off"/>:
+													</label>
+												</td>
+												<td class="table_detail">
+													<isif
+														condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_MARKETING)#">
+														<a class="table_detail_link"
+															href="#URL(Action('ViewPromotionDiscountDynamicMessage-Show'), 
+																		Parameter('ChannelID', CurrentChannel:UUID), 
+																		Parameter('LocaleID', SelectedLocale:LocaleID), 
+																		Parameter('RebateUUID', Rebate:UUID), 
+																		Parameter('DynamicMessageEditMode', Rebate:UUID))#">
+															<isif
+																condition="#'OrderMinValueCondition' EQ Rebate:AttributeValue("OrderCondition"):StringValue#">
+																<istext key="DynamicMessaging.MinimumOrderValue.link" encoding="off"/>
+															<iselse />
+																<istext key="DynamicMessaging.MinimumNumberOfItems.link" encoding="off"/>
+															</isif>
+														</a>
+													</isif>
+												</td>
+											</tr>
+											<tr>
+												<td nowrap="nowrap" class="fielditem2 label_text">
+													<label class="label">
+														<istext key="DynamicMessaging.Value.fielditem2" encoding="off"/>:
+													</label>
+												</td>													
+												<td class="table_detail">
+													<isif
+														condition="#'OrderMinValueCondition' EQ Rebate:AttributeValue("OrderCondition"):StringValue#">
+														<isif
+															condition="#isDefined(Rebate:Promotion:Currency:Mnemonic)#">
+															<isprint value="#Rebate:AttributeValue("Money"):MoneyValue#">&nbsp;
+														</isif>
+														<iselse />
+														<istext key="DynamicMessaging.NumberOfItems.table_detail" parameter0="#getValue(Rebate:AttributeValue("Items"):IntValue)#" encoding="off"/>
+													</isif>
+												</td>
+											</tr>
+										</table>
+									</td>
+									<td align="right">
+										<table cellspacing="4" cellpadding="0" border="0">
+											<tr>
+												<td>
+													<input type="submit" name="previewDynamicMessageInViewMode" value="#localizeText('DynamicMessaging.PreviewMessage.button')#" class="button" />
+												</td>
+											</tr>
+										</table>
+									</td>
+								</tr>
+								<tr>
+									<td colspan="3"><img width="1" height="4" border="0" alt="" src="#WebRoot()#/images/space.gif" /></td>
+								</tr>
+							</table>
+						</td>
+						<td class="right top">
+							<input type="checkbox" style="visibility:hidden;" />
+						</td>
+					</tr>
+				</table>
+				<!--- Button Bar --->
+				<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_MARKETING)#">
+					<table width="100%" cellspacing="0" cellpadding="0" border="0" class="w s e">
+						<tr>
+							<td width="100%" align="right">
+								<input type="hidden" name="DynamicMessageEditMode" value="<isprint value="#Rebate:UUID#">"/>
+								<table cellspacing="4" cellpadding="0" border="0">
+									<tr>
+										<td class="button">
+											<input type="submit" class="button" value="#localizeText('DynamicMessaging.Edit.button')#" name="editDynamicMessage"/>
+										</td>
+										<td class="button">
+											<input type="submit" name="confirmDeleteDynamicMessageInViewMode" value="#localizeText('DynamicMessaging.Delete.button')#" class="button"/>
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+					</table>
+			 	</isif>
+				
+			<iselseif condition="#(RebateUUID EQ Rebate:UUID)#"/>
+<!--- Edit Dynamic Message ("Edit Mode")--->
+				<table border="0" cellpadding="0" cellspacing="4" width="100%" class="w s e">
+					<tr>		
+						<td width="50%" class="table_detail">
+						<!--- this table is necessary because of problems with alignment in IE otherwise --->
+							<table border="0" cellpadding="0" cellspacing="4" width="100%" class="aldi editbox">
+								<tr>
+									<td colspan="2"><img width="1" height="4" border="0" alt="" src="#WebRoot()#/images/space.gif" /></td>
+								</tr>
+								<tr>
+									<td nowrap="nowrap" <isif condition="#(DynamicMessageForm:Items:isInvalid) OR (DynamicMessageForm:Money:isInvalid)#">class="fielditem2_error"<iselse>class="fielditem2"</isif>><istext key="DynamicMessaging.Trigger" encoding="off"/>:<span class="star">*</span></td>
+									<td>
+										<table border="0" cellpadding="0" cellspacing="0" width="1%">
+											<tr> 
+												<td class="table_detail" width="1%">
+													<input type="radio" value="OrderMinValueCondition" 
+														checked="checked"
+														id="<isprint value="#DynamicMessageForm:OrderCondition:QualifiedName#">" 
+														name="<isprint value="#DynamicMessageForm:OrderCondition:QualifiedName#">" 
+													/>
+												</td>
+												<td class="table_detail" nowrap="nowrap" width="1%">
+													<istext key="DynamicMessaging.MinimumOrderValue.table_detail" encoding="off"/>
+												</td>
+												<td class="fielditem" nowrap="nowrap" width="1%">
+													<input class="inputfield_en" type="text" maxlength="10" size="10" 
+														id="<isprint value="#DynamicMessageForm:Money:Amount:QualifiedName#">" 
+														name="<isprint value="#DynamicMessageForm:Money:Amount:QualifiedName#">" 
+														value="<isprint value="#DynamicMessageForm:Money:Value#" style="MONEY_SHORT">"/>
+												</td>
+												<td nowrap="nowrap" class="table_detail" width="1%">
+													<isprint value="#Rebate:Promotion:Currency:Mnemonic#">
+												</td>
+											</tr>
+											<tr>
+												<td class="table_detail" width="1%">
+													<input type="radio" value="OrderMinNumberOfProductsCondition"  
+														id="<isprint value="#DynamicMessageForm:OrderCondition:QualifiedName#">" 
+														name="<isprint value="#DynamicMessageForm:OrderCondition:QualifiedName#">" 
+														<isif condition="#'OrderMinNumberOfProductsCondition' EQ DynamicMessageForm:OrderCondition:Value#">checked="checked"</isif>
+													/>
+												</td>
+												<td class="table_detail" nowrap="nowrap" width="1%">
+													<istext key="DynamicMessaging.MinimumNumberOfItems.table_detail" encoding="off"/>
+												</td>
+												<td class="fielditem">
+													<input class="inputfield_en" type="text" maxlength="10" size="10"
+														id="<isprint value="#DynamicMessageForm:Items:QualifiedName#">" 
+														name="<isprint value="#DynamicMessageForm:Items:QualifiedName#">" 
+														value="<isprint value="#DynamicMessageForm:Items:Value#">"/>
+												</td>
+												<td class="table_detail" nowrap="nowrap" width="1%">
+													<istext key="DynamicMessaging.Items.table_detail1" encoding="off"/>
+												</td>
+											</tr>
+										</table>
+									</td>
+								</tr>
+								<tr>
+									<td nowrap="nowrap" <isif condition="#DynamicMessageForm:DynamicMessage:isInvalid#">class="fielditem2_error"<iselse>class="fielditem2"</isif>><istext key="DynamicMessaging.Message" encoding="off"/>:<span class="star">*</span></td>
+									<td class="fielditem" colspan="4">
+										<textarea rows="5" cols="69" class="inputfield_en" name="<isprint value="#DynamicMessageForm:DynamicMessage:QualifiedName#">"><isprint value="#DynamicMessageForm:DynamicMessage:Value#"></textarea>
+										
+										<div>
+											<input type="submit" class="button" name="previewDynamicMessageInEditMode" value="#localizeText('DynamicMessaging.PreviewMessage.button')#" />
+										</div>
+									</td>
+									
+									<ISHtmlEditor LocaleId="#SelectedLocale:LocaleID#"
+										RepositoryId="#CurrentChannel:RepositoryDomain:UUID#"
+										Name="#DynamicMessageForm:DynamicMessage:QualifiedName#"
+										Configuration="Basic" 
+										CategoryLinkPipeline="ViewStandardCatalog-Browse"
+										CategoryLinkSite="#CurrentChannel:RepositoryDomain:Site:DomainName#"
+										ProductLinkPipeline="ViewProduct-Start"
+										ProductLinkSite="#CurrentChannel:RepositoryDomain:Site:DomainName#"
+										Enabled="true">
+								</tr>
+							</table>
+						</td>
+						<!--- Placeholder Table --->
+						<td width="50%" class="top">
+							<table cellpadding="4" cellspacing="0" border="0" width="100%">
+								<tr>
+									<td>
+										<isif condition = "#hasLoopElements(PlaceholdersIterator)#">
+										<table cellpadding="0" cellspacing="0" border="0" width="100%">
+										 	<tr>
+												<td class="table_header aldi" width="30%"><istext key="DynamicMessaging.Placeholders.table_header" encoding="off"/></td>
+												<td class="table_header e s n" width="20%"><istext key="DynamicMessaging.Value.table_header" encoding="off"/></td>
+												<td class="table_header e s n" width="50%"><istext key="DynamicMessaging.ValueDisplayedInStorefront.table_header" encoding="off"/></td>
+											</tr>
+												<isloop iterator="PlaceholdersIterator" alias="Placeholder">
+													<tr>
+														<td class="table_detail w e s">
+															<isprint value="#Placeholder#">
+														</td>
+														<td class="table_detail e s" nowrap="nowrap">
+															<isprint value="#PlaceholdersMap:get(Placeholder)#">
+														</td>
+														<td class="table_detail e s">
+															<isprint value="#PlaceholdersMap:get(Placeholder)#"> - <istext key="DynamicMessaging.CurrentCartSum.table_detail" encoding="off"/>
+														</td>
+													</tr>
+												</isloop>
+										</table>
+										</isif>
+									</td>
+								</tr> 
+							</table>
+						</td>
+					</tr>
+				</table>
+				<!--- Button bar --->
+				<isif condition="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_MARKETING)#">
+					<table width="100%" cellspacing="0" cellpadding="0" border="0" class="w s e">
+						<tr>
+							<td width="100%" align="right">
+								<input type="hidden" name="DynamicMessageEditMode" value="<isprint value="#Rebate:UUID#"/>"/>
+								<table cellspacing="4" cellpadding="0" border="0">
+									<tr>
+										<td class="button">
+											<input type="hidden" name="<isprint value="#DynamicMessageForm:Money:Currency:QualifiedName#">" value="<isprint value="#Rebate:Promotion:Currency:Mnemonic#">"/>
+											<isif condition="#'OrderMinNumberOfProductsCondition' EQ DynamicMessageForm:OrderCondition:Value#">
+												<input type="hidden" name="PromotionDynamicMessage_Money_Value" value="0"/>
+											</isif>
+											<input type="submit" class="button" value="#localizeText('DynamicMessaging.Apply.button')#" name="saveDynamicMessage"/>
+										</td>
+										<td class="button">
+											<input type="reset" name="reset" value="#localizeText('DynamicMessaging.Reset.button')#" class="button"/>
+										</td>
+										<td class="button">
+											<input type="submit" class="button" value="#localizeText('DynamicMessaging.Cancel.button')#" name="cancelDynamicMessage"/>
+										</td>
+										<isif condition="#isDefined(Rebate:AttributeValue("DynamicMessage",SelectedLocale):TextValue)#">
+											<td class="button">
+												<input type="submit" name="confirmDeleteDynamicMessageInEditMode" value="#localizeText('DynamicMessaging.Delete.button')#" class="button"/>
+											</td>
+										</isif>
+									</tr>
+								</table>
+							</td>
+						</tr>
+					</table>
+				</isif>
+			</isif>
+		</isif>
+	</isform>
+</isif>
+

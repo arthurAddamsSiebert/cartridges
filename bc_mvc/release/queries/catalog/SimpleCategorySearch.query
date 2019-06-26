@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query searches for categories in a selected catalog or in all catalogs. If a search pattern is 
+provided, the query returns only those categories matching the pattern, otherwise it will return all categories found in the catalog.">
+<parameters>
+	<parameter name="CatalogUUID" type="java.lang.String" optional="true"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="CatalogCategory" type="orm" class="com.intershop.beehive.xcs.internal.catalog.CatalogCategoryPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="cNameOrID" input="NameOrID" processing="SearchExpression2Contains"/>
+</processor>
+<template type="countedobjects">
+	SELECT  
+	    cc.uuid AS UUID, count(*) over() AS "ROWCOUNT"
+	    <template-if condition="isDefined(SortBy) AND (SortBy EQ &apos;CategoryID&apos;)">
+			, cc.name AS SORTING
+		<if-elseif condition="isDefined(SortBy) AND (SortBy EQ &apos;CategoryName&apos;)"/>
+			, cc_av.stringvalue AS SORTING
+		<if-elseif condition="isDefined(SortBy) AND (SortBy EQ &apos;Catalog&apos;)"/>
+		 	, catalog_av.stringvalue AS SORTING
+		<if-elseif condition="isDefined(SortBy) AND (SortBy EQ &apos;CatalogType&apos;)"/>
+		 	, catalog.typecode AS SORTING
+	 	<if-else/>
+		 	, cc.name AS SORTING
+		</template-if>
+	FROM  
+		catalog, catalog_av, catalogcategory cc, catalogcategory_av cc_av	
+	WHERE 
+		<template-if condition="isDefined(CatalogUUID)">
+			catalog.uuid = <template-variable value="CatalogUUID"/> AND
+		</template-if>	
+		catalog.domainid = <template-variable value="Domain:UUID"/> AND
+		catalog.uuid = catalog_av.ownerid AND
+		catalog_av.name = &apos;displayName&apos; AND
+        catalog_av.localeid = <template-variable value="LocaleInformation:LocaleID"/>AND
+		catalog.catalogdomainid = cc.domainid AND
+		cc.uuid = cc_av.ownerid AND
+        cc_av.name = &apos;displayName&apos; AND
+        cc_av.localeid = <template-variable value="LocaleInformation:LocaleID"/>
+		<template-if condition="isDefined(NameOrID)">
+			AND
+			<template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="NameOrID"/><call-parameter name="ColumnNames" value="&apos;cc.name cc_av.stringvalue&apos;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/></template-call>
+		</template-if>
+		<sql-dialect name="Oracle">
+			ORDER BY SORTING 
+				<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;"> 
+					DESC NULLS LAST
+				<if-else/>
+					ASC NULLS FIRST
+				</template-if>
+		</sql-dialect>
+		<sql-dialect name="Microsoft">
+			ORDER BY 
+			<template-if condition="isDefined(SortBy) AND (SortBy EQ &apos;CategoryID&apos;)">
+				CASE WHEN cc.name IS NULL THEN 1 ELSE 0 END 
+				<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;"> 
+					ASC, cc.name DESC 
+				<if-else/>
+					DESC, cc.name ASC 
+				</template-if>
+			<if-elseif condition="isDefined(SortBy) AND (SortBy EQ &apos;CategoryName&apos;)"/>
+				CASE WHEN cc_av.stringvalue IS NULL THEN 1 ELSE 0 END 
+				<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;"> 
+					ASC, cc_av.stringvalue  DESC 
+				<if-else/>
+					DESC, cc_av.stringvalue ASC 
+				</template-if>
+			<if-elseif condition="isDefined(SortBy) AND (SortBy EQ &apos;Catalog&apos;)"/>
+				CASE WHEN catalog_av.stringvalue IS NULL THEN 1 ELSE 0 END 
+				<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;"> 
+					ASC, catalog_av.stringvalue  DESC 
+				<if-else/>
+					DESC, catalog_av.stringvalue ASC 
+				</template-if>
+			<if-elseif condition="isDefined(SortBy) AND (SortBy EQ &apos;CatalogType&apos;)"/>
+				CASE WHEN catalog.typecode IS NULL THEN 1 ELSE 0 END 
+				<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;"> 
+					ASC, catalog.typecode  DESC 
+				<if-else/>
+					DESC, catalog.typecode ASC 
+				</template-if>
+			<if-else/>
+				CASE WHEN cc.name IS NULL THEN 1 ELSE 0 END 
+				<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;"> 
+					ASC, cc.name  DESC 
+				<if-else/>
+					DESC, cc.name ASC 
+				</template-if>
+			</template-if>			
+		</sql-dialect>
+</template>
+</query>

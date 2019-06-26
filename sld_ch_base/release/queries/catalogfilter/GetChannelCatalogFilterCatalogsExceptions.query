@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="CalalogFilterUUID" type="java.lang.String" optional="false"/>
+	<parameter name="CategoryUUID" type="java.lang.String" optional="false"/>
+	<parameter name="LocaleID" type="java.lang.String" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Categories" type="orm" class="com.intershop.beehive.xcs.internal.catalog.CatalogCategoryPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects" sqlDialect="Oracle">
+		SELECT DISTINCT catalog0.uuid,catalogcategory_av_Sorting0.stringvalue , count(DISTINCT catalog0.uuid) over() as "ROWCOUNT"
+	    FROM catalogcategory_av catalogcategory_av_Sorting0, catalogcategory catalog0 
+	    WHERE (catalog0.PARENTCATEGORYID= <template-variable value="CategoryUUID"/> ) 
+	    AND catalogcategory_av_Sorting0.name (+)='displayName' 
+	    AND catalogcategory_av_Sorting0.localeid (+)= <template-variable value="LocaleID"/> 
+	    AND catalog0.uuid=catalogcategory_av_Sorting0.ownerid (+) 
+	    AND catalog0.uuid in 
+	    (
+	    	select c.uuid from catalogcategory c start with c.uuid in 
+	    	(
+	    		(
+	    		 select distinct associatedobjectid from filterobjectassignment fo where  fo.CATALOGFILTERID = <template-variable value="CalalogFilterUUID"/> and fo.TYPECODE = 1
+	    		) 
+	    		union 
+	    		(select iea.categoryid from ieproductcategoryassignment iea where iea.productid in 
+	    			(select p.uuid from product p where (p.SKU, p.domainid) in 
+	    				(
+	    				 select distinct fp.associatedproductproductsku, di.DOMAINID from filterproductassignment fp, domaininformation di 
+	    		 		 where fp.catalogfilterid = <template-variable value="CalalogFilterUUID"/> and fp.associatedproductdomainname = di.domainname
+	    		 		)
+	    	 		)
+	    		)
+	    	) 
+	    	connect by prior c.parentcategoryid = c.uuid
+	    ) 
+	    ORDER BY catalogcategory_av_Sorting0.stringvalue asc 
+</template>
+<template type="countedobjects" sqlDialect="Microsoft">
+		WITH abc(uuid) AS
+		(
+			SELECT c.uuid FROM catalogcategory c WHERE c.uuid in 
+					(
+						(
+						 SELECT DISTINCT associatedobjectid FROM filterobjectassignment fo WHERE  fo.CATALOGFILTERID = <template-variable value="CalalogFilterUUID"/> and fo.TYPECODE = 1
+						) 
+						UNION 
+						(SELECT iea.categoryid FROM ieproductcategoryassignment iea WHERE iea.productid in 
+							(SELECT p.uuid FROM product p
+							INNER JOIN (SELECT DISTINCT fp.associatedproductproductsku, di.DOMAINID FROM filterproductassignment fp, domaininformation di 
+								 WHERE fp.catalogfilterid = <template-variable value="CalalogFilterUUID"/> and fp.associatedproductdomainname = di.domainname
+								 ) d ON p.SKU =d.ASSOCIATEDPRODUCTPRODUCTSKU AND p.DOMAINID = d.DOMAINID
+							)
+						)
+					) 
+				UNION ALL 
+				SELECT c.uuid FROM catalogcategory c 
+				INNER JOIN abc a ON a.uuid = c.PARENTCATEGORYID
+		)
+		SELECT *, count(uuid) over() as "ROWCOUNT" FROM
+		(
+			SELECT TOP 100 PERCENT * FROM (
+			SELECT DISTINCT catalog0.uuid,catalogcategory_av_Sorting0.stringvalue 
+					FROM catalogcategory_av catalogcategory_av_Sorting0, catalogcategory catalog0 
+					WHERE 
+					(catalog0.PARENTCATEGORYID = <template-variable value="CategoryUUID"/> ) 
+					AND 
+					(catalogcategory_av_Sorting0.name ='displayName' OR catalogcategory_av_Sorting0.name IS NULL) 
+					AND (catalogcategory_av_Sorting0.localeid = <template-variable value="LocaleID"/> OR catalogcategory_av_Sorting0.localeid IS NULL) 
+					AND (catalog0.uuid=catalogcategory_av_Sorting0.ownerid OR catalogcategory_av_Sorting0.ownerid IS NULL) 
+					AND catalog0.uuid in 
+					(
+						SELECT uuid FROM abc
+					) 
+				) A
+				ORDER BY stringvalue asc
+		) A 
+</template>
+</query>

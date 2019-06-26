@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="SearchExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="false"/>
+	<parameter name="ColumnNames" type="java.lang.String" optional="false"/>
+	<parameter name="Separator" type="java.lang.String" optional="false"/>
+	<parameter name="CaseInsensitive" type="java.lang.Boolean" optional="true"/>
+	<parameter name="ConcatenationOperator" type="java.lang.String" optional="true"/>
+	<parameter name="FuzzyPhraseMode" type="java.lang.String" optional="true"/>
+	<parameter name="WordSearchMode" type="java.lang.String" optional="true"/>
+</parameters>
+<processor name="OracleSQL"/>
+<template>
+	
+	<template-if condition="hasElements(SearchExpression:Phrases)">
+		<template-if condition="isDefined(ConcatenationOperator)">
+			<template-variable value="ConcatenationOperator" processing="text"/>
+		</template-if>
+		(
+			<template-if condition="NOT isDefined(WordSearchMode) OR (WordSearchMode EQ 'off') OR (WordSearchMode EQ 'false') OR (WordSearchMode EQ 'FullMatch')">
+				<template-loop iterator="SearchExpression:Phrases" alias="Phrase">
+					<loop-statement>
+						<template-if condition="(Phrase:Type EQ 'ExactMatch') OR ((Phrase:Type EQ 'FuzzyMatch') AND isDefined(FuzzyPhraseMode) AND (FuzzyPhraseMode EQ 'ExactMatch'))">
+							(
+							<template-loop iterator="split(ColumnNames,Separator)" alias="ColumnName">
+								<loop-statement>
+									<sql-dialect name="Oracle">
+										<template-if condition="CaseInsensitive">
+											UPPER(<template-variable value="ColumnName" processing="text"/>) LIKE '%' || UPPER(<template-variable value="Phrase:Value"/>) || '%'
+										<if-else/>
+											<template-variable value="ColumnName" processing="text"/> LIKE '%' || <template-variable value="Phrase:Value"/> || '%'
+										</template-if>
+									</sql-dialect>
+									<sql-dialect name="Microsoft">
+										<template-if condition="CaseInsensitive">
+											UPPER(<template-variable value="ColumnName" processing="text"/>) LIKE CONCAT('%', UPPER(<template-variable value="Phrase:Value"/>), '%')
+										<if-else/>
+											<template-variable value="ColumnName" processing="text"/> LIKE CONCAT('%', <template-variable value="Phrase:Value"/>, '%')
+										</template-if>
+									</sql-dialect>
+								</loop-statement>
+								<loop-separator> OR </loop-separator>
+							</template-loop>
+							)
+		
+						<if-elseif condition="Phrase:Type EQ 'FuzzyMatch'"/>
+							(
+							<template-loop iterator="split(ColumnNames,Separator)" alias="ColumnName">
+								<loop-statement>
+									<template-if condition="CaseInsensitive">
+										UPPER(<template-variable value="ColumnName" processing="text"/>) LIKE UPPER(
+										<template-if condition="FuzzyPhraseMode EQ 'LeftMatch'">
+											<template-variable value="replace(replace(replace(Phrase:Value,'#','##'),'_','#_'),'%','#%').'%'"/>
+										<if-else/>
+											<template-variable value="'%'.replace(replace(replace(Phrase:Value,'#','##'),'_','#_'),'%','#%').'%'"/>
+										</template-if>
+										) ESCAPE '#'
+									<if-else/>
+										<template-variable value="ColumnName" processing="text"/> LIKE (
+										<template-if condition="FuzzyPhraseMode EQ 'LeftMatch'">
+											<template-variable value="replace(replace(replace(Phrase:Value,'#','##'),'_','#_'),'%','#%').'%'"/>
+										<if-else/>
+											<template-variable value="'%'.replace(replace(replace(Phrase:Value,'#','##'),'_','#_'),'%','#%').'%'"/>
+										</template-if>
+										) ESCAPE '#'
+									</template-if>
+								</loop-statement>
+								<loop-separator> OR </loop-separator>
+							</template-loop>
+							)
+							
+						<if-elseif condition="Phrase:Type EQ 'Exclusion'"/>
+							(
+							<template-loop iterator="split(ColumnNames,Separator)" alias="ColumnName">
+								<loop-statement>
+									<sql-dialect name="Oracle">
+										<template-if condition="CaseInsensitive">
+											UPPER(<template-variable value="ColumnName" processing="text"/>) NOT LIKE '%' || UPPER(<template-variable value="Phrase:Value"/>) || '%'
+										<if-else/>
+											<template-variable value="ColumnName" processing="text"/> NOT LIKE '%' || <template-variable value="Phrase:Value"/> || '%'
+										</template-if>
+									</sql-dialect>
+									<sql-dialect name="Microsoft">
+										<template-if condition="CaseInsensitive">
+											UPPER(<template-variable value="ColumnName" processing="text"/>) NOT LIKE CONCAT('%', UPPER(<template-variable value="Phrase:Value"/>), '%')
+										<if-else/>
+											<template-variable value="ColumnName" processing="text"/> NOT LIKE CONCAT('%', <template-variable value="Phrase:Value"/>, '%')
+										</template-if>
+									</sql-dialect>
+								</loop-statement>
+								<loop-separator> AND </loop-separator>
+							</template-loop>
+							)
+		
+						<if-elseif condition="Phrase:Type EQ 'WildcardMatch'"/>
+							(
+							<template-loop iterator="split(ColumnNames,Separator)" alias="ColumnName">
+								<loop-statement>
+										<template-if condition="CaseInsensitive">
+											UPPER(<template-variable value="ColumnName" processing="text"/>) LIKE UPPER(<template-variable value="Phrase:getQueryString('%','_','#')"/>) ESCAPE '#'
+										<if-else/>
+											<template-variable value="ColumnName" processing="text"/> LIKE <template-variable value="Phrase:getQueryString('%','_','#')"/> ESCAPE '#'
+										</template-if>
+								</loop-statement>
+								<loop-separator> OR </loop-separator>
+							</template-loop>
+							)
+		
+						<if-elseif condition="Phrase:Type EQ 'Expression'"/>
+							<template-call name="inc/SearchExpression2LikeWithSeparator">
+								<call-parameter name="SearchExpression" value="Phrase"/>
+								<call-parameter name="Separator" value="Separator"/>
+								<call-parameter name="ColumnNames" value="ColumnNames"/>
+								<call-parameter name="CaseInsensitive" value="CaseInsensitive"/>
+								<call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/>
+								<call-parameter name="WordSearchMode" value="WordSearchMode"/>
+							</template-call>
+						</template-if>
+					</loop-statement>
+					<loop-separator>
+						<template-if condition="SearchExpression:isAND"> AND <if-else/> OR </template-if>
+					</loop-separator>
+				</template-loop>
+			<if-else/>
+				<template-loop iterator="SearchExpression:Phrases" alias="Phrase">
+					<loop-statement>
+					
+						<template-if condition="(Phrase:Type EQ 'ExactMatch') OR ((Phrase:Type EQ 'FuzzyMatch') AND isDefined(FuzzyPhraseMode) AND (FuzzyPhraseMode EQ 'ExactMatch'))">
+							(
+							<template-loop iterator="split(ColumnNames,Separator)" alias="ColumnName">
+								<loop-statement>
+									<sql-dialect name="Oracle">
+										<template-if condition="CaseInsensitive">
+											UPPER(<template-variable value="ColumnName" processing="text"/>) LIKE '%' || UPPER(<template-variable value="'%'.Phrase:Value.'%'"/>) || '%'
+										<if-else/>
+											<template-variable value="ColumnName" processing="text"/> LIKE '%' || <template-variable value="'%'.Phrase:Value.'%'"/> || '%'
+										</template-if>
+									</sql-dialect>
+									<sql-dialect name="Microsoft">
+										<template-if condition="CaseInsensitive">
+											UPPER(<template-variable value="ColumnName" processing="text"/>) LIKE CONCAT('%', UPPER(<template-variable value="'%'.Phrase:Value.'%'"/>), '%')
+										<if-else/>
+											<template-variable value="ColumnName" processing="text"/> LIKE CONCAT('%', <template-variable value="'%'.Phrase:Value.'%'"/>, '%')
+										</template-if>
+									</sql-dialect>
+								</loop-statement>
+								<loop-separator> OR </loop-separator>
+							</template-loop>
+							)
+		
+						<if-elseif condition="Phrase:Type EQ 'FuzzyMatch'"/>
+							(
+							<template-loop iterator="split(ColumnNames,Separator)" alias="ColumnName">
+								<loop-statement>
+									<template-if condition="CaseInsensitive">
+										UPPER(<template-variable value="ColumnName" processing="text"/>) LIKE UPPER(
+										<template-if condition="WordSearchMode EQ 'LeftMatch'">
+											<template-variable value="replace(replace(replace(Phrase:Value,'#','##'),'_','#_'),'%','#%').'%'"/>
+										<if-else/>
+											<template-variable value="'%'.replace(replace(replace(Phrase:Value,'#','##'),'_','#_'),'%','#%').'%'"/>
+										</template-if>
+										) ESCAPE '#'
+									<if-else/>
+										<template-variable value="ColumnName" processing="text"/> LIKE (
+										<template-if condition="WordSearchMode EQ 'LeftMatch'">
+											<template-variable value="replace(replace(replace(Phrase:Value,'#','##'),'_','#_'),'%','#%').'%'"/>
+										<if-else/>
+											<template-variable value="'%'.replace(replace(replace(Phrase:Value,'#','##'),'_','#_'),'%','#%').'%'"/>
+										</template-if>
+										) ESCAPE '#'
+									</template-if>
+								</loop-statement>
+								<loop-separator> OR </loop-separator>
+							</template-loop>
+							)
+							
+						<if-elseif condition="Phrase:Type EQ 'Exclusion'"/>
+							(
+							<template-loop iterator="split(ColumnNames,Separator)" alias="ColumnName">
+								<loop-statement>
+									<sql-dialect name="Oracle">
+										<template-if condition="CaseInsensitive">
+											UPPER(<template-variable value="ColumnName" processing="text"/>) NOT LIKE '%' || UPPER(<template-variable value="Phrase:Value"/>) || '%'
+										<if-else/>
+											<template-variable value="ColumnName" processing="text"/> NOT LIKE '%' || <template-variable value="Phrase:Value"/> || '%'
+										</template-if>
+									</sql-dialect>
+									<sql-dialect name="Microsoft">
+										<template-if condition="CaseInsensitive">
+											UPPER(<template-variable value="ColumnName" processing="text"/>) NOT LIKE CONCAT('%', UPPER(<template-variable value="Phrase:Value"/>), '%')
+										<if-else/>
+											<template-variable value="ColumnName" processing="text"/> NOT LIKE CONCAT('%', <template-variable value="Phrase:Value"/>, '%')
+										</template-if>
+									</sql-dialect>
+								</loop-statement>
+								<loop-separator> AND </loop-separator>
+							</template-loop>
+							)
+		
+						<if-elseif condition="Phrase:Type EQ 'WildcardMatch'"/>
+							(
+							<template-loop iterator="split(ColumnNames,Separator)" alias="ColumnName">
+								<loop-statement>
+									<template-if condition="CaseInsensitive">
+										UPPER(<template-variable value="ColumnName" processing="text"/>) LIKE UPPER(
+										<template-if condition="WordSearchMode EQ 'LeftMatch'">
+											<template-variable value="(Phrase:getQueryString('%','_','#')).'%'"/>) ESCAPE '#'
+										<if-else/>
+											<template-variable value="'%'.(Phrase:getQueryString('%','_','#')).'%'"/>) ESCAPE '#'	
+										</template-if>
+									<if-else/>
+										<template-if condition="WordSearchMode EQ 'LeftMatch'">
+											<template-variable value="ColumnName" processing="text"/> LIKE <template-variable value="(Phrase:getQueryString('%','_','#')).'%'"/> ESCAPE '#'
+										<if-else/>
+											<template-variable value="ColumnName" processing="text"/> LIKE <template-variable value="'%'.(Phrase:getQueryString('%','_','#')).'%'"/> ESCAPE '#'
+										</template-if>	
+									</template-if>
+								</loop-statement>
+								<loop-separator> OR </loop-separator>
+							</template-loop>
+							)
+		
+						<if-elseif condition="Phrase:Type EQ 'Expression'"/>
+							<template-call name="inc/SearchExpression2LikeWithSeparator">
+								<call-parameter name="SearchExpression" value="Phrase"/>
+								<call-parameter name="Separator" value="Separator"/>
+								<call-parameter name="ColumnNames" value="ColumnNames"/>
+								<call-parameter name="CaseInsensitive" value="CaseInsensitive"/>
+								<call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/>
+								<call-parameter name="WordSearchMode" value="WordSearchMode"/>
+							</template-call>
+						</template-if>
+					</loop-statement>
+					<loop-separator>
+						<template-if condition="SearchExpression:isAND"> AND <if-else/> OR </template-if>
+					</loop-separator>
+				</template-loop>
+			</template-if>
+		)
+	</template-if>
+</template>
+</query>

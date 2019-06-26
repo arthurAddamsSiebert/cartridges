@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="@Deprecated since 7.10. Currently unused and will be removed in a future release. Gets auctions by parametric search.">
+<parameters>
+	<parameter name="SearchCategoryUUID" type="java.lang.String" optional="true"/>
+	<parameter name="AuctionDomainID" type="java.lang.String" optional="true"/>
+	<parameter name="AuctionStates" type="java.util.Iterator" optional="false"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="SearchTermExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="ProductIDExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="ProductNameExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="ProductDescriptionExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="AuctionNameExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="AuctionDescriptionExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="AuctionNameOrDescExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="EndDateFrom" type="java.util.Date" optional="true"/>
+	<parameter name="EndDateTo" type="java.util.Date" optional="true"/>
+	<parameter name="PriceFrom" type="java.lang.Double" optional="true"/>
+	<parameter name="PriceTo" type="java.lang.Double" optional="true"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Auction" type="orm" class="com.intershop.component.tendering.internal.auction.AuctionPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="cSearchTermExp" input="SearchTermExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cProductIDExp" input="ProductIDExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cProductNameExp" input="ProductNameExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cProductDescriptionExp" input="ProductDescriptionExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cAuctionNameExp" input="AuctionNameExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cAuctionDescriptionExp" input="AuctionDescriptionExp" processing="SearchExpression2Contains"/>
+	<processor-preprocessing output="cAuctionNameOrDescExp" input="AuctionNameOrDescExpression" processing="SearchExpression2Contains"/>
+</processor>
+<template type="countedobjects" sqlDialect="Oracle">
+SELECT
+    DISTINCT a.uuid AS UUID, 
+    COUNT(DISTINCT a.uuid) OVER() AS "rowcount",
+    <template-if condition="SortBy EQ &apos;value&apos;">
+    plp.value AS sorting,
+    <if-elseif condition="SortBy EQ &apos;startTime&apos;" />
+    a.startTime AS sorting,
+    <if-elseif condition="SortBy EQ &apos;endTime&apos;" />
+    a.endTime AS sorting,
+    <if-elseif condition="SortBy EQ &apos;productName&apos;" />
+    p.name_<template-variable value="Locale:LocaleID" processing="text"/> AS sorting,
+    <if-elseif condition="SortBy EQ &apos;auctionName&apos;"/>
+    a_av.stringvalue AS sorting,
+    </template-if>
+    1
+FROM 
+    auction a
+<template-if condition="(SortBy EQ &apos;productName&apos;) 
+                       OR isDefined(SearchCategoryUUID)
+                       OR (isDefined(SearchTermExp) and (SearchTermExp:NotEmpty))
+                       OR (isDefined(ProductIDExp) and (ProductIDExp:NotEmpty))
+                       OR (isDefined(ProductNameExp) and (ProductNameExp:NotEmpty))
+                       OR (isDefined(ProductDescriptionExp) and (ProductDescriptionExp:NotEmpty))
+                       "> 
+LEFT OUTER JOIN   
+    auctionitem ai ON (ai.auctionid = a.uuid)
+LEFT OUTER JOIN
+    product p ON (ai.itemid = p.uuid)
+<template-if condition="isDefined(SearchCategoryUUID)"> 
+LEFT OUTER JOIN
+    productcategoryassignment pca ON (pca.productid = p.uuid)
+</template-if>
+</template-if>
+<template-if condition="isDefined(PriceFrom) OR isDefined(PriceTo)  
+                         OR SortBy EQ &apos;value&apos;">
+JOIN
+    productlistprice plp ON (plp.productid = p.uuid AND plp.currency = <template-variable value="Locale:CurrencyCode"/>)
+</template-if>
+<template-if condition="SortBy EQ &apos;auctionName&apos;">
+LEFT OUTER JOIN   
+    auction_av a_av ON (a.uuid = a_av.ownerid AND a_av.name = &apos;displayName&apos; AND a_av.localeid = <template-variable value="Locale:LocaleID"/>)
+</template-if>
+WHERE 1=1
+<template-if condition="isDefined(AuctionStates)">
+AND
+    a.state IN (
+        <template-loop iterator="AuctionStates" alias="State"><loop-statement><template-variable value="State"/></loop-statement>
+            <loop-separator>,</loop-separator>
+        </template-loop>
+    ) 
+</template-if>
+<template-if condition="isDefined(AuctionDomainID) and (AuctionDomainID NE &apos;&apos;)">
+AND
+    a.domainid=<template-variable value="AuctionDomainID"/>
+</template-if>
+<template-if condition="isDefined(SearchCategoryUUID) and (SearchCategoryUUID NE &apos;&apos;)">
+AND
+    pca.catalogcategoryid IN
+    (
+        SELECT cc.uuid
+        FROM catalogcategory cc 
+        CONNECT BY PRIOR cc.uuid = cc.parentcategoryid 
+        START WITH cc.uuid =  <template-variable value="SearchCategoryUUID"/>
+    )
+</template-if>
+<template-if condition="(SortBy EQ &apos;productName&apos;) OR isDefined(SearchCategoryUUID)">
+AND
+    p.onlineflag = 1
+</template-if>
+
+<template-if condition="isdefined(SearchTermExp) AND (SearchTermExp:NotEmpty)">
+AND
+(
+    EXISTS
+    (
+        SELECT 1 FROM product WHERE uuid = p.uuid 
+        AND contains(attributes_<template-variable value="Locale:LocaleID" processing="text"/>, '(' || <template-variable value="cSearchTermExp"/> || ')' 
+            || ' INPATH (//attrs/attr[@name="name"]/string)')>0
+        UNION
+        SELECT 1 FROM product WHERE uuid = p.uuid 
+        AND contains(attributes, '(' || <template-variable value="cSearchTermExp"/> || ')' 
+            || ' INPATH (//attrs/attr[@name="SKU"]/string)')>0
+    )
+OR
+    a.uuid IN 
+    (
+    SELECT ownerid FROM auction_av 
+    WHERE name IN (&apos;displayName&apos;, &apos;shortDescription&apos;) 
+        AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag=0) 
+        AND contains(stringvalue, <template-variable value="cSearchTermExp"/>)&gt;0
+    )            
+)         
+</template-if>
+
+<template-if condition="isDefined(ProductIDExp) and (ProductIDExp:NotEmpty)">
+AND
+    contains(p.attributes, '('||<template-variable value="cProductIDExp"/>||') INPATH (//attrs/attr[@name="SKU"]/string)')>0
+</template-if>
+<template-if condition="isDefined(ProductNameExp) and (ProductNameExp:NotEmpty)">
+AND
+    contains(p.attributes_<template-variable value="Locale:LocaleID" processing="text"/>, '('||<template-variable value="cProductNameExp"/>||') INPATH (//attrs/attr[@name="name"]/string)')>0
+</template-if>
+<template-if condition="isDefined(ProductDescriptionExp) and (ProductDescriptionExp:NotEmpty)">
+AND
+    contains(p.attributes_<template-variable value="Locale:LocaleID" processing="text"/>, '('||<template-variable value="cProductDescriptionExp"/>||') INPATH (//attrs/attr[@name="shortDescription"]/string)')>0
+</template-if>
+<template-if condition="isDefined(AuctionNameExp) and (AuctionNameExp:NotEmpty)">
+AND a.uuid IN (
+    SELECT ownerid FROM auction_av 
+    WHERE name=&apos;displayName&apos; 
+        AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag=0) 
+        AND CONTAINS(stringvalue,<template-variable value="cAuctionNameExp"/>)&gt;0
+)
+</template-if>
+<template-if condition="isDefined(AuctionDescriptionExp) and (AuctionDescriptionExp:NotEmpty) AND (not isDefined(AuctionNameExp))">
+AND a.uuid IN (
+    SELECT ownerid FROM auction_av 
+    WHERE name=&apos;shortDescription&apos; 
+        AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag=0) 
+        AND contains(stringvalue, <template-variable value="cAuctionDescriptionExp"/>)&gt;0
+)
+</template-if>
+<template-if condition="isDefined(AuctionNameOrDescExp) and (AuctionNameOrDescExp:NotEmpty)">
+AND a.uuid IN (
+    SELECT ownerid FROM auction_av 
+    WHERE name IN (&apos;displayName&apos;, &apos;shortDescription&apos;) 
+        AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag=0) 
+        AND contains(stringvalue, <template-variable value="cAuctionNameOrDescExp"/>)&gt;0
+)
+</template-if>
+<template-if condition="isDefined(EndDateFrom)">
+AND
+    a.EndTime &gt;= <template-variable value="EndDateFrom"/>
+</template-if>
+<template-if condition="isDefined(EndDateTo)">
+AND
+    a.EndTime &lt;= <template-variable value="EndDateTo"/>
+</template-if>
+<template-if condition="isDefined(PriceFrom)">
+AND
+    plp.value &gt;= <template-variable value="PriceFrom"/>
+</template-if>
+<template-if condition="isDefined(PriceTo)">
+AND
+    plp.value &lt;= <template-variable value="PriceTo"/>
+</template-if>
+<template-if condition="isDefined(SortBy)">
+ORDER BY sorting
+<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+    DESC NULLS FIRST
+<if-else/>
+    ASC NULLS LAST
+</template-if>
+</template-if>
+
+</template>
+<template type="countedobjects" sqlDialect="Microsoft">
+WITH abc(uuid) AS
+(
+    SELECT cc.uuid 
+        FROM catalogcategory cc 
+    WHERE cc.uuid =  <template-variable value="SearchCategoryUUID"/>
+    UNION ALL
+        SELECT cc.uuid 
+        FROM catalogcategory cc 
+        INNER JOIN abc a ON a.uuid = cc.PARENTCATEGORYID
+)
+SELECT UUID, COUNT(UUID) OVER() AS "rowcount", sorting, 1 FROM 
+(
+    SELECT
+        DISTINCT a.uuid AS UUID, 
+        <template-if condition="SortBy EQ &apos;value&apos;">
+        plp.value AS sorting,
+        <if-elseif condition="SortBy EQ &apos;startTime&apos;" />
+        a.startTime AS sorting,
+        <if-elseif condition="SortBy EQ &apos;endTime&apos;" />
+        a.endTime AS sorting,
+        <if-elseif condition="SortBy EQ &apos;productName&apos;" />
+        p.name_<template-variable value="Locale:LocaleID" processing="text"/> AS sorting,
+        <if-elseif condition="SortBy EQ &apos;auctionName&apos;"/>
+        a_av.stringvalue AS sorting,
+        </template-if>
+        1 AS tempCount
+    FROM 
+        auction a
+    <template-if condition="(SortBy EQ &apos;productName&apos;) 
+                           OR isDefined(SearchCategoryUUID)
+                           OR (isDefined(SearchTermExp) and (SearchTermExp:NotEmpty))
+                           OR (isDefined(ProductIDExp) and (ProductIDExp:NotEmpty))
+                           OR (isDefined(ProductNameExp) and (ProductNameExp:NotEmpty))
+                           OR (isDefined(ProductDescriptionExp) and (ProductDescriptionExp:NotEmpty))
+                           "> 
+    LEFT OUTER JOIN   
+        auctionitem ai ON (ai.auctionid = a.uuid)
+    LEFT OUTER JOIN
+        product p ON (ai.itemid = p.uuid)
+    <template-if condition="isDefined(SearchCategoryUUID)"> 
+    LEFT OUTER JOIN
+        productcategoryassignment pca ON (pca.productid = p.uuid)
+    </template-if>
+    </template-if>
+    <template-if condition="isDefined(PriceFrom) OR isDefined(PriceTo)  
+                             OR SortBy EQ &apos;value&apos;">
+    JOIN
+        productlistprice plp ON (plp.productid = p.uuid AND plp.currency = <template-variable value="Locale:CurrencyCode"/>)
+    </template-if>
+    <template-if condition="SortBy EQ &apos;auctionName&apos;">
+    LEFT OUTER JOIN   
+        auction_av a_av ON (a.uuid = a_av.ownerid AND a_av.name = &apos;displayName&apos; AND a_av.localeid = <template-variable value="Locale:LocaleID"/>)
+    </template-if>
+    WHERE 1=1
+    <template-if condition="isDefined(AuctionStates)">
+    AND
+        a.state IN (
+            <template-loop iterator="AuctionStates" alias="State"><loop-statement><template-variable value="State"/></loop-statement>
+                <loop-separator>,</loop-separator>
+            </template-loop>
+        ) 
+    </template-if>
+    <template-if condition="isDefined(AuctionDomainID) and (AuctionDomainID NE &apos;&apos;)">
+    AND
+        a.domainid=<template-variable value="AuctionDomainID"/>
+    </template-if>
+    <template-if condition="isDefined(SearchCategoryUUID) and (SearchCategoryUUID NE &apos;&apos;)">
+    AND
+        pca.catalogcategoryid IN
+        (
+            SELECT uuid FROM abc 
+        )
+    </template-if>
+    <template-if condition="(SortBy EQ &apos;productName&apos;) OR isDefined(SearchCategoryUUID)">
+    AND
+        p.onlineflag = 1
+    </template-if>
+
+    <template-if condition="isdefined(SearchTermExp) AND (SearchTermExp:NotEmpty)">
+    AND
+    (
+        EXISTS
+        (
+            SELECT 1 FROM product WHERE uuid = p.uuid 
+            AND attributes_<template-variable value="Locale:LocaleID" processing="text"/>.exist('//attrs/attr[@name="name"]/string [contains(., "<template-variable value="cSearchTermExp"/>")]')>0 
+            UNION
+            SELECT 1 FROM product WHERE uuid = p.uuid 
+            AND attributes.exist('//attrs/attr[@name="SKU"]/string [contains(., "<template-variable value="cSearchTermExp"/>")]')>0 
+        )
+    OR
+        a.uuid IN 
+        (
+        SELECT ownerid FROM auction_av 
+        WHERE name IN (&apos;displayName&apos;, &apos;shortDescription&apos;) 
+            AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag=0) 
+            AND CONTAINS(<template-variable value="cSearchTermExp"/>, stringvalue)
+        )            
+    )         
+    </template-if>
+
+    <template-if condition="isDefined(ProductIDExp) and (ProductIDExp:NotEmpty)">
+    AND attributes.exist('//attrs/attr[@name="SKU"]/string [contains(., "<template-variable value="cProductIDExp"/>")]')>0 
+    </template-if>
+    <template-if condition="isDefined(ProductNameExp) and (ProductNameExp:NotEmpty)">
+    AND attributes_<template-variable value="Locale:LocaleID" processing="text"/>.exist('//attrs/attr[@name="name"]/string [contains(., "<template-variable value="cProductNameExp"/>")]')>0 
+    </template-if>
+    <template-if condition="isDefined(ProductDescriptionExp) and (ProductDescriptionExp:NotEmpty)">
+    AND attributes_<template-variable value="Locale:LocaleID" processing="text"/>.exist('//attrs/attr[@name="shortDescription"]/string [contains(., "<template-variable value="cProductDescriptionExp"/>")]')>0 
+    </template-if>
+    <template-if condition="isDefined(AuctionNameExp) and (AuctionNameExp:NotEmpty)">
+    AND a.uuid IN (
+        SELECT ownerid FROM auction_av 
+        WHERE name=&apos;displayName&apos; 
+            AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag=0) 
+            AND CONTAINS(<template-variable value="cAuctionNameExp"/>, stringvalue)
+    )
+    </template-if>
+    <template-if condition="isDefined(AuctionDescriptionExp) and (AuctionDescriptionExp:NotEmpty) AND (not isDefined(AuctionNameExp))">
+    AND a.uuid IN (
+        SELECT ownerid FROM auction_av 
+        WHERE name=&apos;shortDescription&apos; 
+            AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag=0) 
+            AND CONTAINS(<template-variable value="cAuctionDescriptionExp"/>, stringvalue)
+    )
+    </template-if>
+    <template-if condition="isDefined(AuctionNameOrDescExp) and (AuctionNameOrDescExp:NotEmpty)">
+    AND a.uuid IN (
+        SELECT ownerid FROM auction_av 
+        WHERE name IN (&apos;displayName&apos;, &apos;shortDescription&apos;) 
+            AND (localeid=<template-variable value="Locale:LocaleID"/> OR localizedflag=0) 
+            AND CONTAINS(<template-variable value="cAuctionNameOrDescExp"/>, stringvalue)
+    )
+    </template-if>
+    <template-if condition="isDefined(EndDateFrom)">
+    AND
+        a.EndTime &gt;= <template-variable value="EndDateFrom"/>
+    </template-if>
+    <template-if condition="isDefined(EndDateTo)">
+    AND
+        a.EndTime &lt;= <template-variable value="EndDateTo"/>
+    </template-if>
+    <template-if condition="isDefined(PriceFrom)">
+    AND
+        plp.value &gt;=  CAST(<template-variable value="PriceFrom"/> AS NUMERIC(18,2))
+    </template-if>
+    <template-if condition="isDefined(PriceTo)">
+    AND
+        plp.value &lt;= CAST(<template-variable value="PriceTo"/> AS NUMERIC(18,2))
+
+</template-if>
+)A
+<template-if condition="isDefined(SortBy)">
+ORDER BY CASE WHEN sorting IS NULL THEN 1 ELSE 0 END
+<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+    DESC, sorting DESC
+<if-else/>
+    ASC, sorting ASC
+</template-if>
+</template-if>
+
+</template>
+</query>

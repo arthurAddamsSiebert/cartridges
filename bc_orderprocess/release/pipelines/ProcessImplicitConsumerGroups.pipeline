@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group User-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessImplicitConsumerGroups" type="process">
+<!--TODO Pipeline rework:
+* needs CurrentDomain
+Must be handed in via parameter!
+@Location 6,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2"/>
+<!--TODO Pipeline rework:
+* needs CurrentDomain
+Must be handed in via parameter!
+@Location 9,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="CheckUserInRecurringUsers"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet23"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet23">
+    <configurationValues name="Membership" value="Direct"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetAssignedUserGroups.xml"/>
+    <nodeSuccessors name="next" next="Pipelet24"/>
+    <parameterBindings name="User" objectPath="User"/>
+    <returnValueBindings name="UserGroups" objectPath="DirectUserGroups"/>
+    <returnValueBindings name="UserGroupsHash" nullBinding="true"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet24">
+    <configurationValues name="DefaultUserGroupID" value="IG_RecurringUsers"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetUserGroupByID.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+<!--@BendPoints 27,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="Domain" objectPath="Organization:OrganizationDomain"/>
+    <parameterBindings name="UserGroupID" nullBinding="true"/>
+    <returnValueBindings name="UserGroup" objectPath="IG_RecurringUsers"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="DirectUserGroups">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <entry key="DirectUserGroup">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode4"/>
+    </entry>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="IG_RecurringUsers:ID"
+      operator="str_eq" conditionItem="DirectUserGroup:ID">
+    <nodeSuccessors name="decision_yes" next="DecisionNode5"/>
+<!--@BendPoints 25,11-->
+    <nodeSuccessors name="decision_no" next="JoinNode15"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="IG_RecurringUsers:DomainID"
+      operator="str_eq" conditionItem="DirectUserGroup:DomainID">
+    <nodeSuccessors name="decision_yes" next="Pipelet26"/>
+    <nodeSuccessors name="decision_no" next="JoinNode15"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet26">
+    <configurationValues name="Name" value="isInRecurringUsers"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 23,16-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="YES" strict="true"/>
+<!--@Location 12,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+<!--@BendPoints 25,18 22,18 22,9-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 27,10-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="NO" strict="true"/>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="CreateImplicitUserGroupsIteratorForUnregisteredUser"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet13"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet13">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="Pipelet11"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="ImplicitUserGroups"/>
+    <returnValueBindings name="OutVector" objectPath="ImplicitUserGroupsVector"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet11">
+    <configurationValues name="DefaultUserGroupID" value="IG_UnregisteredUsers"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetUserGroupByID.xml"/>
+    <nodeSuccessors name="next" next="Pipelet14"/>
+<!--@BendPoints 7,7 7,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="Domain" objectPath="Organization:OrganizationDomain"/>
+    <parameterBindings name="UserGroupID" nullBinding="true"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet14">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="InVector" objectPath="ImplicitUserGroupsVector"/>
+    <parameterBindings name="Object" objectPath="UserGroup"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="ImplicitUserGroups"/>
+    <returnValueBindings name="OutVector" objectPath="ImplicitUserGroupsVector"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 5,12-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="ImplicitUserGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="Safe_UpdateImplicitUserGroupsOnRegisteredUser"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet12"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"
+        optional="true"/>
+    <parameters name="CustomerSegmentBORepository" type="com.intershop.component.customer.capi.CustomerSegmentBORepository"
+        optional="true"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet12">
+    <configurationValues name="DefaultUserGroupID" value="IG_RegisteredUsers"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetUserGroupByID.xml"/>
+    <nodeSuccessors name="next" next="Pipelet17"/>
+<!--@BendPoints 13,7 13,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode13"/>
+    <parameterBindings name="Domain" objectPath="Organization:OrganizationDomain"/>
+    <parameterBindings name="UserGroupID" nullBinding="true"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet17">
+    <pipelet href="enfinity:/bc_organization/pipelets/AssignUserToOrganizationRole.xml"/>
+    <nodeSuccessors name="next" next="JoinNode13"/>
+    <parameterBindings name="OrganizationRole" objectPath="UserGroup"/>
+    <parameterBindings name="User" objectPath="User"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="Pipelet16"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet16">
+    <configurationValues name="DefaultUserGroupID" value="IG_UnregisteredUsers"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetUserGroupByID.xml"/>
+    <nodeSuccessors name="next" next="Pipelet8"/>
+<!--@BendPoints 13,13 13,19-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="Domain" objectPath="Organization:OrganizationDomain"/>
+    <parameterBindings name="UserGroupID" nullBinding="true"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet8">
+    <pipelet href="enfinity:/bc_organization/pipelets/RemoveUserFromOrganizationRole.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+<!--@BendPoints 12,15 12,17-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="OrganizationRole" objectPath="UserGroup"/>
+    <parameterBindings name="User" objectPath="User"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 5,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="UpdateImplicitUserGroupsOnRegisteredUser"
+      callMode="Private">
+<!--@BendPoints 17,4-->
+    <nodeSuccessors name="next" next="StartSafeChangesBlock1"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO"
+        optional="true"/>
+    <parameters name="CustomerSegmentBORepository" type="com.intershop.component.customer.capi.CustomerSegmentBORepository"
+        optional="true"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="StartSafeChangesBlock1">
+    <pipelet href="enfinity:/core/pipelets/StartSafeChangesBlock.xml"/>
+<!--@BendPoints 17,6-->
+    <nodeSuccessors name="next" next="CallNode2"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 17,8-->
+    <nodeSuccessors name="next" next="EndSafeChangesBlock1"/>
+    <startNode referencedName="ProcessImplicitConsumerGroups-Safe_UpdateImplicitUserGroupsOnRegisteredUser"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EndSafeChangesBlock1">
+    <pipelet href="enfinity:/core/pipelets/EndSafeChangesBlock.xml"/>
+<!--@BendPoints 17,10-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+</pipeline:Pipeline>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets all distinct manufacturer names of the given product domain, maybe restricted by a name.">
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="ManufacturerName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="the name to search for"/>
+	<parameter name="IncludeAliases" type="java.lang.String" optional="true" description="should the aliases be included?"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+
+select r.name as name from (
+	  SELECT DISTINCT manufacturername name FROM product WHERE domainid = <template-variable value="Domain:UUID"/> AND manufacturername is not NULL
+	 <template-if condition="isDefined(ManufacturerName)  and ManufacturerName:NotEmpty">
+	     <template-call name="inc/SearchExpression2Like">
+	         <call-parameter name="SearchExpression" value="ManufacturerName"/>
+	         <call-parameter name="ColumnNames" value="&quot;manufacturername&quot;"/>
+	         <call-parameter name="CaseInsensitive" value="true()"/>
+	         <call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+	     </template-call>
+	 </template-if>	UNION
+	  SELECT DISTINCT manufacturername name FROM derivedproduct WHERE domainid = <template-variable value="Domain:UUID"/> AND manufacturername is not NULL
+	 <template-if condition="isDefined(ManufacturerName)  and ManufacturerName:NotEmpty">
+	     <template-call name="inc/SearchExpression2Like">
+	         <call-parameter name="SearchExpression" value="ManufacturerName"/>
+	         <call-parameter name="ColumnNames" value="&quot;manufacturername&quot;"/>
+	         <call-parameter name="CaseInsensitive" value="true()"/>
+	         <call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+	     </template-call>
+	 </template-if>
+ ) r 
+ <template-if condition="isDefined(IncludeAliases)  and (ucase(pad(IncludeAliases,1)) NE &apos;FALSE&apos;)">
+ 	where r.name not in (
+    	 SELECT name from manufacturername name where domainid= <template-variable value="Domain:UUID"/>
+		<template-if condition="isDefined(ManufacturerName)  and ManufacturerName:NotEmpty">
+		    <template-call name="inc/SearchExpression2Like">
+			<call-parameter name="SearchExpression" value="ManufacturerName"/>
+			<call-parameter name="ColumnNames" value="&quot;name&quot;"/>
+			<call-parameter name="CaseInsensitive" value="true()"/>
+			<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+		    </template-call>
+		</template-if>
+	) UNION
+	     SELECT namealias name from manufacturernamealias where domainid = <template-variable value="Domain:UUID"/>
+		 <template-if condition="isDefined(ManufacturerName)  and ManufacturerName:NotEmpty">
+		     <template-call name="inc/SearchExpression2Like">
+			 <call-parameter name="SearchExpression" value="ManufacturerName"/>
+			 <call-parameter name="ColumnNames" value="&quot;namealias&quot;"/>
+			 <call-parameter name="CaseInsensitive" value="true()"/>
+			 <call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+		     </template-call>
+		 </template-if>
+ </template-if>
+ order by name
+ </template>
+</query>

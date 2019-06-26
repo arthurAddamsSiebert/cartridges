@@ -1,0 +1,80 @@
+<%@page import="com.intershop.beehive.core.capi.property.PropertyEngineMgr"%>
+<%@page import="com.intershop.platform.property.capi.PropertyGroupValue"%>
+<%@page import="com.intershop.platform.property.capi.PropertyEngine"%>
+<%@page import="com.intershop.adapter.payment.demo.internal.creditcard.CreditCardInformation"%>
+<%@page import="com.intershop.component.payment.capi.PaymentInstrumentInfoBO"%>
+<%@page import="com.intershop.adapter.payment.demo.internal.creditcard.CreditCardConstants"%>
+<%@page import="com.intershop.beehive.bts.capi.payment.PaymentInstrumentInfo"%>
+
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<isif condition="#PII:PaymentService:Delegate:CardSecurityCodeCheckEnabled EQ 'true'#">
+	<div class="ish-section">
+		<div class="ish-bar">
+			<h3><istext key="CheckoutMini.ConfirmPaymentMethod"/></h3>
+		</div>
+		<div class="ish-shiftContent">
+			<div><istext key="CheckoutMini.PleaseEnterTheSecurityCodeOfYourCreditCa"/> <a href="#URL(Action('ViewCheckoutPayment-Review'))#"><istext key="CheckoutMini.SelectAnotherFormOfPayment.link"/></a>.</div>
+			<div><istext key="CheckoutMini.ForTestingPurposesUseThe"/> <a href="javascript:void(0)" class="kor-open-as-dialog-without-ajax"><istext key="CheckoutMini.DemoData.link"/></a>.
+				<div class="kor-dialog-content">
+					<div class="kor-content-contents">
+						<h3><istext key="CheckoutMini.ISHCreditCardDemoData"/></h3>
+						<p><istext key="CheckoutMini.PleaseUseOneOfTheFollowingCreditCardsFor"/></p>
+						<isinclude template="payment_demo/ishpay/inc/CreditCardDemoData">
+					</div>
+				</div>
+			</div>
+			
+			<p></p>
+			<div class="ish-field">
+			
+<%
+	PipelineDictionary dict = getPipelineDictionary();
+	
+	Object piiObject = dict.get("PII");
+	if (piiObject instanceof PaymentInstrumentInfoBO)
+	{
+		PaymentInstrumentInfoBO pii = (PaymentInstrumentInfoBO) piiObject;
+		CreditCardInformation info = pii.getConfiguration(pii.getPaymentService().getPaymentParameterDefinitions());
+		dict.put("CardNumber", info.getCreditCardNumber());
+		dict.put("CardType", info.getCreditCardType());
+	}
+	else
+	{
+		PaymentInstrumentInfo pii = (PaymentInstrumentInfo) piiObject;
+		PropertyEngine engine = NamingMgr.getManager(PropertyEngineMgr.class).getPropertyEngine();
+		PropertyGroupValue piiValues = engine.getConfigurationForOwner(pii, pii.getPaymentService().getPaymentParameterDefinitions());
+		
+		dict.put("CardNumber", piiValues.getProperty("creditCardNumber"));
+		dict.put("CardType", piiValues.getProperty("creditCardType"));
+	}
+%>
+				<ISGarbleString text="#CardNumber#" direction="begin" length="4" character="x" output="truncatedCreditCardNumber">
+				<label for="truncatedCreditCardNumber" class="ish-label-s"><istext key="#'payment.checkout.cc_type.'.CardType#"></label>
+				<span id="truncatedCreditCardNumber" class="ish-field-text"><isprint value="#truncatedCreditCardNumber#"></span>
+			</div>
+			
+			<div class="ish-field ish-field-last">
+				<isFieldErrorMessagePlaceholder class="ish-formShift-s" ext_string_prefix="todo" name_override="#PII:PaymentService:ID . "_" . SimpleCCInputFieldUUID#">
+				<label for="<isprint value="#PII:PaymentService:ID#">_<isprint value="#SimpleCCInputFieldUUID#">" class="ish-label-s"><istext key="CheckoutMini.SecurityCode.label"/></label>
+				<input type="hidden" name="<isprint value="#PII:PaymentService:ID#">_SimpleCCInputFieldUUID" value="<isprint value="#SimpleCCInputFieldUUID#">"/>
+				<input type="text" class="ish-input-xs 
+					<isif condition="#(PIIDataVerificationResult:PaymentService:ID EQ 'BPS_CREDITCARD') AND (PIIDataVerificationResult:Valid EQ 'false')#">
+						ish-error
+					</isif>" name="<isprint value="#PII:PaymentService:ID#">_<isprint value="#SimpleCCInputFieldUUID#">" id="<isprint value="#PII:PaymentService:ID#">_<isprint value="#SimpleCCInputFieldUUID#">"
+					<isif condition="#(NOT PIIDataVerificationResult:isValid) AND (PIIDataVerificationResult:PaymentService:ID EQ 'BPS_CREDITCARD')#">
+						value="<isprint value="#PIIDataVerificationResult:Values:get(PIIDataVerificationResult:Values:SimpleCCInputFieldUUID)#">"
+					<iselse>
+						value=""
+					</isif>
+					maxlength="4" 
+					data-validate="required" 
+					data-validate-synchronized="true"
+					data-validate-error-message="<istext key="checkout.payment.creditcard.securitycode.invalid.text">" 
+					<iscomment>data-flash-error-keys="fieldFailureMessageGlobal" The JS validator does not support multiple flash error containers as its the case here </iscomment>
+				/>
+				<isTooltip linktextkey="checkout.detail.text" headlinekey="checkout.payment.creditcard.securitycode.tooltip.headline" contentkey="checkout.payment.creditcard.securitycode.tooltip">
+			</div>
+		</div>
+	</div>
+</isif>

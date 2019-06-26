@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="CatalogCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Product" type="provider" class="ProductViewProvider">
+		<return-attribute name="UUID"/>
+		<return-attribute name="DOMAINID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	<sql-dialect name="Microsoft">
+		WITH abc(uuid) AS
+		(
+			SELECT r.uuid FROM catalogcategory r
+			WHERE  r.uuid = <template-variable value="CatalogCategory:UUID"/>
+			UNION ALL
+			SELECT c.uuid FROM catalogcategory c
+			INNER JOIN abc a ON a.uuid = c.PARENTCATEGORYID
+		)
+	</sql-dialect>
+	SELECT
+	iepca.productid AS UUID,
+	<template-variable value="ProductDomain:UUID"/> AS DOMAINID,
+	count(iepca.productid) over() as "ROWCOUNT"
+	FROM
+	(
+	<template-call name="catalog/GetIEProductCategoryAssignmentsByCatalogDomainID"><call-parameter name="ProductDomain" value="ProductDomain"/><call-parameter name="CatalogDomainID" value="CatalogCategory:DomainID"/></template-call>
+	) iepca
+	<sql-dialect name="Oracle">
+		<template-if condition="NOT (CatalogCategory:isRootCategory)">
+			WHERE iepca.categoryid IN (
+						   SELECT r.uuid
+							 FROM catalogcategory r
+			 CONNECT BY PRIOR r.uuid = r.parentcategoryid
+					   START WITH r.uuid = <template-variable value="CatalogCategory:UUID"/>)
+		</template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		<template-if condition="NOT (CatalogCategory:isRootCategory)">
+			WHERE iepca.categoryid IN (
+						   SELECT UUID FROM abc)
+		</template-if>
+	</sql-dialect>
+</template>
+</query>

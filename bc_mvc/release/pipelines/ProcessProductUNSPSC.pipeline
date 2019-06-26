@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Pipeline to manage UNSPSC attribute of a product, view UNSPSC code, view UNSPSC hierarchy, update UNSPSC code.
+@Group Product-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessProductUNSPSC" type="process">
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="SelectLevel" callMode="Private">
+    <nodeSuccessors name="next" next="GetProductByUUID3"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID3">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="Join13"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode2"/>
+    <parameterBindings name="ProductUUID" objectPath="ProductID"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join13">
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+    <nodeSuccessors name="next" next="Join7"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+    <nodeSuccessors name="next" next="DetermineCatalogCategory1"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineCatalogCategory1">
+    <pipelet href="enfinity:/xcs/pipelets/DetermineCatalogCategory.xml"/>
+    <nodeSuccessors name="next" next="Decision1"/>
+    <parameterBindings name="CatalogCategoryID" objectPath="RootCategoryID"/>
+    <returnValueBindings name="Category" objectPath="RootCategory"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="RootCategory">
+    <nodeSuccessors name="decision_yes" next="GetSubCategories1"/>
+<!--@BendPoints 5,19-->
+    <nodeSuccessors name="decision_no" next="Join4"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSubCategories1">
+    <configurationValues name="Online" value="True"/>
+    <configurationValues name="Pagesize" value="99999999"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetSubCategories.xml"/>
+    <nodeSuccessors name="next" next="DetermineClassificationCategory2"/>
+    <parameterBindings name="Category" objectPath="RootCategory"/>
+    <returnValueBindings name="SubCategories" objectPath="Level1Categories"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineClassificationCategory2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/DetermineClassificationCategory.xml"/>
+    <nodeSuccessors name="next" next="SplitClassificationCode4"/>
+    <parameterBindings name="ClassificationCategoryDomainName" objectPath="CategoryDomainName"/>
+    <parameterBindings name="ClassificationCategoryID" nullBinding="true"/>
+    <parameterBindings name="ClassificationCategoryName" objectPath="Level1Name"/>
+    <returnValueBindings name="Category" objectPath="Level1Category"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SplitClassificationCode4">
+    <configurationValues name="SplitMethod" value="Split into 4 parts, each 2 digits"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/SplitClassificationCode.xml"/>
+    <nodeSuccessors name="next" next="Decision3"/>
+    <nodeSuccessors name="pipelet_error" next="Join4"/>
+    <parameterBindings name="ClassificationCode" objectPath="Level1Category:Name"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="Level1Category">
+    <nodeSuccessors name="decision_yes" next="GetSubCategories2"/>
+    <nodeSuccessors name="decision_no" next="Join12"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSubCategories2">
+    <configurationValues name="Online" value="True"/>
+    <configurationValues name="Pagesize" value="99999999"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetSubCategories.xml"/>
+    <nodeSuccessors name="next" next="DetermineClassificationCategory1"/>
+    <parameterBindings name="Category" objectPath="Level1Category"/>
+    <returnValueBindings name="SubCategories" objectPath="Level2Categories"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineClassificationCategory1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/DetermineClassificationCategory.xml"/>
+    <nodeSuccessors name="next" next="SplitClassificationCode3"/>
+    <parameterBindings name="ClassificationCategoryDomainName" objectPath="CategoryDomainName"/>
+    <parameterBindings name="ClassificationCategoryID" nullBinding="true"/>
+    <parameterBindings name="ClassificationCategoryName" objectPath="Level2Name"/>
+    <returnValueBindings name="Category" objectPath="Level2Category"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SplitClassificationCode3">
+    <configurationValues name="SplitMethod" value="Split into 4 parts, each 2 digits"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/SplitClassificationCode.xml"/>
+    <nodeSuccessors name="next" next="Decision4"/>
+    <nodeSuccessors name="pipelet_error" next="Join3"/>
+    <parameterBindings name="ClassificationCode" objectPath="Level2Category:Name"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision4" conditionKey="Level2Category">
+    <nodeSuccessors name="decision_yes" next="GetSubCategories3"/>
+    <nodeSuccessors name="decision_no" next="Join9"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSubCategories3">
+    <configurationValues name="Online" value="True"/>
+    <configurationValues name="Pagesize" value="99999999"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetSubCategories.xml"/>
+    <nodeSuccessors name="next" next="DetermineClassificationCategory3"/>
+    <parameterBindings name="Category" objectPath="Level2Category"/>
+    <returnValueBindings name="SubCategories" objectPath="Level3Categories"/>
+  </nodes>
+<!--@Location 1,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineClassificationCategory3">
+    <pipelet href="enfinity:/bc_mvc/pipelets/DetermineClassificationCategory.xml"/>
+    <nodeSuccessors name="next" next="SplitClassificationCode2"/>
+    <parameterBindings name="ClassificationCategoryDomainName" objectPath="CategoryDomainName"/>
+    <parameterBindings name="ClassificationCategoryID" nullBinding="true"/>
+    <parameterBindings name="ClassificationCategoryName" objectPath="Level3Name"/>
+    <returnValueBindings name="Category" objectPath="Level3Category"/>
+  </nodes>
+<!--@Location 1,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SplitClassificationCode2">
+    <configurationValues name="SplitMethod" value="Split into 4 parts, each 2 digits"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/SplitClassificationCode.xml"/>
+    <nodeSuccessors name="next" next="Decision5"/>
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+    <parameterBindings name="ClassificationCode" objectPath="Level3Category:Name"/>
+  </nodes>
+<!--@Location 1,21-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision5" conditionKey="Level3Category">
+    <nodeSuccessors name="decision_yes" next="GetSubCategories4"/>
+    <nodeSuccessors name="decision_no" next="Join10"/>
+  </nodes>
+<!--@Location 1,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSubCategories4">
+    <configurationValues name="Online" value="True"/>
+    <configurationValues name="Pagesize" value="99999999"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetSubCategories.xml"/>
+    <nodeSuccessors name="next" next="DetermineClassificationCategory4"/>
+    <parameterBindings name="Category" objectPath="Level3Category"/>
+    <returnValueBindings name="SubCategories" objectPath="Level4Categories"/>
+  </nodes>
+<!--@Location 1,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineClassificationCategory4">
+    <pipelet href="enfinity:/bc_mvc/pipelets/DetermineClassificationCategory.xml"/>
+    <nodeSuccessors name="next" next="SplitClassificationCode1"/>
+    <parameterBindings name="ClassificationCategoryDomainName" objectPath="CategoryDomainName"/>
+    <parameterBindings name="ClassificationCategoryID" nullBinding="true"/>
+    <parameterBindings name="ClassificationCategoryName" objectPath="Level4Name"/>
+    <returnValueBindings name="Category" objectPath="Level4Category"/>
+  </nodes>
+<!--@Location 1,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SplitClassificationCode1">
+    <configurationValues name="SplitMethod" value="Split into 4 parts, each 2 digits"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/SplitClassificationCode.xml"/>
+    <nodeSuccessors name="next" next="Join11"/>
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+    <parameterBindings name="ClassificationCode" objectPath="Level4Category:Name"/>
+  </nodes>
+<!--@Location 1,25-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join11">
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 1,26-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 2,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+<!--@BendPoints 5,51-->
+    <nodeSuccessors name="next" next="Join11"/>
+  </nodes>
+<!--@Location 2,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join10">
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 2,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="Join10"/>
+  </nodes>
+<!--@Location 2,17-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join9">
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 2,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+    <nodeSuccessors name="next" next="Join9"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join12">
+    <nodeSuccessors name="next" next="Join3"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+    <nodeSuccessors name="next" next="Join12"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="error-product-not-available"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="GetProductByUUID1"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="DetermineCatalogCategory3"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode4"/>
+    <parameterBindings name="ProductUUID" objectPath="ProductID"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineCatalogCategory3">
+    <pipelet href="enfinity:/xcs/pipelets/DetermineCatalogCategory.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="CatalogCategoryID" objectPath="ClassificationCategoryID"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 3,8-->
+    <nodeSuccessors name="next" next="Decision2"/>
+    <parameterBindings name="InValue_1" objectPath="Category:Name"/>
+    <returnValueBindings name="OutValue_1" objectPath="UNSPSCCode"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="UNSPSCCode">
+    <nodeSuccessors name="decision_yes" next="SplitClassificationCode5"/>
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SplitClassificationCode5">
+    <configurationValues name="SplitMethod" value="Split into 4 Classification Code hierarchies"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/SplitClassificationCode.xml"/>
+    <nodeSuccessors name="next" next="Join8"/>
+    <nodeSuccessors name="pipelet_error" next="Join5"/>
+    <parameterBindings name="ClassificationCode" objectPath="UNSPSCCode"/>
+    <returnValueBindings name="Level1" objectPath="Level1Name"/>
+    <returnValueBindings name="Level2" objectPath="Level2Name"/>
+    <returnValueBindings name="Level3" objectPath="Level3Name"/>
+    <returnValueBindings name="Level4" objectPath="Level4Name"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join8">
+    <nodeSuccessors name="next" next="Join7"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+<!--@BendPoints 5,13-->
+    <nodeSuccessors name="next" next="Join8"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="Join5"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="error-product-not-available"/>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="Update" callMode="Private">
+    <nodeSuccessors name="next" next="GetProductByUUID4"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID4">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="DetermineCatalogCategory2" action="begin"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode3"/>
+    <parameterBindings name="ProductUUID" objectPath="ProductID"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineCatalogCategory2">
+    <pipelet href="enfinity:/xcs/pipelets/DetermineCatalogCategory.xml"/>
+<!--@BendPoints 15,6-->
+    <nodeSuccessors name="next" next="AssignProductToCatalogCategory2"/>
+<!--@BendPoints 16,5 16,15-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2" action="rollback"/>
+    <parameterBindings name="CategoryName" objectPath="Level4Name"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignProductToCatalogCategory2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/AssignProductToCatalogCategory.xml"/>
+    <nodeSuccessors name="next" next="UpdateCustomAttributesByForm1"/>
+    <parameterBindings name="CatalogCategory" objectPath="Category"/>
+    <parameterBindings name="Domain" objectPath="Product:Domain"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributesByForm1">
+    <configurationValues name="Prefix" value="Attribute"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttributesByForm.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2" action="commit"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Product"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="error-product-not-available"/>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="ValidateCode" callMode="Private">
+    <nodeSuccessors name="next" next="GetProductByUUID2"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductByUUID2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductByUUID.xml"/>
+    <nodeSuccessors name="next" next="PrepareClassificationCode1"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+    <parameterBindings name="ProductUUID" objectPath="ProductID"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PrepareClassificationCode1">
+    <configurationValues name="ClassificationType" value="UN/SPSC"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/PrepareClassificationCode.xml"/>
+    <nodeSuccessors name="next" next="SplitClassificationCode6"/>
+    <parameterBindings name="Level1Code" objectPath="Level1Value"/>
+    <parameterBindings name="Level2Code" objectPath="Level2Value"/>
+    <parameterBindings name="Level3Code" objectPath="Level3Value"/>
+    <parameterBindings name="Level4Code" objectPath="Level4Value"/>
+    <returnValueBindings name="ClassificationCode" objectPath="UNSPSCCode"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SplitClassificationCode6">
+    <configurationValues name="SplitMethod" value="Split into 4 Classification Code hierarchies"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/SplitClassificationCode.xml"/>
+<!--@BendPoints 11,9-->
+    <nodeSuccessors name="next" next="Join13"/>
+    <parameterBindings name="ClassificationCode" objectPath="UNSPSCCode"/>
+    <returnValueBindings name="Level1" objectPath="Level1Name"/>
+    <returnValueBindings name="Level2" objectPath="Level2Name"/>
+    <returnValueBindings name="Level3" objectPath="Level3Name"/>
+    <returnValueBindings name="Level4" objectPath="Level4Name"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="error-product-not-available"/>
+</pipeline:Pipeline>

@@ -1,0 +1,142 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("hide","true"),
+new TagParameter("listview","true"),
+new TagParameter("start","true"),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewTransportProcessConfigurationOverview-Dispatch",null))))),
+new TagParameter("text",localizeText(context.getFormattedValue("TransportConfigurationList.TransportTasks.text",null)))}, 2); %><% {Object temp_obj = (" selected=\"selected\""); getPipelineDictionary().put("SelectedOption", temp_obj);} %><% {Object temp_obj = (" disabled=\"disabled\""); getPipelineDictionary().put("DisabledOption", temp_obj);} %><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("PermissionMap:SLD_MANAGE_TRANSPORT"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",6,e);}if (_boolean_result) { %><% URLPipelineAction action1 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewTransportProcessConfigurationOverview-Dispatch",null)))),null));String site1 = null;String serverGroup1 = null;String actionValue1 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewTransportProcessConfigurationOverview-Dispatch",null)))),null);if (site1 == null){  site1 = action1.getDomain();  if (site1 == null)  {      site1 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup1 == null){  serverGroup1 = action1.getServerGroup();  if (serverGroup1 == null)  {      serverGroup1 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewTransportProcessConfigurationOverview-Dispatch",null)))),null));out.print("\"");out.print(" name=\"");out.print("dispatch");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue1, site1, serverGroup1,true)); %><table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td width="100%" class="table_title aldi"><% {out.write(localizeISText("TransportConfigurationList.TransportTasks.table_title",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+<tr>
+<td class="table_title_description w e s"><% {out.write(localizeISText("TransportConfigurationList.TheListShowsTransportTasks.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %><br /><br /><% {out.write(localizeISText("TransportConfigurationList.NewConfiguration.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("ConfirmDelete"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",22,e);}if (_boolean_result) { %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("ConfigsToDelete")))).booleanValue() && ((Boolean) (hasLoopElements("ConfigsToDelete") ? Boolean.TRUE : Boolean.FALSE)).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",23,e);}if (_boolean_result) { %><% while (loop("ConfigsToDelete","DelConfig","DeleteCounter")) { %><input type="hidden" name="DelConfig_<%=context.getFormattedValue(getObject("DeleteCounter"),null)%>" value="<%=context.getFormattedValue(getObject("DelConfig"),null)%>"/><% } %> 
+<% processOpenTag(response, pageContext, "messagebox", new TagParameter[] {
+new TagParameter("colspan","1"),
+new TagParameter("cancelbtnname","Cancel"),
+new TagParameter("okbtnname","Delete"),
+new TagParameter("type","mdc"),
+new TagParameter("message",localizeText(context.getFormattedValue("TransportConfigurationList.Delete.confirm",null)))}, 27); %><% } else { %><tr>
+<td>
+<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box w e s">
+<tr>
+<td class="error_icon top e"><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+<td class="error top" width="100%"><% {out.write(localizeISText("TransportConfigurationList.Delete.error",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table>
+</td>
+</tr><% } %><% } %> 
+<tr>
+<td>
+<!-- Create new Transport Configuration --><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("TransportDomains"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",46,e);}if (_boolean_result) { %><input type="hidden" name="TransportProcessCreateForm_DomainID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("TransportDomain:DomainID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {47}",e);}if (value==null) value="";out.write(value);} %>"/>
+<table border="0" cellpadding="4" cellspacing="0" class="infobox w e w100"> 
+<% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("Error"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",49,e);}if (_boolean_result) { %><tr>
+<td colspan="7">
+<!-- Error Section -->
+<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box">
+<tr>
+<td class="error_icon top w e s"><img src="<% {String value = null;try{value=context.getFormattedValue(context.webRoot(),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {55}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+<td class="error top s e" width="100%"><% {out.write(localizeISText("TransportConfigurationList.Error.NotCreated","",null,null,null,null,null,null,null,null,null,null,null));} %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("ERROR")))).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("ERROR"),null).equals(context.getFormattedValue("Create",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",58,e);}if (_boolean_result) { %><br/><% {out.write(localizeISText("TransportConfigurationList.Error.NotUnique","",null,null,null,null,null,null,null,null,null,null,null));} %><% } %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("TransportProcessCreateForm")))).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("TransportProcessCreateForm:Name:ValueMissing"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",62,e);}if (_boolean_result) { %><br/><% {out.write(localizeISText("TransportConfigurationList.Error.NoValidConfiguration","",null,null,null,null,null,null,null,null,null,null,null));} %><% } %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("TransportProcessCreateForm")))).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("TransportProcessCreateForm:Type:ValueMissing"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",66,e);}if (_boolean_result) { %><br/><% {out.write(localizeISText("TransportConfigurationList.Error.PleaseSelectConfiguration","",null,null,null,null,null,null,null,null,null,null,null));} %><% } %></td>
+</tr>
+</table>
+</td>
+</tr><% } %><tr>
+<td class="infobox_item" nowrap="nowrap" align="left"><% {out.write(localizeISText("TransportConfigurationList.TransportTasks.select.description","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="infobox_item">
+<select id="DomainName" name="TransportProcessSearchForm_DomainID" class="select"> 
+<% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("TransportDomains")))).booleanValue() && ((Boolean) (hasLoopElements("TransportDomains") ? Boolean.TRUE : Boolean.FALSE)).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",82,e);}if (_boolean_result) { %><% while (loop("TransportDomains","Domain",null)) { %><option value="<% {String value = null;try{value=context.getFormattedValue(getObject("Domain:DomainID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {84}",e);}if (value==null) value="";out.write(value);} %>"<% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("TransportDomain:DomainID"),null).equals(context.getFormattedValue(getObject("Domain:DomainID"),null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",84,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("SelectedOption"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {84}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %>><% {String value = null;try{value=context.getFormattedValue(getObject("Domain:DomainName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {84}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></option><% } %><% } else { %><option value=""><% {out.write(localizeISText("TransportConfigurationList.Domain.NotAvailable","",null,null,null,null,null,null,null,null,null,null,null));} %></option> 
+<% } %></select>
+</td>
+<td class="w100" colspan="3"><input type="submit" name="DomainSelection" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("TransportConfigurationList.OK.button",null)),null)%>" class="button"/></td>
+</tr> 
+<tr>
+<td class="infobox_item" nowrap="nowrap" align="left"><% {out.write(localizeISText("TransportConfigurationList.FieldName.DisplayName",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="infobox_item"><input type="text" name="TransportProcessCreateForm_DisplayName" value="<% {String value = null;try{value=context.getFormattedValue(getObject("TransportProcessCreateForm:DisplayName:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {95}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" class="inputfield_en w100"<% _boolean_result=false;try {_boolean_result=((Boolean)(((!((Boolean) ((disableErrorMessages().isDefined(getObject("TransportDomain"))))).booleanValue() || !((Boolean) ((disableErrorMessages().isDefined(getObject("TransportConfigurationTypes"))))).booleanValue() || !((Boolean) ((hasLoopElements("TransportConfigurationTypes") ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",95,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("DisabledOption"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {95}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %>/></td>
+<td class="infobox_item" nowrap="nowrap" align="left"><% {out.write(localizeISText("TransportConfigurationList.FieldName.Type",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="infobox_item">
+<select name="TransportProcessCreateForm_Type" class="select"<% _boolean_result=false;try {_boolean_result=((Boolean)(((!((Boolean) ((disableErrorMessages().isDefined(getObject("TransportDomain"))))).booleanValue() || !((Boolean) ((disableErrorMessages().isDefined(getObject("TransportConfigurationTypes"))))).booleanValue() || !((Boolean) ((hasLoopElements("TransportConfigurationTypes") ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",98,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("DisabledOption"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {98}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %>> 
+<% while (loop("TransportConfigurationTypes","Type",null)) { %><option value="<% {String value = null;try{value=context.getFormattedValue(getObject("Type"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {100}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"<% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("TransportProcessCreateForm:Type:Value"),null).equals(context.getFormattedValue(getObject("Type"),null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",100,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("SelectedOption"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {100}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %>><% {String value = null;try{value=context.getFormattedValue(getObject("Type"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {100}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></option><% } %></select>
+</td>
+<td class="w100"><input type="submit" name="Create" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("TransportConfigurationList.Create.button",null)),null)%>" class="button"<% _boolean_result=false;try {_boolean_result=((Boolean)(((!((Boolean) ((disableErrorMessages().isDefined(getObject("TransportDomain"))))).booleanValue() || !((Boolean) ((disableErrorMessages().isDefined(getObject("TransportConfigurationTypes"))))).booleanValue() || !((Boolean) ((hasLoopElements("TransportConfigurationTypes") ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",104,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("DisabledOption"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {104}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %>/></td>
+</tr>
+</table><% } %></td>
+</tr> 
+<tr>
+<td>
+<table width="100%" border="0" cellspacing="0" cellpadding="0"><% _boolean_result=false;try {_boolean_result=((Boolean)((hasLoopElements("PageableTransportProcessConfigs") ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",113,e);}if (_boolean_result) { %><thead>
+<tr class="table_header">
+<td class="table_header n e w s center" nowrap="nowrap" width="70">
+<div id="A">
+<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="75">
+<tr>
+<td nowrap="nowrap">
+<a href="javascript:selectAll('dispatch','DeleteConfig','A','B');" class="tableheader"><% {out.write(localizeISText("TransportConfigurationList.SelectAll.link",null,null,null,null,null,null,null,null,null,null,null,null));} %></a>
+</td>
+</tr>
+</table>
+</div>
+<div id="B" style="display:none">
+<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="75">
+<tr>
+<td nowrap="nowrap">
+<a href="javascript:selectAll('dispatch','DeleteConfig','A','B');" class="tableheader"><% {out.write(localizeISText("TransportConfigurationList.ClearAll.link",null,null,null,null,null,null,null,null,null,null,null,null));} %></a>
+</td>
+</tr>
+</table>
+</div>
+</td>
+<td class="table_header n e s" nowrap="nowrap"><% {out.write(localizeISText("TransportConfigurationList.Table.Header.DomainConfigMap.DisplayName","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="table_header n e s" nowrap="nowrap"><% {out.write(localizeISText("TransportConfigurationList.Table.Header.DomainConfigMap.ProcessID","",null,null,null,null,null,null,null,null,null,null,null));} %></td> 
+<td class="table_header n e s" nowrap="nowrap"><% {out.write(localizeISText("TransportConfigurationList.Table.Header.DomainConfigMap.Domain","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="table_header n e s" nowrap="nowrap"><% {out.write(localizeISText("TransportConfigurationList.Table.Header.DomainConfigMap.Type","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="table_header n e s" nowrap="nowrap"><% {out.write(localizeISText("TransportConfigurationList.Table.Header.DomainConfigMap.Valid","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</thead>
+<tbody><% while (loop("PageableTransportProcessConfigs","Config",null)) { %><tr>
+<td class="table_detail w e s center"> 
+<input type="checkbox" name="DeleteConfig" value="<%=context.getFormattedValue(getObject("Config:ProcessID"),null)%>" <% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("ConfigsToDelete")))).booleanValue() && ((Boolean) (hasLoopElements("ConfigsToDelete") ? Boolean.TRUE : Boolean.FALSE)).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",147,e);}if (_boolean_result) { %><% while (loop("ConfigsToDelete","DeleteCanidate",null)) { %><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("Config:ProcessID"),null).equals(context.getFormattedValue(getObject("DeleteCanidate"),null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",147,e);}if (_boolean_result) { %>checked="checked"<% } %><% } %><% } %> />
+</td>
+<td class="table_detail e s" nowrap="nowrap"><a class="table_detail_link" href="<% {String value = null;try{value=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewTransportProcessConfigurationDetail-Start",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("DomainID",null),context.getFormattedValue(getObject("TransportDomain:DomainID"),null))).addURLParameter(context.getFormattedValue("ProcessID",null),context.getFormattedValue(getObject("Config:ProcessID"),null))),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {149}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("Config:DisplayName")))).booleanValue() && ((Boolean) (((!(context.getFormattedValue(getObject("Config:DisplayName"),null).equals(context.getFormattedValue("",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",149,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("Config:DisplayName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {149}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } else { %>&nbsp;<% } %></a></td>
+<td class="table_detail e s"><% {String value = null;try{value=context.getFormattedValue(getObject("Config:ProcessID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {150}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+<td class="table_detail e s nowrap="nowrap"><% {String value = null;try{value=context.getFormattedValue(getObject("TransportDomain:DomainName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {151}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+<td class="table_detail e s"><% {String value = null;try{value=context.getFormattedValue(getObject("Config:Type"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {152}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></td>
+<td class="table_detail e s" nowrap="nowrap"><% {String value = null;try{value=context.getFormattedValue(getObject("Config:Valid"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {153}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (getObject("Config:Valid"))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",153,e);}if (_boolean_result) { %> <img src="<% {String value = null;try{value=context.getFormattedValue(context.webRoot(),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {153}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>/images/error.gif" width="16" height="15" alt="Transport process configuration is invalid" title="Transport process configuration is invalid" border="0"/><% } %></td>
+</tr><% } %><tr>
+<td class="w e s right" colspan="6">
+<table class="right w100">
+<tr>
+<td class="w100"></td>
+<td class="button"> 
+<input type="submit" name="ConfirmDelete" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("TransportConfigurationList.Delete.button",null)),null)%>" class="button"/>
+</td>
+</tr>
+</table> 
+</td> 
+</tr>
+</tbody><% } else { %><tr>
+<td class="table_title_description w e s"><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("TransportDomains")))).booleanValue() && ((Boolean) (hasLoopElements("TransportDomains") ? Boolean.TRUE : Boolean.FALSE)).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",172,e);}if (_boolean_result) { %><% {out.write(localizeISText("TransportConfigurationList.Domain.Available.description",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } else { %><% {out.write(localizeISText("TransportConfigurationList.Domain.NotAvailable.description",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } %></td>
+</tr><% } %></table>
+</td>
+</tr>
+<tr>
+<td width="100%"><img src="<% {String value = null;try{value=context.getFormattedValue(context.webRoot(),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {185}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>/images/space.gif" width="1" height="6" alt="" border="0"/></td>
+</tr> 
+</table><% _boolean_result=false;try {_boolean_result=((Boolean)((hasLoopElements("PageableTransportProcessConfigs") ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",188,e);}if (_boolean_result) { %><table class="pagecursor" width="100%">
+<tr> 
+<% processOpenTag(response, pageContext, "pagenavigationbar", new TagParameter[] {
+new TagParameter("pipeline","ViewTransportProcessConfigurationOverview-Paging"),
+new TagParameter("parametervalue",getObject("TransportDomain:DomainID")),
+new TagParameter("pageable","PageableTransportProcessConfigs"),
+new TagParameter("parametername","DomainUUID")}, 191); %> 
+</tr>
+</table><% } %> 
+</td>
+</tr>
+</table><% out.print("</form>"); %><% } %><% printFooter(out); %>

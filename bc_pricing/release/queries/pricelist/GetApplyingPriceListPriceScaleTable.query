@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query calculates the applying price scale table for a certain date. As multiple price scale tables might be defined for this date a calculation/comparison of their start and end dates is used to obtain the right one.">
+<parameters>
+	<parameter name="PriceListUUID" type="java.lang.String" optional="false"/>
+	<parameter name="ProductUUID" type="java.lang.String" optional="false"/>
+	<parameter name="CurrencyCode" type="java.lang.String" optional="false"/>
+	<parameter name="Date" type="java.util.Date" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="PriceScaleTable" type="orm" class="com.intershop.component.pricing.internal.scale.PriceScaleTablePO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	SELECT -- select price scale table with latest last modified
+	  pst3.uuid
+	FROM
+	  ( -- select the price scale table with latest validFrom
+	  SELECT
+	      pst2.uuid,
+	      pst2.validfrom,
+	      pst2.validto,
+	      pst2.lastmodified,
+	      max(pst2.lastmodified) over() AS maxlastmodified
+	  FROM
+	    ( -- select all valid price scale tables
+	    SELECT
+	      pst1.uuid,
+	      pst1.validfrom,
+	      pst1.validto,
+	      pst1.lastmodified,
+	      max(pst1.validfrom) over () AS maxvalidfrom
+	    FROM
+	      pricescaletableassignment psta
+	      JOIN pricescaletable pst1 ON (pst1.uuid = psta.pricescaletableuuid)
+	    WHERE
+	      psta.pricelistuuid = <template-variable value="PriceListUUID"/>
+	      AND psta.productuuid = <template-variable value="ProductUUID"/>
+	      AND pst1.currencycode = <template-variable value="CurrencyCode"/>
+	      AND ((pst1.validto &gt; <template-variable value="Date"/> AND pst1.validfrom &lt;= <template-variable value="Date"/>) OR
+	           (pst1.validto &gt; <template-variable value="Date"/> AND pst1.validfrom is null) OR
+	           (pst1.validto IS null AND pst1.validfrom &lt;= <template-variable value="Date"/>) OR
+	           (pst1.validto IS null AND pst1.validfrom IS null))
+	    ) pst2
+	  WHERE
+	    (pst2.validfrom IS null AND pst2.maxvalidfrom IS null)
+	    OR pst2.maxvalidfrom = pst2.validfrom
+	  ) pst3
+	WHERE
+	  pst3.maxlastmodified = pst3.lastmodified
+</template>
+</query>

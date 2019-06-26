@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="ClassificationAttributeMap" type="java.util.Map" optional="true"/>
+	<parameter name="ClassificationAttributeDefinedMap" type="java.util.Map" optional="true"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="Currency" type="java.lang.String" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects" sqlDialect="Oracle">
+    /* product sharing */
+    
+    <template-if condition="not isdefined(ClassificationAttributeMap)">
+	    SELECT DISTINCT
+	        p.uuid as UUID, <sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.sku, p.sku) as SKU, 
+			CASE
+				WHEN p.lastModified &gt; dp.lastModified OR dp.lastModified IS NULL THEN p.lastModified 
+				ELSE dp.lastModified
+			END as LASTMODIFIED,
+	    <template-if condition="SortAttribute EQ 'value'">
+	        pl.value
+	    <if-elseif condition="SortAttribute EQ 'sku' OR SortAttribute EQ 'SKU'"/>
+	        <sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.sku, p.sku)
+		<if-elseif condition="SortAttribute EQ 'SupplierName'"/>	
+			<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.suppliername, p.suppliername)
+	    <if-elseif condition="NOT isDefined(SortAttribute) OR SortAttribute EQ 'name'"/>
+			<template-if condition="isDefined(LocaleInformation)">
+		        <sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/>,
+		            p.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/>)
+			<if-else/>
+		        <sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.name, p.name)
+			</template-if>
+	    <if-else/>
+	    /* localized or non localized attribute */
+			<template-if condition="isDefined(LocaleInformation)">
+		        decode(contains(dp.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, 'HASPATH (//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string)'), 0,
+		        extractValue(XMLType(<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, '&lt;attrs/&gt;')), '//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string[1]'),
+		        extractValue(XMLType(<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, '&lt;attrs/&gt;')), '//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string[1]')) ||
+			<if-else/>
+		        decode(contains(dp.attributes, 'HASPATH (//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string)'), 0,
+		        extractValue(XMLType(<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(p.attributes, '&lt;attrs/&gt;')), '//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string[1]'),
+		        extractValue(XMLType(<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.attributes, '&lt;attrs/&gt;')), '//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string[1]')) ||
+			</template-if>
+	        decode(contains(dp.attributes, 'HASPATH (//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string)'), 0,
+	        extractValue(XMLType(<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(p.attributes, '&lt;attrs/&gt;')), '//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string[1]'),
+	        extractValue(XMLType(<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.attributes, '&lt;attrs/&gt;')), '//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string[1]'))
+	    </template-if> AS SORTING
+	    FROM
+	        product p
+	    LEFT OUTER JOIN
+	        derivedproduct dp ON (dp.baseproductid=p.uuid AND dp.domainid=<template-variable value="ProductDomain:UUID"/>)
+	    <template-if condition="SortAttribute EQ 'value'">
+	    LEFT OUTER JOIN (
+	        <template-call name="price/GetListPricesByDomain">
+	            <call-parameter name="ProductDomain" value="ProductDomain"/>
+	        </template-call>
+	    ) pl ON (pl.productid = p.uuid AND pl.currency=<template-variable value="Currency"/>)
+	    </template-if>
+	    WHERE
+	    (
+	        (p.domainid IN (<template-loop alias="Domain" iterator="Sharing:Domains"><loop-statement><template-variable value="Domain:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+	    <template-if condition="hasElements(Sharing:ProductSets)">
+	        OR EXISTS (
+	            SELECT 1
+	            FROM
+	                productsetassignment psa
+	            JOIN
+	                productset ps ON (psa.productsetuuid=ps.uuid)
+	            WHERE
+	                p.uuid=psa.productUUID
+	            AND
+	                p.domainid=ps.domainid
+	            AND
+	                psa.productsetuuid IN (<template-loop alias="ProductSet" iterator="Sharing:ProductSets"><loop-statement><template-variable value="ProductSet:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+	        )
+	    </template-if>
+	    )
+	    <template-if condition="isDefined(Sharing:InboundProductSet)">
+	    	AND (
+	    		EXISTS (
+	    			SELECT 1
+	    			FROM
+	        			productsetassignment psa
+	    			WHERE
+	        			p.uuid=psa.productUUID
+	    			AND
+	        			psa.productsetuuid = <template-variable value="Sharing:InboundProductSet:UUID"/>
+				)
+				OR
+				(p.domainid = <template-variable value="ProductDomain:UUID"/>)
+			)
+	    </template-if>
+	    )
+	<if-else/>
+		<template-loop alias="Category" iterator="ClassificationAttributeMap:KeySet">
+		<loop-statement>
+		    SELECT
+		        p.uuid as UUID, <sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.sku, p.sku) as SKU, 
+				CASE
+					WHEN p.lastModified &gt; dp.lastModified OR dp.lastModified IS NULL THEN p.lastModified 
+					ELSE dp.lastModified
+				END as LASTMODIFIED,
+		    <template-if condition="SortAttribute EQ 'value'">
+		        pl.value
+		    <if-elseif condition="SortAttribute EQ 'sku' OR SortAttribute EQ 'SKU'"/>
+		        <sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.sku, p.sku)
+			<if-elseif condition="SortAttribute EQ 'SupplierName'"/>	
+				<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.suppliername, p.suppliername)
+			<if-elseif condition="NOT isDefined(SortAttribute) OR SortAttribute EQ 'name'"/>
+				<template-if condition="isDefined(LocaleInformation)">
+			        <sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/>,
+			            p.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/>)
+				<if-else/>
+			        <sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.name, p.name)
+				</template-if>
+		    <if-else/>
+	    /* localized or non localized attribute */
+				<template-if condition="isDefined(LocaleInformation)">
+			        decode(contains(dp.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, 'HASPATH (//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string)'), 0,
+			        extractValue(XMLType(<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, '&lt;attrs/&gt;')), '//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string[1]'),
+			        extractValue(XMLType(<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, '&lt;attrs/&gt;')), '//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string[1]')) ||
+				<if-else/>
+			        decode(contains(dp.attributes, 'HASPATH (//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string)'), 0,
+			        extractValue(XMLType(<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(p.attributes, '&lt;attrs/&gt;')), '//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string[1]'),
+			        extractValue(XMLType(<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.attributes, '&lt;attrs/&gt;')), '//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string[1]')) ||
+				</template-if>
+		        decode(contains(dp.attributes, 'HASPATH (//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string)'), 0,
+		        extractValue(XMLType(<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(p.attributes, '&lt;attrs/&gt;')), '//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string[1]'),
+		        extractValue(XMLType(<sql-dialect name="Oracle">nvl</sql-dialect><sql-dialect name="Microsoft">IsNull</sql-dialect>(dp.attributes, '&lt;attrs/&gt;')), '//attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/string[1]'))
+		    </template-if> AS SORTING
+		    FROM
+		        product p
+		    LEFT OUTER JOIN
+		        derivedproduct dp ON (dp.baseproductid=p.uuid AND dp.domainid=<template-variable value="ProductDomain:UUID"/>)
+		    <template-if condition="SortAttribute EQ 'value'">
+		    LEFT OUTER JOIN (
+		        <template-call name="price/GetListPricesByDomain">
+		            <call-parameter name="ProductDomain" value="ProductDomain"/>
+		        </template-call>
+		    ) pl ON (pl.productid = p.uuid AND pl.currency=<template-variable value="Currency"/>)
+		    </template-if>
+			<template-if condition="Category NE 'None'">
+		        inner join
+		        productcategoryassignment a on (a.productid = p.uuid)
+		    </template-if>
+		    WHERE
+		    (
+		        (p.domainid IN (<template-loop alias="Domain" iterator="Sharing:Domains"><loop-statement><template-variable value="Domain:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+		    <template-if condition="hasElements(Sharing:ProductSets)">
+		        OR EXISTS (
+		            SELECT 1
+		            FROM
+		                productsetassignment psa
+		            JOIN
+		                productset ps ON (psa.productsetuuid=ps.uuid)
+		            WHERE
+		                p.uuid=psa.productUUID
+		            AND
+		                p.domainid=ps.domainid
+		            AND
+		                psa.productsetuuid IN (<template-loop alias="ProductSet" iterator="Sharing:ProductSets"><loop-statement><template-variable value="ProductSet:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+		        )
+		    </template-if>
+		    )
+		    <template-if condition="isDefined(Sharing:InboundProductSet)">
+		    	AND EXISTS (
+		    		SELECT 1
+		    		FROM
+		        		productsetassignment psa
+		    		WHERE
+		        		p.uuid=psa.productUUID
+		    		AND
+		        		psa.productsetuuid = <template-variable value="Sharing:InboundProductSet:UUID"/>
+				)
+		    </template-if>
+		    )
+			<template-loop alias="ClassificationAttribute" iterator="ClassificationAttributeMap:get(Category)">
+				<loop-statement>
+					<template-if condition="(not isDefined(ClassificationAttributeDefinedMap)) OR (ClassificationAttributeDefinedMap:get(ClassificationAttribute:UUID) EQ 'true')">
+						AND p.uuid in (<template-call name="product/inc/SharingHasPathFilter">
+				            <call-parameter name="Name" value="ClassificationAttribute:Name"/>
+				            <call-parameter name="Type" value="'string'"/>
+				            <call-parameter name="ProductDomain" value="ProductDomain"/>
+				            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+				        </template-call>)
+					<if-else/>
+						AND NOT p.uuid in (<template-call name="product/inc/SharingHasPathFilter">
+				            <call-parameter name="Name" value="ClassificationAttribute:Name"/>
+				            <call-parameter name="Type" value="'string'"/>
+				            <call-parameter name="ProductDomain" value="ProductDomain"/>
+				            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+				        </template-call>)
+					</template-if>
+				</loop-statement>
+			</template-loop>
+			<template-if condition="Category NE 'None'">
+				AND a.catalogcategoryID = <template-variable value="Category:UUID" />
+			</template-if>
+		</loop-statement>
+		<loop-separator> UNION ALL </loop-separator>
+		</template-loop>		
+	</template-if>
+</template>
+<template type="objects" sqlDialect="Microsoft">
+    /* product sharing */
+    
+    <template-if condition="not isdefined(ClassificationAttributeMap)">
+	    SELECT DISTINCT
+	        p.uuid as UUID, ISNULL(dp.sku, p.sku) as SKU, 
+			CASE
+				WHEN p.lastModified &gt; dp.lastModified OR dp.lastModified IS NULL THEN p.lastModified 
+				ELSE dp.lastModified
+			END as LASTMODIFIED,
+	    <template-if condition="SortAttribute EQ 'value'">
+	        pl.value
+	    <if-elseif condition="SortAttribute EQ 'sku' OR SortAttribute EQ 'SKU'"/>
+	        ISNULL(dp.sku, p.sku)
+		<if-elseif condition="SortAttribute EQ 'SupplierName'"/>	
+			ISNULL(dp.suppliername, p.suppliername)
+	    <if-elseif condition="NOT isDefined(SortAttribute) OR SortAttribute EQ 'name'"/>
+			<template-if condition="isDefined(LocaleInformation)">
+		        ISNULL(dp.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/>,
+		            p.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/>)
+			<if-else/>
+		        ISNULL(dp.name, p.name)
+			</template-if>
+	    <if-else/>
+	    /* localized or non localized attribute */
+			<template-if condition="isDefined(LocaleInformation)">
+				CASE WHEN dp.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>.exist('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string') >0 THEN 0
+					WHEN ISNULL(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, '&lt;attrs/&gt;').value('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string[1]', 'NVARCHAR(300)') IS NOT NULL THEN
+						CONCAT(ISNULL(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, '&lt;attrs/&gt;').value('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string[1]','NVARCHAR(300)'),
+			<if-else/>
+		       	CASE WHEN dp.attributes.exist('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string') &gt; 0 THEN 0 
+				WHEN ISNULL(p.attributes, '&lt;attrs/&gt;').value('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string[1]', 'NVARCHAR(300)') IS NOT NULL THEN
+				CONCAT(ISNULL(dp.attributes, '&lt;attrs/&gt;').value('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string[1]', 'NVARCHAR(300)'),
+			</template-if>
+	        	CASE WHEN dp.attributes.exist('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string')> 0 THEN
+					0
+				WHEN ISNULL(p.attributes, '&lt;attrs/&gt;').value('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string[1]','NVARCHAR(300)')  IS NOT NULL THEN
+					ISNULL(dp.attributes, '&lt;attrs/&gt;').value('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string[1]','NVARCHAR(300)')
+				END)
+			EN
+	    </template-if> AS SORTING
+	    FROM
+	        product p
+	    LEFT OUTER JOIN
+	        derivedproduct dp ON (dp.baseproductid=p.uuid AND dp.domainid=<template-variable value="ProductDomain:UUID"/>)
+	    <template-if condition="SortAttribute EQ 'value'">
+	    LEFT OUTER JOIN (
+	        <template-call name="price/GetListPricesByDomain">
+	            <call-parameter name="ProductDomain" value="ProductDomain"/>
+	        </template-call>
+	    ) pl ON (pl.productid = p.uuid AND pl.currency=<template-variable value="Currency"/>)
+	    </template-if>
+	    WHERE
+	    (
+	        (p.domainid IN (<template-loop alias="Domain" iterator="Sharing:Domains"><loop-statement><template-variable value="Domain:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+	    <template-if condition="hasElements(Sharing:ProductSets)">
+	        OR EXISTS (
+	            SELECT 1
+	            FROM
+	                productsetassignment psa
+	            JOIN
+	                productset ps ON (psa.productsetuuid=ps.uuid)
+	            WHERE
+	                p.uuid=psa.productUUID
+	            AND
+	                p.domainid=ps.domainid
+	            AND
+	                psa.productsetuuid IN (<template-loop alias="ProductSet" iterator="Sharing:ProductSets"><loop-statement><template-variable value="ProductSet:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+	        )
+	    </template-if>
+	    )
+	    <template-if condition="isDefined(Sharing:InboundProductSet)">
+	    	AND (
+	    		EXISTS (
+	    			SELECT 1
+	    			FROM
+	        			productsetassignment psa
+	    			WHERE
+	        			p.uuid=psa.productUUID
+	    			AND
+	        			psa.productsetuuid = <template-variable value="Sharing:InboundProductSet:UUID"/>
+				)
+				OR
+				(p.domainid = <template-variable value="ProductDomain:UUID"/>)
+			)
+	    </template-if>
+	    )
+	<if-else/>
+		<template-loop alias="Category" iterator="ClassificationAttributeMap:KeySet">
+		<loop-statement>
+		    SELECT
+		        p.uuid as UUID, ISNULL(dp.sku, p.sku) as SKU, 
+				CASE
+					WHEN p.lastModified &gt; dp.lastModified OR dp.lastModified IS NULL THEN p.lastModified 
+					ELSE dp.lastModified
+				END as LASTMODIFIED,
+		    <template-if condition="SortAttribute EQ 'value'">
+		        pl.value
+		    <if-elseif condition="SortAttribute EQ 'sku' OR SortAttribute EQ 'SKU'"/>
+		        ISNULL(dp.sku, p.sku)
+			<if-elseif condition="SortAttribute EQ 'SupplierName'"/>	
+				ISNULL(dp.suppliername, p.suppliername)
+			<if-elseif condition="NOT isDefined(SortAttribute) OR SortAttribute EQ 'name'"/>
+				<template-if condition="isDefined(LocaleInformation)">
+			        ISNULL(dp.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/>,
+			            p.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/>)
+				<if-else/>
+			        ISNULL(dp.name, p.name)
+				</template-if>
+		    <if-else/>
+			/* localized or non localized attribute */
+				<template-if condition="isDefined(LocaleInformation)">
+					CASE WHEN dp.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>.exist('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string') >0 THEN 0
+						WHEN ISNULL(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, '&lt;attrs/&gt;').value('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string[1]', 'NVARCHAR(300)') IS NOT NULL THEN
+							CONCAT(ISNULL(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, '&lt;attrs/&gt;').value('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string[1]','NVARCHAR(300)'),
+				<if-else/>
+					CASE WHEN dp.attributes.exist('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string') &gt; 0 THEN 0 
+					WHEN ISNULL(p.attributes, '&lt;attrs/&gt;').value('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string[1]', 'NVARCHAR(300)') IS NOT NULL THEN
+					CONCAT(ISNULL(dp.attributes, '&lt;attrs/&gt;').value('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string[1]', 'NVARCHAR(300)'),
+				</template-if>
+					CASE WHEN dp.attributes.exist('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string')> 0 THEN
+						0
+					WHEN ISNULL(p.attributes, '&lt;attrs/&gt;').value('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string[1]','NVARCHAR(300)')  IS NOT NULL THEN
+						ISNULL(dp.attributes, '&lt;attrs/&gt;').value('//attrs/attr[@name="<template-variable value="SortAttribute"/>"]/string[1]','NVARCHAR(300)')
+					END)
+				EN
+			</template-if> AS SORTING
+		    FROM
+		        product p
+		    LEFT OUTER JOIN
+		        derivedproduct dp ON (dp.baseproductid=p.uuid AND dp.domainid=<template-variable value="ProductDomain:UUID"/>)
+		    <template-if condition="SortAttribute EQ 'value'">
+		    LEFT OUTER JOIN (
+		        <template-call name="price/GetListPricesByDomain">
+		            <call-parameter name="ProductDomain" value="ProductDomain"/>
+		        </template-call>
+		    ) pl ON (pl.productid = p.uuid AND pl.currency=<template-variable value="Currency"/>)
+		    </template-if>
+			<template-if condition="Category NE 'None'">
+		        inner join
+		        productcategoryassignment a on (a.productid = p.uuid)
+		    </template-if>
+		    WHERE
+		    (
+		        (p.domainid IN (<template-loop alias="Domain" iterator="Sharing:Domains"><loop-statement><template-variable value="Domain:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+		    <template-if condition="hasElements(Sharing:ProductSets)">
+		        OR EXISTS (
+		            SELECT 1
+		            FROM
+		                productsetassignment psa
+		            JOIN
+		                productset ps ON (psa.productsetuuid=ps.uuid)
+		            WHERE
+		                p.uuid=psa.productUUID
+		            AND
+		                p.domainid=ps.domainid
+		            AND
+		                psa.productsetuuid IN (<template-loop alias="ProductSet" iterator="Sharing:ProductSets"><loop-statement><template-variable value="ProductSet:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+		        )
+		    </template-if>
+		    )
+		    <template-if condition="isDefined(Sharing:InboundProductSet)">
+		    	AND EXISTS (
+		    		SELECT 1
+		    		FROM
+		        		productsetassignment psa
+		    		WHERE
+		        		p.uuid=psa.productUUID
+		    		AND
+		        		psa.productsetuuid = <template-variable value="Sharing:InboundProductSet:UUID"/>
+				)
+		    </template-if>
+		    )
+			<template-loop alias="ClassificationAttribute" iterator="ClassificationAttributeMap:get(Category)">
+				<loop-statement>
+					<template-if condition="(not isDefined(ClassificationAttributeDefinedMap)) OR (ClassificationAttributeDefinedMap:get(ClassificationAttribute:UUID) EQ 'true')">
+						AND p.uuid in (<template-call name="product/inc/SharingHasPathFilter">
+				            <call-parameter name="Name" value="ClassificationAttribute:Name"/>
+				            <call-parameter name="Type" value="'string'"/>
+				            <call-parameter name="ProductDomain" value="ProductDomain"/>
+				            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+				        </template-call>)
+					<if-else/>
+						AND NOT p.uuid in (<template-call name="product/inc/SharingHasPathFilter">
+				            <call-parameter name="Name" value="ClassificationAttribute:Name"/>
+				            <call-parameter name="Type" value="'string'"/>
+				            <call-parameter name="ProductDomain" value="ProductDomain"/>
+				            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+				        </template-call>)
+					</template-if>
+				</loop-statement>
+			</template-loop>
+			<template-if condition="Category NE 'None'">
+				AND a.catalogcategoryID = <template-variable value="Category:UUID" />
+			</template-if>
+		</loop-statement>
+		<loop-separator> UNION ALL </loop-separator>
+		</template-loop>		
+	</template-if>
+</template>
+</query>

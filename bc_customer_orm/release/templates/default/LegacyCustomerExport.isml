@@ -1,0 +1,78 @@
+<iscontent type="text/xml" templatemarker="false" charset="UTF-8" session="false">
+
+<%@page import="java.util.Iterator,
+				com.intershop.component.customer.capi.CustomerBO,
+			    com.intershop.component.customer.capi.CustomerBOPrivateCustomerExtension,
+			    com.intershop.component.user.capi.UserBO,
+			    com.intershop.beehive.core.capi.impex.AttributeValueIterator,
+			    com.intershop.beehive.core.capi.user.User,
+			    com.intershop.beehive.core.capi.profile.Profile,
+			    com.intershop.beehive.core.capi.profile.ProfileMgr,
+			    com.intershop.beehive.core.capi.paging.PageableIterator,
+			    com.intershop.beehive.core.capi.domain.PersistentObjectBOExtension,
+			    com.intershop.component.customer.orm.internal.orm.CustomerPO,
+			    com.intershop.beehive.core.capi.domain.ExtensibleObject,
+			    com.intershop.beehive.core.capi.query.Row,
+			    com.intershop.beehive.foundation.util.ConcatenationIterator"%>
+
+<isif condition="#(NOT isDefined(MultiThreadingEnabled)) OR (NOT MultiThreadingEnabled)#">
+	<isinclude template="UserExportHeader">
+</isif>
+
+	<ismodule template="inc/FNDUser" name="USER" attribute="user" attribute="customattributes">
+	<isif condition="#isDefined(Objects)#">
+		<%
+			ProfileMgr profileMgr = (ProfileMgr) NamingMgr.getInstance().lookupManager(ProfileMgr.REGISTRY_NAME);
+			Iterator objects = (Iterator)getObject("Objects");
+
+			if (objects instanceof PageableIterator)
+			{
+			    objects = ((PageableIterator) objects).toSequence();
+			}
+
+			while (objects.hasNext())
+			{
+			    Object object = objects.next();
+			    CustomerBO customerBO;
+			    if (object instanceof Row)
+			    {
+			        Row row = (Row)object;
+			        customerBO = (CustomerBO)row.get("CustomerBO");
+			    }
+			    else
+			    {
+			        customerBO = (CustomerBO)object;
+			    }
+
+			    if (null != customerBO)
+			    {
+			        CustomerBOPrivateCustomerExtension privateCustomerExtension = customerBO.getExtension("PrivateCustomer");
+		    	    if (null != privateCustomerExtension)
+		    	    {
+		    	        UserBO customerUser = privateCustomerExtension.getUserBO();
+		    	        Profile profile = profileMgr.resolveProfileFromID(customerUser.getID());
+		    	        User user = new User(profile.getProfileID());
+		    	        if (null != user)
+		    	        {
+		    	            PersistentObjectBOExtension ex = customerBO.getExtension(PersistentObjectBOExtension.class);
+							CustomerPO customerPO = (CustomerPO)ex.getPersistentObject();
+							if (null != customerPO)
+							{
+			    	            Iterator customerAttr = new AttributeValueIterator(customerPO.createAttributeValuesIterator(), customerPO);
+			    	            Iterator profileAttr = new AttributeValueIterator(((ExtensibleObject)profile).createAttributeValuesIterator(), (ExtensibleObject) profile);
+			    	            ConcatenationIterator conIter = new ConcatenationIterator();
+	                            conIter.addIterator(customerAttr);
+	                            conIter.addIterator(profileAttr);
+	                            getPipelineDictionary().put("CustomAttributes", conIter);
+			    	            getPipelineDictionary().put("Object", user);
+								%><ISUSER user="#Object#" customattributes="#CustomAttributes#"><%
+							}
+		    	        }
+		    	    }
+			    }
+			}
+		%>
+	</isif>
+<isif condition="#(NOT isDefined(MultiThreadingEnabled)) OR (NOT MultiThreadingEnabled)#">
+	<isinclude template="DefaultExportFooter">
+</isif>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="RepositoryDomainID" type="java.lang.String" optional="false"/>
+	<parameter name="ChannelDomainID" type="java.lang.String" optional="false"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Products" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	
+	  select uuid , count(*) over() as "rowcount"
+			<template-if condition="isDefined(LocaleInformation)">
+				,p1.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/> AS SORTING
+			</template-if>
+	    from product p1 
+	   where domainid = <template-variable value="RepositoryDomainID"/>
+	     and not exists (select * 
+	                       from product p2 
+	                      where p2.offeredproductid=p1.uuid 
+	                        and p2.domainid = <template-variable value="ChannelDomainID"/>)     
+	<template-if condition="isDefined(LocaleInformation)">
+		<sql-dialect name="Oracle">
+			ORDER BY SORTING
+			ASC NULLS LAST
+		</sql-dialect>
+		<sql-dialect name="Microsoft">
+			ORDER BY				
+			CASE
+				WHEN p1.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/> IS NULL THEN 1
+				ELSE 0
+			END, SORTING ASC
+		</sql-dialect>
+	</template-if>					
+</template>
+</query>

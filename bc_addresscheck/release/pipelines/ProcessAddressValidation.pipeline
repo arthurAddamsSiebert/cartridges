@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--The pipeline contains nodes relevant to the address validation process.-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessAddressValidation" overrideMode="Inherit" type="process">
+<!--Updates the customer address with the provided suggestion and temporary addres . The following fields are updated: Address1, Address2, Address3, City, CountryCode, County, PostalCode, PostBox, Prefecture, Province, Region, State. Rest of the fields are updated from the temporary address BO, and the fields are : EMail, FirstName, Honorific, LastName, PhoneBusiness, PhoneBusinessDirect, PhoneHome, PhoneMobile, SecondName, Title.
+@Location 0,4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="ApplyAddressBOSuggestion"
+      callMode="Private">
+    <nodeSuccessors name="next" next="UpdateAddressBO0"/>
+<!--The address BO that was suggested.-->
+    <parameters name="SuggestedAddressBO" type="com.intershop.component.address.capi.AddressBO"/>
+<!--The address of the customer that should be updated with the suggestion.-->
+    <parameters name="CustomerAddressBO" type="com.intershop.component.address.capi.AddressBO"/>
+<!--The customer address BO that's holded in the temporary repository.-->
+    <parameters name="TemporaryAddressBO" type="com.intershop.component.address.capi.AddressBO"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateAddressBO0">
+    <configurationValues name="UpdateMissingProperties" value="false"/>
+    <pipelet href="enfinity:/bc_address/pipelets/UpdateAddressBO.xml"/>
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <parameterBindings name="Address1" objectPath="SuggestedAddressBO:Address1"/>
+    <parameterBindings name="Address2" objectPath="SuggestedAddressBO:Address2"/>
+    <parameterBindings name="Address3" objectPath="SuggestedAddressBO:Address3"/>
+    <parameterBindings name="AddressBO" objectPath="CustomerAddressBO"/>
+    <parameterBindings name="City" objectPath="SuggestedAddressBO:City"/>
+    <parameterBindings name="CompanyName" objectPath="TemporaryAddressBO:CompanyName"/>
+    <parameterBindings name="CompanyName2" objectPath="TemporaryAddressBO:CompanyName2"/>
+    <parameterBindings name="CountryCode" objectPath="SuggestedAddressBO:CountryCode"/>
+    <parameterBindings name="County" objectPath="SuggestedAddressBO:County"/>
+    <parameterBindings name="EMail" objectPath="TemporaryAddressBO:EMail"/>
+    <parameterBindings name="FirstName" objectPath="TemporaryAddressBO:FirstName"/>
+    <parameterBindings name="Honorific" objectPath="TemporaryAddressBO:Honorific"/>
+    <parameterBindings name="InvoiceToAddress" objectPath="TemporaryAddressBO:InvoiceToAddress"/>
+    <parameterBindings name="LastName" objectPath="TemporaryAddressBO:LastName"/>
+    <parameterBindings name="PhoneBusiness" objectPath="TemporaryAddressBO:PhoneBusiness"/>
+    <parameterBindings name="PhoneBusinessDirect" objectPath="TemporaryAddressBO:PhoneBusinessDirect"/>
+    <parameterBindings name="PhoneHome" objectPath="TemporaryAddressBO:PhoneHome"/>
+    <parameterBindings name="PhoneMobile" objectPath="TemporaryAddressBO:PhoneMobile"/>
+    <parameterBindings name="PostBox" objectPath="SuggestedAddressBO:PostBox"/>
+    <parameterBindings name="PostalCode" objectPath="SuggestedAddressBO:PostalCode"/>
+    <parameterBindings name="Prefecture" objectPath="SuggestedAddressBO:Prefecture"/>
+    <parameterBindings name="Province" objectPath="SuggestedAddressBO:Province"/>
+    <parameterBindings name="Region" objectPath="SuggestedAddressBO:Region"/>
+    <parameterBindings name="SecondName" objectPath="TemporaryAddressBO:SecondName"/>
+    <parameterBindings name="ShipToAddress" objectPath="TemporaryAddressBO:ShipToAddress"/>
+    <parameterBindings name="State" objectPath="SuggestedAddressBO:State"/>
+    <parameterBindings name="Title" objectPath="TemporaryAddressBO:Title"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--The node validates the provided address. The following exit nodes are used:
+ERROR \- if there is an internal error during the validation
+OK \- if the address is successfully validated
+FAILED \- if the address is not validated successfully
+SUGGESTLIST \- if the address is not validated successfully but a suggestion list is avalable
+NO_SERVICE \- if there is no active validation service
+
+@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="ValidateAddressBO"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ValidateAddressBO0"/>
+<!--The address that needs to be validated.-->
+    <parameters name="AddressBO" type="com.intershop.component.address.capi.AddressBO"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ValidateAddressBO0">
+    <pipelet href="enfinity:/bc_addresscheck/pipelets/ValidateAddressBO.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode4"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="AddressValidationResponse:Result"
+      operator="str_eq" conditionValue="ADDRESS_VALIDATION_OKAY">
+    <nodeSuccessors name="decision_yes" next="EndNode2"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode1"/>
+  </nodes>
+<!--The address was successfully validated.
+@Location 0,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="OK" strict="true">
+<!--The validation response.-->
+    <returnValues name="AddressValidationResponse" type="com.intershop.component.addresscheck.capi.AddressValidationResponse"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="AddressValidationResponse:Result"
+      operator="str_eq" conditionValue="ADDRESS_VALIDATION_FAILED">
+    <nodeSuccessors name="decision_yes" next="EndNode0"/>
+    <nodeSuccessors name="decision_no" next="DecisionNode2"/>
+  </nodes>
+<!--Address validation failed.
+@Location 1,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="FAILED" strict="true">
+<!--The validation response.-->
+    <returnValues name="AddressValidationResponse" type="com.intershop.component.addresscheck.capi.AddressValidationResponse"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="AddressValidationResponse:Result"
+      operator="str_eq" conditionValue="ADDRESS_VALIDATION_SUGGESTLIST">
+    <nodeSuccessors name="decision_yes" next="EndNode3"/>
+    <nodeSuccessors name="decision_no" next="EndNode1"/>
+  </nodes>
+<!--Address validation failed and tere are suggestions.
+@Location 2,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="SUGGESTLIST" strict="true">
+<!--The validation response.-->
+    <returnValues name="AddressValidationResponse" type="com.intershop.component.addresscheck.capi.AddressValidationResponse"/>
+  </nodes>
+<!--There was an error during validation.
+@Location 3,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR" strict="true">
+<!--The validation response.-->
+    <returnValues name="AddressValidationResponse" type="com.intershop.component.addresscheck.capi.AddressValidationResponse"/>
+  </nodes>
+<!--There is no active validation service.
+@Location 3,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="NO_SERVICE" strict="true"/>
+</pipeline:Pipeline>

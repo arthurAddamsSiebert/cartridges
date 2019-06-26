@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="TypeCodeIterator" type="java.util.Iterator" optional="true"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="ProductUUIDIterator" type="java.util.Iterator" optional="true"/>
+    <parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="AdvancedProductSearchParameters" type="java.util.Map" optional="true"/>
+    <parameter name="TargetNameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="TargetAdvancedProductSearchParameters" type="java.util.Map" optional="true"/>
+	<parameter name="TargetProductTypeCodeIDsIterator" type="java.util.Iterator" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	SELECT pl.uuid as uuid, pl.sourceid as sourceid, pl.targetid as targetid, pl.domainid as domainid, pl.typecode as typecode
+	FROM productlink pl, typecodedefinition tcd
+	WHERE tcd.typecode=pl.typecode
+	AND   tcd.typecodegroup='ProductLink'
+	AND   pl.domainid=<template-variable value="Domain:UUID" />
+    <template-if condition="isDefined(ProductUUIDIterator) AND hasElements(ProductUUIDIterator)">		    
+	AND   (pl.sourceid) IN
+      (
+        <template-loop alias="ProductUUID" iterator="ProductUUIDIterator">
+          <loop-statement>(<template-variable value="ProductUUID"/>)</loop-statement>
+          <loop-separator>,</loop-separator>
+        </template-loop> 
+      )
+    <if-elseif condition="isDefined(NameOrID)"/>		    
+		AND pl.sourceid IN (select p.uuid FROM 
+		(
+	    <template-call name="product/SimpleProductSearch">
+            <call-parameter name="ProductDomain" value="Domain"/>
+		    <call-parameter name="NameOrID" value="NameOrID"/>
+		    <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+	    </template-call>
+	    ) p )
+    <if-else/>
+		AND pl.sourceid IN (select p.uuid FROM 
+		(
+	    <template-call name="product/GetProductsByAdvancedSearch">
+            <call-parameter name="ProductDomain" value="Domain"/>
+		    <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+	   		<call-addall map="AdvancedProductSearchParameters"/>
+	    </template-call>
+	    ) p )
+	</template-if>
+    <template-if condition="isDefined(TargetProductTypeCodeIDsIterator)">
+	<sql-dialect name="Oracle">
+		AND   (tcd.name,pl.targetid) IN
+	      (
+	        <template-loop alias="TargetProductTypeCodeID" iterator="TargetProductTypeCodeIDsIterator">
+	          <loop-statement>(<template-variable value="TargetProductTypeCodeID:TypeCodeName"/>,<template-variable value="TargetProductTypeCodeID:Id"/>)</loop-statement>
+	          <loop-separator>,</loop-separator>
+	        </template-loop> 
+	      )
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		AND tcd.name IN 
+	      (
+	       <template-loop alias="TargetProductTypeCodeID" iterator="TargetProductTypeCodeIDsIterator">
+	          <loop-statement><template-variable value="TargetProductTypeCodeID:TypeCodeName"/>,<template-variable value="TargetProductTypeCodeID:Id"/></loop-statement>
+	          <loop-separator>,</loop-separator>
+	        </template-loop> 
+	      )
+	    AND pl.targetid IN
+	      (
+	      <template-loop alias="TargetProductTypeCodeID" iterator="TargetProductTypeCodeIDsIterator">
+	          <loop-statement><template-variable value="TargetProductTypeCodeID:TypeCodeName"/>,<template-variable value="TargetProductTypeCodeID:Id"/></loop-statement>
+	          <loop-separator>,</loop-separator>
+	        </template-loop> 
+	      )
+	</sql-dialect>
+    <if-else/>
+    	<sql-dialect name="Microsoft">
+    		<template-if condition="isDefined(TargetNameOrID)">		    
+				AND pl.targetid IN (select TOP 100 PERCENT p2.uuid FROM 
+				(
+		    	<template-call name="product/SimpleProductSearch">
+	            	<call-parameter name="ProductDomain" value="Domain"/>
+			    	<call-parameter name="NameOrID" value="TargetNameOrID"/>
+			    	<call-parameter name="LocaleInformation" value="LocaleInformation"/>
+		    	</template-call>
+		    	) p2 )
+        	<if-elseif condition="isDefined(TargetAdvancedProductSearchParameters)"/>		    
+				AND pl.targetid IN (select TOP 100 PERCENT p2.uuid FROM 
+				(
+		    	<template-call name="product/GetProductsByAdvancedSearch">
+	            	<call-parameter name="ProductDomain" value="Domain"/>
+		   			<call-addall map="TargetAdvancedProductSearchParameters"/>
+		    	</template-call>
+		    	) p2 )
+			</template-if>
+    	</sql-dialect>
+    	
+    	<sql-dialect name="Oracle">
+        	<template-if condition="isDefined(TargetNameOrID)">		    
+				AND pl.targetid IN (select p2.uuid FROM 
+				(
+		    	<template-call name="product/SimpleProductSearch">
+	            	<call-parameter name="ProductDomain" value="Domain"/>
+			    	<call-parameter name="NameOrID" value="TargetNameOrID"/>
+			    	<call-parameter name="LocaleInformation" value="LocaleInformation"/>
+		    	</template-call>
+		    	) p2 )
+        	<if-elseif condition="isDefined(TargetAdvancedProductSearchParameters)"/>		    
+				AND pl.targetid IN (select p2.uuid FROM 
+				(
+		    	<template-call name="product/GetProductsByAdvancedSearch">
+	            	<call-parameter name="ProductDomain" value="Domain"/>
+		   			<call-addall map="TargetAdvancedProductSearchParameters"/>
+		    	</template-call>
+		    	) p2 )
+			</template-if>
+		</sql-dialect>
+	    AND tcd.name IN
+	      (
+	        <template-loop alias="TypeCodeName" iterator="TypeCodeIterator">
+	          <loop-statement><template-variable value="TypeCodeName"/></loop-statement>
+	          <loop-separator>,</loop-separator>
+	        </template-loop> 
+	      )
+	</template-if>
+</template>
+</query>

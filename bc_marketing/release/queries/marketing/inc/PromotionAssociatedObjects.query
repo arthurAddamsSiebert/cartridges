@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Promotion" type="com.intershop.component.marketing.internal.rebate.PromotionPO" optional="false" description="The promotion"/>
+	<parameter name="RebateFilterGroupScope" type="java.lang.String" optional="true" description="The scope of the rebatefiltergroup"/>
+	<parameter name="Included" type="java.lang.Boolean" optional="true" description="if included objects should be fetched"/>
+	<parameter name="Excluded" type="java.lang.Boolean" optional="true" description="if excluded objects should be fetched"/>
+	<parameter name="ActionAssigned" type="java.lang.Boolean" optional="true" description="if objects that are assigned to actions should be fetched"/>
+	<parameter name="ConditionAssigned" type="java.lang.Boolean" optional="true" description="if objects that are assigned to conditions should be fetched"/>
+	<parameter name="ObjectType" type="java.lang.String" optional="false" description="Objecttype of the associated objects. Possible values: PRODUCT, CATEGORY."/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	<template-if condition="not((ObjectType eq &apos;PRODUCT&apos;) or (ObjectType eq &apos;CATEGORY&apos;))">
+		SELECT objectid from rebatefilterobjectassignment where uuid is null;
+	<if-else/>
+		<template-if condition="ObjectType eq &apos;PRODUCT&apos;">
+			SELECT pr.uuid as ProductUUID, r.domainid as ProductDomainID
+		<if-elseif condition="ObjectType eq &apos;CATEGORY&apos;"/>
+			SELECT cc.uuid as CatalogCategoryUUID
+		</template-if>	
+		FROM <template-if condition="ObjectType eq &apos;PRODUCT&apos;">product pr, 
+			 <if-elseif condition="ObjectType eq &apos;CATEGORY&apos;"/>catalogcategory cc, 
+			 </template-if>
+			rebatefilterobjectassignment rfoa, rebatefiltergroup rfg, rebatefiltergroupassignment rfga, rebate r
+		WHERE 
+		<template-if condition="ObjectType eq &apos;PRODUCT&apos;">pr.UUID  
+		<if-elseif condition="ObjectType eq &apos;CATEGORY&apos;"/>cc.UUID 
+		</template-if>
+			= rfoa.OBJECTID
+		AND rfoa.REBATEFILTERGROUPID = rfg.UUID
+		AND rfg.FILTEROBJECTTYPE = <template-variable value="ObjectType"/>
+		<template-if condition="isDefined(Included)">
+			<template-if condition="Included eq &apos;true&apos;">
+				AND (rfg.EXCLUSIONFLAG  = 0 OR rfg.EXCLUSIONFLAG is null)
+				<template-if condition="isDefined(Excluded)">
+					    AND <template-if condition="ObjectType eq &apos;PRODUCT&apos;">pr.uuid 
+					    	<if-elseif condition="ObjectType eq &apos;CATEGORY&apos;"/>cc.uuid 
+					    	</template-if>
+					    	<template-if condition="Excluded eq &apos;false&apos;"> not </template-if>in
+					    	(SELECT  
+					    	<template-if condition="ObjectType eq &apos;PRODUCT&apos;"> pr2.uuid FROM product pr2, 
+					    	<if-elseif condition="ObjectType eq &apos;CATEGORY&apos;"/> cc2.uuid FROM catalogcategory cc2, 
+					    	</template-if>
+					    	rebatefilterobjectassignment rfoa2, rebatefiltergroup rfg2, rebatefiltergroupassignment rfga2
+					    	WHERE 
+							<template-if condition="ObjectType eq &apos;PRODUCT&apos;">pr2.UUID 
+							<if-elseif condition="ObjectType eq &apos;CATEGORY&apos;"/>cc2.UUID 
+							</template-if>
+							= rfoa2.OBJECTID
+							AND rfoa2.REBATEFILTERGROUPID = rfg2.UUID
+							AND rfg2.FILTEROBJECTTYPE = <template-variable value="ObjectType"/>
+							AND rfg2.EXCLUSIONFLAG  = 1
+							AND rfg2.UUID = rfga2.REBATEFILTERGROUPID 
+							AND rfga2.REBATEID = r.UUID
+							<template-if condition="isDefined(ConditionAssigned) AND (ConditionAssigned eq &apos;true&apos;)">
+								AND rfga2.REBATECONDITIONID = rfga.REBATECONDITIONID
+							</template-if>
+							<template-if condition="isDefined(ActionAssigned) AND (ActionAssigned eq &apos;true&apos;)">
+								AND rfga2.REBATEACTIONID = rfga.REBATEACTIONID
+							</template-if>				
+							)
+				</template-if>
+				<if-elseif condition="Included eq &apos;false&apos;"/>
+				<template-if condition="isDefined(Excluded)">
+					<template-if condition="Excluded eq &apos;true&apos;">
+						AND rfg.EXCLUSIONFLAG  = 1
+						<if-else/>
+						AND rfg.EXCLUSIONFLAG  = 2
+					</template-if>
+					<if-else/>
+					AND (rfg.EXCLUSIONFLAG  &lt;&gt; 0 AND rfg.EXCLUSIONFLAG is not null)
+				</template-if>
+			</template-if>	
+			<if-elseif condition="isDefined(Excluded)"/>
+			<template-if condition="Excluded eq &apos;true&apos;">
+				AND rfg.EXCLUSIONFLAG  = 1
+				<if-else/>
+				AND rfg.EXCLUSIONFLAG  &lt;&gt; 1	
+			</template-if>	
+		</template-if>
+		<template-if condition="isDefined(RebateFilterGroupScope)">
+			AND rfg.SCOPE  = <template-variable value="RebateFilterGroupScope"/>
+		</template-if>
+		AND rfg.UUID = rfga.REBATEFILTERGROUPID 
+		<template-if condition="isDefined(ConditionAssigned)">
+			AND rfga.REBATECONDITIONID is <template-if condition="ConditionAssigned eq &apos;true&apos;"> not </template-if>null
+		</template-if>
+		<template-if condition="isDefined(ActionAssigned)">
+			AND rfga.REBATEACTIONID is <template-if condition="ActionAssigned eq &apos;true&apos;"> not </template-if>null
+		</template-if>
+		AND rfga.REBATEID = r.UUID
+		AND r.PROMOTIONUUID = <template-variable value="Promotion:UUID"/>
+	</template-if>
+</template>
+</query>

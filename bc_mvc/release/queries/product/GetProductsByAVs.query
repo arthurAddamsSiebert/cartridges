@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="DomainUUID" type="java.lang.String" optional="false"/>
+    <parameter name="AttributeName" type="java.lang.String" optional="false"/>
+    <parameter name="AttributeValue" type="java.lang.String" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>        
+</parameters>
+<return-mappings>
+    <return-mapping name="Product" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+        <return-attribute name="UUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+	<sql-dialect name="Microsoft">
+		DECLARE @attributeName VARCHAR(300);
+		SET @attributeName = <template-variable value="AttributeName"/>;
+		DECLARE @attributeValue VARCHAR(300);
+		SET @attributeValue = <template-variable value="AttributeValue"/>;
+	</sql-dialect>
+    SELECT
+        p.uuid, count(*) over() as "ROWCOUNT"
+    FROM
+        product p
+    WHERE
+        p.DomainID=<template-variable value="DomainUUID"/> 
+        AND EXISTS 
+        (
+          SELECT 1 FROM product WHERE uuid = p.uuid 
+		  <sql-dialect name="Oracle">
+			  AND contains(attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>,
+				  '('||<template-variable value="AttributeValue"/>||') INPATH (//attrs/attr[@name="<template-variable value="AttributeName" processing="text"/>"]/string)')>0
+		  </sql-dialect>
+		  <sql-dialect name="Microsoft">
+			AND p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>.exist('//attrs/attr[@name=sql:variable("@attributeName")]/string [contains(., sql:variable("@attributeValue"))]')>0
+		  </sql-dialect>
+          UNION
+          SELECT 1 FROM product WHERE uuid = p.uuid 
+		  <sql-dialect name="Oracle">
+			AND contains(attributes, 
+				'('||<template-variable value="AttributeValue"/>||') INPATH (//attrs/attr[@name="<template-variable value="AttributeName" processing="text"/>"]/string)')>0
+		  </sql-dialect>
+		  <sql-dialect name="Microsoft">
+			AND p.attributes.exist('//attrs/attr[@name=sql:variable("@attributeName")]/string [contains(., sql:variable("@attributeValue"))]')>0
+		  </sql-dialect>
+        )
+</template>
+</query>

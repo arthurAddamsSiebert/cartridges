@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Process pipleine to perform the ProductLineItem splitting for multiple addresses.
+@Group Shipping-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCheckoutMultipleAddresses" type="process">
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" name="GenerateForm" callMode="Private">
+<!--@BendPoints 3,12-->
+    <nodeSuccessors name="next" next="CallNode6"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 3,14-->
+    <nodeSuccessors name="next" next="CreatePageableFromIterator1"/>
+    <startNode referencedName="ProcessCheckoutMultipleAddresses-GenerateFormIterator"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePageableFromIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableFromIterator.xml"/>
+    <nodeSuccessors name="next" next="CreateListForm1"/>
+    <parameterBindings name="Iterator" objectPath="FormKeyIterator"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateListForm1">
+    <configurationValues name="FormName" value="MultipleAddressesForm"/>
+    <configurationValues name="ObjectIDMethod" value="toString"/>
+    <configurationValues name="ResourceName" value="MultipleAddresses"/>
+    <pipelet href="enfinity:/core/pipelets/CreateListForm.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+<!--@BendPoints 4,17 4,19-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="PageableObject" objectPath="Pageable"/>
+    <returnValueBindings name="Form" objectPath="MultipleAddressesForm"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 3,20-->
+    <nodeSuccessors name="next" next="EndNode13"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13"/>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="GenerateFormIterator"
+      callMode="Private">
+    <nodeSuccessors name="next" next="AddEntryToMap6"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"/>
+    <parameters name="PLISplitInfoMap" type="com.intershop.component.basket.capi.BasketProductLineItemSplitInfoMap"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode10"/>
+    <parameterBindings name="InMap" objectPath="FormKeys"/>
+    <parameterBindings name="Key" constant="Splitting"/>
+    <parameterBindings name="Value" constant=""/>
+    <returnValueBindings name="Keys" objectPath="FormKeyIterator"/>
+    <returnValueBindings name="OutMap" objectPath="FormKeys"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="PLISplitInfoMap">
+    <nodeSuccessors name="decision_yes" next="JoinNode20"/>
+<!--@BendPoints 5,29 5,30-->
+    <nodeSuccessors name="decision_no" next="GetBasketProductLineItemSplitInfo2"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+<!--@BendPoints 3,34-->
+    <nodeSuccessors name="next" next="LoopNode6"/>
+  </nodes>
+<!--@Location 1,17-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode6" loop="PLISplitInfoMap:KeySet">
+<!--@BendPoints 4,35-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <entry key="PLIBO">
+      <nodeSuccessors name="loop_entry_next" next="LoopNode13"/>
+    </entry>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode13" loop="PLISplitInfoMap:get(PLIBO)">
+<!--@BendPoints 4,37 4,41 1,41 1,35-->
+    <nodeSuccessors name="next" next="LoopNode6_Entry"/>
+    <entry key="PLISplitInfo">
+<!--@BendPoints 3,38-->
+      <nodeSuccessors name="loop_entry_next" next="AddEntryToMap3"/>
+    </entry>
+  </nodes>
+<!--@Location 1,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+<!--@BendPoints 3,40 2,40 2,37-->
+    <nodeSuccessors name="next" next="LoopNode13_Entry"/>
+    <parameterBindings name="InMap" objectPath="FormKeys"/>
+    <parameterBindings name="Key" objectPath="PLISplitInfo:ID"/>
+    <parameterBindings name="Value" constant=""/>
+    <returnValueBindings name="Keys" objectPath="FormKeyIterator"/>
+    <returnValueBindings name="OutMap" objectPath="FormKeys"/>
+  </nodes>
+<!--@Location 2,17-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="FormKeyIterator" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 2,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetBasketProductLineItemSplitInfo2">
+    <configurationValues name="strategyName" value="GiftingPLISplitInfoSplitStrategy"/>
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/GetBasketProductLineItemSplitInfo.xml"/>
+<!--@BendPoints 5,33-->
+    <nodeSuccessors name="next" next="JoinNode20"/>
+    <parameterBindings name="Basket" objectPath="CurrentCartBO"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode13" strict="true" name="GetSplitProductLineItems"
+      callMode="Private">
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="GetBasketProductLineItemSplitInfo1"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetBasketProductLineItemSplitInfo1">
+    <configurationValues name="strategyName" value="ShippingPLISplitInfoSplitStrategy"/>
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/GetBasketProductLineItemSplitInfo.xml"/>
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="EndNode17"/>
+    <parameterBindings name="Basket" objectPath="CurrentCartBO"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" strict="true">
+<!--The map of the splitPLIs.-->
+    <returnValues name="PLISplitInfoMap" type="com.intershop.component.basket.capi.BasketProductLineItemSplitInfoMap"
+        optional="true"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode14" strict="true" name="SetMergedProductLineItems"
+      callMode="Private">
+    <nodeSuccessors name="next" next="SetBasketProductLineItemSplitInfo1"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"/>
+    <parameters name="PLISplitInfoMap" type="com.intershop.component.basket.capi.BasketProductLineItemSplitInfoMap"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetBasketProductLineItemSplitInfo1">
+    <configurationValues name="strategyName" value="ShippingPLISplitInfoMergeStrategy"/>
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/SetBasketProductLineItemSplitInfo.xml"/>
+    <nodeSuccessors name="next" next="EndNode18"/>
+    <parameterBindings name="Basket" objectPath="CurrentCartBO"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode18" strict="true"/>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="UpdateShipToAddressID"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode1"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="PLISplitInfoMap:KeySet">
+<!--@BendPoints 14,5-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <entry key="PLIBO">
+<!--@BendPoints 13,6-->
+      <nodeSuccessors name="loop_entry_next" next="LoopNode2"/>
+    </entry>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="PLISplitInfoMap:get(PLIBO)">
+<!--@BendPoints 14,7 14,6 12,6 12,5-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <entry key="PLISplitInfo">
+<!--@BendPoints 13,8-->
+      <nodeSuccessors name="loop_entry_next" next="KeyMapper2"/>
+    </entry>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode11"/>
+    <parameterBindings name="InValue_1" objectPath="MultipleAddressesForm:get(PLISplitInfo:ID)"/>
+    <returnValueBindings name="OutValue_1" objectPath="Subform"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="Subform:ShipToAddressID:Value">
+    <nodeSuccessors name="decision_yes" next="ResolveAddressBO0"/>
+<!--@BendPoints 15,11-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ResolveAddressBO0">
+    <pipelet href="enfinity:/bc_address/pipelets/ResolveAddressBO.xml"/>
+    <nodeSuccessors name="next" next="SetSplitShipToAddress1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="AddressURN" objectPath="Subform:ShipToAddressID:Value"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetSplitShipToAddress1">
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/SetSplitShipToAddress.xml"/>
+<!--@BendPoints 13,16-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="ShipToAddressID" objectPath="Subform:ShipToAddressID:Value"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 11,7-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 4,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" name="ValidateForm" callMode="Private">
+<!--@BendPoints 9,36-->
+    <nodeSuccessors name="next" next="CallNode7"/>
+  </nodes>
+<!--@Location 4,18-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+<!--@BendPoints 9,38-->
+    <nodeSuccessors name="next" next="LoopNode12"/>
+    <startNode referencedName="ProcessCheckoutMultipleAddresses-GenerateForm"/>
+  </nodes>
+<!--@Location 4,19-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode12" loop="MultipleAddressesForm:Instances">
+<!--@BendPoints 10,39 10,37-->
+    <nodeSuccessors name="next" next="DecisionNode35"/>
+    <entry key="Subform">
+      <nodeSuccessors name="loop_entry_next" next="ValidateForm2"/>
+    </entry>
+  </nodes>
+<!--@Location 4,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ValidateForm2">
+    <configurationValues name="Trim" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/ValidateForm.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+<!--@BendPoints 10,41-->
+    <nodeSuccessors name="pipelet_error" next="SetDictionaryValue1"/>
+    <parameterBindings name="Form" objectPath="Subform"/>
+  </nodes>
+<!--@Location 4,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 8,43 8,39-->
+    <nodeSuccessors name="next" next="LoopNode12_Entry"/>
+  </nodes>
+<!--@Location 5,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="FormError"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 12,41 12,43-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 5,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode35" conditionKey="FormError">
+<!--@BendPoints 12,37-->
+    <nodeSuccessors name="decision_yes" next="EndNode15"/>
+    <nodeSuccessors name="decision_no" next="EndNode14"/>
+  </nodes>
+<!--@Location 6,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" name="ERROR"/>
+<!--@Location 5,19-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14"/>
+</pipeline:Pipeline>

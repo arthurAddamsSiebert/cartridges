@@ -1,0 +1,95 @@
+<iscontent type = "text/xml" templatemarker="false" charset="utf-8" session="false">
+
+<%@page import="java.util.*,
+	java.sql.*,
+	com.intershop.beehive.core.capi.naming.*,
+	com.intershop.component.pricing.capi.definition.*,
+	com.intershop.component.pricing.capi.pricelist.*,
+	com.intershop.beehive.core.capi.environment.ORMMgr,
+	com.intershop.beehive.xcs.capi.product.*"%>
+
+<isinclude template="impex/Modules">
+<ismodule template="inc/PriceListEntry"
+	name="PriceListEntry"
+	attribute="tables"
+	attribute="product">
+<ismodule template="inc/CustomAttributes"
+	name="CustomAttributes"
+	attribute="attributes">
+<product-price-list id="<isprint value="#pricelist:ID#">" priceType="<isprint value="#pricelist:PriceType#">">
+	<isloop iterator="pricelist:AttributeValues" alias="av">
+		<isif condition="#av:Name eq 'displayName'#">
+			<display-name xml:lang="<isprint value="#av:XMLLocaleID#">"><isprint value="#av:StringValue#"></display-name>
+		</isif>
+	</isloop>
+	<isloop iterator="pricelist:AttributeValues" alias="av">
+		<isif condition="#av:Name eq 'description'#">
+			<description xml:lang="<isprint value="#av:XMLLocaleID#">"><isprint value="#av:StringValue#"></description>
+		</isif>
+	</isloop>
+	<enabled><isif condition="#pricelist:Enabled#"><!---isnoloc--->true<!---/isnoloc---><iselse><!---isnoloc--->false<!---/isnoloc---></isif></enabled>
+	<priority><isprint value="#pricelist:Priority#" formatter="0.####" symbols="DecimalSeparator=."></priority>
+	<isif condition="#not(pricelist:ValidFromNull)#"><valid-from><ISDateTime date="#pricelist:ValidFrom#"></valid-from></isif>
+	<isif condition="#not(pricelist:ValidToNull)#"><valid-to><ISDateTime date="#pricelist:ValidTo#"></valid-to></isif>
+
+	<target-groups>
+	<isinclude extensionpoint="PriceListExportXMLExtensions"/>
+	</target-groups>
+	<% 
+		PriceList priceList = (PriceList)getObject("pricelist");
+		List productUUIDs = getProductUUIDs(priceList.getUUID());
+		
+		for (int i = 0, n = productUUIDs.size(); i < n; ++i)
+		{
+			Product product = productMgr.getProductByUUID((String)productUUIDs.get(i));
+			if (product != null)
+			{
+			    
+				Iterator tables = priceListMgr.getPriceScaleTables(product, priceList);
+				getPipelineDictionary().put("tables", tables);
+				getPipelineDictionary().put("product", product);
+				%>
+				<ISPriceListEntry tables="#tables#" product="#product#"> 
+				<%   
+			}
+		}
+
+		getPipelineDictionary().put("attributes", priceList.createCustomAttributesIterator());
+	%>
+	<ISCustomAttributes attributes="#attributes#">
+</product-price-list>
+<%!
+	ORMMgr ormMgr = 
+		(ORMMgr)NamingMgr.getInstance().lookupManager(ORMMgr.REGISTRY_NAME);
+	PriceListMgr priceListMgr = 
+		(PriceListMgr)NamingMgr.getInstance().lookupManager(PriceListMgr.REGISTRY_NAME);
+	ProductMgr productMgr = 
+		(ProductMgr)NamingMgr.getInstance().lookupManager(ProductMgr.REGISTRY_NAME);
+
+	List getProductUUIDs(String priceListUUID)
+		throws SQLException
+	{
+		List uuids = new ArrayList();
+		PreparedStatement stmt = null;
+	
+		try
+		{
+			Connection con = ormMgr.getORMEngine().getJDBCManager().getCurrentConnection();
+			stmt = con.prepareStatement(
+				"select distinct productuuid from PRICESCALETABLEASSIGNMENT where pricelistuuid=?");
+			stmt.setString(1, priceListUUID);
+			ResultSet rs = stmt.executeQuery();
+	
+			while (rs.next())
+			{
+				uuids.add(rs.getString("productuuid"));		
+			}
+		}
+		finally
+		{
+			if (stmt != null) stmt.close();			
+		}
+		
+		return uuids;
+	}	
+%>

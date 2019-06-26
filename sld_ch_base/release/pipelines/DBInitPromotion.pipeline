@@ -1,0 +1,1837 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline is called from DBInit to prepare promotions and discounts.
+@Group OnlineMarketing-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="DBInitPromotion" type="process">
+<!--clean condition tree
+@Location 12,8-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="AssignTargetGroupMembers"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateIteratorFromConfigValues1"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+<!--a promotion-->
+    <parameters name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromConfigValues1">
+    <configurationValues name="Delimiters" value=","/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromConfigValues.xml"/>
+    <nodeSuccessors name="next" next="CreateStringSplitter1"/>
+    <parameterBindings name="ValuesString" objectPath="Configuration:Promotion.TargetGroup.Groups"/>
+    <returnValueBindings name="ValuesIterator" objectPath="UserGroupRefs"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStringSplitter1">
+    <configurationValues name="Mode" value="Last Occurrence"/>
+    <configurationValues name="Separator" value="@"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStringSplitter.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <returnValueBindings name="Splitter" objectPath="UGRef"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="UserGroupRefs">
+<!--@BendPoints 16,7-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <entry key="UserGroupRef">
+<!--@BendPoints 15,8-->
+      <nodeSuccessors name="loop_entry_next" next="GetDomain3"/>
+    </entry>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomain3">
+    <pipelet href="enfinity:/core/pipelets/GetDomain.xml"/>
+<!--@BendPoints 15,10-->
+    <nodeSuccessors name="next" next="Pipelet31"/>
+    <parameterBindings name="StagingDomainName" objectPath="UGRef:End(UserGroupRef)"/>
+    <returnValueBindings name="StagingDomain" objectPath="UGDomain"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet31">
+    <pipelet href="enfinity:/core/pipelets/DetermineUserGroup.xml"/>
+    <nodeSuccessors name="next" next="Pipelet2"/>
+    <parameterBindings name="CurrentDomain" objectPath="UGDomain"/>
+    <parameterBindings name="UserGroupID" objectPath="UGRef:Begin(UserGroupRef)"/>
+    <returnValueBindings name="UserGroup" objectPath="UserGroup"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/bc_marketing/pipelets/AddUserGroupToPromotionTargetGroup.xml"/>
+<!--@BendPoints 15,14 14,14 14,7-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <parameterBindings name="UserGroup" objectPath="UserGroup"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@displayNearNode@
+@Location 21,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="CreateAction"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+<!--a promotion rebate-->
+    <parameters name="Rebate" type="com.intershop.component.marketing.capi.rebate.Rebate"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+  </nodes>
+<!--@Location 21,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Rebate:Actions">
+    <nodeSuccessors name="decision_yes" next="GetFirstElementOfIterator2"/>
+<!--@BendPoints 45,5-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 21,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFirstElementOfIterator2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFirstElementOfIterator.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="Iterator" objectPath="Rebate:Actions"/>
+    <returnValueBindings name="FirstElement" objectPath="RebateAction"/>
+  </nodes>
+<!--@Location 21,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 43,18-->
+    <nodeSuccessors name="next" next="CreateIteratorFromConfigValues6"/>
+  </nodes>
+<!--@Location 21,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromConfigValues6">
+    <configurationValues name="Delimiters" value=",;"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromConfigValues.xml"/>
+    <nodeSuccessors name="next" next="LoopNode7"/>
+    <parameterBindings name="ValuesString" objectPath="Configuration:Discount.Rule.Action.Attributes"/>
+    <returnValueBindings name="ValuesIterator" objectPath="AttrNames"/>
+  </nodes>
+<!--@Location 21,10-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode7" loop="AttrNames">
+<!--@BendPoints 45,21-->
+    <nodeSuccessors name="next" next="DecisionNode15"/>
+    <entry key="AttrName">
+      <nodeSuccessors name="loop_entry_next" next="ConcatenateStrings5"/>
+    </entry>
+  </nodes>
+<!--@Location 21,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings5">
+    <configurationValues name="DefaultString0" value="Configuration:Discount.Rule.Action."/>
+    <configurationValues name="DefaultString2" value=".Type"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="ConcatenateStrings3"/>
+    <parameterBindings name="String1" objectPath="AttrName"/>
+    <returnValueBindings name="Concatenated" objectPath="TypeKey"/>
+  </nodes>
+<!--@Location 21,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings3">
+    <configurationValues name="DefaultString0" value="Configuration:Discount.Rule.Action."/>
+    <configurationValues name="DefaultString2" value=".Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="GetIndirectDictValue4"/>
+    <parameterBindings name="String1" objectPath="AttrName"/>
+    <returnValueBindings name="Concatenated" objectPath="ValueKey"/>
+  </nodes>
+<!--@Location 21,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetIndirectDictValue4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetIndirectDictValue.xml"/>
+    <nodeSuccessors name="next" next="GetIndirectDictValue3"/>
+    <parameterBindings name="KeyNameHolder" objectPath="TypeKey"/>
+    <returnValueBindings name="MappedEntry" objectPath="AttributeType"/>
+  </nodes>
+<!--@Location 21,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetIndirectDictValue3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetIndirectDictValue.xml"/>
+<!--@BendPoints 43,30-->
+    <nodeSuccessors name="next" next="UpdateCustomAttribute2"/>
+    <parameterBindings name="KeyNameHolder" objectPath="ValueKey"/>
+    <returnValueBindings name="MappedEntry" objectPath="AttributeValue"/>
+  </nodes>
+<!--@Location 21,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttribute2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+<!--@BendPoints 43,32 42,32 42,21-->
+    <nodeSuccessors name="next" next="LoopNode7_Entry"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode19"/>
+    <parameterBindings name="AttributeName" objectPath="AttrName"/>
+    <parameterBindings name="ExtensibleObject" objectPath="RebateAction"/>
+  </nodes>
+<!--@Location 23,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+<!--@BendPoints 47,32-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 23,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="ERROR" strict="true"/>
+<!--@Location 22,17-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode15" conditionKey="Configuration:Discount.Rule.Action.Categories">
+    <nodeSuccessors name="decision_yes" next="KeyMapper6"/>
+<!--@BendPoints 47,35 47,53-->
+    <nodeSuccessors name="decision_no" next="JoinNode27"/>
+  </nodes>
+<!--@Location 22,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode10"/>
+    <parameterBindings name="InValue_1" objectPath="Configuration:Discount.Rule.Action.Categories"/>
+    <returnValueBindings name="OutValue_1" objectPath="CategoryReferences"/>
+  </nodes>
+<!--@Location 22,19-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="DecisionNode22"/>
+    <startNode referencedName="DBInitPromotion-GetCategoryIDsFromReferences"/>
+  </nodes>
+<!--@Location 22,20-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode22" conditionKey="SelectedCategoriesUUIDIterator">
+    <nodeSuccessors name="decision_yes" next="KeyMapper4"/>
+<!--@BendPoints 46,41 46,51-->
+    <nodeSuccessors name="decision_no" next="JoinNode34"/>
+  </nodes>
+<!--@Location 22,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode11"/>
+    <parameterBindings name="InValue_1" objectPath="RebateAction:UUID"/>
+    <returnValueBindings name="OutValue_1" objectPath="RebateActionID"/>
+  </nodes>
+<!--@Location 22,22-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+    <nodeSuccessors name="next" next="PutValuesIntoPipelineDictionary1"/>
+    <startNode referencedName="ViewPromotionRebateInclusionsExclusions-Prefix"/>
+  </nodes>
+<!--@Location 22,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PutValuesIntoPipelineDictionary1">
+    <configurationValues name="key.1" value="Exclusion"/>
+    <configurationValues name="value.1" value="&quot;(Boolean)false&quot;"/>
+    <pipelet href="enfinity:/core/pipelets/PutValuesIntoPipelineDictionary.xml"/>
+    <nodeSuccessors name="next" next="CallNode16"/>
+  </nodes>
+<!--@Location 22,24-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode16">
+    <nodeSuccessors name="next" next="JoinNode34"/>
+    <parameterBindings name="Action" objectPath="RebateAction"/>
+    <parameterBindings name="ActionID" nullBinding="true"/>
+    <parameterBindings name="Exclusion" constant="(Boolean)false"/>
+    <parameterBindings name="FilterObjectType" constant="CATEGORY"/>
+    <parameterBindings name="ObjectIDs" objectPath="SelectedCategoriesUUIDIterator"/>
+    <parameterBindings name="RebateFilterGroup" objectPath="IncludedCategoriesGroup"/>
+    <parameterBindings name="Scope" constant="ACTION"/>
+    <startNode referencedName="ProcessPromotionRebateInclusionsExclusions-DBinitAssignToAction"/>
+    <returnValueBindings name="RebateFilterGroup" objectPath="IncludedCategoriesGroup"/>
+  </nodes>
+<!--@Location 22,25-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode34">
+    <nodeSuccessors name="next" next="JoinNode27"/>
+  </nodes>
+<!--@Location 22,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode27">
+<!--@BendPoints 45,54-->
+    <nodeSuccessors name="next" next="EndNode11"/>
+  </nodes>
+<!--@Location 22,27-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" strict="true">
+    <returnValues name="RebateAction" type="com.intershop.component.foundation.capi.action.Action"/>
+  </nodes>
+<!--@Location 22,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="ConcatenateStrings7"/>
+  </nodes>
+<!--@Location 22,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings7">
+    <configurationValues name="DefaultString1" value="-Site"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="GetActionApplicationContext1"/>
+    <parameterBindings name="String0" objectPath="Domain:DomainName"/>
+    <returnValueBindings name="Concatenated" objectPath="SiteName"/>
+  </nodes>
+<!--@Location 22,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetActionApplicationContext1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetActionApplicationContext.xml"/>
+    <nodeSuccessors name="next" next="GetActionDescriptorByID1"/>
+    <parameterBindings name="ActionDescriptorRegistryName" constant="promotionActionDescriptorRegistry"/>
+    <parameterBindings name="ActionRepositoryName" constant="promotionActionRepository"/>
+  </nodes>
+<!--@Location 22,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetActionDescriptorByID1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetActionDescriptorByID.xml"/>
+    <nodeSuccessors name="next" next="CreateAction1"/>
+    <parameterBindings name="ActionDescriptorID" objectPath="Configuration:Discount.Rule.Action.DescriptorID"/>
+  </nodes>
+<!--@Location 22,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateAction1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateAction.xml"/>
+<!--@BendPoints 45,17-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+<!--@BendPoints 47,15-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode19"/>
+    <parameterBindings name="Owner" objectPath="Rebate"/>
+    <returnValueBindings name="Action" objectPath="RebateAction"/>
+  </nodes>
+<!--@displayNearNode@
+@Location 17,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode12" strict="true" name="CreateCondition"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ConcatenateStrings6"/>
+<!--a promotion rebate-->
+    <parameters name="Rebate" type="com.intershop.component.marketing.capi.rebate.Rebate"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+  </nodes>
+<!--@Location 17,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings6">
+    <configurationValues name="DefaultString1" value="-Site"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="GetConditionApplicationContext1"/>
+    <parameterBindings name="String0" objectPath="Domain:DomainName"/>
+    <returnValueBindings name="Concatenated" objectPath="SiteName"/>
+  </nodes>
+<!--@Location 17,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetConditionApplicationContext1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetConditionApplicationContext.xml"/>
+<!--@BendPoints 35,8-->
+    <nodeSuccessors name="next" next="CreateCondition1"/>
+    <parameterBindings name="ConditionDescriptorRegistryName" constant="promotionConditionDescriptorRegistry"/>
+    <parameterBindings name="ConditionRepositoryName" constant="promotionConditionRepository"/>
+  </nodes>
+<!--@Location 17,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateCondition1">
+    <configurationValues name="TypeGroupCondition" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateCondition.xml"/>
+    <nodeSuccessors name="next" next="CreateIteratorFromConfigValues5"/>
+<!--@BendPoints 39,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode17"/>
+    <parameterBindings name="ConditionDescriptorID" objectPath="Configuration:Discount.Rule.Condition.DescriptorID"/>
+    <parameterBindings name="CurrentDomain" objectPath="Domain"/>
+    <parameterBindings name="Owner" objectPath="Rebate"/>
+    <parameterBindings name="TargetCondition" objectPath="AndCondition"/>
+    <returnValueBindings name="Condition" objectPath="RebateCondition"/>
+  </nodes>
+<!--@Location 17,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromConfigValues5">
+    <configurationValues name="Delimiters" value=",;"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromConfigValues.xml"/>
+    <nodeSuccessors name="next" next="LoopNode6"/>
+    <parameterBindings name="ValuesString" objectPath="Configuration:Discount.Rule.Condition.Attributes"/>
+    <returnValueBindings name="ValuesIterator" objectPath="AttrNames"/>
+  </nodes>
+<!--@Location 17,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode6" loop="AttrNames">
+<!--@BendPoints 37,13-->
+    <nodeSuccessors name="next" next="DecisionNode13"/>
+    <entry key="AttrName">
+      <nodeSuccessors name="loop_entry_next" next="ConcatenateStrings1"/>
+    </entry>
+  </nodes>
+<!--@Location 17,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings1">
+    <configurationValues name="DefaultString0" value="Configuration:Discount.Rule.Condition."/>
+    <configurationValues name="DefaultString2" value=".Type"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="ConcatenateStrings2"/>
+    <parameterBindings name="String1" objectPath="AttrName"/>
+    <returnValueBindings name="Concatenated" objectPath="TypeKey"/>
+  </nodes>
+<!--@Location 17,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings2">
+    <configurationValues name="DefaultString0" value="Configuration:Discount.Rule.Condition."/>
+    <configurationValues name="DefaultString2" value=".Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="GetIndirectDictValue1"/>
+    <parameterBindings name="String1" objectPath="AttrName"/>
+    <returnValueBindings name="Concatenated" objectPath="ValueKey"/>
+  </nodes>
+<!--@Location 17,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetIndirectDictValue1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetIndirectDictValue.xml"/>
+    <nodeSuccessors name="next" next="GetIndirectDictValue2"/>
+    <parameterBindings name="KeyNameHolder" objectPath="TypeKey"/>
+    <returnValueBindings name="MappedEntry" objectPath="AttributeType"/>
+  </nodes>
+<!--@Location 17,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetIndirectDictValue2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetIndirectDictValue.xml"/>
+<!--@BendPoints 35,22-->
+    <nodeSuccessors name="next" next="UpdateCustomAttribute1"/>
+    <parameterBindings name="KeyNameHolder" objectPath="ValueKey"/>
+    <returnValueBindings name="MappedEntry" objectPath="AttributeValue"/>
+  </nodes>
+<!--@Location 17,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttribute1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+<!--@BendPoints 35,24 34,24 34,13-->
+    <nodeSuccessors name="next" next="LoopNode6_Entry"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode17"/>
+    <parameterBindings name="AttributeName" objectPath="AttrName"/>
+    <parameterBindings name="ExtensibleObject" objectPath="RebateCondition"/>
+  </nodes>
+<!--@Location 19,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+<!--@BendPoints 39,24-->
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 19,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name="ERROR" strict="true"/>
+<!--@Location 18,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="Configuration:Discount.Rule.Condition.Categories">
+    <nodeSuccessors name="decision_yes" next="KeyMapper5"/>
+<!--@BendPoints 39,27 39,45-->
+    <nodeSuccessors name="decision_no" next="JoinNode26"/>
+  </nodes>
+<!--@Location 18,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode17"/>
+    <parameterBindings name="InValue_1" objectPath="Configuration:Discount.Rule.Condition.Categories"/>
+    <returnValueBindings name="OutValue_1" objectPath="CategoryReferences"/>
+  </nodes>
+<!--@Location 18,15-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode17">
+    <nodeSuccessors name="next" next="DecisionNode21"/>
+    <startNode referencedName="DBInitPromotion-GetCategoryIDsFromReferences"/>
+  </nodes>
+<!--@Location 18,16-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode21" conditionKey="SelectedCategoriesUUIDIterator">
+    <nodeSuccessors name="decision_yes" next="KeyMapper8"/>
+<!--@BendPoints 38,33 38,43-->
+    <nodeSuccessors name="decision_no" next="JoinNode33"/>
+  </nodes>
+<!--@Location 18,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper8">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode15"/>
+    <parameterBindings name="InValue_1" objectPath="RebateCondition:UUID"/>
+    <returnValueBindings name="OutValue_1" objectPath="RebateConditionID"/>
+  </nodes>
+<!--@Location 18,18-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode15">
+    <nodeSuccessors name="next" next="PutValuesIntoPipelineDictionary2"/>
+    <startNode referencedName="ViewPromotionRebateInclusionsExclusions-Prefix"/>
+  </nodes>
+<!--@Location 18,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PutValuesIntoPipelineDictionary2">
+    <configurationValues name="key.1" value="Exclusion"/>
+    <configurationValues name="value.1" value="&quot;(Boolean)false&quot;"/>
+    <pipelet href="enfinity:/core/pipelets/PutValuesIntoPipelineDictionary.xml"/>
+    <nodeSuccessors name="next" next="CallNode22"/>
+  </nodes>
+<!--@Location 18,20-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode22">
+    <nodeSuccessors name="next" next="JoinNode33"/>
+    <parameterBindings name="Condition" objectPath="RebateCondition"/>
+    <parameterBindings name="ConditionID" nullBinding="true"/>
+    <parameterBindings name="Exclusion" constant="(Boolean)false"/>
+    <parameterBindings name="FilterObjectType" constant="CATEGORY"/>
+    <parameterBindings name="ObjectIDs" objectPath="SelectedCategoriesUUIDIterator"/>
+    <parameterBindings name="RebateFilterGroup" objectPath="IncludedCategoriesGroup"/>
+    <parameterBindings name="Scope" constant="CONDITION"/>
+    <startNode referencedName="ProcessPromotionRebateInclusionsExclusions-DBinitAssignToCondition"/>
+    <returnValueBindings name="RebateFilterGroup" objectPath="IncludedCategoriesGroup"/>
+  </nodes>
+<!--@Location 18,21-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode33">
+    <nodeSuccessors name="next" next="JoinNode26"/>
+  </nodes>
+<!--@Location 18,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode26">
+<!--@BendPoints 37,46-->
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 18,23-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" strict="true">
+    <returnValues name="RebateCondition" type="com.intershop.component.foundation.capi.condition.Condition"/>
+  </nodes>
+<!--@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="CreateDiscount"
+      callMode="Private">
+<!--@BendPoints 29,2-->
+    <nodeSuccessors name="next" next="DecisionNode23"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+    <parameters name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"/>
+    <parameters name="LeadLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+    <parameters name="ConfigurationName" type="java.lang.Object"/>
+    <parameters name="Rebate" type="com.intershop.component.marketing.capi.rebate.Rebate"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode23" conditionKey="Configuration:Discount.Rule.Condition.DescriptorID">
+<!--@BendPoints 29,4-->
+    <nodeSuccessors name="decision_yes" next="CallNode7"/>
+<!--@BendPoints 30,3 30,7-->
+    <nodeSuccessors name="decision_no" next="JoinNode36"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="JoinNode36"/>
+    <parameterBindings name="Domain" objectPath="Promotion:Domain"/>
+    <startNode referencedName="DBInitPromotion-CreateCondition"/>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode36">
+<!--@BendPoints 29,8-->
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+  </nodes>
+<!--@Location 14,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="Configuration:Discount.Rule.Action.DescriptorID">
+    <nodeSuccessors name="decision_yes" next="CallNode9"/>
+<!--@BendPoints 30,9 30,13-->
+    <nodeSuccessors name="decision_no" next="JoinNode20"/>
+  </nodes>
+<!--@Location 14,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="JoinNode20"/>
+    <parameterBindings name="Domain" objectPath="Promotion:Domain"/>
+    <startNode referencedName="DBInitPromotion-CreateAction"/>
+  </nodes>
+<!--@Location 14,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+<!--@BendPoints 29,14-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 14,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true">
+    <returnValues name="Rebate" type="com.intershop.component.marketing.capi.rebate.Rebate"/>
+  </nodes>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="CreateDiscounts"
+      callMode="Private">
+<!--@BendPoints 21,2-->
+    <nodeSuccessors name="next" next="DecisionNode16"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+    <parameters name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"/>
+    <parameters name="LeadLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode16" conditionKey="Promotion:RebatesCount"
+      operator="eq" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="DecisionNode1" action="begin"/>
+<!--@BendPoints 25,3 25,6-->
+    <nodeSuccessors name="decision_no" next="GetFirstElementOfIterator1" action="begin"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="Configuration:Discount.Currency"
+      operator="str_eq" conditionValue="ALL">
+    <nodeSuccessors name="decision_yes" next="CreateRebate1"/>
+<!--@BendPoints 23,5 23,6-->
+    <nodeSuccessors name="decision_no" next="CreateRebate2"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateRebate1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/CreateRebate.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="CurrencyCode" nullBinding="true"/>
+    <parameterBindings name="Domain" objectPath="Promotion:Domain"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode18"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+<!--@BendPoints 21,12-->
+    <nodeSuccessors name="next" next="ConcatenateStrings4"/>
+  </nodes>
+<!--@Location 10,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings4">
+    <configurationValues name="DefaultString1" value="-Site"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="GetConditionApplicationContext2"/>
+    <parameterBindings name="String0" objectPath="Promotion:Domain:DomainName"/>
+    <returnValueBindings name="Concatenated" objectPath="SiteName"/>
+  </nodes>
+<!--@Location 10,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetConditionApplicationContext2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetConditionApplicationContext.xml"/>
+    <nodeSuccessors name="next" next="GetActionApplicationContext3"/>
+    <parameterBindings name="ConditionDescriptorRegistryName" constant="promotionConditionDescriptorRegistry"/>
+    <parameterBindings name="ConditionRepositoryName" constant="promotionConditionRepository"/>
+  </nodes>
+<!--@Location 10,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetActionApplicationContext3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetActionApplicationContext.xml"/>
+    <nodeSuccessors name="next" next="UpdateRebate1"/>
+    <parameterBindings name="ActionDescriptorRegistryName" constant="promotionActionDescriptorRegistry"/>
+    <parameterBindings name="ActionRepositoryName" constant="promotionActionRepository"/>
+  </nodes>
+<!--@Location 10,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateRebate1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/UpdateRebate.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode20"/>
+    <parameterBindings name="ClassificationTypeCode" nullBinding="true"/>
+    <parameterBindings name="TypeCode" nullBinding="true"/>
+  </nodes>
+<!--@Location 10,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode20" conditionKey="Configuration:Promotion.Rebate.LocalizableAVs"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="JoinNode31"/>
+<!--@BendPoints 23,21 23,22-->
+    <nodeSuccessors name="decision_no" next="UpdateLocalizableAttributesByResources3"/>
+  </nodes>
+<!--@Location 10,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode31">
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 10,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="Rebate:Condition">
+    <nodeSuccessors name="decision_yes" next="RemoveCondition1"/>
+<!--@BendPoints 22,25 22,29-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 10,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveCondition1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveCondition.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="Condition" objectPath="Rebate:Condition"/>
+  </nodes>
+<!--@Location 10,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 21,30-->
+    <nodeSuccessors name="next" next="CreateIteratorFromConfigValues2"/>
+  </nodes>
+<!--@Location 10,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromConfigValues2">
+    <configurationValues name="Delimiters" value=","/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromConfigValues.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <parameterBindings name="ValuesString" objectPath="Configuration:Promotion.Discounts"/>
+    <returnValueBindings name="ValuesIterator" objectPath="DiscountConfigurations"/>
+  </nodes>
+<!--@Location 10,16-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="DiscountConfigurations">
+<!--@BendPoints 22,33 22,38-->
+    <nodeSuccessors name="next" next="CallNode20"/>
+    <entry key="DiscountConfigurationName">
+      <nodeSuccessors name="loop_entry_next" next="GetLocalizedResources2"/>
+    </entry>
+  </nodes>
+<!--@Location 10,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocalizedResources2">
+    <pipelet href="enfinity:/core/pipelets/GetLocalizedResources.xml"/>
+<!--@BendPoints 21,36-->
+    <nodeSuccessors name="next" next="CallNode6"/>
+    <parameterBindings name="Locale" objectPath="LeadLocale"/>
+    <parameterBindings name="ResourceBundleName" objectPath="DiscountConfigurationName"/>
+    <returnValueBindings name="Resources" objectPath="DiscountConfiguration"/>
+  </nodes>
+<!--@Location 10,18-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 21,38 20,38 20,33-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <parameterBindings name="Configuration" objectPath="DiscountConfiguration"/>
+    <parameterBindings name="ConfigurationName" objectPath="DiscountConfigurationName"/>
+    <startNode referencedName="DBInitPromotion-CreateDiscount"/>
+  </nodes>
+<!--@Location 10,19-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode20">
+    <nodeSuccessors name="next" next="UpdatePromotionRankToDefault2"/>
+    <startNode referencedName="DBInitPromotion-CreatePromotionApplicationAssignment"/>
+  </nodes>
+<!--@Location 10,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePromotionRankToDefault2">
+    <pipelet href="enfinity:/bc_marketing/pipelets/UpdatePromotionRankToDefault.xml"/>
+<!--@BendPoints 21,42-->
+    <nodeSuccessors name="next" next="EndNode4" action="commit"/>
+    <parameterBindings name="PromotionActionPriorityHandler" objectPath="ApplicationBO:Repository(&quot;PromotionBORepository&quot;):PromotionActionPriorityHandler"/>
+  </nodes>
+<!--@Location 10,21-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true"/>
+<!--@Location 11,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLocalizableAttributesByResources3">
+    <pipelet href="enfinity:/core/pipelets/UpdateLocalizableAttributesByResources.xml"/>
+<!--@BendPoints 23,24 22,24-->
+    <nodeSuccessors name="next" next="JoinNode31"/>
+    <parameterBindings name="Object" objectPath="Rebate"/>
+    <parameterBindings name="ResourceBundleName" objectPath="Configuration:Promotion.Rebate.LocalizableAVs"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateRebate2">
+    <pipelet href="enfinity:/bc_marketing/pipelets/CreateRebate.xml"/>
+<!--@BendPoints 23,9-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="CurrencyCode" objectPath="Configuration:Discount.Currency"/>
+    <parameterBindings name="Domain" objectPath="Promotion:Domain"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFirstElementOfIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFirstElementOfIterator.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+<!--@BendPoints 26,7 26,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="Iterator" objectPath="Promotion:Rebates"/>
+    <returnValueBindings name="FirstElement" objectPath="Rebate"/>
+  </nodes>
+<!--@Location 12,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode18"/>
+  </nodes>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="CreatePromotion"
+      callMode="Private">
+<!--@BendPoints 7,2-->
+    <nodeSuccessors name="next" next="GetDomain1"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+    <parameters name="LeadLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomain1">
+    <pipelet href="enfinity:/core/pipelets/GetDomain.xml"/>
+<!--@BendPoints 7,4-->
+    <nodeSuccessors name="next" next="GetRepositoryByRepositoryDomain1"/>
+    <parameterBindings name="StagingDomainName" objectPath="Configuration:ChannelDomainName"/>
+    <returnValueBindings name="StagingDomain" objectPath="ChannelDomain"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="VerifyDate1"/>
+    <parameterBindings name="RepositoryDomain" objectPath="ChannelDomain"/>
+    <returnValueBindings name="Repository" objectPath="CurrentChannel"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDate.xml"/>
+    <nodeSuccessors name="next" next="VerifyDate2"/>
+    <parameterBindings name="DatePattern" constant="yyyy-MM-dd HH:mm"/>
+    <parameterBindings name="DateString" objectPath="Configuration:Promotion.StartDate"/>
+    <returnValueBindings name="Date" objectPath="PromotionStartDate"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyDate2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDate.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameterBindings name="DatePattern" constant="yyyy-MM-dd HH:mm"/>
+    <parameterBindings name="DateString" objectPath="Configuration:Promotion.EndDate"/>
+    <returnValueBindings name="Date" objectPath="PromotionEndDate"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <parameterBindings name="Channel" objectPath="CurrentChannel"/>
+    <startNode referencedName="ProcessPromotion-GetPromotionDomainByChannel"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="DecisionNode8" action="begin"/>
+    <parameterBindings name="ConfiguredCurrency" objectPath="Configuration:Discount.Currency"/>
+    <startNode referencedName="DBInitPromotion-VerifyCurrency"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="PromotionCurrency">
+    <nodeSuccessors name="decision_yes" next="Pipelet12"/>
+<!--@BendPoints 9,15 9,16-->
+    <nodeSuccessors name="decision_no" next="Pipelet5"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet12">
+    <pipelet href="enfinity:/bc_marketing/pipelets/CreatePromotion.xml"/>
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+    <parameterBindings name="CurrencyCode" objectPath="PromotionCurrency"/>
+    <parameterBindings name="Domain" objectPath="PromotionDomain"/>
+    <parameterBindings name="PromotionID" objectPath="Configuration:Promotion.ID"/>
+    <parameterBindings name="PromotionUUID" objectPath="Configuration:Promotion.UUID"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 7,24-->
+    <nodeSuccessors name="next" next="UpdatePromotion1"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePromotion1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/UpdatePromotion.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode14"/>
+    <parameterBindings name="Description" objectPath="Configuration:Promotion.Description"/>
+    <parameterBindings name="DisplayName" objectPath="Configuration:Promotion.Name"/>
+    <parameterBindings name="EffectDiscountLevel" constant="(Boolean)false"/>
+    <parameterBindings name="Enabled" constant="(Boolean)true"/>
+    <parameterBindings name="EndDate" objectPath="PromotionEndDate"/>
+    <parameterBindings name="HasDefaultRank" constant="(Boolean)true"/>
+    <parameterBindings name="Locale" objectPath="LeadLocale"/>
+    <parameterBindings name="Promotion" objectPath="Promotion"/>
+    <parameterBindings name="StartDate" objectPath="PromotionStartDate"/>
+    <parameterBindings name="Type" objectPath="Configuration:Promotion.Type"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="Configuration:Promotion.ExternalDetailsURL"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="JoinNode29"/>
+<!--@BendPoints 9,27 9,28-->
+    <nodeSuccessors name="decision_no" next="UpdateCustomAttributes1"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode29">
+    <nodeSuccessors name="next" next="DecisionNode19"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode19" conditionKey="Configuration:Promotion.LocalizableAVs"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="JoinNode30"/>
+<!--@BendPoints 9,33-->
+    <nodeSuccessors name="decision_no" next="UpdateLocalizableAttributesByResources2"/>
+  </nodes>
+<!--@Location 3,18-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode30">
+<!--@BendPoints 7,38-->
+    <nodeSuccessors name="next" next="KeyMapper9"/>
+  </nodes>
+<!--@Location 3,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper9">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 7,40-->
+    <nodeSuccessors name="next" next="GetDomainByUUID1"/>
+    <parameterBindings name="InValue_1" constant="free_combinable"/>
+    <returnValueBindings name="OutValue_1" objectPath="Combinable"/>
+  </nodes>
+<!--@Location 3,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="GetActionApplicationContext2"/>
+<!--@BendPoints 8,41 8,45-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode35"/>
+    <parameterBindings name="DomainUUID" objectPath="Promotion:Domain:SiteID"/>
+    <returnValueBindings name="Domain" objectPath="SiteDomain"/>
+  </nodes>
+<!--@Location 3,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetActionApplicationContext2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetActionApplicationContext.xml"/>
+    <nodeSuccessors name="next" next="JoinNode35"/>
+    <parameterBindings name="ActionDescriptorRegistryName" constant="promotionActionDescriptorRegistry"/>
+    <parameterBindings name="ActionRepositoryName" constant="promotionActionRepository"/>
+    <parameterBindings name="SiteName" objectPath="SiteDomain:DomainName"/>
+  </nodes>
+<!--@Location 3,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode35">
+<!--@BendPoints 7,46-->
+    <nodeSuccessors name="next" next="UpdatePromotionCombinable1"/>
+  </nodes>
+<!--@Location 3,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePromotionCombinable1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/UpdatePromotionCombinable.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode11" action="commit"/>
+    <parameterBindings name="SiteDomain" objectPath="SiteDomain"/>
+  </nodes>
+<!--@Location 3,24-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="Configuration:Promotion.Unlimited"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="JoinNode14"/>
+<!--@BendPoints 9,49 9,50-->
+    <nodeSuccessors name="decision_no" next="DecisionNode18"/>
+  </nodes>
+<!--@Location 3,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+    <nodeSuccessors name="next" next="JoinNode16"/>
+  </nodes>
+<!--@Location 3,27-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+    <nodeSuccessors name="next" next="JoinNode28"/>
+  </nodes>
+<!--@Location 3,28-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode28">
+    <nodeSuccessors name="next" next="Convert3"/>
+  </nodes>
+<!--@Location 3,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Convert3">
+    <configurationValues name="ResultClass" value="com.intershop.beehive.foundation.quantity.Money"/>
+    <pipelet href="enfinity:/core/pipelets/Convert.xml"/>
+    <nodeSuccessors name="next" next="Convert2"/>
+    <parameterBindings name="Object1" objectPath="Promotion:Currency:Mnemonic"/>
+    <parameterBindings name="Object2" constant="0.0"/>
+    <returnValueBindings name="ResultObject" objectPath="BudgetAmount"/>
+  </nodes>
+<!--@Location 3,30-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Convert2">
+    <configurationValues name="ResultClass" value="java.lang.Double"/>
+    <pipelet href="enfinity:/core/pipelets/Convert.xml"/>
+    <nodeSuccessors name="next" next="CallNode14"/>
+    <parameterBindings name="Object1" constant="0.0"/>
+    <returnValueBindings name="ResultObject" objectPath="BudgetNotificationThreshold"/>
+  </nodes>
+<!--@Location 3,31-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode14">
+    <nodeSuccessors name="next" next="JoinNode15"/>
+    <parameterBindings name="EndDate" objectPath="Promotion:EndDate"/>
+    <parameterBindings name="Locale" objectPath="LeadLocale"/>
+    <parameterBindings name="StartDate" objectPath="Promotion:StartDate"/>
+    <parameterBindings name="Unlimited" constant="(Boolean)true"/>
+    <startNode referencedName="ProcessPromotionBudget-SetBudget"/>
+  </nodes>
+<!--@Location 3,32-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 3,33-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"/>
+  </nodes>
+<!--@Location 4,25-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode18" conditionKey="Configuration:Promotion.Unlimited"
+      operator="str_eq" conditionValue="Unlimited">
+<!--@BendPoints 9,53-->
+    <nodeSuccessors name="decision_yes" next="JoinNode14"/>
+<!--@BendPoints 11,51 11,52-->
+    <nodeSuccessors name="decision_no" next="DecisionNode17"/>
+  </nodes>
+<!--@Location 5,26-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode17" conditionKey="Configuration:Promotion.BudgetAmount"
+      operator="str_empty">
+<!--@BendPoints 11,55-->
+    <nodeSuccessors name="decision_yes" next="JoinNode16"/>
+<!--@BendPoints 13,53 13,54-->
+    <nodeSuccessors name="decision_no" next="DecisionNode12"/>
+  </nodes>
+<!--@Location 6,27-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="Configuration:Discount.Currency"
+      operator="str_empty">
+<!--@BendPoints 13,57-->
+    <nodeSuccessors name="decision_yes" next="JoinNode28"/>
+<!--@BendPoints 15,55-->
+    <nodeSuccessors name="decision_no" next="Convert1"/>
+  </nodes>
+<!--@Location 7,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Convert1">
+    <configurationValues name="ResultClass" value="com.intershop.beehive.foundation.quantity.Money"/>
+    <pipelet href="enfinity:/core/pipelets/Convert.xml"/>
+    <nodeSuccessors name="next" next="Convert4"/>
+    <parameterBindings name="Object1" objectPath="Promotion:Currency:Mnemonic"/>
+    <parameterBindings name="Object2" objectPath="Configuration:Promotion.BudgetAmount"/>
+    <returnValueBindings name="ResultObject" objectPath="BudgetAmount"/>
+  </nodes>
+<!--@Location 7,30-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Convert4">
+    <configurationValues name="ResultClass" value="java.lang.Double"/>
+    <pipelet href="enfinity:/core/pipelets/Convert.xml"/>
+    <nodeSuccessors name="next" next="CallNode13"/>
+    <parameterBindings name="Object1" objectPath="Configuration:Promotion.BudgetNotificationThreshold"/>
+    <returnValueBindings name="ResultObject" objectPath="BudgetNotificationThreshold"/>
+  </nodes>
+<!--@Location 7,31-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode13">
+<!--@BendPoints 15,65-->
+    <nodeSuccessors name="next" next="JoinNode15"/>
+    <parameterBindings name="EndDate" objectPath="Promotion:EndDate"/>
+    <parameterBindings name="Locale" objectPath="LeadLocale"/>
+    <parameterBindings name="StartDate" objectPath="Promotion:StartDate"/>
+    <parameterBindings name="Unlimited" constant="(Boolean)false"/>
+    <startNode referencedName="ProcessPromotionBudget-SetBudget"/>
+  </nodes>
+<!--@Location 4,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLocalizableAttributesByResources2">
+    <configurationValues name="TextFieldNames" value="UseExternalURL,ExternalDetailsURL,Icon,Title,LongTitle,ConditionalProductDescription,DiscountedProductDescription,RuleDescription,LegalContentMessage"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateLocalizableAttributesByResources.xml"/>
+<!--@BendPoints 9,37-->
+    <nodeSuccessors name="next" next="JoinNode30"/>
+    <parameterBindings name="Object" objectPath="Promotion"/>
+    <parameterBindings name="ResourceBundleName" objectPath="Configuration:Promotion.LocalizableAVs"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes1">
+    <configurationValues name="Attribute_1_Name" value="ExternalDetailsURL"/>
+    <configurationValues name="Attribute_1_Type" value="String"/>
+    <configurationValues name="Attribute_2_Name" value="useExternalURL"/>
+    <configurationValues name="Attribute_2_Type" value="Boolean"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+<!--@BendPoints 9,31-->
+    <nodeSuccessors name="next" next="JoinNode29"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="Configuration:Promotion.ExternalDetailsURL"/>
+    <parameterBindings name="Attribute_2_Value" constant="(Boolean)true"/>
+    <parameterBindings name="ExtensibleObject" objectPath="Promotion"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="GetPromotionByID1"/>
+  </nodes>
+<!--@Location 5,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPromotionByID1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/GetPromotionByID.xml"/>
+<!--@BendPoints 11,23-->
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <parameterBindings name="Domain" objectPath="PromotionDomain"/>
+    <parameterBindings name="PromotionID" objectPath="Configuration:Promotion.ID"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <pipelet href="enfinity:/bc_marketing/pipelets/CreatePromotion.xml"/>
+<!--@BendPoints 9,21-->
+    <nodeSuccessors name="next" next="JoinNode10"/>
+<!--@BendPoints 11,17-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+    <parameterBindings name="Domain" objectPath="PromotionDomain"/>
+    <parameterBindings name="PromotionID" objectPath="Configuration:Promotion.ID"/>
+    <parameterBindings name="PromotionUUID" objectPath="Configuration:Promotion.UUID"/>
+  </nodes>
+<!--@Location 36,16-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode15" strict="true" name="CreatePromotionApplicationAssignment"
+      callMode="Private">
+<!--@BendPoints 73,34-->
+    <nodeSuccessors name="next" next="GetDomain2"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+    <parameters name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"/>
+  </nodes>
+<!--@Location 36,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomain2">
+    <pipelet href="enfinity:/core/pipelets/GetDomain.xml"/>
+<!--@BendPoints 73,36-->
+    <nodeSuccessors name="next" next="GetRepositoryByRepositoryDomain2"/>
+    <parameterBindings name="StagingDomainName" objectPath="Configuration:ChannelDomainName"/>
+    <returnValueBindings name="StagingDomain" objectPath="ChannelDomain"/>
+  </nodes>
+<!--@Location 36,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+<!--@BendPoints 73,38-->
+    <nodeSuccessors name="next" next="CallNode48"/>
+    <parameterBindings name="RepositoryDomain" objectPath="ChannelDomain"/>
+    <returnValueBindings name="Repository" objectPath="CurrentChannel"/>
+  </nodes>
+<!--@Location 36,19-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode48">
+<!--@BendPoints 73,40-->
+    <nodeSuccessors name="next" next="LoopNode11"/>
+    <parameterBindings name="ChannelRepository" objectPath="CurrentChannel"/>
+    <startNode referencedName="ProcessApplication-GetApplications"/>
+  </nodes>
+<!--@Location 36,20-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode11" loop="Applications">
+    <nodeSuccessors name="next" next="EndNode19"/>
+    <entry key="Application">
+<!--@BendPoints 73,42-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode28"/>
+    </entry>
+  </nodes>
+<!--@Location 36,21-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode28" conditionKey="Application:Default">
+    <nodeSuccessors name="decision_yes" next="DecisionNode25"/>
+<!--@BendPoints 75,43-->
+    <nodeSuccessors name="decision_no" next="JoinNode42"/>
+  </nodes>
+<!--@Location 36,22-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode25" conditionKey="Application:Default"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 73,46-->
+    <nodeSuccessors name="decision_yes" next="AssignPromotionToApplication1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode42"/>
+  </nodes>
+<!--@Location 36,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignPromotionToApplication1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/AssignPromotionToApplication.xml"/>
+<!--@BendPoints 73,48-->
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+  </nodes>
+<!--@Location 36,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+<!--@BendPoints 73,50-->
+    <nodeSuccessors name="next" next="GetApplicationBOByID1"/>
+    <returnValueBindings name="ApplicationBO" objectPath="DBInitApplication"/>
+  </nodes>
+<!--@Location 36,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBOByID1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBOByID.xml"/>
+    <nodeSuccessors name="next" next="JoinNode38"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode46"/>
+    <parameterBindings name="ApplicationBORepository" objectPath="DBInitApplication:Repository"/>
+    <parameterBindings name="ApplicationID" objectPath="Application:UUID"/>
+  </nodes>
+<!--@Location 36,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode38">
+<!--@BendPoints 72,53 72,41-->
+    <nodeSuccessors name="next" next="LoopNode11_Entry"/>
+  </nodes>
+<!--@Location 37,25-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode46">
+<!--@BendPoints 75,53-->
+    <nodeSuccessors name="next" next="JoinNode38"/>
+  </nodes>
+<!--@Location 37,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode42">
+    <nodeSuccessors name="next" next="JoinNode46"/>
+  </nodes>
+<!--@Location 38,20-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode19" strict="true">
+    <returnValues name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--@Location 39,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="CreatePromotionCode"
+      callMode="Private">
+<!--@BendPoints 79,2-->
+    <nodeSuccessors name="next" next="TrimString1"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+    <parameters name="PromotionCodeGroup" type="com.intershop.component.marketing.capi.code.PromotionCodeGroup"/>
+    <parameters name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"/>
+  </nodes>
+<!--@Location 39,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="TrimString1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/TrimString.xml"/>
+    <nodeSuccessors name="next" next="CallNode19"/>
+    <parameterBindings name="String" objectPath="Configuration:PromotionCode.Code"/>
+    <returnValueBindings name="TrimmedString" objectPath="TrimmedCode"/>
+  </nodes>
+<!--@Location 39,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode19">
+    <nodeSuccessors name="IsNotUnique" next="LogMessage3"/>
+<!--@BendPoints 81,6-->
+    <nodeSuccessors name="IsUnique" next="AddObjectToVector3"/>
+    <parameterBindings name="PromotionDomain" objectPath="Promotion:Domain"/>
+    <parameterBindings name="SingleCode" objectPath="TrimmedCode"/>
+    <startNode referencedName="ProcessPromotionCode-CheckUniqueness"/>
+  </nodes>
+<!--@Location 39,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage3">
+    <configurationValues name="Level" value="Info"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode44"/>
+    <parameterBindings name="MessageParam0" objectPath="TrimmedCode"/>
+    <parameterBindings name="MessageText" constant="The Promotion Code creation failed: uniqueness check for code '{}' yields a negative result!"/>
+  </nodes>
+<!--@Location 39,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode44">
+<!--@BendPoints 79,14-->
+    <nodeSuccessors name="next" next="EndNode13"/>
+  </nodes>
+<!--@Location 39,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" strict="true"/>
+<!--@Location 40,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="CreatePromotionCodes1" action="begin"/>
+    <parameterBindings name="Object" objectPath="TrimmedCode"/>
+    <returnValueBindings name="Iterator" objectPath="PromotionCodes"/>
+    <returnValueBindings name="OutVector" objectPath="PromotionCodesV"/>
+  </nodes>
+<!--@Location 40,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePromotionCodes1">
+    <configurationValues name="Secured" value="false"/>
+    <pipelet href="enfinity:/bc_marketing/pipelets/CreatePromotionCodes.xml"/>
+    <nodeSuccessors name="next" next="JoinNode45" action="commit"/>
+<!--@BendPoints 83,9 83,10-->
+    <nodeSuccessors name="pipelet_error" next="LogMessage2" action="rollback"/>
+    <parameterBindings name="CodeLevel4Commit" constant="(Integer)1"/>
+    <parameterBindings name="Codes" objectPath="PromotionCodes"/>
+    <parameterBindings name="Domain" objectPath="PromotionCodeGroup:Domain"/>
+    <parameterBindings name="PromotionCodeGroup" objectPath="PromotionCodeGroup"/>
+  </nodes>
+<!--@Location 40,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode45">
+    <nodeSuccessors name="next" next="JoinNode44"/>
+  </nodes>
+<!--@Location 41,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage2">
+    <configurationValues name="Level" value="Warn"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 83,13-->
+    <nodeSuccessors name="next" next="JoinNode45"/>
+    <parameterBindings name="MessageParam0" objectPath="TrimmedCode"/>
+    <parameterBindings name="MessageText" constant="Pipelet CreatePromotionCodes left via ERROR exit during processing of code '{}'!"/>
+  </nodes>
+<!--@Location 36,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" strict="true" name="CreatePromotionCodeGroup"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetPromotionCodeGroupByID1" action="begin"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+    <parameters name="LeadLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+    <parameters name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"/>
+  </nodes>
+<!--@Location 36,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPromotionCodeGroupByID1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/GetPromotionCodeGroupByID.xml"/>
+    <nodeSuccessors name="next" next="JoinNode43"/>
+<!--@BendPoints 75,3 75,4-->
+    <nodeSuccessors name="pipelet_error" next="CreatePromotionCodeGroup1"/>
+    <parameterBindings name="GroupID" objectPath="Configuration:PromotionCodeGroup.ID"/>
+  </nodes>
+<!--@Location 36,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode43">
+<!--@BendPoints 73,6-->
+    <nodeSuccessors name="next" next="UpdatePromotion2"/>
+  </nodes>
+<!--@Location 36,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePromotion2">
+    <pipelet href="enfinity:/bc_marketing/pipelets/UpdatePromotion.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameterBindings name="CouponCodeRequired" constant="(Boolean)true"/>
+  </nodes>
+<!--@Location 36,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Configuration:PromotionCodeGroup.NumberCodeReusePerCustomer">
+    <nodeSuccessors name="decision_yes" next="Convert0"/>
+<!--@BendPoints 75,9-->
+    <nodeSuccessors name="decision_no" next="KeyMapper0"/>
+  </nodes>
+<!--@Location 36,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Convert0">
+    <configurationValues name="ResultClass" value="java.lang.Integer"/>
+    <pipelet href="enfinity:/core/pipelets/Convert.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="Object1" objectPath="Configuration:PromotionCodeGroup.NumberCodeReusePerCustomer"/>
+    <returnValueBindings name="ResultObject" objectPath="NumberCodeReusePerCustomer"/>
+  </nodes>
+<!--@Location 36,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="DecisionNode27"/>
+  </nodes>
+<!--@Location 36,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode27" conditionKey="Configuration:PromotionCodeGroup.NumberTotalReusePerCode">
+    <nodeSuccessors name="decision_yes" next="Convert8"/>
+<!--@BendPoints 75,15-->
+    <nodeSuccessors name="decision_no" next="KeyMapper1"/>
+  </nodes>
+<!--@Location 36,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Convert8">
+    <configurationValues name="ResultClass" value="java.lang.Integer"/>
+    <pipelet href="enfinity:/core/pipelets/Convert.xml"/>
+    <nodeSuccessors name="next" next="JoinNode47"/>
+    <parameterBindings name="Object1" objectPath="Configuration:PromotionCodeGroup.NumberTotalReusePerCode"/>
+    <returnValueBindings name="ResultObject" objectPath="NumberTotalReusePerCode"/>
+  </nodes>
+<!--@Location 36,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode47">
+    <nodeSuccessors name="next" next="UpdatePromotionCodeGroup1"/>
+  </nodes>
+<!--@Location 36,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePromotionCodeGroup1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/UpdatePromotionCodeGroup.xml"/>
+    <nodeSuccessors name="next" next="AddPromotionCodeGroupToPromotion1"/>
+    <parameterBindings name="Description" objectPath="Configuration:PromotionCodeGroup.Description"/>
+    <parameterBindings name="DisplayName" objectPath="Configuration:PromotionCodeGroup.Name"/>
+    <parameterBindings name="Enabled" constant="(Boolean)true"/>
+    <parameterBindings name="Locale" objectPath="LeadLocale"/>
+    <parameterBindings name="ReusesPerCode" objectPath="NumberTotalReusePerCode"/>
+    <parameterBindings name="ReusesPerCustomer" objectPath="NumberCodeReusePerCustomer"/>
+    <parameterBindings name="UsePromotionTargetGroups" constant="(Boolean)true"/>
+    <parameterBindings name="UsePromotionTime" constant="(Boolean)true"/>
+  </nodes>
+<!--@Location 36,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddPromotionCodeGroupToPromotion1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/AddPromotionCodeGroupToPromotion.xml"/>
+<!--@BendPoints 73,24-->
+    <nodeSuccessors name="next" next="EndNode12" action="commit"/>
+  </nodes>
+<!--@Location 36,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" strict="true">
+    <returnValues name="PromotionCodeGroup" type="com.intershop.component.marketing.capi.code.PromotionCodeGroup"/>
+  </nodes>
+<!--@Location 37,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 75,19-->
+    <nodeSuccessors name="next" next="JoinNode47"/>
+    <parameterBindings name="InValue_1" constant="(Integer)0"/>
+    <returnValueBindings name="OutValue_1" objectPath="NumberTotalReusePerCode"/>
+  </nodes>
+<!--@Location 37,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 75,13-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="InValue_1" constant="(Integer)0"/>
+    <returnValueBindings name="OutValue_1" objectPath="NumberCodeReusePerCustomer"/>
+  </nodes>
+<!--@Location 37,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePromotionCodeGroup1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/CreatePromotionCodeGroup.xml"/>
+<!--@BendPoints 75,6 74,6-->
+    <nodeSuccessors name="next" next="JoinNode43"/>
+<!--@BendPoints 76,5-->
+    <nodeSuccessors name="pipelet_error" next="EndNode14" action="rollback"/>
+    <parameterBindings name="Domain" objectPath="Promotion:Domain"/>
+    <parameterBindings name="GroupID" objectPath="Configuration:PromotionCodeGroup.ID"/>
+  </nodes>
+<!--@Location 38,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" name="ERROR" strict="true"/>
+<!--@Location 29,8-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode14" strict="true" name="CreatePromotionCodeGroupApplicationAssignment"
+      callMode="Private">
+<!--@BendPoints 59,18-->
+    <nodeSuccessors name="next" next="GetDomain4"/>
+    <parameters name="PromotionCodeGroup" type="com.intershop.component.marketing.capi.code.PromotionCodeGroup"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+  </nodes>
+<!--@Location 29,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomain4">
+    <pipelet href="enfinity:/core/pipelets/GetDomain.xml"/>
+<!--@BendPoints 59,20-->
+    <nodeSuccessors name="next" next="GetRepositoryByRepositoryDomain3"/>
+    <parameterBindings name="StagingDomainName" objectPath="Configuration:ChannelDomainName"/>
+    <returnValueBindings name="StagingDomain" objectPath="ChannelDomain"/>
+  </nodes>
+<!--@Location 29,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain3">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+<!--@BendPoints 59,22-->
+    <nodeSuccessors name="next" next="CallNode21"/>
+    <parameterBindings name="RepositoryDomain" objectPath="ChannelDomain"/>
+    <returnValueBindings name="Repository" objectPath="CurrentChannel"/>
+  </nodes>
+<!--@Location 29,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode21">
+<!--@BendPoints 59,24-->
+    <nodeSuccessors name="next" next="LoopNode10"/>
+    <parameterBindings name="ChannelRepository" objectPath="CurrentChannel"/>
+    <startNode referencedName="ProcessApplication-GetApplications"/>
+  </nodes>
+<!--@Location 29,12-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode10" loop="Applications">
+<!--@BendPoints 62,25-->
+    <nodeSuccessors name="next" next="EndNode18"/>
+    <entry key="Application">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode29"/>
+    </entry>
+  </nodes>
+<!--@Location 29,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode29" conditionKey="Application:Default">
+    <nodeSuccessors name="decision_yes" next="DecisionNode30"/>
+<!--@BendPoints 61,27-->
+    <nodeSuccessors name="decision_no" next="JoinNode39"/>
+  </nodes>
+<!--@Location 29,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode30" conditionKey="Application:Default"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="AssignPromotionCodeGroupToApplication1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode39"/>
+  </nodes>
+<!--@Location 29,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignPromotionCodeGroupToApplication1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/AssignPromotionCodeGroupToApplication.xml"/>
+    <nodeSuccessors name="next" next="JoinNode41"/>
+  </nodes>
+<!--@Location 29,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode41">
+<!--@BendPoints 58,33 58,25-->
+    <nodeSuccessors name="next" next="LoopNode10_Entry"/>
+  </nodes>
+<!--@Location 30,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode39">
+<!--@BendPoints 61,33-->
+    <nodeSuccessors name="next" next="JoinNode41"/>
+  </nodes>
+<!--@Location 31,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode18" strict="true"/>
+<!--This pipeline can be used to prepare a required single code for a given promotion based on values for the keys PromotionSingleCode.Code, PromotionSingleCode.SingleCodeCustomerUnlimited, PromotionSingleCode.TotalReusePerCodeFlag, PromotionSingleCode.TotalReusePerCode found in the corresponding configuration file.
+  
+Allowed PromotionSingleCode* values are:
+PromotionSinlgeCode.Code = string
+PromotionSinlgeCode.SingleCodeCustomerUnlimited = [true, false]
+PromotionSinlgeCode.TotalReusePerCodeFlag = [0, 1]
+PromotionSingleCode.TotalReusePerCode = integer 
+ 
+PromotionSingleCode.Code refers to the single code to be set, *SingleCodeCustomerUnlimited being true means that the "Code Reuse Per Customer" is set to "Unlimited"; 
+*TotalReusePerCodeFlag stands for "Total Reuse Per Code" where value 0 means "Unlimited" and value 1 allows you to define a "Specific Number" that you can set by means of *TotalReusePerCode. 
+@Location 33,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode16" strict="true" name="CreatePromotionSingleCode"
+      callMode="Private">
+    <nodeSuccessors name="next" next="UpdatePromotion3" action="begin"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+    <parameters name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"/>
+  </nodes>
+<!--@Location 33,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePromotion3">
+    <pipelet href="enfinity:/bc_marketing/pipelets/UpdatePromotion.xml"/>
+    <nodeSuccessors name="next" next="TrimString2"/>
+    <parameterBindings name="CouponCodeRequired" constant="(Boolean)true"/>
+  </nodes>
+<!--@Location 33,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="TrimString2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/TrimString.xml"/>
+    <nodeSuccessors name="next" next="Pipelet1"/>
+    <parameterBindings name="String" objectPath="Configuration:PromotionSingleCode.Code"/>
+  </nodes>
+<!--@Location 33,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode24"/>
+    <parameterBindings name="InValue_1" objectPath="TrimmedString"/>
+    <returnValueBindings name="OutValue_1" objectPath="SingleCode"/>
+  </nodes>
+<!--@Location 33,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode24">
+    <nodeSuccessors name="IsUnique" next="Convert5"/>
+    <nodeSuccessors name="IsNotUnique" next="LogMessage1" action="rollback"/>
+    <parameterBindings name="PromotionDomain" objectPath="Promotion:Domain"/>
+    <startNode referencedName="ProcessPromotionCode-CheckUniqueness"/>
+  </nodes>
+<!--@Location 33,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Convert5">
+    <configurationValues name="ResultClass" value="java.lang.Boolean"/>
+    <pipelet href="enfinity:/core/pipelets/Convert.xml"/>
+    <nodeSuccessors name="next" next="Convert7"/>
+    <parameterBindings name="Object1" objectPath="Configuration:PromotionSingleCode.SingleCodeCustomerUnlimited"/>
+    <returnValueBindings name="ResultObject" objectPath="SingleCodeCustomerUnlimited"/>
+  </nodes>
+<!--@Location 33,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Convert7">
+    <configurationValues name="ResultClass" value="java.lang.Integer"/>
+    <pipelet href="enfinity:/core/pipelets/Convert.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode24"/>
+    <parameterBindings name="Object1" objectPath="Configuration:PromotionSingleCode.TotalReusePerCodeFlag"/>
+    <returnValueBindings name="ResultObject" objectPath="TotalReusePerCodeFlag"/>
+  </nodes>
+<!--@Location 33,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode24" conditionKey="TotalReusePerCodeFlag"
+      operator="eq" conditionValue="0">
+<!--@BendPoints 67,18-->
+    <nodeSuccessors name="decision_yes" next="VerifyInteger1"/>
+<!--@BendPoints 69,17 69,18-->
+    <nodeSuccessors name="decision_no" next="Convert6"/>
+  </nodes>
+<!--The promotion code can be reused "unlimited" times. Actually it will be limited by the the maximum integer value: "2147483647"
+@Location 33,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyInteger1">
+    <configurationValues name="isOptional" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyInteger.xml"/>
+    <nodeSuccessors name="next" next="JoinNode40"/>
+<!--@BendPoints 68,19 68,21-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode40"/>
+    <parameterBindings name="LocalizedString" constant="2147483647"/>
+    <returnValueBindings name="IntegerObject" objectPath="SingleCodeTotal"/>
+  </nodes>
+<!--@Location 33,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode40">
+    <nodeSuccessors name="next" next="JoinNode37"/>
+  </nodes>
+<!--@Location 33,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode37">
+<!--@BendPoints 67,24-->
+    <nodeSuccessors name="next" next="UpdatePromotionCodeConfiguration1"/>
+  </nodes>
+<!--@Location 33,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePromotionCodeConfiguration1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/UpdatePromotionCodeConfiguration.xml"/>
+<!--@BendPoints 67,26-->
+    <nodeSuccessors name="next" next="EndNode17" action="commit"/>
+    <parameterBindings name="SingleCodeCustomerUnlimited" objectPath="SingleCodeCustomerUnlimited"/>
+    <parameterBindings name="SingleCodeTotal" objectPath="SingleCodeTotal"/>
+    <parameterBindings name="UseSingleCode" constant="(Boolean)true"/>
+  </nodes>
+<!--@Location 33,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" strict="true"/>
+<!--@Location 34,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Convert6">
+    <configurationValues name="ResultClass" value="java.lang.Integer"/>
+    <pipelet href="enfinity:/core/pipelets/Convert.xml"/>
+<!--@BendPoints 69,23-->
+    <nodeSuccessors name="next" next="JoinNode37"/>
+    <parameterBindings name="Object1" objectPath="Configuration:PromotionSingleCode.TotalReusePerCode"/>
+    <returnValueBindings name="ResultObject" objectPath="SingleCodeTotal"/>
+  </nodes>
+<!--@Location 34,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage1">
+    <configurationValues name="Level" value="Warn"/>
+    <configurationValues name="Marker" value="DBInit"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 70,11-->
+    <nodeSuccessors name="next" next="EndNode20"/>
+    <parameterBindings name="MessageParam0" objectPath="SingleCode"/>
+    <parameterBindings name="MessageText" constant="DBInit singlecode creation failed because input SingleCode {} is not unique in the corresponding channel!"/>
+  </nodes>
+<!--Codes must be unique in each channel!
+@Location 34,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode20" name="ERROR" strict="true"/>
+<!--@Location 29,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" strict="true" name="DetermineCategories"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateIteratorFromConfigValues4"/>
+    <parameters name="CategoryRefs" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 29,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromConfigValues4">
+    <configurationValues name="Delimiters" value=","/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromConfigValues.xml"/>
+    <nodeSuccessors name="next" next="CreateStringSplitter2"/>
+    <parameterBindings name="ValuesString" objectPath="CategoryRefs"/>
+    <returnValueBindings name="ValuesIterator" objectPath="CategoryRefIterator"/>
+  </nodes>
+<!--@Location 29,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStringSplitter2">
+    <configurationValues name="Mode" value="Last Occurrence"/>
+    <configurationValues name="Separator" value="@"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStringSplitter.xml"/>
+    <nodeSuccessors name="next" next="LoopNode3"/>
+    <returnValueBindings name="Splitter" objectPath="CatRef"/>
+  </nodes>
+<!--@Location 29,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="CategoryRefIterator">
+<!--@BendPoints 60,7-->
+    <nodeSuccessors name="next" next="EndNode8"/>
+    <entry key="CategoryRef">
+      <nodeSuccessors name="loop_entry_next" next="GetCategoryByName1"/>
+    </entry>
+  </nodes>
+<!--@Location 29,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoryByName1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoryByName.xml"/>
+<!--@BendPoints 59,10-->
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+<!--@BendPoints 60,9 60,13-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="CategoryDomainName" objectPath="CatRef:End(CategoryRef)"/>
+    <parameterBindings name="CategoryName" objectPath="CatRef:Begin(CategoryRef)"/>
+  </nodes>
+<!--@Location 29,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="InVector" objectPath="CategoryVec"/>
+    <parameterBindings name="Object" objectPath="Category"/>
+    <returnValueBindings name="Iterator" objectPath="Categories"/>
+    <returnValueBindings name="OutVector" objectPath="CategoryVec"/>
+  </nodes>
+<!--@Location 29,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 58,13 58,7-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+  </nodes>
+<!--@Location 30,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" strict="true">
+    <returnValues name="Categories" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 27,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" strict="true" name="DetermineProducts"
+      callMode="Private">
+<!--@BendPoints 55,2-->
+    <nodeSuccessors name="next" next="CreateIteratorFromConfigValues3"/>
+    <parameters name="ProductRefs" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 27,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromConfigValues3">
+    <configurationValues name="Delimiters" value=","/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromConfigValues.xml"/>
+    <nodeSuccessors name="next" next="GetProducts1"/>
+    <parameterBindings name="ValuesString" objectPath="ProductRefs"/>
+    <returnValueBindings name="ValuesIterator" objectPath="ProductRefIterator"/>
+  </nodes>
+<!--@Location 27,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProducts1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetBaseProducts.xml"/>
+<!--@BendPoints 55,6-->
+    <nodeSuccessors name="next" next="LoopNode4"/>
+    <parameterBindings name="ProductRefIterator" objectPath="ProductRefIterator"/>
+  </nodes>
+<!--@Location 27,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode4" loop="Products">
+<!--@BendPoints 56,7-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+    <entry key="Product">
+<!--@BendPoints 55,8-->
+      <nodeSuccessors name="loop_entry_next" next="UpdateMapping2"/>
+    </entry>
+  </nodes>
+<!--@Location 27,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateMapping2">
+    <configurationValues name="Mode" value="Add"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateMapping.xml"/>
+<!--@BendPoints 55,10 54,10 54,7-->
+    <nodeSuccessors name="next" next="LoopNode4_Entry"/>
+    <parameterBindings name="InMap" objectPath="ProductUUIDMap"/>
+    <parameterBindings name="Key" objectPath="Product:UUID"/>
+    <parameterBindings name="Value" objectPath="Product:UUID"/>
+    <returnValueBindings name="Keys" nullBinding="true"/>
+    <returnValueBindings name="OutMap" objectPath="ProductUUIDMap"/>
+    <returnValueBindings name="Values" nullBinding="true"/>
+  </nodes>
+<!--@Location 28,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true">
+    <returnValues name="Products" type="java.util.Iterator" optional="true"/>
+    <returnValues name="ProductUUIDMap" type="java.util.Map" optional="true"/>
+  </nodes>
+<!--@Location 15,24-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode13" strict="true" name="GetCategoryIDsFromReferences"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateIteratorFromConfigValues9"/>
+<!--the categoty references to get the UUIDs for [<Category:Name@Category:Domain:Domainname>,[]]-->
+    <parameters name="CategoryReferences" type="java.lang.String"/>
+  </nodes>
+<!--@Location 15,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromConfigValues9">
+    <configurationValues name="Delimiters" value=",;"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromConfigValues.xml"/>
+    <nodeSuccessors name="next" next="LoopNode8"/>
+    <parameterBindings name="ValuesString" objectPath="CategoryReferences"/>
+    <returnValueBindings name="ValuesIterator" objectPath="CategoriesRefs"/>
+  </nodes>
+<!--@Location 15,26-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode8" loop="CategoriesRefs">
+<!--@BendPoints 37,53 37,54-->
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+    <entry key="CategoryRef">
+<!--@BendPoints 31,54-->
+      <nodeSuccessors name="loop_entry_next" next="SplitString1"/>
+    </entry>
+  </nodes>
+<!--@Location 15,27-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SplitString1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SplitString.xml"/>
+    <nodeSuccessors name="next" next="GetElementOfIterator1"/>
+    <parameterBindings name="Delimeter" constant="@"/>
+    <parameterBindings name="Limit" constant="(Integer)2"/>
+    <parameterBindings name="Trim" constant="(Boolean)true"/>
+    <parameterBindings name="ValuesString" objectPath="CategoryRef"/>
+  </nodes>
+<!--@Location 15,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetElementOfIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetElementOfIterator.xml"/>
+    <nodeSuccessors name="next" next="GetElementOfIterator2"/>
+<!--@BendPoints 35,57-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode24"/>
+    <parameterBindings name="Index" constant="(Integer)0"/>
+    <parameterBindings name="Iterator" objectPath="ValuesIterator"/>
+    <returnValueBindings name="Element" objectPath="CategoryID"/>
+  </nodes>
+<!--@Location 15,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetElementOfIterator2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetElementOfIterator.xml"/>
+    <nodeSuccessors name="next" next="GetCategoryByName2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode24"/>
+    <parameterBindings name="Index" constant="(Integer)1"/>
+    <parameterBindings name="Iterator" objectPath="ValuesIterator"/>
+    <returnValueBindings name="Element" objectPath="CategoryDomainID"/>
+  </nodes>
+<!--@Location 15,30-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoryByName2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoryByName.xml"/>
+<!--@BendPoints 31,62-->
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode23"/>
+    <parameterBindings name="CategoryDomainName" objectPath="CategoryDomainID"/>
+    <parameterBindings name="CategoryName" objectPath="CategoryID"/>
+  </nodes>
+<!--@Location 15,31-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="CategoryUUIDs">
+    <nodeSuccessors name="decision_yes" next="ConcatenateStrings8"/>
+<!--@BendPoints 33,63 33,64-->
+    <nodeSuccessors name="decision_no" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 15,32-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings8">
+    <configurationValues name="DefaultString1" value=","/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="JoinNode21"/>
+    <parameterBindings name="String0" objectPath="CategoryUUIDs"/>
+    <parameterBindings name="String2" objectPath="Category:UUID"/>
+    <returnValueBindings name="Concatenated" objectPath="CategoryUUIDs"/>
+  </nodes>
+<!--@Location 15,33-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode21">
+<!--@BendPoints 30,67 30,53-->
+    <nodeSuccessors name="next" next="LoopNode8_Entry"/>
+  </nodes>
+<!--@Location 16,32-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode22"/>
+    <parameterBindings name="InValue_1" objectPath="Category:UUID"/>
+    <returnValueBindings name="OutValue_1" objectPath="CategoryUUIDs"/>
+  </nodes>
+<!--@Location 16,33-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode22">
+    <nodeSuccessors name="next" next="JoinNode21"/>
+  </nodes>
+<!--@Location 17,30-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode23">
+<!--@BendPoints 35,67 34,67-->
+    <nodeSuccessors name="next" next="JoinNode22"/>
+  </nodes>
+<!--@Location 17,29-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode24">
+    <nodeSuccessors name="next" next="JoinNode23"/>
+  </nodes>
+<!--@Location 18,27-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="CategoryUUIDs">
+    <nodeSuccessors name="decision_yes" next="CreateIteratorFromConfigValues8"/>
+<!--@BendPoints 39,55 39,65-->
+    <nodeSuccessors name="decision_no" next="JoinNode32"/>
+  </nodes>
+<!--@Location 18,28-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromConfigValues8">
+    <configurationValues name="Delimiters" value=",;"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromConfigValues.xml"/>
+<!--@BendPoints 37,58-->
+    <nodeSuccessors name="next" next="GetDomainByUUID2"/>
+    <parameterBindings name="ValuesString" objectPath="CategoryUUIDs"/>
+    <returnValueBindings name="ValuesIterator" objectPath="SelectedCategoriesUUIDIterator"/>
+  </nodes>
+<!--@Location 18,29-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper7"/>
+<!--@BendPoints 38,59 38,63-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode25"/>
+    <parameterBindings name="DomainUUID" objectPath="Category:Domain:SiteID"/>
+    <returnValueBindings name="Domain" objectPath="SiteDomain"/>
+  </nodes>
+<!--@Location 18,30-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper7">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode25"/>
+    <parameterBindings name="InValue_1" objectPath="SiteDomain:DomainName"/>
+    <returnValueBindings name="OutValue_1" objectPath="SiteName"/>
+  </nodes>
+<!--@Location 18,31-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode25">
+    <nodeSuccessors name="next" next="JoinNode32"/>
+  </nodes>
+<!--@Location 18,32-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode32">
+<!--@BendPoints 37,66-->
+    <nodeSuccessors name="next" next="EndNode16"/>
+  </nodes>
+<!--@Location 18,33-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" strict="true">
+<!--the category UUIDs resolved from the start parameter CatrgoryReferences-->
+    <returnValues name="SelectedCategoriesUUIDIterator" type="java.util.Iterator"
+        optional="true"/>
+<!--the name of the site domain (Assumtion: all catalogs resp. categories are located in the same site)-->
+    <returnValues name="SiteName" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Start"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetLocale1"/>
+    <parameters name="PromotionConfiguration" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="GetLocalizedResources1"/>
+    <parameterBindings name="LocaleId" nullBinding="true"/>
+    <returnValueBindings name="Locale" objectPath="LeadLocale"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocalizedResources1">
+    <pipelet href="enfinity:/core/pipelets/GetLocalizedResources.xml"/>
+<!--@BendPoints 1,6-->
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameterBindings name="Locale" objectPath="LeadLocale"/>
+    <parameterBindings name="ResourceBundleName" objectPath="PromotionConfiguration"/>
+    <returnValueBindings name="Resources" objectPath="Configuration"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <startNode referencedName="This:CreatePromotion"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <startNode referencedName="This:AssignTargetGroupMembers"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+    <startNode referencedName="This:CreateDiscounts"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="Configuration:PromotionCodeGroup.ID">
+    <nodeSuccessors name="decision_yes" next="SetChannelSiteOnRequest1"/>
+<!--@BendPoints 3,15-->
+    <nodeSuccessors name="decision_no" next="DecisionNode26"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetChannelSiteOnRequest1">
+    <pipelet href="enfinity:/core/pipelets/SetChannelSiteOnRequest.xml"/>
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameterBindings name="ChannelRepositorySite" objectPath="Promotion:Domain:Site"/>
+  </nodes>
+<!--@Location 0,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="CallNode12"/>
+    <nodeSuccessors name="ERROR" next="JoinNode8"/>
+    <startNode referencedName="DBInitPromotion-CreatePromotionCodeGroup"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode12">
+    <nodeSuccessors name="next" next="CallNode18"/>
+    <startNode referencedName="DBInitPromotion-CreatePromotionCode"/>
+  </nodes>
+<!--@Location 0,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode18">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <startNode referencedName="DBInitPromotion-CreatePromotionCodeGroupApplicationAssignment"/>
+  </nodes>
+<!--@Location 0,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 1,26-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 0,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 3,25-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode26" conditionKey="Configuration:PromotionSingleCode.Code">
+    <nodeSuccessors name="decision_yes" next="SetChannelSiteOnRequest2"/>
+<!--@BendPoints 4,17 4,21-->
+    <nodeSuccessors name="decision_no" next="JoinNode8"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetChannelSiteOnRequest2">
+    <pipelet href="enfinity:/core/pipelets/SetChannelSiteOnRequest.xml"/>
+    <nodeSuccessors name="next" next="CallNode23"/>
+    <parameterBindings name="ChannelRepositorySite" objectPath="Promotion:Domain:Site"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode23">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <startNode referencedName="DBInitPromotion-CreatePromotionSingleCode"/>
+  </nodes>
+<!--verifies the configured currency with the active channel currencies.
+@Location 1,17-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" strict="true" name="VerifyCurrency"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+<!--the currency fonfigured to be set at the promotion-->
+    <parameters name="ConfiguredCurrency" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,18-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="ConfiguredCurrency">
+<!--@BendPoints 3,38-->
+    <nodeSuccessors name="decision_yes" next="Pipelet4"/>
+<!--@BendPoints 5,37-->
+    <nodeSuccessors name="decision_no" next="JoinNode13"/>
+  </nodes>
+<!--@Location 1,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="Method" value="Active Currencies"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrencies.xml"/>
+    <nodeSuccessors name="next" next="LoopNode5"/>
+    <parameterBindings name="Domain" objectPath="CurrentChannel:RepositoryDomain"/>
+  </nodes>
+<!--@Location 1,20-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode5" loop="Currencies">
+    <nodeSuccessors name="next" next="JoinNode13"/>
+    <entry key="Currency">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode10"/>
+    </entry>
+  </nodes>
+<!--@Location 1,21-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="ConfiguredCurrency"
+      operator="str_eq" conditionItem="Currency:Mnemonic">
+    <nodeSuccessors name="decision_yes" next="KeyMapper3"/>
+<!--@BendPoints 4,43 4,47-->
+    <nodeSuccessors name="decision_no" next="JoinNode9"/>
+  </nodes>
+<!--@Location 1,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="InValue_1" objectPath="ConfiguredCurrency"/>
+    <returnValueBindings name="OutValue_1" objectPath="PromotionCurrency"/>
+  </nodes>
+<!--@Location 1,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+<!--@BendPoints 2,47 2,41-->
+    <nodeSuccessors name="next" next="LoopNode5_Entry"/>
+  </nodes>
+<!--@Location 2,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+<!--@BendPoints 5,46-->
+    <nodeSuccessors name="next" next="EndNode15"/>
+  </nodes>
+<!--@Location 2,23-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true">
+<!--the currency (code) to set at the promotion, 
+not returned, if not an active channel currency-->
+    <returnValues name="PromotionCurrency" type="java.lang.String" optional="true"/>
+  </nodes>
+</pipeline:Pipeline>

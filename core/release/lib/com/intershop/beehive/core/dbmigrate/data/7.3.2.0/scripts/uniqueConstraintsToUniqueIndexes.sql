@@ -1,0 +1,3 @@
+-- BASICPROFILE_AK001
+EXEC staging_ddl.drop_constraint('BASICPROFILE_AK001', 'BASICPROFILE')
+EXEC staging_ddl.drop_index     ('BASICPROFILE_AK001', 'BASICPROFILE')

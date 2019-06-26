@@ -1,0 +1,95 @@
+<iscontent type="text/xml" templatemarker="false" charset="utf-8" session="FALSE" compact="FALSE">
+<%@page import="java.util.Iterator,
+	com.intershop.beehive.core.capi.domain.AttributeValue,
+	com.intershop.beehive.core.capi.localization.LocaleInformation,
+	com.intershop.beehive.foundation.util.FilterIterator,
+	com.intershop.beehive.foundation.util.FilterCondition,
+	com.intershop.beehive.xcs.capi.product.Product" %>
+<%!
+	private class PrefixFilterCondition
+		extends FilterCondition	
+	{
+		private String prefix = null;
+		PrefixFilterCondition(String prefix) { this.prefix = prefix; }
+		public boolean isValid(Object obj) { return obj.toString().startsWith(prefix); }
+	}
+%>
+<ismodule template="inc/ArticleFeatures" name="ArticleFeatures" attribute="product">
+<ismodule template="inc/ArticleOrderDetails" name="ArticleOrderDetails" attribute="product">
+<ismodule template="inc/ArticlePriceDetails" name="ArticlePriceDetails" attribute="product">
+<ismodule template="inc/ArticleReferences" name="ArticleReferences" attribute="product">
+<ismodule template="inc/MimeInfo" name="MimeInfo" attribute="object" attribute="locale">
+<ARTICLE mode="new">
+	<isset scope="request" name="ID" value="#Product:SKU . '@' . Controller:DomainName#"/>
+	<SUPPLIER_AID><isprint value="#Product:SKU#"></SUPPLIER_AID>
+	<ARTICLE_DETAILS>
+		<iswriteelement objectpath="Product:Name" localized="true" element="DESCRIPTION_SHORT" size="80" id="#ID#">
+		<isif condition="#isDefined(Product:LongDescription(Locale))#">
+			<iswriteelement objectpath="Product:LongDescription" element="DESCRIPTION_LONG" localized="true" size="64000" optional="true" id="#ID#">
+			<iselseif condition="#isDefined(Product:ShortDescription(Locale)) AND NOT (Product:ShortDescription(Locale) EQ Product:Name(Locale))#">
+				<iswriteelement objectpath="Product:ShortDescription" element="DESCRIPTION_LONG" localized="true" size="64000" optional="true" id="#ID#">
+		</isif>
+		<iswriteelement objectpath="Product:EANCode" element="EAN" size="14" optional="true" id="#ID#">
+		<iswriteelement objectpath="Product:BME_ARTICLE_DETAILS_SUPPLIER_ALT_AID" element="SUPPLIER_ALT_AID" size="50" optional="true" id="#ID#">
+		<% 
+			Product product = (Product)getObject("Product");
+	
+			for (Iterator keys = new FilterIterator(product.createAttributeNamesIterator(),
+				 new PrefixFilterCondition("BME_ARTICLE_DETAILS_BUYERAID")); keys.hasNext(); )
+			{
+				String key = (String)keys.next();
+				String value = product.getString(key);
+				String type = key.substring(key.lastIndexOf('_') + 1);
+				out.println("<BUYER_AID type=" + type + ">" + encodeString(value) + "</BUYER_AID>");						
+			}
+		%>
+		<iswriteelement objectpath="Product:ManufacturerSKU" element="MANUFACTURER_AID" size="50" optional="true" id="#ID#">
+		<iswriteelement objectpath="Product:ManufacturerName" element="MANUFACTURER_NAME" size="50" optional="true" id="#ID#">
+		<iswriteelement objectpath="Product:BME_ARTICLE_DETAILS_MANUFACTURERTYPEDESCR" element="MANUFACTURER_TYPE_DESCR" localized="true" size="50" optional="true" id="#ID#">
+		<iswriteelement objectpath="Product:BME_ARTICLE_DETAILS_ERPGROUPBUYER" element="ERP_GROUP_BUYER" size="10" optional="true" id="#ID#">
+		<iswriteelement objectpath="Product:BME_ARTICLE_DETAILS_ERPGROUPSUPPLIER" element="ERP_GROUP_SUPPLIER" size="10" optional="true" id="#ID#">
+		<iswriteelement objectpath="Product:DeliveryDays" element="DELIVERY_TIME" size="6" optional="true" style="number" id="#ID#">
+		<%
+			LocaleInformation locale = (LocaleInformation)getObject("Locale");
+
+			for (Iterator keys = new FilterIterator(product.createAttributeNamesIterator(),
+				 new PrefixFilterCondition("BME_ARTICLE_DETAILS_SPECIAL_TREATMENT_CLASS")); keys.hasNext(); )
+			{
+				String key = (String)keys.next();
+				String value = product.getString(key);
+				String type = key.substring(key.lastIndexOf('_') + 1);
+				out.println("<SPECIAL_TREATMENT_CLASS type=\"" + type + "\">" + encodeString(value) + "</SPECIAL_TREATMENT_CLASS>");
+			}
+
+			for (int i = 1;; ++i)
+			{
+				AttributeValue av = product.getAttributeValue("BME_ARTICLE_DETAILS_KEYWORD_" + i, locale);
+				
+				if (av == null) break;
+
+				out.println("<KEYWORD>" + encodeString(av.getStringValue()) + "</KEYWORD>");
+			}
+		%>
+		<iswriteelement objectpath="Product:BME_ARTICLE_DETAILS_REMARKS" element="REMARKS" localized="true" size="64000" optional="true" id="#ID#">
+		<iswriteelement objectpath="Product:BME_ARTICLE_DETAILS_SEGMENT" element="SEGMENT" localized="true" size="100" optional="true" id="#ID#">
+		<iswriteelement objectpath="Product:BME_ARTICLE_DETAILS_ARTICLEORDER" element="ARTICLE_ORDER" style="integer" size="10" optional="true" id="#ID#">
+		<%
+			for (Iterator keys = new FilterIterator(product.createAttributeNamesIterator(),
+				 new PrefixFilterCondition("BME_ARTICLE_DETAILS_ARTICLESTATUS")); keys.hasNext(); )
+			{
+				String key = (String)keys.next();
+				AttributeValue av = product.getAttributeValue(key, locale);
+				
+				if (av == null) continue;
+
+				out.println("<ARTICLESTATUS type=\"" + key.substring(key.lastIndexOf('_') + 1) + "\">" + 
+					encodeString(av.getStringValue())+ "</ARTICLESTATUS>");
+			}
+		%>
+	</ARTICLE_DETAILS>
+	<isarticlefeatures product="#Product#">
+	<isarticleorderdetails product="#Product#">
+	<isarticlepricedetails product="#Product#">
+	<ismimeinfo object="#Product#" locale="#Locale#">
+	<isarticlereferences product="#Product#">
+</ARTICLE>

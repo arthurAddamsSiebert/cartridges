@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="For a given domain, get a list of those contracts which will end within a specified number of days and require a notification.">
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="DaysBeforeContractExpires" type="java.lang.Integer" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	<sql-dialect name="Oracle">
+		SELECT cb.uuid as contractid, listagg (cama.PROFILEID, ',') WITHIN GROUP (ORDER BY cama.PROFILEID) profileIDs, count(*) over() as "rowcount"
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		SELECT cb.uuid as contractid, string_agg (cama.PROFILEID, ',') WITHIN GROUP (ORDER BY cama.PROFILEID) profileIDs, count(*) over() as "rowcount"
+	</sql-dialect>
+		FROM contractbase cb, customeraccountmgrassignment cama
+		WHERE cb.CUSTOMERUUID = cama.CUSTOMERID
+		AND   cb.DOMAINID  = <template-variable value="Domain:UUID"/>
+		AND   cb.notificationsentflag=0
+	<sql-dialect name="Microsoft">
+		AND   cb.enddate &lt; getdate() +cast(<template-variable value="DaysBeforeContractExpires"/> as int)
+		AND   cb.enddate &gt; getdate()
+		AND   cb.startdate &lt; getdate()					
+	</sql-dialect>
+	<sql-dialect name="Oracle">
+		AND   cb.enddate &lt; sysdate+<template-variable value="DaysBeforeContractExpires"/>
+		AND   cb.enddate &gt; sysdate
+	    AND   cb.startdate &lt; sysdate	
+	</sql-dialect>
+	    GROUP BY cb.uuid
+</template>
+</query>

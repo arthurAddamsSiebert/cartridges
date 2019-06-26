@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets all pagelet-usergroup assignment objects which are assigned to a user group. If no user group is defined this query returns the assignment objects for all user groups.">
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+	<parameter name="UserGroup" type="com.intershop.beehive.core.capi.user.UserGroup" optional="true"/>
+	<parameter name="PageletModelRepository" type="com.intershop.component.pmc.capi.model.PageletModelRepository" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Assignments" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletUserGroupAssignmentPO" description="The pagelet-usergroup assignment objects which are assigned to a user group.">
+		<return-attribute name="uuid"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="SharingHelper" input="Domain" processing="ContentSharingHelper"/>
+</processor>
+<template type="countedobjects">
+	SELECT
+	       ug_pa.uuid as uuid, COUNT (*) over() AS "rowcount"
+	    FROM
+	        usergroup_pa ug_pa, pagelet pg WHERE 
+	        
+	        pg.uuid = ug_pa.pageletuuid
+        <template-if condition="isDefined(PageletModelRepository)">
+	        and 
+	        resourceSetId IN (
+                    <template-loop iterator="PageletModelRepository:ResourceSetIds" alias="SetId">
+                        <loop-statement><template-variable value="SetId"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>)
+        </template-if>
+        <template-if condition="SharingHelper:SharingEnabled">
+                and
+                ug_pa.DOMAINID in 
+                (
+                  <template-loop alias="DomainUUID" iterator="SharingHelper:DomainUUIDsAsSet"><loop-statement><template-variable value="DomainUUID"/></loop-statement><loop-separator>,</loop-separator>
+                  </template-loop>
+                )
+            <if-else/>
+                and
+                ug_pa.DOMAINID = <template-variable value="Domain:UUID"/>
+            </template-if>
+        
+	    <template-if condition="isDefined(UserGroup)">
+	           AND 
+		    	    ug_pa.usergroupid = <template-variable value="UserGroup:ID"/>
+		</template-if>
+</template>
+</query>

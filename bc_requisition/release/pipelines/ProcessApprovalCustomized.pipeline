@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This is the customization point of the ProcessApproval pipeline.
+@Group Approval-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessApprovalCustomized" type="process">
+<!--Creates static addresses from one or more address books.
+@Location 7,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text3" height="1" width="1"/>
+<!--These defined processes will be often overwritten by site cartridges.
+@Location 2,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1" height="1" width="6"/>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="AWFCompletion" callMode="Private">
+    <nodeSuccessors name="next" next="GetApprovalObjects1"/>
+<!--the WorkflowActivity-->
+    <parameters name="WorkflowActivity" type="com.intershop.beehive.core.capi.workflow.WorkflowActivity"
+        optional="true"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApprovalObjects1">
+    <pipelet href="enfinity:/bc_approval/pipelets/GetApprovalObjects.xml"/>
+    <nodeSuccessors name="next" next="GetLineItemsFromApprovalObject1"/>
+    <parameterBindings name="CurrentActivity" objectPath="WorkflowActivity"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLineItemsFromApprovalObject1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/GetLineItemsFromApprovalObject.xml"/>
+    <nodeSuccessors name="next" next="RemoveOwnedRequisitionAWFDefinitions1"/>
+    <returnValueBindings name="ProductLineItem" objectPath="CompletedProductLineItem"/>
+    <returnValueBindings name="ProductLineItems" objectPath="CompletedProductLineItems"/>
+    <returnValueBindings name="Requisition" objectPath="CompletedRequisition"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveOwnedRequisitionAWFDefinitions1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/RemoveOwnedRequisitionAWFDefinitions.xml"/>
+    <nodeSuccessors name="next" next="End3"/>
+    <parameterBindings name="AWFOwner" objectPath="CompletedRequisition"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="CreateApprovalObject"
+      callMode="Private">
+<!--@BendPoints 5,4-->
+    <nodeSuccessors name="next" next="ExchangeSessionObject3"/>
+<!--Input: The requisition to create the approval object for.-->
+    <parameters name="Requisition" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"
+        optional="true"/>
+<!--Output: The create ApprovalCompoundObject-->
+    <parameters name="ApprovalCompound" type="com.intershop.component.approval.capi.ApprovalCompoundObject"
+        optional="true"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExchangeSessionObject3">
+    <configurationValues name="ProcessMethod" value="Get Object from Session"/>
+    <configurationValues name="SessionObjectName" value="Delegation"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="Decision8"/>
+    <returnValueBindings name="LoadObject" objectPath="CurrentDelegator"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision8" conditionKey="CurrentDelegator"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="DecisionNode2"/>
+<!--@BendPoints 8,7 8,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Requisition:DelegatorBusinessPartnerNo"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="KeyMapper1"/>
+<!--@BendPoints 7,9-->
+    <nodeSuccessors name="decision_no" next="GetUserByBusinessPartnerNo1"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentUser"/>
+    <returnValueBindings name="OutValue_1" objectPath="CurrentDelegator"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="Pipelet3"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="ProcessMethod" value="Put Object to Session"/>
+    <configurationValues name="SessionObjectName" value="Delegation"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ExchangeSessionObject.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="SaveObject" objectPath="CurrentDelegator"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="CreateApprovalPipelineActions1"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateApprovalPipelineActions1">
+    <configurationValues name="OnApprovePipeline" value="RequisitionApproveRejectActions"/>
+    <configurationValues name="OnApprovePipeline_StartNode" value="OnApprove"/>
+    <configurationValues name="OnRejectPipeline" value="RequisitionApproveRejectActions"/>
+    <configurationValues name="OnRejectPipeline_StartNode" value="OnReject"/>
+    <pipelet href="enfinity:/bc_approval/pipelets/CreateApprovalPipelineActions.xml"/>
+    <nodeSuccessors name="next" next="GetDepartment1"/>
+    <parameterBindings name="PipelineDomain" objectPath="Requisition:Domain:Site"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDepartment1">
+    <configurationValues name="Source" value="PipelineDictionary"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetDepartment.xml"/>
+    <nodeSuccessors name="next" next="CreateRequisitionAWFStrategy1"/>
+    <parameterBindings name="DepartmentUUID" objectPath="Requisition:DepartmentUUID"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateRequisitionAWFStrategy1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CreateRequisitionAWFStrategy.xml"/>
+    <nodeSuccessors name="next" next="CreateRequsisitionAWFApprovalObject1"/>
+    <parameterBindings name="BuyerDepartment" objectPath="Department"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateRequsisitionAWFApprovalObject1">
+    <configurationValues name="ApprovalDetailPipelineName" value="ViewRequisitionApprovalTaskDetails"/>
+    <configurationValues name="ApprovalDetailPipelineNode" value="Start"/>
+    <configurationValues name="NotificationTemplate" value="RequisitionAWFTaskMail"/>
+    <configurationValues name="SubjectTemplate" value="RequisitionDescription"/>
+    <configurationValues name="TimerPipelineName" value="ProcessApproval"/>
+    <configurationValues name="TimerPipelineNode" value="Recalculate"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/CreateRequsisitionAWFApprovalObject.xml"/>
+    <nodeSuccessors name="next" next="End4"/>
+    <parameterBindings name="Requisition" objectPath="Requisition"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserByBusinessPartnerNo1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetUserByBusinessPartnerNo.xml"/>
+<!--@BendPoints 7,13-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="BusinessPartnerNo" objectPath="Requisition:DelegatorBusinessPartnerNo"/>
+    <parameterBindings name="Domain" objectPath="Requisition:Domain"/>
+    <returnValueBindings name="User" objectPath="CurrentDelegator"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="MakeStaticAddresses"
+      callMode="Private">
+    <nodeSuccessors name="next" next="MakeStaticAddress1"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="MakeStaticAddress1">
+    <configurationValues name="IsInvoiceToAddress" value="true"/>
+    <configurationValues name="IsShipFromAddress" value="false"/>
+    <configurationValues name="IsShipToAddress" value="true"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/MakeStaticAddress.xml"/>
+    <nodeSuccessors name="next" next="End2"/>
+    <parameterBindings name="LineItemCtnr" objectPath="Requisition"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="PreProcessStartApproval"
+      callMode="Private">
+    <nodeSuccessors name="next" next="FreezeRequisitionAWFStrategy1"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FreezeRequisitionAWFStrategy1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/FreezeRequisitionAWFStrategy.xml"/>
+    <nodeSuccessors name="next" next="Join1"/>
+<!--@BendPoints 2,5 2,7-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+</pipeline:Pipeline>

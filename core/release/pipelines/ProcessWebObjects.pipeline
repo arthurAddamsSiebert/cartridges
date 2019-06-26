@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline is used to handle web objects.
+@Group Staging-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessWebObjects" type="webservice">
+  <registry xsi:type="pipeline:PipelineRegistry" href="enfinity:/core/pipelines"/>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Insert"
+      callMode="Private">
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="IdentifyEditingSystem1"/>
+<!--Contains a UUID stored in 'StagingIdentification' table of editing system.-->
+    <parameters name="StagingPermissionID" type="java.lang.String" optional="true"/>
+<!--The web objects.-->
+    <parameters name="WebObjects" type="com.intershop.beehive.core.capi.staging.webservice.WebObject[]"
+        optional="true"/>
+<!--The download URL of editing system.-->
+    <parameters name="DownloadURL" type="java.lang.String" optional="true"/>
+    <parameters name="TargetSystem" type="com.intershop.beehive.core.capi.staging.webservice.TargetSystemTransferType"/>
+    <parameters name="Parameters" type="java.util.Map"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="IdentifyEditingSystem1">
+    <pipelet href="enfinity:/core/pipelets/IdentifyEditingSystem.xml"/>
+    <nodeSuccessors name="next" next="MergeWebObjects1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="MergeWebObjects1">
+    <pipelet href="enfinity:/core/pipelets/MergeWebObjects.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <returnValueBindings name="AffectedORMObjects" objectPath="ORMObjects"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="ORMObjects"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="ReleaseORMObjects1"/>
+<!--@BendPoints 5,9 5,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ReleaseORMObjects1">
+    <pipelet href="enfinity:/core/pipelets/ReleaseORMObjects.xml"/>
+<!--@BendPoints 3,12-->
+    <nodeSuccessors name="next" next="DownloadDependendFiles1"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DownloadDependendFiles1">
+    <pipelet href="enfinity:/core/pipelets/DownloadDependendFiles.xml"/>
+    <nodeSuccessors name="next" next="CallNode2"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="CacheClearProcessID" objectPath="Parameters:CacheClearProcessID"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" objectPath="ORMObjects"/>
+    <startNode referencedName="ProcessBatchCacheClear-BatchForObjectsAndProcessID"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="CreateArrayFromIterator2"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateArrayFromIterator2">
+    <configurationValues name="ComponentType" value="java.lang.String"/>
+    <pipelet href="enfinity:/core/pipelets/CreateArrayFromIterator.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <parameterBindings name="Iterator" objectPath="StatusMessages:Iterator"/>
+    <returnValueBindings name="Array" objectPath="StatusMessagesArray"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+<!--The status messages-->
+    <returnValues name="StatusMessagesArray" type="java.lang.String[]" optional="true"/>
+  </nodes>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="RefreshCaches"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameters name="CacheClearProcessID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <startNode referencedName="ProcessBatchCacheClear-ClearCachesByProcessID"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+</pipeline:Pipeline>

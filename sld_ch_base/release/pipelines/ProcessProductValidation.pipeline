@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessProductValidation" overrideMode="Inherit" type="process">
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetValidationStatus"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetAllJobConfigurations1"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAllJobConfigurations1">
+    <configurationValues name="DefaultJobNamePrefix" value="ProcessProductValidation"/>
+    <configurationValues name="DefaultJobState" value="None"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetAllJobConfigurations.xml"/>
+    <nodeSuccessors name="next" next="SortIteratorByComparator1"/>
+<!--@BendPoints 11,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="Domain" objectPath="Domain"/>
+    <returnValueBindings name="JobConfigurations" objectPath="Processes"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SortIteratorByComparator1">
+    <configurationValues name="DefaultSortingAttribute" value="LastExecutionTime"/>
+    <configurationValues name="DefaultSortingOrder" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SortIteratorByComparator.xml"/>
+    <nodeSuccessors name="next" next="GetFirstElementOfIterator0"/>
+    <parameterBindings name="Iterator" objectPath="Processes"/>
+    <returnValueBindings name="SortedIterator" objectPath="Processes"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFirstElementOfIterator0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFirstElementOfIterator.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="Iterator" objectPath="Processes"/>
+    <returnValueBindings name="FirstElement" objectPath="Process"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="Process" type="com.intershop.beehive.core.capi.job.JobConfiguration"
+        optional="true"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" visibility="Private"
+      name="ProductValidationResults" callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--Product validation assortment ID.-->
+    <parameters name="ValidationAssortmentID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;ValidationRuleConfigurationBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ValidationRuleConfigurationBORepository"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery0"/>
+    <parameterBindings name="InValue_1" objectPath="ValidationRuleConfigurationBORepository:AllActiveValidationRuleConfigurationBOs:Size"/>
+    <returnValueBindings name="OutValue_1" objectPath="ActiveValidationRulesNumber"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery0">
+    <configurationValues name="ParameterName_01" value="Domain"/>
+    <configurationValues name="ParameterName_02" value="ValidationAssortmentID"/>
+    <configurationValues name="QueryName" value="GetProductValidationOverview"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode2"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Domain"/>
+    <parameterBindings name="ParameterValue_02" objectPath="ValidationAssortmentID"/>
+    <returnValueBindings name="SearchResult" objectPath="ProductValidationResult"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="ProductValidationResult" type="java.util.Iterator"/>
+    <returnValues name="ActiveValidationRulesNumber" type="java.lang.Integer"/>
+  </nodes>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" name="ValidateProductAssortment"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="JobConfigurationUUID">
+    <nodeSuccessors name="decision_yes" next="GetJobConfiguration0"/>
+<!--@BendPoints 3,3 5,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetJobConfiguration0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetJobConfiguration.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="JobUUID" objectPath="JobConfigurationUUID"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetProductValidationAssortmentConfigurationBOByID0"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Extension(&quot;Product&quot;):ProductBORepository(JobConfiguration:DomainID)"/>
+    <parameterBindings name="InValue_2" objectPath="ApplicationBO:Repository(&quot;ProductValidationAssortmentConfigurationBORepository&quot;)"/>
+    <parameterBindings name="InValue_3" objectPath="ApplicationBO:Repository(&quot;ValidationRuleConfigurationBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProductBORepository"/>
+    <returnValueBindings name="OutValue_2" objectPath="ProductValidationAssortmentConfigurationBORepository"/>
+    <returnValueBindings name="OutValue_3" objectPath="ValidationRuleConfigurationBORepository"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductValidationAssortmentConfigurationBOByID0">
+    <pipelet href="enfinity:/bc_product_validation/pipelets/GetProductValidationAssortmentConfigurationBOByID.xml"/>
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="ID" objectPath="ProductValidationOverviewForm_ProductAssortmentName"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="ValidationRuleConfigurationBORepository:AllActiveValidationRuleConfigurationBOs">
+<!--@BendPoints 2,13-->
+    <nodeSuccessors name="next" next="UpdateProductValidationAssortmentConfigurationBO0"/>
+    <entry key="ValidationRuleConfigurationBO">
+      <nodeSuccessors name="loop_entry_next" next="AddEntryToMap1"/>
+    </entry>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+<!--@BendPoints 0,15 0,13-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <parameterBindings name="InMap" objectPath="ActiveValidationRuleConfigurationBOIDsMap"/>
+    <parameterBindings name="Key" objectPath="ValidationRuleConfigurationBO:ID"/>
+    <parameterBindings name="Value" constant="ActiveValRuleCfgBOID"/>
+    <returnValueBindings name="OutMap" objectPath="ActiveValidationRuleConfigurationBOIDsMap"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductValidationAssortmentConfigurationBO0">
+    <pipelet href="enfinity:/bc_product_validation/pipelets/UpdateProductValidationAssortmentConfigurationBO.xml"/>
+    <nodeSuccessors name="next" next="ExecuteUpdateQuery1"/>
+    <parameterBindings name="Name" nullBinding="true"/>
+    <parameterBindings name="Parameters" objectPath="ActiveValidationRuleConfigurationBOIDsMap"/>
+  </nodes>
+<!--@Location 0,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteUpdateQuery1">
+    <configurationValues name="ParameterName_01" value="DomainUUID"/>
+    <configurationValues name="ParameterName_02" value="ValidationAssortmentID"/>
+    <configurationValues name="QueryName" value="DeleteProductValidationResults"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteUpdateQuery.xml"/>
+    <nodeSuccessors name="next" next="GetDomainByUUID0"/>
+    <parameterBindings name="ParameterValue_01" objectPath="JobConfiguration:DomainID"/>
+    <parameterBindings name="ParameterValue_02" objectPath="ProductValidationAssortmentConfigurationBO:ID"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="DomainUUID" objectPath="ProductBORepository:RepositoryID"/>
+    <returnValueBindings name="Domain" objectPath="ProductDomain"/>
+  </nodes>
+<!--@Location 0,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0" callModePermissions="Private">
+    <nodeSuccessors name="next" next="com.intershop.sellside.channel.base.capi.pipeline.PreprocessProductsToBeValidated0_execute"/>
+    <startNode objectPath="ProductValidationAssortmentConfigurationBO:ProductValidationAssortmentDescriptor:ProductsPipeline"/>
+  </nodes>
+<!--@Location 0,12-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="com.intershop.sellside.channel.base.capi.pipeline.PreprocessProductsToBeValidated0">
+    <pipelet href="enfinity:/sld_ch_base/pipelets/com.intershop.sellside.channel.base.capi.pipeline.PreprocessProductsToBeValidated.pipelinenode"/>
+    <inConnectors name="execute">
+      <parameterBindings name="ProductBOs" objectPath="ProductBOs"/>
+      <parameterBindings name="ProgressMonitor" objectPath="JobConfiguration:CurrentProcess"/>
+    </inConnectors>
+    <outConnectors name="next">
+      <nodeSuccessors next="AddEntryToMap0"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 0,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="ValidateObjects0"/>
+    <parameterBindings name="InMap" nullBinding="true"/>
+    <parameterBindings name="Key" constant="PRODUCT_ASSORTMENT_ID"/>
+    <parameterBindings name="Value" objectPath="ProductValidationAssortmentConfigurationBO:ID"/>
+    <returnValueBindings name="OutMap" objectPath="AdditionalContext"/>
+  </nodes>
+<!--@Location 0,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ValidateObjects0">
+    <configurationValues name="RemoveOutdatedResults" value="none"/>
+    <configurationValues name="StoreResult" value="invalid"/>
+    <pipelet href="enfinity:/bc_validation/pipelets/ValidateObjects.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="EndTime" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="Locales" nullBinding="true"/>
+    <parameterBindings name="Objects" objectPath="ProductBOs"/>
+    <parameterBindings name="StartTime" nullBinding="true"/>
+    <parameterBindings name="ValidationResultBORepository" objectPath="ApplicationBO:Repository(&quot;ValidationResultBORepository&quot;)"/>
+    <parameterBindings name="ValidationRuleSetProvider" objectPath="ApplicationBO:NamedObject(&quot;ConfigurableValidationRuleSetProvider&quot;)"/>
+  </nodes>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode0"/>
+  </nodes>
+<!--@Location 2,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0"/>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+</pipeline:Pipeline>

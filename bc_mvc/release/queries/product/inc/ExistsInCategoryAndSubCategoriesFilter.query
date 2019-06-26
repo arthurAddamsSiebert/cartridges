@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="ProductAlias" type="java.lang.String" optional="false"/>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="CatalogCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+</parameters>
+<processor name="OracleSQL"/>
+<template type="objects">
+EXISTS (
+	SELECT 1
+	FROM
+	(
+    <template-call name="catalog/GetIEPCAByDomainAndCategory">
+        <call-parameter name="ProductDomain" value="ProductDomain"/>
+    </template-call>
+	) iepca
+	JOIN
+        catalogcategory cc ON (cc.uuid = iepca.categoryid)
+	WHERE
+        iepca.productid = <template-variable value="ProductAlias" processing="text"/>.uuid
+	<template-if condition="CatalogCategory:RootCategory">
+	AND
+	    cc.domainid = <template-variable value="CatalogCategory:DomainID"/>
+	<if-else/>
+	AND
+		cc.uuid IN 
+		(
+			<sql-dialect name="Oracle">
+				SELECT cc.uuid 
+				FROM catalogcategory cc 
+				CONNECT BY PRIOR cc.uuid = cc.parentcategoryid 
+				START WITH cc.uuid = <template-variable value="CatalogCategory:UUID"/>
+			</sql-dialect>
+			<sql-dialect name="Microsoft">
+				SELECT uuid FROM dbo.ufn_GetCatalogCategoryUUID(<template-variable value="CatalogCategory:UUID"/>)
+			</sql-dialect>
+		) 
+    </template-if>
+)
+</template>
+</query>

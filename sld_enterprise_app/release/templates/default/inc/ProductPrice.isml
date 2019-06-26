@@ -1,0 +1,76 @@
+<iscontent type="text/html" charset="UTF-8" compact="true" templatemarker="false">
+
+<%@page import="com.intershop.beehive.xcs.capi.product.Product"%>
+<%@page import="com.intershop.component.warranty.capi.WarrantyBO"%>
+<%@page import="com.intershop.beehive.foundation.quantity.Money"%>
+<%@page import="com.intershop.beehive.core.capi.app.AppContextUtil"%>
+<%@page import="com.intershop.component.product.capi.ProductBO"%>
+<%@page import="com.intershop.component.warranty.capi.product.ProductBOWarrantyExtension"%>
+<%@page import="com.intershop.beehive.app.capi.AppContext"%>
+<%@page import="com.intershop.beehive.businessobject.capi.BusinessObjectContext"%>
+<%@page import="com.intershop.beehive.businessobject.capi.BusinessObjectRepositoryFactory"%>
+<%@page import="com.intershop.component.repository.capi.RepositoryBO"%>
+<%@page import="com.intershop.component.repository.capi.RepositoryBORepository"%>
+<%@page import="com.intershop.component.warranty.capi.WarrantyBORepository"%>
+<%@page import="com.intershop.component.product.capi.ProductBORepository"%>
+<%@page import="java.lang.String"%>
+
+<%
+	// init default value
+	Money price = Money.NOT_AVAILABLE;
+	
+	// get product from PD
+	Product product = (Product)getObject("Product");
+	
+	if (product != null)
+	{
+	
+	    AppContext appContext = AppContextUtil.getCurrentAppContext();
+        BusinessObjectContext boContext = (BusinessObjectContext)appContext.getVariable(BusinessObjectContext.NAME);
+        BusinessObjectRepositoryFactory<RepositoryBORepository> repositoryFactory = boContext.getEngine().getRepositoryFactory(RepositoryBORepository.class);
+        RepositoryBORepository repositoryBORepository = repositoryFactory.createRepository(boContext);
+        RepositoryBO repository = repositoryBORepository.getRepositoryByID(product.getDomainID());
+        ProductBORepository productBORepository = repository.getExtension(ProductBORepository.class);
+	
+		ProductBO productBO = productBORepository.getProductByID(product.getUUID());
+		
+		if (productBO != null)
+		{
+			WarrantyBORepository warrantyBORepository = repository.getExtension(WarrantyBORepository.class);
+			ProductBOWarrantyExtension productBOWarrantyExt = (ProductBOWarrantyExtension) productBO.getExtension("Warranty");
+			if (productBOWarrantyExt!=null && productBOWarrantyExt.isWarranty())
+			{
+				WarrantyBO warranty = warrantyBORepository.getWarrantyBOBySKU(product.getSKU());
+				if( warranty.hasPrice() )
+				{
+					// get curency from PD
+					String currency = (String)getObject("Currency");	
+					if(currency != null) 
+					{
+						price = warranty.getPrice(null, currency);
+					}
+					else
+					{
+						price = warranty.getPrice(null);
+					}
+					
+					getPipelineDictionary().put("WarrantyPrice", price.isAvailable() ? price : "depends on product");
+				}
+				else
+				{
+					getPipelineDictionary().put("WarrantyPrice", "N/A");
+				}
+			}
+		}
+	}
+%>
+
+<isif condition="#isDefined(WarrantyPrice)#">
+	<isprint value="#WarrantyPrice#">
+<iselse>
+	<isif condition="#isDefined(Currency)#">
+	 	<isprint value="#Product:ListPrice(Currency):Amount#">
+	 <iselse>
+	 	<isprint value="#Product:Price#">
+	</isif>
+</isif>

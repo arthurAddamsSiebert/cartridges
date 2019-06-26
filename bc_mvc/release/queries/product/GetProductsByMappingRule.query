@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="DomainID" type="java.lang.String" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+    <parameter name="Currency" type="java.lang.String" optional="true"/>    
+    <parameter name="CategoryUUID" type="java.lang.String" optional="true"/>
+    <parameter name="SupplierValue" type="java.lang.String" optional="true"/>
+    <parameter name="ProductName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="ManufacturerName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="Description" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="Online" type="java.lang.Integer" optional="true"/>
+    <parameter name="Available" type="java.lang.Integer" optional="true"/>
+    <parameter name="PriceFrom" type="java.lang.Double" optional="true"/>
+    <parameter name="PriceTo" type="java.lang.Double" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Product" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+        <return-attribute name="UUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="cProductName" input="ProductName" processing="SearchExpression2Contains"/>
+    <processor-preprocessing output="cManufacturerName" input="ManufacturerName" processing="SearchExpression2Contains"/>
+    <processor-preprocessing output="cDescription" input="Description" processing="SearchExpression2Contains"/>
+</processor>
+<template type="countedobjects">
+SELECT  
+    p.uuid, 
+    <template-call name="product/inc/ProductSorting">
+        <call-parameter name="ProductAlias" value="'p'"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+    </template-call> AS SORTING,
+    count(*) over() as "ROWCOUNT"
+FROM product p
+<template-if condition="isDefined(CategoryUUID)">
+JOIN
+    productcategoryassignment pca on (pca.productid = p.offeredproductid)
+JOIN
+    catalogcategory cc ON (cc.uuid = pca.catalogcategoryid 
+                       AND cc.UUID = <template-variable value="CategoryUUID"/>)
+</template-if>  
+<template-if condition="isDefined(Currency)">   
+JOIN
+    productlistprice price ON (price.productid = p.uuid AND price.currency=<template-variable value="Currency"/>)
+</template-if>
+WHERE
+    p.DomainID = <template-variable value="DomainID"/>
+<template-if condition="isDefined(Online)">
+AND
+    p.onlineflag = <template-variable value="Online"/>
+</template-if>
+<template-if condition="isDefined(Available)">  
+AND
+    p.availableflag = <template-variable value="Available"/>
+</template-if>      
+<template-if condition="isDefined(SupplierValue) AND (SupplierValue NE &apos;&apos;)">
+AND 
+	(p.suppliername LIKE '%' || <template-variable value="SupplierValue"/> || '%')
+</template-if>
+<sql-dialect name="Oracle">
+	<template-if condition="isDefined(Description) and Description:NotEmpty">
+	AND
+		contains(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/> , '('||<template-variable value="cDescription"/>||') INPATH (//attrs/attr[@name="shortDescription" OR @name="longDescription"]/string)')>0
+	</template-if>
+	<template-if condition="isDefined(ManufacturerName) and ManufacturerName:NotEmpty">
+	AND
+		contains(p.attributes, '('||<template-variable value="cManufacturerName"/>||') INPATH (//attrs/attr[@name="manufacturerName"]/string)')>0
+	</template-if>
+	<template-if condition="isDefined(ProductName) and ProductName:NotEmpty">
+	AND
+		contains(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/> , '('||<template-variable value="cProductName"/>||') INPATH (//attrs/attr[@name="name"]/string)')>0
+	</template-if>
+</sql-dialect>
+<sql-dialect name="Microsoft">
+	<template-if condition="isDefined(Description) and Description:NotEmpty">
+	AND
+		p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>.exist('//attrs/attr[@name="shortDescription" OR @name="longDescription"]/string [contains(., "<template-variable value="cDescription"/>")]')>0
+	</template-if>
+	<template-if condition="isDefined(ManufacturerName) and ManufacturerName:NotEmpty">
+	AND
+		p.attributes.exist('//attrs/attr[@name="manufacturerName"]/string [contains(., "<template-variable value="cManufacturerName"/>")]')>0
+	</template-if>
+	<template-if condition="isDefined(ProductName) and ProductName:NotEmpty">
+	AND
+		p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>.exist('//attrs/attr[@name="name"]/string [contains(., "<template-variable value="cProductName"/>")]')>0
+	</template-if>
+</sql-dialect>
+<template-if condition="isDefined(Currency) AND isDefined(PriceFrom)">
+AND
+    price.value&gt;=<template-variable value="PriceFrom"/>
+</template-if>
+<template-if condition="isDefined(Currency) AND isDefined(PriceTo)">
+AND
+    price.value&lt;=<template-variable value="PriceTo"/>
+</template-if>
+<sql-dialect name="Oracle">
+	ORDER BY SORTING DESC NULLS FIRST
+</sql-dialect>
+<sql-dialect name="Microsoft">
+	ORDER BY WHEN <template-call name="product/inc/ProductSorting">
+        <call-parameter name="ProductAlias" value="'p'"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+    </template-call> IS NULL THEN DESC, <template-call name="product/inc/ProductSorting">
+        <call-parameter name="ProductAlias" value="'p'"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+    </template-call> DESC
+</sql-dialect>
+</template>
+</query>

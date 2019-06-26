@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Returns the products that would no longer be available if the specified product sets are deleted.">
+<parameters>
+  <parameter name = "TargetDomain" type = "com.intershop.beehive.core.capi.domain.Domain" optional = "false"/>
+  <parameter name = "ProductSets" type = "java.util.Collection" optional = "false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="ProductUUID" type="rename">
+        <return-attribute name="ProductUUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+  <processor-preprocessing output="Sharing" input="TargetDomain" processing="ProductSharingHelper"/>
+</processor>
+
+<template type="objects">
+SELECT DISTINCT p.uuid as ProductUUID FROM product p
+WHERE
+p.domainid != <template-variable value="TargetDomain:DomainID"/>
+AND NOT EXISTS
+(
+  SELECT 1 FROM productset ps INNER JOIN productsetdomainassignment psda ON ps.uuid = psda.productsetuuid
+  WHERE psda.domainid = <template-variable value="TargetDomain:DomainID"/>
+  AND ps.uuid NOT IN (
+  	<template-loop alias="ProductSet" iterator="ProductSets">
+  		<loop-statement><template-variable value="ProductSet:UUID"/></loop-statement>
+  		<loop-separator>,</loop-separator>
+  	</template-loop>
+  )
+  AND
+  (
+    (
+      ps.allflag = 1
+      AND p.domainid = ps.domainid 
+    )
+    OR
+    EXISTS
+    (
+      SELECT 1 FROM productsetassignment psa
+      WHERE p.uuid = psa.productuuid
+      AND ps.uuid = psa.productsetuuid
+    )
+  )
+)
+AND
+<template-call name="product/inc/AvailableProductsCondition">
+	<call-parameter name="TableAlias" value="&quot;p&quot;"/>
+	<call-parameter name="ProductIdColumn" value="&quot;uuid&quot;"/>
+	<call-parameter name="Sharing" value="Sharing"/>
+	<call-parameter name="IgnoreInbound" value="&quot;(Boolean)true&quot;"/>
+</template-call>
+</template>
+</query>

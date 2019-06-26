@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="CatalogCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="ProductBO" type="bo-provider" class="ProductViewProvider" mapperclass="ProductPOToProductBOMapper">
+		<return-attribute name="UUID"/>
+    	<return-attribute name="DOMAINID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	<sql-dialect name="Microsoft">
+		WITH abc(uuid) AS
+		(
+			SELECT r.uuid
+	 		         FROM catalogcategory r
+			WHERE r.uuid = <template-variable value="CatalogCategory:UUID"/>
+			UNION ALL 
+				SELECT r.uuid
+	 		         FROM catalogcategory r
+				INNER JOIN abc a ON a.uuid = r.parentcategoryid
+		)
+		SELECT distinct UUID, DOMAINID, COUNT(UUID) over() AS "ROWCOUNT" FROM (
+	</sql-dialect>
+	SELECT
+	distinct(iepca.productid) AS UUID,
+	<template-variable value="ProductDomain:UUID"/> AS DOMAINID
+	<sql-dialect name="Oracle">
+		,count(distinct(iepca.productid)) over() as "ROWCOUNT"
+		</sql-dialect>
+	FROM
+	(
+	<template-call name="catalog/GetIEProductCategoryAssignmentsByCatalogDomainID">
+		<call-parameter name="ProductDomain" value="ProductDomain"/>
+		<call-parameter name="CatalogDomainID" value="CatalogCategory:DomainID"/>
+	</template-call>
+	) iepca
+	<template-if condition="NOT (CatalogCategory:isRootCategory)">
+		WHERE iepca.categoryid IN (
+		<sql-dialect name="Oracle">
+		 		       SELECT r.uuid
+		 		         FROM catalogcategory r
+		 CONNECT BY PRIOR r.uuid = r.parentcategoryid
+		 		   START WITH r.uuid = <template-variable value="CatalogCategory:UUID"/>
+		</sql-dialect>
+		<sql-dialect name="Microsoft">
+		 		       SELECT uuid FROM abc
+		</sql-dialect>
+				   )
+ </template-if>
+ <sql-dialect name="Microsoft">
+      ) a
+ </sql-dialect> 
+</template>
+</query>

@@ -1,0 +1,140 @@
+<!-- TEMPLATENAME: PageletSearch.isml -->
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<%@page import="java.util.Map"%>
+<%@page import="java.util.HashMap"%>
+
+<isinclude template="inc/Modules"/>
+<isinclude template="content/Modules"/>
+
+<!-- Working Area -->
+<!-- Main Content -->
+<isif condition="#NOT(template eq 'true') and isDefined(filtermode) and (filtermode eq 'true')#"><!--- Filter Wizard mode --->
+	<isif condition="#page eq 'true'#">
+		<isset name="FormAction" value="#URL(Action('ViewPageletSearchPageFilter-Dispatch'))#" scope="request"/>
+	<iselse>
+		<isset name="FormAction" value="#URL(Action('ViewPageletSearchComponentFilter-Dispatch'))#" scope="request"/>
+	</isif>
+<iselse><!--- Ordinary pagelet search --->
+	<isset name="FormAction" value="#URL(Action('ViewPageletSearch-Dispatch'))#" scope="request"/>
+</isif>
+<isform action="#FormAction#" method="post" name="PageletSearch">
+<isinclude template="content/search/inc/AppendSearchIDParamToBreadcrumb">
+	<%
+		Map searchParams = new HashMap<String, Object>();
+		getPipelineDictionary().put("SearchParams", searchParams);
+		
+		Object uniqueIdParam = (String)getPipelineDictionary().get("UniquePageletSearchID");
+		if ((uniqueIdParam != null) && !"".equals(uniqueIdParam)) {
+			searchParams.put("UniquePageletSearchID", uniqueIdParam);
+		} else {
+			Object uniqueIdAttr = (String)getPipelineDictionary().get("uniqueid");
+			if (uniqueIdAttr != null) {
+				searchParams.put("UniquePageletSearchID", uniqueIdAttr);
+				getPipelineDictionary().put("UniquePageletSearchID", uniqueIdAttr);
+			}
+		}
+		Object pageFlag = (String)getPipelineDictionary().get("page");
+		if (pageFlag != null) searchParams.put("PageFlag", pageFlag);
+		Object templateFlag = (String)getPipelineDictionary().get("template");
+		if (templateFlag != null) searchParams.put("TemplateFlag", templateFlag);
+        Object allowedtemplates = getPipelineDictionary().get("allowedtemplates");
+        if (allowedtemplates != null) searchParams.put("AllowedTemplates", allowedtemplates);
+		Object performPageletSearchFlag = (String)getPipelineDictionary().get("PerformPageletSearch");
+		if (performPageletSearchFlag != null) searchParams.put("PerformPageletSearch", performPageletSearchFlag);
+		Object currentRequest = getPipelineDictionary().get("currentrequest");
+		if (currentRequest != null) getPipelineDictionary().put("CurrentRequest", currentRequest);
+		
+		String performSearch = (String)getPipelineDictionary().get("performsearch");
+		if (performSearch != null) {
+			searchParams.put("PerformPageletSearch", performSearch);
+			getPipelineDictionary().put("PerformPageletSearch", performSearch);
+		}
+		
+		String searchType = (String)getPipelineDictionary().get("searchtype");
+		if (searchType != null) {
+			searchParams.put("SearchType", searchType);
+			getPipelineDictionary().put("SearchType", searchType);
+		}
+		String sortBy = (String)getPipelineDictionary().get("sortby");
+		if (sortBy != null) {
+			searchParams.put("SortBy", sortBy);
+			getPipelineDictionary().put("SortBy", sortBy);
+		}
+		String sortDirection = (String)getPipelineDictionary().get("sortdirection");
+		if (sortDirection != null) {
+			searchParams.put("SortDirection", sortDirection);
+			getPipelineDictionary().put("SortDirection", sortDirection);
+		}
+	 %>
+
+	<ISCreateMap mapname = "PrepareSearchMaskParams"
+		key0 = "UniquePageletSearchID" value0 = "#UniquePageletSearchID#"
+		key1 = "PageFlag" value1 = "#page#"
+		key2 = "SearchType" value2 = "#searchtype#"
+		key3 = "CurrentChannel" value3 = "#channel#"
+		key4 = "StartFlag" value4 = "#start#"
+		key5 = "TargetPageletViewPipeline" value5 = "#targetpageletviewpipeline#"
+		key6 = "TargetPageletViewPipelineParams" value6 = "#targetpageletviewpipelineparams#"
+		key7 = "AllowedPageletDefinitions" value7 = "#alloweddefinitions#"
+		key8 = "ExcludedPageletUUIDs" value8 = "#excludedpagelets#"
+		key9 = "FilterMode" value9 = "#filtermode#">
+		
+	<ISPipeline pipeline="ProcessPageletSearch-PrepareSearchMaskValues"
+		params = "#PrepareSearchMaskParams#" alias = "SearchMaskValues">
+
+	<%
+		Map searchMaskValues = (Map)getPipelineDictionary().get("SearchMaskValues");
+		getPipelineDictionary().put("CurrentSession", searchMaskValues.get("CurrentSession"));		
+		getPipelineDictionary().put("CurrentUser", searchMaskValues.get("CurrentUser"));
+		getPipelineDictionary().put("ContentRepository", searchMaskValues.get("ContentRepository"));
+		getPipelineDictionary().put("LeadLocale", searchMaskValues.get("LeadLocale"));
+		getPipelineDictionary().put("WorkingContextTime", searchMaskValues.get("WorkingContextTime"));
+		getPipelineDictionary().put("CurrentApplication", searchMaskValues.get("CurrentApplication"));
+        getPipelineDictionary().put("PageletModelRepository", searchMaskValues.get("PageletModelRepository"));
+		
+		searchParams.put("ContentRepository", searchMaskValues.get("ContentRepository"));
+		searchParams.put("PageletDefinitions", searchMaskValues.get("PageletDefinitions"));
+		searchParams.put("SortedNames", searchMaskValues.get("SortedNames"));
+	 %>
+<ISContentPermissionMap ContentRepository="#ContentRepository#" PermissionMap="PermissionMap">
+	<ISPipeline pipeline = "ProcessPageletSearch-GetPageable" 
+		params = "#SearchParams#" alias = "PageletSearchResultDict">
+
+	<isif condition="#isDefined(extendedheadingtemplate) and (extendedheadingtemplate ne '')#">
+		<isinclude template = "#extendedheadingtemplate#">
+	<iselse>
+		<isinclude template = "content/search/inc/PageletSearchTitleAndErrors">
+	</isif>
+	
+	<ISPageletModelUtils PageletModelUtils="PageletModelUtils">
+	<isinclude template = "content/search/inc/PageletSearchMask">
+
+	<input type="hidden" name = "PageFlag" value = "<isprint value="#page#">" />
+	<input type="hidden" name="TemplateFlag" value="<isprint value="#template#">" />
+	<input type="hidden" name = "UniquePageletSearchID" value = "<isprint value="#UniquePageletSearchID#">" />
+		
+	<isif condition="#isDefined(searchtype)#">
+		<input type="hidden" name="SearchType" value="<isprint value="#searchtype#">" />
+	</isif>
+
+	<isif condition="#isDefined(PageletSearchResultDict:Pagelets) and hasLoopElements(PageletSearchResultDict:Pagelets)#">
+		<isinclude template = "content/search/inc/PageletsList">
+
+		<!-- Start Page Cursor -->
+		<isset name="ShowAllLimit" value="PageletSearchResultDict:ShowAllLimit" scope="request"/>
+		<isset name="FirstLastLimit" value="PageletSearchResultDict:FirstLastLimit" scope="request"/>
+		<ISFlexPagingBar pageable="PageletSearchResultDict:Pagelets" variablepagesize="true" rowsperpage="#PageletSearchResultDict:RowsPerPage#">
+		<!-- End Page Cursor -->
+	<iselse>
+		<isif condition="#isDefined(notfoundtemplate) and (notfoundtemplate ne '')#">
+			<isinclude template = "#notfoundtemplate#">
+		</isif>
+		<isif condition="#isDefined(submitbuttonstemplate) and (submitbuttonstemplate ne '')#">
+			<isinclude template = "#submitbuttonstemplate#">
+		</isif>
+	</isif>
+</isform>
+<!-- EO Main Content -->
+<!-- EO Working Area -->
+<!-- END: PageletSearch.isml -->

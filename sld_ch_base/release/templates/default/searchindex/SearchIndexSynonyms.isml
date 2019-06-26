@@ -1,0 +1,365 @@
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<ISBreadcrumbTrail id="#SearchIndex:IndexID#" link="#URL(Action('ViewSearchIndexSynonyms-Synonyms'), Parameter('ChannelID', ApplicationState:ChannelID), Parameter('SearchIndexID', SearchIndex:IndexID . '@' . SearchIndex:Domain:DomainName))#" text="#SearchIndex:IndexID#" text1="#' - '.localizeText('SearchIndexSynonyms.Synonyms.text1')#">
+
+<isset name="SearchIndexEditable" scope="request" value="#isDefined(CurrentChannelPermissionMap:SLD_MANAGE_SEARCH_INDEXES) AND NOT(SearchIndex:Shared)#">
+
+<!--- Horizontal navigation: tab list General, Indexed Attributes, Synonyms, Stop Words --->
+<isset scope="request" name="SelectedTab" value="Synonyms">
+<isinclude template="inc/SearchIndexTabs">
+<!--- eof tab list --->
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+	<tr>
+		<td width="100%" class="table_title w e s"><isprint value="#SearchIndex:IndexID#"></td>
+	</tr>
+	
+	<!-- Structural changes require an update of the SearchIndex -->
+	<isif condition="#NOT(SearchIndex:isConsistent) AND NOT (isDefined(confirmDeleteSynonyms))#">
+		<tr>
+			<td colspan="2">
+				<isinclude template="searchindex/SearchIndexInconsistentMessage">
+			</td>
+		</tr>
+	</isif>
+</table>
+
+<isform action="#URL(Action('ViewSearchIndexSynonyms-Dispatch'))#" method="post" name="SearchIndexSynonymsForm">
+	<input type="hidden" name="SearchIndexID" value="<isprint value="#SearchIndex:IndexID#">" />
+	<table width="100%" border="0" cellspacing="0" cellpadding="0">
+		<!-- Errors section -->
+		<isif condition="#(isDefined(ErrorCode) OR isDefined(updateSynonyms)) AND (isDefined(ErrorSynonymAlreadyExists) OR isDefined(MissingMandatoryInputParameter) OR isDefined(InvalidDeductionFrom) OR isDefined(InvalidDeductionTo) OR (isDefined(SynonymsErrors) AND isDefined(SynonymsErrors:EntrySet) AND hasElements(SynonymsErrors:EntrySet)))#">
+			<tr>
+				<td colspan="2">
+					<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box w e s">
+						<tr>
+							<td class="error_icon e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/><input type="hidden" name="ChannelID" value="<isprint value="#ChannelID#">"/></td>
+							<td class="error" width="100%">
+							<isif condition="#isDefined(ErrorSynonymAlreadyExists)#">
+								<istext key="SearchIndexSynonyms.SynonymForThisKeywordAlreadyExists.error" encoding="off"/> 
+							</isif>
+							<isif condition="#isDefined(MissingMandatoryInputParameter)#">
+								<istext key="SearchIndexSynonyms.PleaseFillInAllTheRequiredFields.error" encoding="off"/> 
+							</isif>
+							<isif condition="#isDefined(InvalidDeductionFrom)#">
+								<br/><istext key="SearchIndexSynonyms.InvalidDeductionFrom.error" encoding="off"/> 
+							</isif>
+							<isif condition="#isDefined(InvalidDeductionTo)#">
+								<br/><istext key="SearchIndexSynonyms.InvalidDeductionTo.error" encoding="off"/> 
+							</isif>
+							<isif condition="#isDefined(SynonymsErrors) AND isDefined(SynonymsErrors:EntrySet) AND hasElements(SynonymsErrors:EntrySet)#">
+								<istext key="SearchIndexSynonyms.YouAttemptedToEditASynonymOrAFewOfThem.error" encoding="off"/>
+							</isif>
+							</td>
+						</tr> 
+					</table>
+				</td>
+			</tr>
+		</isif> 
+
+		<!-- delete confirmation if one is selected-->
+		<isif condition="#isDefined(confirmDeleteSynonyms)#">
+			<tr>
+				<td colspan="2">
+					<table width="100%" cellpadding="0" cellspacing="0" border="0">
+						<isif condition="#hasLoopElements(Clipboard:ObjectUUIDs)#">
+							<ISMessageBox subject="#localizeText('SearchIndexSynonyms.Synonym.subject')#" type="mdc" okbtnname="deleteSynonyms" cancelbtnname="cancelDeleteSynonyms">
+						<iselse>
+							<ISMessageBox subject="#localizeText('SearchIndexSynonyms.Synonym.subject')#" type="mde">
+						</isif>
+					</table>
+				</td>
+			</tr>
+		</isif>
+		<!--- eof errors --->
+		<tr>
+			<td class="table_title_description w e s" colspan="2">
+				<istext key="SearchIndexSynonyms.TheListShowsAllSynonymsDefinedForThisIndex.table_title_description" encoding="off"/>
+				<isif condition="#(SearchIndexEditable EQ "true")#">
+					<istext key="SearchIndexSynonyms.DeductionInputsAreNotMandatory.table_title_description" encoding="off"/>
+				</isif> 
+			</td>
+		</tr>
+		<isif condition="#(SearchIndexEditable EQ "true")#">
+			<tr>
+				<td class="infobox w e s" colspan="2">
+					<table border="0" cellspacing="4" cellpadding="0">
+						<tr>
+							<td class="infobox_title" colspan="2"><istext key="SearchIndexSynonyms.NewSynonym.infobox_title" encoding="off"/></td>
+						</tr>
+						<tr>
+							<td>
+								<table border="0" cellspacing="0" cellpadding="0">
+									<tr>
+										<td>&nbsp;</td>
+										<isif condition="#SearchIndexFeature:SynonymDeductionConfigurable#">
+											<isif condition="#(isDefined(InvalidDeductionFrom) OR isDefined(InvalidDeductionTo)) AND NOT(isDefined(updateSynonyms))#">
+												<td class=" center error">
+											<iselse> 
+												<td class="infobox_item center">
+											</isif>
+											&nbsp;<istext key="SearchIndexSynonyms.DeductionInPercent.infobox_item" encoding="off"/> </td>
+										</isif>
+									</tr>
+									<tr>
+										<isif condition="#isDefined(ErrorCode) AND ((NewSynonymKeyword EQ '') OR isDefined(ErrorSynonymAlreadyExists)) 
+														AND NOT (isDefined(updateSynonyms))#">
+											<td class="fielditem2_error" nowrap="nowrap">
+												<istext key="SearchIndexSynonyms.Keyword.fielditem2_error" encoding="off"/>:<span class="star">*</span>&nbsp;<input class="inputfield_en" type="text" name="NewSynonymKeyword" 
+												<isif condition="#isDefined(ErrorSynonymAlreadyExists)#">
+													value="<isprint value="#NewSynonymKeyword#">"
+												</isif>
+												/>&nbsp;
+											</td>
+										<iselse>
+											<td class="infobox_item" nowrap="nowrap">
+												<istext key="SearchIndexSynonyms.Keyword.infobox_item" encoding="off"/>:<span class="star">*</span>&nbsp;
+												<isif condition="#isDefined(ErrorCode)#"><input class="inputfield_en" type="text" name="NewSynonymKeyword" value="<isprint value="#NewSynonymKeyword#">" />
+												<iselse><input class="inputfield_en" type="text" name="NewSynonymKeyword" value="" /></isif>&nbsp;
+											</td>
+										</isif>
+										<isif condition="#SearchIndexFeature:SynonymDeductionConfigurable#">
+											<td class="infobox_item center">&nbsp;
+												<isif condition="#(isDefined(InvalidDeductionFrom)) AND NOT(isDefined(updateSynonyms))#">
+													<input class="inputfield_en" type="text" name="NewSynonymDeductionFrom" size="2" maxlength="3"/>&nbsp;&gt;\u00a0\u00a0&lt;&nbsp;
+												<iselse>
+													<isif condition="#isDefined(ErrorCode)#"><input class="inputfield_en" type="text" name="NewSynonymDeductionFrom" size="2" maxlength="3" value="<isprint value="#NewSynonymDeductionFrom#" />" /><iselse><input class="inputfield_en" type="text" name="NewSynonymDeductionFrom" size="2" maxlength="3" value="" /></isif>&nbsp;&gt;\u00a0\u00a0&lt;&nbsp;
+												</isif>
+												<isif condition="#(isDefined(InvalidDeductionTo)) AND NOT(isDefined(updateSynonyms))#">
+													<input class="inputfield_en" type="text" name="NewSynonymDeductionTo" size="2" maxlength="3" />
+												<iselse>
+													<isif condition="#isDefined(ErrorCode)#"><input class="inputfield_en" type="text" name="NewSynonymDeductionTo" size="2" maxlength="3" value="<isprint value="#NewSynonymDeductionTo#"/>" /><iselse><input class="inputfield_en" type="text" name="NewSynonymDeductionTo" size="2" maxlength="3" value="" /></isif>&nbsp;
+												</isif>
+											</td>
+										<iselse>
+											<input type="hidden" name="NewSynonymDeductionFrom" value=""/>
+											<input type="hidden" name="NewSynonymDeductionTo" value=""/> 
+										</isif>
+										<isif condition="#isDefined(ErrorCode) AND (NewSynonymName EQ '') AND NOT(isDefined(updateSynonyms))#">
+											<td class="fielditem2_error" nowrap="nowrap">
+												&nbsp;<istext key="SearchIndexSynonyms.Synonym.fielditem2_error" encoding="off"/>:<span class="star">*</span>&nbsp;<input class="inputfield_en" type="text" name="NewSynonymName" />&nbsp;
+											</td>
+										<iselse>
+											<td class="infobox_item" nowrap="nowrap">
+												&nbsp;<istext key="SearchIndexSynonyms.Synonym.infobox_item" encoding="off"/>:<span class="star">*</span>&nbsp;<isif condition="#isDefined(ErrorCode)#"><input class="inputfield_en" type="text" name="NewSynonymName" value="<isprint value="#NewSynonymName#"/>" /><iselse><input class="inputfield_en" type="text" name="NewSynonymName" value="" /></isif>&nbsp;
+											</td>
+										</isif>
+										<td class="infobox_item">
+											&nbsp;<istext key="SearchIndexSynonyms.Bidirectional.infobox_item" encoding="off"/>:&nbsp;
+											<input type="checkbox" name="NewSynonymBidirectional" value="true"
+												<isif condition="#isDefined(ErrorCode) and isDefined(NewSynonymBidirectional)#">
+													checked="checked"
+												</isif>
+											 />
+										</td>
+										<td>
+											<table border="0" cellspacing="0" cellpadding="0">
+												<tr>
+													<td class="button">
+														<input type="submit" name="addSynonym" value="#localizeText('SearchIndexSynonyms.Add.button')#" class="button"/>
+													</td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</isif>
+		<isif condition="#isDefined(Synonyms) AND hasLoopElements(Synonyms)#">
+			<tr>
+				<td colspan="2">
+					<table border="0" width="100%" cellspacing="0" cellpadding="0">
+						<tr>
+							<isif condition="#(SearchIndexEditable EQ "true")#">
+								<td class="table_header w s center" nowrap="nowrap" width="80">
+								<div id="A">
+									<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+										<tr>
+											<td nowrap="nowrap">
+												<a href="javascript:selectAll('SearchIndexSynonymsForm','SelectedObjectUUID','A','B');" class="tableheader"><istext key="SearchIndexSynonyms.SelectAll.link" encoding="off"/></a>
+											</td>
+										</tr>
+									</table>
+								</div>
+								<div id="B" style="display:none">
+									<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+										<tr>
+											<td nowrap="nowrap">
+												<a href="javascript:selectAll('SearchIndexSynonymsForm','SelectedObjectUUID','A','B');" class="tableheader"><istext key="SearchIndexSynonyms.ClearAll.link" encoding="off"/></a>
+											</td>
+										</tr>
+									</table>
+								</div>
+								</td>
+								<td class="table_header w s"><istext key="SearchIndexSynonyms.Keyword.table_header" encoding="off"/></td>
+							<iselse>
+								<td class="table_header w s"><istext key="SearchIndexSynonyms.Keyword.table_header" encoding="off"/></td>
+							</isif>
+							<isif condition="#SearchIndexFeature:SynonymDeductionConfigurable#">
+								<td class="table_header w s" nowrap="nowrap"><istext key="SearchIndexSynonyms.DeductionFromInPercent.table_header" encoding="off"/></td>
+								<td class="table_header w s" nowrap="nowrap"><istext key="SearchIndexSynonyms.DeductionToInPercent.table_header" encoding="off"/></td>
+							</isif>
+							<td class="table_header w s"><istext key="SearchIndexSynonyms.Synonym.table_header" encoding="off"/></td>
+							<td class="table_header w e s" width="75" nowrap="nowrap"><istext key="SearchIndexSynonyms.Bidirectional.table_header" encoding="off"/></td>
+						</tr>
+
+						<isloop iterator="Synonyms"> 
+							<tr>
+								<isif condition="#(SearchIndexEditable EQ "true")#">
+									<td class="table_detail w s center">
+										<input type="hidden" name="ObjectUUID" value="<isprint value="#Synonyms:Keyword#">"/>
+										<input type="checkbox" name="SelectedObjectUUID" value="<isprint value="#Synonyms:Keyword#">"
+											<isif condition="#Clipboard:contains(Synonyms:Keyword)#"> checked="checked"</isif>
+										/>
+										<input type="hidden" name="CustomAttributeName" value="<isprint value="#Synonyms:Keyword#">"/>
+									</td>
+								</isif>
+								<td class="table_detail w s">
+									<isif condition="#(SearchIndexEditable EQ "true")#">
+										<isset name="SynonymKeywordInputName" value="#Synonyms:Keyword . '_Keyword'#" scope="request" />
+<!---isnoloc--->
+										<isif condition="#isDefined(CurrentRequest:PipelineDictionary:get(SynonymKeywordInputName))#">
+											<input class="inputfield_en" type="text" name="<isprint value="#SynonymKeywordInputName#"/>" size="35" value="<isprint value="#CurrentRequest:PipelineDictionary:get(SynonymKeywordInputName)#"/>" />
+										<iselse>
+											<input class="inputfield_en" type="text" name="<isprint value="#SynonymKeywordInputName#"/>" size="35" value="<isprint value="#Synonyms:Keyword#">" />
+										</isif>
+<!---/isnoloc--->
+										
+										<isif condition="#isDefined(SynonymsErrors) AND isDefined(SynonymsErrors:get(Synonyms:Keyword))#">
+											<isif condition="#isDefined(SynonymsErrors:get(Synonyms:Keyword):KeywordIsMissing)#">
+												&nbsp;<img src="#WebRoot()#/images/error.gif" alt="#localizeText('SearchIndexSynonyms.TheValueForSynonymKeywordIsInvalid.alt')#" title="#localizeText('SearchIndexSynonyms.TheValueForSynonymKeywordIsInvalid.title')#" class="middle" />
+											<iselseif condition="#isDefined(SynonymsErrors:get(Synonyms:Keyword):SynonymAlreadyExists)#">
+												&nbsp;<img src="#WebRoot()#/images/error.gif" alt="#localizeText('SearchIndexSynonyms.SynonymWithThisKeywordAlreadyExists.alt')#" title="#localizeText('SearchIndexSynonyms.SynonymWithThisKeywordAlreadyExists.title')#" class="middle" />
+											</isif>
+										</isif>
+									<iselse>
+										<input class="inputfield_en" type="text" name="<isprint value="#Synonyms:Keyword#">_Keyword" size="35" disabled="disabled" value="<isprint value="#Synonyms:Keyword#">" />
+									</isif>
+								</td>
+								<isif condition="#SearchIndexFeature:SynonymDeductionConfigurable#">
+									<td class="table_detail w s">
+										<isif condition="#(SearchIndexEditable EQ "true")#">
+<!---isnoloc--->
+											<isset name="SynonymDeductionFromInputName" value="#Synonyms:Keyword . '_DeductionFrom'#" scope="request" />
+											<isif condition="#isDefined(CurrentRequest:PipelineDictionary:get(SynonymDeductionFromInputName)) AND (CurrentRequest:PipelineDictionary:get(SynonymDeductionFromInputName) NE '')#">
+												<input class="inputfield_en" type="text" name="<isprint value="#SynonymDeductionFromInputName#">" size="3" value="<isprint value="#CurrentRequest:PipelineDictionary:get(SynonymDeductionFromInputName)#">" />
+											<iselse>
+												<input class="inputfield_en" type="text" name="<isprint value="#SynonymDeductionFromInputName#">" size="3" value="<isprint value="#Synonyms:DeductionFrom#">" />
+											</isif>
+<!---/isnoloc--->											
+											<isif condition="#isDefined(SynonymsErrors) AND isDefined(SynonymsErrors:get(Synonyms:Keyword)) AND isDefined(SynonymsErrors:get(Synonyms:Keyword):InvalidDeductionFrom)#">
+												&nbsp;<img src="#WebRoot()#/images/error.gif" alt="#localizeText('SearchIndexSynonyms.TheValueOfDeductionFromFieldIsInvalid.alt')#" title="#localizeText('SearchIndexSynonyms.TheValueOfDeductionFromFieldIsInvalid.title')#" class="middle" />
+											</isif>
+										<iselse>
+											<input class="inputfield_en" type="text" name="<isprint value="#Synonyms:Keyword#">_DeductionFrom" size="3" disabled="disabled" value="<isprint value="#Synonyms:DeductionFrom#">" />
+										</isif>
+										&nbsp;&gt;
+									</td>
+									<td class="table_detail w s">
+										&lt;&nbsp;
+										<isif condition="#(SearchIndexEditable EQ "true")#">
+<!---isnoloc--->										
+											<isset name="SynonymDeductionToInputName" value="#Synonyms:Keyword . '_DeductionTo'#" scope="request" />
+											<isif condition="#isDefined(CurrentRequest:PipelineDictionary:get(SynonymDeductionToInputName)) AND (CurrentRequest:PipelineDictionary:get(SynonymDeductionToInputName) NE '')#">
+												<input class="inputfield_en" type="text" name="<isprint value="#SynonymDeductionToInputName#">" size="3" value="<isprint value="#CurrentRequest:PipelineDictionary:get(SynonymDeductionToInputName)#">" />
+											<iselse>
+												<input class="inputfield_en" type="text" name="<isprint value="#SynonymDeductionToInputName#">" size="3" value="<isprint value="#Synonyms:DeductionTo#">" />
+											</isif>
+<!---/isnoloc--->											
+											<isif condition="#isDefined(SynonymsErrors) AND isDefined(SynonymsErrors:get(Synonyms:Keyword)) AND isDefined(SynonymsErrors:get(Synonyms:Keyword):InvalidDeductionTo)#">
+												&nbsp;<img src="#WebRoot()#/images/error.gif" alt="#localizeText('SearchIndexSynonyms.TheValueOfDeductionToFieldIsInvalid.alt')#" title="#localizeText('SearchIndexSynonyms.TheValueOfDeductionToFieldIsInvalid.title')#" class="middle" />
+											</isif>
+										<iselse>
+											<input class="inputfield_en" type="text" disabled="disabled" name="<isprint value="#Synonyms:Keyword#">_DeductionTo" size="3" value="<isprint value="#Synonyms:DeductionTo#">" />
+										</isif>
+									</td>
+								<iselse>
+									<input type="hidden" name="<isprint value="#Synonyms:Keyword#">_DeductionTo" value="0"/>
+									<input type="hidden" name="<isprint value="#Synonyms:Keyword#">_DeductionFrom" value="0"/>
+								</isif>
+								<td class="table_detail w s">
+									<isif condition="#(SearchIndexEditable EQ "true")#">
+<!---isnoloc--->									
+										<isset name="SynonymInputName" value="#Synonyms:Keyword . '_Synonym'#" scope="request" />
+										<isif condition="#isDefined(CurrentRequest:PipelineDictionary:get(SynonymInputName))#">
+											<input class="inputfield_en" type="text" name="<isprint value="#SynonymInputName#"/>" size="35" value="<isprint value="#CurrentRequest:PipelineDictionary:get(SynonymInputName)#"/>" />
+										<iselse>
+											<input class="inputfield_en" type="text" name="<isprint value="#SynonymInputName#"/>" size="35" value="<isprint value="#Synonyms:Synonym#">" />
+										</isif>
+<!---/isnoloc--->										
+										<isif condition="#isDefined(SynonymsErrors) AND isDefined(SynonymsErrors:get(Synonyms:Keyword)) AND isDefined(SynonymsErrors:get(Synonyms:Keyword):NameIsMissing)#">
+											&nbsp;<img src="#WebRoot()#/images/error.gif" alt="#localizeText('SearchIndexSynonyms.TheValueForTheSynonymIsInvalid.alt')#" title="#localizeText('SearchIndexSynonyms.TheValueForTheSynonymIsInvalid.title')#" class="middle"/>
+										</isif>
+									<iselse>
+										<input class="inputfield_en" type="text" name="<isprint value="#Synonyms:Keyword#">_Synonym" size="35" disabled="disabled" value="<isprint value="#Synonyms:Synonym#">" />
+									</isif>
+								</td>
+								<td class="table_detail center w e s">
+									<isif condition="#(SearchIndexEditable EQ "true")#">
+										<isset name="SynonymBidirectionalInputName" value="#Synonyms:Keyword . '_Bidirectional'#" scope="request" />
+										<isif condition="#isDefined(CurrentRequest:PipelineDictionary:get(SynonymBidirectionalInputName)) OR (isDefined(SynonymsErrors) AND isDefined(SynonymsErrors:EntrySet) AND hasElements(SynonymsErrors:EntrySet))#">
+											<input type="checkbox" name="<isprint value="#SynonymBidirectionalInputName#">" value="true"  
+												<isif condition="#CurrentRequest:PipelineDictionary:get(SynonymBidirectionalInputName) EQ 'true'#">checked="checked"</isif>
+											/>
+										<iselse>
+											<input type="checkbox" name="<isprint value="#SynonymBidirectionalInputName#">" value="true"  
+												<isif condition="#Synonyms:Bidirectional EQ 'true'#">checked="checked"</isif>
+											/>
+										</isif>
+									<iselse>
+										<input type="checkbox" name="<isprint value="#Synonyms:Keyword#">_Bidirectional" value="true" disabled="disabled"  
+											<isif condition="#Synonyms:Bidirectional EQ 'true'#">checked="checked"</isif>
+										/>
+									</isif>
+								</td>
+							</tr>
+						</isloop>
+					</table>
+				</td>
+			</tr>
+		<iselse>
+			<tr>
+				<td class="table_detail w e s" colspan="2">
+					<istext key="SearchIndexSynonyms.CurrentlyThereAreNoSynonymsDefined.table_detail" encoding="off"/>
+				</td>
+			</tr>
+		</isif>
+
+		<!--- Button controls --->
+		<isif condition="#(SearchIndexEditable EQ "true")#">
+			<tr>
+				<td align="left" class="w s">
+					<table cellpadding="0" cellspacing="4">
+						<tr>
+							<td class="button"><input type="submit" name="importSynonyms" value="#localizeText('SearchIndexSynonyms.Import.button').' ...'#" class="button"/></td>
+							<isif condition="#hasLoopElements(Synonyms)#">
+								<td class="button"><input type="submit" name="exportSynonyms" value="#localizeText('SearchIndexSynonyms.Export.button').' ...'#" class="button"/></td>
+							</isif>
+						</tr>
+					</table>
+				</td>
+				<td align="right" class="e s">
+					<table cellpadding="0" cellspacing="4">
+						<tr>
+							<isif condition="#hasLoopElements(Synonyms)#">
+								<td class="button"><input type="submit" name="updateSynonyms" value="#localizeText('SearchIndexSynonyms.Apply.button')#" class="button"/></td>
+							</isif>
+							<td class="button"><input type="reset" name="resetSynonyms" value="#localizeText('SearchIndexSynonyms.Reset.button')#" class="button"/></td>
+							<isif condition="#hasLoopElements(Synonyms)#">
+								<td class="button"><input type="submit" name="confirmDeleteSynonyms" value="#localizeText('SearchIndexSynonyms.Delete.button')#" class="button"/></td>
+							</isif>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</isif>
+	</table>
+	
+	<isif condition="#hasLoopElements(Synonyms)#">
+		<ISPagingBar pageable="Synonyms">
+	</isif>
+</isform>
+<isinclude template="inc/BackToList">

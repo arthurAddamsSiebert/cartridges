@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="ProductAlias" type="java.lang.String" optional="false"/>
+    <parameter name="SharedProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+    <parameter name="BindingAttribute" type="java.lang.String" optional="true"/>
+    <parameter name="BindingValue" type="java.lang.String" optional="true"/>
+    <parameter name="BindingValueExp" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+    <processor-preprocessing output="cBindingValueExp" input="BindingValueExp" processing="SearchExpression2Contains"/>
+</processor>
+<template>
+<template-if condition="isDefined(BindingAttribute)">
+    <template-if condition="isDefined(BindingValue)">
+        <template-if condition="BindingAttribute EQ 'eclass'">
+            AND <template-variable value="ProductAlias" processing="text"/>.eclass=<template-variable value="BindingValue"/>
+        <if-elseif condition="BindingAttribute EQ 'unspsc'"/>
+            AND <template-variable value="ProductAlias" processing="text"/>.unspsc=<template-variable value="BindingValue"/>
+        <if-else/>
+            <template-if condition="isDefined(SharedProductDomain)">        
+            AND <template-variable value="ProductAlias" processing="text"/>.uuid IN (
+                SELECT
+                    p1.uuid
+                FROM
+                    product p1          
+                LEFT OUTER JOIN
+                    derivedproduct dp1 ON (dp1.baseproductid=p1.uuid AND dp1.domainid=<template-variable value="SharedProductDomain:UUID"/>)
+                WHERE
+                <sql-dialect name="Oracle">
+                    contains(p1.attributes, 'HASPATH(/attrs/attr[@name="<template-variable value="BindingAttribute" processing="text"/>"]/string="'||<template-variable value="BindingValue"/>||'")')>0                 
+            	</sql-dialect>
+            	<sql-dialect name="Microsoft">
+                	p1.attributes.exist('//attrs/attr[@name="<template-variable value="BindingAttribute" processing="text"/>"]/string [contains(., "<template-variable value="BindingValue"/>")]')>0
+            	</sql-dialect>
+                AND
+                (       
+                    <sql-dialect name="Oracle">
+                            contains(dp1.attributes, 'HASPATH(/attrs/attr[@name="<template-variable value="BindingAttribute" processing="text"/>"]/string)')=0
+                    </sql-dialect>
+                    <sql-dialect name="Microsoft">
+                        (dp1.attributes.exist('//attrs/attr[@name="<template-variable value="BindingAttribute" processing="text"/>"]/string')=0)
+                    </sql-dialect>
+                    OR
+                        dp1.attributes IS NULL
+                )
+                UNION ALL   
+                SELECT
+                    baseproductid
+                FROM
+                    derivedproduct
+                WHERE
+                    domainid=<template-variable value="SharedProductDomain:UUID"/> AND   
+                    <sql-dialect name="Oracle"> 
+                    	contains(attributes, 'HASPATH(/attrs/attr[@name="<template-variable value="BindingAttribute" processing="text"/>"]/string="'||<template-variable value="BindingValue"/>||'")')>0
+                    </sql-dialect>
+	            	<sql-dialect name="Microsoft">
+                		p1.attributes.exist('//attrs/attr[@name="<template-variable value="BindingAttribute" processing="text"/>"]/string [contains(., "<template-variable value="BindingValue"/>")]')>0
+            		</sql-dialect>
+                )    
+            <if-else/>
+            <sql-dialect name="Oracle">
+                AND contains(<template-variable value="ProductAlias" processing="text"/>.attributes, 'HASPATH(/attrs/attr[@name="<template-variable value="BindingAttribute" processing="text"/>"]/string="'||<template-variable value="BindingValue"/>||'")')>0
+            </sql-dialect>
+            <sql-dialect name="Microsoft">
+                AND <template-variable value="ProductAlias" processing="text"/>.attributes.exist('//attrs/attr[@name="<template-variable value="BindingAttribute" processing="text"/>"]/string [contains(., "<template-variable value="BindingValue"/>")]')>0
+            </sql-dialect>
+            </template-if>                                          
+        </template-if>
+    <if-elseif condition="isDefined(BindingValueExp) AND (BindingValueExp:NotEmpty)"/>
+    <sql-dialect name="Oracle">
+        AND contains(<template-variable value="ProductAlias" processing="text"/>.attributes, '('||<template-variable value="cBindingValueExp"/>||') INPATH(/attrs/attr[@name="<template-variable value="BindingAttribute" processing="text"/>"]/string)')>0
+    </sql-dialect>
+    <sql-dialect name="Microsoft">
+        AND <template-variable value="ProductAlias" processing="text"/>.attributes.exist('//attrs/attr[@name="<template-variable value="BindingAttribute" processing="text"/>"]/string [contains(., "<template-variable value="cBindingValueExp"/>")]')>0
+    </sql-dialect>
+        
+    </template-if>
+</template-if>
+</template>
+</query>

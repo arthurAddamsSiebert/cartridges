@@ -1,0 +1,681 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline contains processing pipelines for shipping methods.
+@Group Shipping-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessShipping" type="process">
+<!--@padss
+ProcessShipping
+@Location 18,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode13" strict="true" name="CheckDefaultSettings"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetBasketBO1"/>
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+    <parameters name="BasketBORepository" type="com.intershop.component.basket.capi.BasketBORepository"/>
+  </nodes>
+<!--@Location 18,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetBasketBO1">
+    <pipelet href="enfinity:/bc_basket/pipelets/GetBasketBO.xml"/>
+    <nodeSuccessors name="next" next="ValidateBasket0_Input"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+  </nodes>
+<!--@Location 18,2-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="ValidateBasket0">
+    <configurationValues name="AllowAdjustments" value="true"/>
+    <configurationValues name="StopOnError" value="StopOnError"/>
+    <pipelet href="enfinity:/bc_basket/pipelets/com.intershop.component.basket.pipelet.ValidateBasket.pipelinenode"/>
+    <inConnectors name="Input">
+      <parameterBindings name="Scopes" constant="Shipping"/>
+    </inConnectors>
+    <outConnectors name="Success">
+      <nodeSuccessors next="EndNode8"/>
+    </outConnectors>
+    <outConnectors name="Error">
+      <nodeSuccessors next="JoinNode15"/>
+    </outConnectors>
+    <outConnectors name="Adjusted">
+      <nodeSuccessors next="JoinNode15"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 18,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" strict="true">
+    <returnValues name="BasketValidationResults" type="com.intershop.component.basket.capi.BasketValidationResults"/>
+  </nodes>
+<!--@Location 19,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 19,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="ERROR" strict="true">
+    <returnValues name="BasketValidationResults" type="com.intershop.component.basket.capi.BasketValidationResults"/>
+  </nodes>
+<!--@padss
+@Location 15,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode12" strict="true" name="DefaultSettings"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode6"/>
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"
+        optional="true"/>
+    <parameters name="BasketBORepository" type="com.intershop.component.basket.capi.BasketBORepository"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 31,7 31,12-->
+    <nodeSuccessors name="next" next="EndNode22"/>
+<!--@BendPoints 33,7-->
+    <nodeSuccessors name="ERROR" next="CallNode5"/>
+    <startNode referencedName="ProcessShipping-CheckDefaultSettings"/>
+  </nodes>
+<!--@Location 15,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode22" strict="true"/>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+    <startNode referencedName="ProcessShipping-SetDefaultShippingMethod"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="EndNode15"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+    <parameterBindings name="BasketBO" nullBinding="true"/>
+    <startNode referencedName="ProcessBasketInvalidation-InvalidateBasketCalculation"/>
+  </nodes>
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" name="SHIPPING_SETTINGS_CHANGED"
+      strict="true"/>
+<!--@Location 10,10-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="IsDigitalOnly"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"/>
+  </nodes>
+<!--@Location 10,11-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="CurrentCartBO:Extension(&quot;ShippingBucket&quot;):ShippingBucketBOs">
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <entry key="Bucket">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode0"/>
+    </entry>
+  </nodes>
+<!--@Location 10,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Bucket:SelectedBasketShippingMethodBO">
+    <nodeSuccessors name="decision_yes" next="DecisionNode10"/>
+<!--@BendPoints 23,25 23,29-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 10,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode10" conditionKey="Bucket:SelectedBasketShippingMethodBO:DigitalDelivery"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 19,27 19,23-->
+    <nodeSuccessors name="decision_yes" next="LoopNode0_Entry"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 10,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode16"/>
+  </nodes>
+<!--@Location 10,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" name=""/>
+<!--@Location 11,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="isDigital"/>
+<!--@Location 9,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" name="PrepareRequestedDeliveryDate"
+      callMode="Private">
+<!--@BendPoints 19,3-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7"/>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="PrepareShippingInstruction"
+      callMode="Private">
+<!--@BendPoints 15,2-->
+    <nodeSuccessors name="next" next="ConcatenateStrings3"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_22_0UH3aEeibAOwJbwfPAQ"/>
+    <parameterBindings name="String0" constant="ShippingInstruction_"/>
+    <parameterBindings name="String1" objectPath="Bucket:ID"/>
+    <returnValueBindings name="Concatenated" objectPath="ShippingInstructionKey"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_22_0UH3aEeibAOwJbwfPAQ"
+      conditionKey="ShippingForm:get(ShippingInstructionKey):Value">
+    <nodeSuccessors name="decision_yes" next="KeyMapper2"/>
+<!--@BendPoints 17,5-->
+    <nodeSuccessors name="decision_no" next="RemoveDictionaryValue_U1H08H3bEeibAOwJbwfPAQ"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode_V9hncH3bEeibAOwJbwfPAQ"/>
+    <parameterBindings name="InValue_1" objectPath="ShippingForm:get(ShippingInstructionKey):Value"/>
+    <returnValueBindings name="OutValue_1" objectPath="ShippingInstruction"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_V9hncH3bEeibAOwJbwfPAQ">
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6"/>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue_U1H08H3bEeibAOwJbwfPAQ">
+    <configurationValues name="Key" value="ShippingInstruction"/>
+    <pipelet href="enfinity:/core/pipelets/RemoveDictionaryValue.xml"/>
+<!--@BendPoints 17,9-->
+    <nodeSuccessors name="next" next="JoinNode_V9hncH3bEeibAOwJbwfPAQ"/>
+  </nodes>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="PrepareShippingMethodUUID"
+      callMode="Private">
+<!--@BendPoints 11,2-->
+    <nodeSuccessors name="next" next="ConcatenateStrings2"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+<!--@BendPoints 11,4-->
+    <nodeSuccessors name="next" next="KeyMapper3"/>
+    <parameterBindings name="String0" constant="ShippingMethodUUID_"/>
+    <parameterBindings name="String1" objectPath="Bucket:ID"/>
+    <returnValueBindings name="Concatenated" objectPath="ShippingMethodUUIDKey"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetIndirectDictValue.xml"/>
+<!--@BendPoints 11,6-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <parameterBindings name="KeyNameHolder" objectPath="ShippingMethodUUIDKey"/>
+    <returnValueBindings name="MappedEntry" objectPath="ShippingMethodUUID"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5"/>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="ProcessDesiredDeliveryDate"
+      callMode="Private">
+    <nodeSuccessors name="next" next="UpdateProductLineItemDesiredDeliveryDates0"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"/>
+    <parameters name="DesiredDeliveryDates" type="java.util.Map&lt;K,V>" optional="true"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductLineItemDesiredDeliveryDates0">
+    <pipelet href="enfinity:/bc_basket/pipelets/UpdateProductLineItemDesiredDeliveryDates.xml"/>
+    <nodeSuccessors name="next" next="EndNode11"/>
+    <parameterBindings name="BasketBO" objectPath="CurrentCartBO"/>
+    <parameterBindings name="DatesMap" objectPath="DesiredDeliveryDates"/>
+  </nodes>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" strict="true"/>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" name="ProcessGiftOptionMarkers"
+      callMode="Private">
+<!--@BendPoints 7,22-->
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="SkipGifting"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="JoinNode7"/>
+<!--@BendPoints 8,23-->
+    <nodeSuccessors name="decision_no" next="DecisionNode8"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 7,26-->
+    <nodeSuccessors name="next" next="LoopNode6"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode6" loop="CurrentCartBO:ProductLineItemBOs">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <entry key="PLI">
+<!--@BendPoints 7,28-->
+      <nodeSuccessors name="loop_entry_next" next="ConcatenateStrings6"/>
+    </entry>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings6">
+    <configurationValues name="DefaultString0" value="giftOption_"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+<!--@BendPoints 7,30-->
+    <nodeSuccessors name="next" next="GetIndirectDictValue6"/>
+    <parameterBindings name="String1" objectPath="PLI:ID"/>
+    <returnValueBindings name="Concatenated" objectPath="giftOptionMarkerKey"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetIndirectDictValue6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetIndirectDictValue.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameterBindings name="KeyNameHolder" objectPath="giftOptionMarkerKey"/>
+    <returnValueBindings name="MappedEntry" objectPath="giftOptionMarker"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+    <parameterBindings name="InValue_1" objectPath="PLI:Extension(&quot;Gifting&quot;):GiftOptionMarked"/>
+    <returnValueBindings name="OutValue_1" objectPath="OldGiftOptionMarker"/>
+  </nodes>
+<!--@Location 3,17-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="giftOptionMarker">
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue1"/>
+<!--@BendPoints 9,35-->
+    <nodeSuccessors name="decision_no" next="SetGiftOptionMarker2"/>
+  </nodes>
+<!--@Location 3,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="toGiftingOption"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="SetGiftOptionMarker1"/>
+  </nodes>
+<!--@Location 3,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetGiftOptionMarker1">
+    <configurationValues name="GiftOptionMarker" value="true"/>
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/SetGiftOptionMarker.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="BasketProductLineItemBO" objectPath="PLI"/>
+    <parameterBindings name="ProductLineItem" objectPath="PLI"/>
+  </nodes>
+<!--@Location 3,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="DecisionNode9"/>
+  </nodes>
+<!--@Location 3,21-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode9" conditionKey="PLI:Extension(&quot;Gifting&quot;):GiftOptionMarked"
+      operator="str_neq" conditionItem="OldGiftOptionMarker">
+<!--@BendPoints 7,44-->
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue3"/>
+<!--@BendPoints 8,43 8,47-->
+    <nodeSuccessors name="decision_no" next="JoinNode8"/>
+  </nodes>
+<!--@Location 3,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue3">
+    <configurationValues name="Name" value="recalculateCart"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 3,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 5,46 5,28-->
+    <nodeSuccessors name="next" next="LoopNode6_Entry"/>
+  </nodes>
+<!--@Location 4,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetGiftOptionMarker2">
+    <configurationValues name="GiftOptionMarker" value="false"/>
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/SetGiftOptionMarker.xml"/>
+<!--@BendPoints 9,41-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="BasketProductLineItemBO" objectPath="PLI"/>
+    <parameterBindings name="ProductLineItem" objectPath="PLI"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="toGiftingOption">
+    <nodeSuccessors name="decision_yes" next="CallNode0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="EndNode14"/>
+    <nodeSuccessors name="isDigital" next="JoinNode10"/>
+    <startNode referencedName="ProcessShipping-IsDigitalOnly"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" name="toGiftOption" strict="true"/>
+<!--@Location 5,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="EndNode13"/>
+  </nodes>
+<!--@Location 5,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" name=""/>
+<!--@Location 5,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode8" conditionKey="SkipGifting"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 11,23-->
+    <nodeSuccessors name="decision_yes" next="JoinNode6"/>
+<!--@BendPoints 9,25-->
+    <nodeSuccessors name="decision_no" next="JoinNode7"/>
+  </nodes>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="SetDefaultShippingMethod"
+      callMode="Private">
+    <nodeSuccessors name="next" next="com.intershop.beehive.core.internal.pipeline.node.IsDBInitMode0_Input"/>
+    <parameters name="Basket" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipelineNodeNode" nodeID="com.intershop.beehive.core.internal.pipeline.node.IsDBInitMode0">
+    <pipelet href="enfinity:/core/pipelets/com.intershop.beehive.core.internal.pipeline.node.IsDBInitMode.pipelinenode"/>
+    <inConnectors name="Input"/>
+    <outConnectors name="yes">
+<!--@BendPoints 9,3-->
+      <nodeSuccessors next="JoinNode14"/>
+    </outConnectors>
+    <outConnectors name="no">
+      <nodeSuccessors next="TryLock0"/>
+    </outConnectors>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+<!--@BendPoints 9,7-->
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="SetDefaultShippingMethod2"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDefaultShippingMethod2">
+    <pipelet href="enfinity:/bc_shipping/pipelets/SetDefaultShippingMethod.xml"/>
+<!--@BendPoints 7,10-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="TryLock0">
+    <configurationValues name="Timeout" value="-1"/>
+    <pipelet href="enfinity:/core/pipelets/TryLock.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode14"/>
+    <parameterBindings name="LockObject" objectPath="Basket"/>
+  </nodes>
+<!--@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="SetShippingMethod"
+      callMode="Private">
+<!--@BendPoints 23,2-->
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameters name="ShippingMethodUUID" type="java.lang.String" optional="true"/>
+    <parameters name="ShippingInstruction" type="java.lang.String" optional="true"/>
+    <parameters name="RequestedDeliveryDate" type="java.lang.String" optional="true"/>
+    <parameters name="ProductLineItemIDs" type="java.util.HashMap$KeySet"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ShippingMethodUUID">
+<!--@BendPoints 23,4-->
+    <nodeSuccessors name="decision_yes" next="GetShippingMethodByID1"/>
+<!--@BendPoints 27,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetShippingMethodByID1">
+    <pipelet href="enfinity:/bc_shipping_data/pipelets/GetShippingMethodByID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--@BendPoints 27,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="Domain" objectPath="CurrentDomain"/>
+    <parameterBindings name="ID" objectPath="ShippingMethodUUID"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ProductLineItemIDs"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="LoopNode1"/>
+<!--@BendPoints 27,7-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="ProductLineItemIDs">
+    <nodeSuccessors name="next" next="SetSelectedShippingMethod1"/>
+    <entry key="ProductLineItemID">
+<!--@BendPoints 23,10-->
+      <nodeSuccessors name="loop_entry_next" next="GetLineItemByUUID1"/>
+    </entry>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLineItemByUUID1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/GetLineItemByUUID.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 24,11 24,13-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="LineItemUUID" objectPath="ProductLineItemID"/>
+    <returnValueBindings name="LineItem" objectPath="ProductLineItem"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 23,14-->
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 23,16 22,16 22,9-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <parameterBindings name="InVector" objectPath="ProductLineItemsVector"/>
+    <parameterBindings name="Object" objectPath="ProductLineItem"/>
+    <returnValueBindings name="Iterator" objectPath="ProductLineItems"/>
+    <returnValueBindings name="OutVector" objectPath="ProductLineItemsVector"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetSelectedShippingMethod1">
+    <pipelet href="enfinity:/bc_shipping/pipelets/SetSelectedShippingMethod.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="SpecialShippingInstructions" objectPath="ShippingInstruction"/>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 13,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" name="SetShippingMethods"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode4"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode4" loop="CurrentCartBO:Extension(&quot;ShippingMethod&quot;):BasketShippingMethodSelectionBucketBOs">
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <entry key="Bucket">
+<!--@BendPoints 3,4-->
+      <nodeSuccessors name="loop_entry_next" next="GetFormRecord6"/>
+    </entry>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFormRecord6">
+    <pipelet href="enfinity:/core/pipelets/GetFormRecord.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameterBindings name="AllFormValues" nullBinding="true"/>
+    <parameterBindings name="RecordID" objectPath="Bucket:ID"/>
+    <returnValueBindings name="FormRecord" objectPath="ProductLineItemIDMap"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <startNode referencedName="ProcessShipping-PrepareShippingMethodUUID"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <startNode referencedName="ProcessShipping-PrepareShippingInstruction"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <startNode referencedName="ProcessShipping-PrepareRequestedDeliveryDate"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 3,15 2,15 2,3-->
+    <nodeSuccessors name="next" next="LoopNode4_Entry"/>
+    <parameterBindings name="ProductLineItemIDs" objectPath="ProductLineItemIDMap:KeySet"/>
+    <startNode referencedName="ProcessShipping-SetShippingMethod"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <parameterBindings name="BasketBO" objectPath="CurrentCartBO"/>
+    <startNode referencedName="ProcessBasketInvalidation-InvalidateBasketCalculation"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3"/>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" strict="true" name="StartHook"
+      callMode="Private">
+<!--@BendPoints 1,22-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <parameters name="Basket" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"
+        optional="true"/>
+  </nodes>
+<!--@Location 0,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true"/>
+<!--@Location 13,10-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="UpdatePackSlipMessages"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 13,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="PackSlipMessage_Switch">
+<!--@BendPoints 27,24-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode14"/>
+<!--@BendPoints 31,23-->
+    <nodeSuccessors name="decision_no" next="JoinNode11"/>
+  </nodes>
+<!--@Location 13,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode14" conditionKey="PackSlipMessage_Switch"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="LoopNode3"/>
+    <nodeSuccessors name="decision_no" next="JoinNode11"/>
+  </nodes>
+<!--TempBucket
+@Location 13,13-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="CurrentCartBO:Extension(&quot;ShippingMethod&quot;):BasketShippingMethodSelectionBucketBOs">
+<!--@BendPoints 30,27-->
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <entry key="Bucket">
+      <nodeSuccessors name="loop_entry_next" next="KeyMapper0"/>
+    </entry>
+  </nodes>
+<!--@Location 13,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode13"/>
+    <parameterBindings name="InValue_1" objectPath="PackSlipMessageForm:get(Bucket:ID)"/>
+    <returnValueBindings name="OutValue_1" objectPath="Subform"/>
+  </nodes>
+<!--@Location 13,15-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode13" conditionKey="Bucket:PackSlipMessagingEnabled"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="ConcatenateStrings_rNW5MHw4EeeHEJFhsuK2tw"/>
+    <nodeSuccessors name="decision_no" next="JoinNode_2nlg0Hw4EeeHEJFhsuK2tw"/>
+  </nodes>
+<!--@Location 13,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings_rNW5MHw4EeeHEJFhsuK2tw">
+    <configurationValues name="DefaultString0" value="packingSlipMessage_"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode_0vTJgHw4EeeHEJFhsuK2tw"/>
+    <parameterBindings name="String1" objectPath="Bucket:ID"/>
+    <returnValueBindings name="Concatenated" objectPath="PackSlipCheckbox"/>
+  </nodes>
+<!--@Location 13,17-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_0vTJgHw4EeeHEJFhsuK2tw"
+      conditionKey="CurrentRequest:PipelineDictionary:get(PackSlipCheckbox)" operator="str_eq"
+      conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="ConcatenateStrings0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode_2nlg0Hw4EeeHEJFhsuK2tw"/>
+  </nodes>
+<!--@Location 13,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode11"/>
+    <parameterBindings name="String0" objectPath="Subform:PackSlipText:Value"/>
+    <parameterBindings name="String1" objectPath="Subform:PackSlipFrom:Value"/>
+    <parameterBindings name="String2" objectPath="Subform:PackSlipTo:Value"/>
+    <returnValueBindings name="Concatenated" objectPath="AllPackSlipTexts"/>
+  </nodes>
+<!--@Location 13,19-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="AllPackSlipTexts"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="JoinNode13"/>
+    <nodeSuccessors name="decision_no" next="CreateLineItemMessage0"/>
+  </nodes>
+<!--@Location 14,19-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+    <nodeSuccessors name="next" next="DecisionNode12"/>
+  </nodes>
+<!--@Location 14,20-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="Bucket:PackSlipMessage">
+    <nodeSuccessors name="decision_yes" next="RemovePackSlipMessage0"/>
+<!--@BendPoints 30,42 30,45-->
+    <nodeSuccessors name="decision_no" next="JoinNode9"/>
+  </nodes>
+<!--@Location 14,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemovePackSlipMessage0">
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/RemovePackSlipMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="ShippingBucket" objectPath="Bucket"/>
+  </nodes>
+<!--@Location 14,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 13,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 24,43 24,42 24,27-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+  </nodes>
+<!--@Location 13,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateLineItemMessage0">
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/CreateLineItemMessage.xml"/>
+    <nodeSuccessors name="next" next="UpdatePackSlipMessage0"/>
+    <parameterBindings name="From" objectPath="Subform:PackSlipFrom:Value"/>
+    <parameterBindings name="Message" objectPath="Subform:PackSlipText:Value"/>
+    <parameterBindings name="To" objectPath="Subform:PackSlipTo:Value"/>
+    <returnValueBindings name="LineItemMessage" objectPath="PackSlipMessage"/>
+  </nodes>
+<!--@Location 13,21-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePackSlipMessage0">
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/UpdatePackSlipMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="ShippingBucket" objectPath="Bucket"/>
+  </nodes>
+<!--@Location 14,17-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_2nlg0Hw4EeeHEJFhsuK2tw">
+    <nodeSuccessors name="next" next="JoinNode13"/>
+  </nodes>
+<!--@Location 15,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 31,34-->
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 15,17-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" name=""/>
+<!--@Location 15,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" strict="true" name="ValidateDesiredDeliveryDates"
+      callMode="Private">
+    <nodeSuccessors name="next" next="VerifyProductLineItemDesiredDeliveryDates0"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"/>
+    <parameters name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyProductLineItemDesiredDeliveryDates0">
+    <pipelet href="enfinity:/bc_basket/pipelets/VerifyProductLineItemDesiredDeliveryDates.xml"/>
+    <nodeSuccessors name="next" next="EndNode12"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode17"/>
+    <parameterBindings name="BasketBO" objectPath="CurrentCartBO"/>
+    <parameterBindings name="Domain" objectPath="Repository:Domain"/>
+    <returnValueBindings name="ErrorCode" objectPath="ValidationErrorCode"/>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" strict="true"/>
+<!--@Location 8,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" name="ValidationError" strict="true">
+    <returnValues name="ValidationErrorCode" objectPath="ValidationErrorCode" type="java.lang.String"/>
+  </nodes>
+</pipeline:Pipeline>

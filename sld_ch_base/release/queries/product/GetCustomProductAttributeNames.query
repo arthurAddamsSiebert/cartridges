@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="CatalogCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="Locales" type="java.util.Iterator" optional="false"/>
+	<parameter name="AttributeNameSearchExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>   
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	SELECT t.ATTRNAME
+	FROM
+	(
+		SELECT
+			extractValue(value(a), '/attr/@name') as ATTRNAME
+		FROM
+			product p
+		JOIN
+		(
+		<template-call name="catalog/GetIEProductCategoryAssignmentsByCatalogDomainID">
+			<call-parameter name="ProductDomain" value="ProductDomain"/>
+		</template-call>
+		) pca ON (pca.productid=p.uuid) AND pca.categoryid=<template-variable value="CatalogCategory:UUID"/>
+		CROSS JOIN
+			TABLE(XMLSEQUENCE(extract(XMLType(nvl(p.attributes, '&lt;attrs/&gt;')), '/attrs/attr'))) a
+	)t
+	WHERE 1=1
+	<template-if condition="isDefined(AttributeNameSearchExpression)">	 
+		<template-call name="inc/SearchExpression2Like">
+				<call-parameter name="SearchExpression" value="AttributeNameSearchExpression"/>
+				<call-parameter name="ColumnNames" value="&quot;t.ATTRNAME&quot;"/>
+				<call-parameter name="CaseInsensitive" value="true()"/>
+				<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+		</template-call>
+	</template-if>	
+	<template-loop alias="Locale" iterator="Locales">
+	<loop-statement>
+	UNION
+	SELECT t.ATTRNAME
+	FROM
+	(
+	
+		SELECT
+			extractValue(value(a), '/attr/@name') as ATTRNAME
+		FROM
+			product p
+		JOIN
+		(
+		<template-call name="catalog/GetIEProductCategoryAssignmentsByCatalogDomainID">
+			<call-parameter name="ProductDomain" value="ProductDomain"/>
+		</template-call>
+		) pca ON (pca.productid=p.uuid) AND pca.categoryid=<template-variable value="CatalogCategory:UUID"/>
+		CROSS JOIN
+			TABLE(XMLSEQUENCE(extract(XMLType(nvl(attributes_<template-variable value="Locale:LocaleID" processing="text"/>, '&lt;attrs/&gt;')), '/attrs/attr'))) a		
+	)t
+	WHERE 1=1 
+	<template-if condition="isDefined(AttributeNameSearchExpression)">	 
+		<template-call name="inc/SearchExpression2Like">
+				<call-parameter name="SearchExpression" value="AttributeNameSearchExpression"/>
+				<call-parameter name="ColumnNames" value="&quot;t.ATTRNAME&quot;"/>
+				<call-parameter name="CaseInsensitive" value="true()"/>
+				<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+		</template-call>
+	</template-if>	
+	    		
+	</loop-statement>
+	</template-loop>
+</template>
+</query>

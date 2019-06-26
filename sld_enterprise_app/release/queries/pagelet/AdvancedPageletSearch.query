@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<query description="This pipelet searches pagelets for a domain with a specified name, type, public flag and pageflag.">
+
+<parameters>
+	<parameter name="CurrentSearchParameters" type="java.util.Map" optional="false" description="A Map containing the Pagelet Search parameters for the base subquery of the searched Pagelets."/>
+	<parameter name="ParentPageSearchParameters" type="java.util.Map" optional="true" description="A Map containing the Pagelet Search parameters for the base subquery of parent Pages filter."/>
+	<parameter name="ParentComponentSearchParameters" type="java.util.Map" optional="true" description="A Map containing the Pagelet Search parameters for the base subquery of the parent Components filter."/>
+	<parameter name="ParentComponentParentPageSearchParameters" type="java.util.Map" optional="true" description="A Map containing the Pagelet Search parameters for the base subquery of parent Pages filter of the parent Components."/>
+
+	<parameter name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the pagelet belongs to."/>	
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false" description="Search in context of the given locale."/>
+	<parameter name="AllLocales" type="java.util.Iterator" optional="false" description="All available locales."/>
+	<parameter name="ExcludedPageletUUIDs" type="java.util.Iterator" optional="true" description="An optional set of Pagelet UUIDs which will not be included in the result set."/>
+	<parameter name="SortedNames" type="java.util.Map" optional="true" description="A Map of pagelet qualified names sorted according to the display name of page components, localize in current locale."/>
+	<parameter name="SortBy" type="java.lang.String" optional="true" description="The column by which the result set should be sorted."/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true" description="The direction of sorting (ascending/descending)."/>
+	<parameter name="PublishedFromSinceDate" type="java.util.Date" optional="true"/>
+	<parameter name="PublishedFromTillDate" type="java.util.Date" optional="true"/>
+	<parameter name="PublishedToSinceDate" type="java.util.Date" optional="true"/>
+	<parameter name="PublishedToTillDate" type="java.util.Date" optional="true"/>
+	<parameter name="LastModifiedFrom" type="java.util.Date" optional="true"/>
+	<parameter name="LastModifiedTo" type="java.util.Date" optional="true"/>
+</parameters>
+
+<return-mappings>
+	<return-mapping name="Pagelet" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletPO" description="This is the found pagelet.">
+		<return-attribute name="PageletUUID"/>
+	</return-mapping>
+</return-mappings>
+
+<processor name="OracleSQL"/>
+
+<template type="countedobjects">	
+	<template-call name="content/inc/prefix/ConfigurationParameterFilterPrefix">
+		  <call-parameter name="AllLocales" value="AllLocales"/>	          
+          <call-parameter name="ConfigParamValueExpression" value="CurrentSearchParameters:ConfigParamValueExpression"/>
+	</template-call>	
+	select pageletuuid,
+	       count(*) over() as "rowcount"
+	     <template-if condition="isDefined(SortedNames)">
+	       , sorting
+	     </template-if>
+	  from (
+	        <template-if condition = "isDefined(CurrentSearchParameters:PageFlag) 
+	                                  and CurrentSearchParameters:PageFlag eq &apos;true&apos;">
+	          <template-call name="pagelet/PageSearch">
+	            <call-parameter name="PageSearchParameters" value="CurrentSearchParameters"/>
+	            <call-parameter name="PublishedFromSinceDate" value="PublishedFromSinceDate"/>
+	            <call-parameter name="PublishedFromTillDate" value="PublishedFromTillDate"/>
+	            <call-parameter name="PublishedToSinceDate" value="PublishedToSinceDate"/>
+	            <call-parameter name="PublishedToTillDate" value="PublishedToTillDate"/>
+                <call-parameter name="LastModifiedFrom" value="LastModifiedFrom"/>
+                <call-parameter name="LastModifiedTo" value="LastModifiedTo"/>
+	            <call-parameter name="Repository" value="Repository"/>
+	            <call-parameter name="Locale" value="Locale"/>
+	            <call-parameter name="AllLocales" value="AllLocales"/>
+	            <call-parameter name="SortedNames" value="SortedNames"/>
+	            <call-parameter name="SortBy" value="SortBy"/>
+	            <call-parameter name="WritePrefix" value="&apos;false&apos;" />
+	          </template-call>
+	        <if-else/>
+	          <template-call name="pagelet/ComponentSearch">
+	            <call-parameter name="ComponentSearchParameters" value="CurrentSearchParameters"/>
+	            <call-parameter name="ParentPageSearchParameters" value="ParentPageSearchParameters"/>
+	            <call-parameter name="ParentComponentSearchParameters" value="ParentComponentSearchParameters"/>
+	            <call-parameter name="ParentComponentParentPageSearchParameters" value="ParentComponentParentPageSearchParameters"/>
+	            <call-parameter name="PublishedFromSinceDate" value="PublishedFromSinceDate"/>
+	            <call-parameter name="PublishedFromTillDate" value="PublishedFromTillDate"/>
+	            <call-parameter name="PublishedToSinceDate" value="PublishedToSinceDate"/>
+	            <call-parameter name="PublishedToTillDate" value="PublishedToTillDate"/>
+                <call-parameter name="LastModifiedFrom" value="LastModifiedFrom"/>
+                <call-parameter name="LastModifiedTo" value="LastModifiedTo"/>
+	            <call-parameter name="Repository" value="Repository"/>
+	            <call-parameter name="Locale" value="Locale"/>
+	            <call-parameter name="AllLocales" value="AllLocales"/>
+	            <call-parameter name="SortedNames" value="SortedNames"/>
+	            <call-parameter name="SortBy" value="SortBy"/>
+	            <call-parameter name="WritePrefix" value="&apos;false&apos;" />
+	          </template-call>
+	        </template-if>
+	       ) a
+	<template-if condition="isDefined(ExcludedPageletUUIDs) and hasElements(ExcludedPageletUUIDs)">
+	  where not pageletuuid in (
+		<template-loop iterator="ExcludedPageletUUIDs" alias="ExcludedPageletUUID">
+			<loop-statement>
+				<template-variable value="ExcludedPageletUUID"/>
+			</loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>)
+	</template-if>
+	<template-if condition="isDefined(SortedNames)">
+	  order by 
+	    <template-if condition="isDefined(SortBy) and ((SortBy eq &apos;publishedfrom&apos;) OR (SortBy eq &apos;publishedto&apos;))">
+		    <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+		      onlineflag asc,
+		    <if-else/>
+		      onlineflag desc,
+		    </template-if>
+	    </template-if>	
+	    <sql-dialect name="Oracle">
+		  sorting
+		    <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+		      desc nulls last
+		    <if-else/>
+		      asc nulls first
+		    </template-if>	
+		</sql-dialect> 
+		<sql-dialect name="Microsoft">
+		    <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">	      
+		      CASE 
+		      	WHEN sorting IS NULL THEN 1
+		      	ELSE 0
+		      END, sorting DESC
+		    <if-else/>
+		      CASE
+		      	WHEN sorting IS NULL THEN 0
+		      	ELSE 1
+		      END, sorting ASC
+		    </template-if>	
+		</sql-dialect>
+	</template-if>
+</template>
+</query>

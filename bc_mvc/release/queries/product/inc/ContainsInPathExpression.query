@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="SearchColumn" type="java.lang.String" optional="false"/>
+    <parameter name="SearchTerm" type="java.lang.String" optional="false"/>
+    <parameter name="SearchAttributeName" type="java.lang.String" optional="false"/>
+    <parameter name="SearchAttributeType" type="java.lang.String" optional="true"/>
+    <parameter name="SearchRelevanceScore" type="java.lang.String" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template sqlDialect="Microsoft">
+	CAST(<template-variable value="SearchColumn" processing="text"/><template-if condition="isDefined(LocaleInformation)">_<template-variable value="lcase(LocaleInformation:LocaleID)" processing="text"/></template-if> AS XML).exist(&apos;//attrs/attr[<template-loop iterator="split(SearchAttributeName, ' or ')" alias="AttributeName"><loop-statement>@name="<template-variable value="AttributeName" processing="text"/>"</loop-statement><loop-separator> or </loop-separator></template-loop>]<template-if condition="isDefined(SearchAttributeType)">/<template-variable value="SearchAttributeType" processing="text"/></template-if>[<template-variable value="SearchTerm" processing="text"/>]') <template-variable value="SearchRelevanceScore" processing="text"/>
+</template>
+<template sqlDialect="Oracle">
+    contains(<template-variable value="SearchColumn" processing="text"/><template-if condition="isDefined(LocaleInformation)">_<template-variable value="lcase(LocaleInformation:LocaleID)" processing="text"/></template-if>, 
+  <template-if condition="len(SearchTerm) &gt; 2000">
+    to_clob(&apos;(&apos;) 
+  <template-loop iterator="split(SearchTerm, ' \\| ')" alias="Phrase">
+  <loop-statement> || to_clob(<template-variable value="Phrase"/>)</loop-statement><loop-separator> || to_clob(&apos; | &apos;)</loop-separator>
+  </template-loop>
+    || to_clob(&apos;)&apos; 
+  <if-elseif condition="isDefined(SearchTerm)"/>
+		&apos;(&apos; || <template-variable value="SearchTerm" /> || &apos;)&apos;
+  <if-else/>
+		&apos;(null)&apos;
+  </template-if>    
+    || &apos; inpath (//attrs/attr[<template-loop iterator="split(SearchAttributeName, ' OR ')" alias="AttributeName"><loop-statement>@name="<template-variable value="AttributeName" processing="text"/>"</loop-statement><loop-separator> or </loop-separator></template-loop>]<template-if condition="isDefined(SearchAttributeType)">/<template-variable value="SearchAttributeType" processing="text"/></template-if>)&apos;)<template-if condition="len(SearchTerm) &gt; 2000">)</template-if><template-variable value="SearchRelevanceScore" processing="text"/>
+</template>
+</query>

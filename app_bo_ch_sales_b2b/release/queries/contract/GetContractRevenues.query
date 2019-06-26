@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets the contracts with the highest revenues for a certain domain/certain domains and a certain currency">
+<parameters>
+	<parameter name="ContractDomains" type="java.util.Iterator" optional="true"/>
+	<parameter name="ContractDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+	<parameter name="Currency" type="com.intershop.beehive.core.capi.currency.Currency" optional="false"/>
+	<parameter name="CustomerID" type="java.lang.String" optional="true" />
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="ContractName" type="rename">
+		<return-attribute name="CONTRACTNAME"/>
+	</return-mapping>
+	<return-mapping name="ContractID" type="rename">
+		<return-attribute name="CUUID"/>
+	</return-mapping>
+	<return-mapping name="Revenue" type="constructor" class="com.intershop.beehive.foundation.quantity.Money">
+		<return-attribute name="REVENUECODE"/>
+		<return-attribute name="REVENUEVALUE"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	SELECT 
+		cra.CONTRACTBASEUUID as CUUID, COUNT(cra.CONTRACTBASEUUID) over() as "ROWCOUNT",
+		cbav.STRINGVALUE as CONTRACTNAME, 
+		SUM(cra.REVENUEVALUE) as REVENUEVALUE,
+		cra.REVENUECODE
+	FROM 
+		CONTRACTREVENUEASSIGNMENT cra
+	JOIN 
+		CONTRACTBASE_AV cbav
+	ON
+		cra.CONTRACTBASEUUID = cbav.OWNERID
+	JOIN 
+		CONTRACTBASE cb
+	ON
+		cra.CONTRACTBASEUUID = cb.UUID
+	JOIN
+		ISORDER io
+	ON
+		cra.ORDERUUID = io.UUID
+	WHERE
+		cra.REVENUECODE = <template-variable value="Currency:Mnemonic"/> 
+   	AND  
+		<template-if condition="isDefined(ContractDomains) OR isDefined(ContractDomain)">
+			<!-- Domain vs. Domains, at least one of them has to be defined. If both are, Domains is used. -->
+			 <template-call name="contract/ContractSearchContractDomains">
+				<call-parameter name="ContractDomains" value="ContractDomains"/>
+				<call-parameter name="ContractDomain" value="ContractDomain"/>
+			 </template-call> 
+		<if-else/>
+			1=2
+		</template-if>
+	AND 
+		cbav.NAME = 'name'
+	AND 
+		cbav.LOCALEID = <template-variable value="LocaleInformation:LocaleID"/>
+	<template-if condition="isDefined(CustomerID) AND NOT (CustomerID EQ '')">
+		 AND io.CUSTOMERID = <template-variable value="CustomerID"/>
+	</template-if>
+	GROUP BY 
+		cra.CONTRACTBASEUUID, cbav.STRINGVALUE, cra.REVENUECODE 
+	<!-- ORDER BY REVENUEVALUE DESC -->
+	<template-variable value="orderBy(column('sum(cra.REVENUEVALUE)', nullsLast(), descending()))" processing="text"/>
+</template>
+</query>

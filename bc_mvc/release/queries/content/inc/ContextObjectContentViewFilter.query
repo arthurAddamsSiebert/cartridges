@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+  <parameters>
+    <parameter name="BusinessObjectAlias" type="java.lang.String" optional="false" description="Table alias of the context business object assigned (product or category)."/>
+    <parameter name="BusinessObjectDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+    <parameter name="PageFlag" type="java.lang.String" optional="false" description="&apos;true&apos;/&apos;false&apos;"/>
+    <parameter name="AssignmentTable" type="java.lang.String" optional="false" description="The table used to assign business object to PageletEntryPoint."/>
+    <!--
+      Must be one of:
+       'product_pepa'         -> PageletEntryPointProductAssignmentPO
+       'catalogcategory_pepa' -> PageletEntryPointCategoryAssignmentPO
+      -->
+    <parameter name="AssignmentTableJoinField" type="java.lang.String" optional="false" description="The table field used to to assign business object to PageletEntryPoint."/>
+    <!--
+      Must be one of:
+       'productid'  -> PageletEntryPointProductAssignmentPO
+       'categoryid' -> PageletEntryPointCategoryAssignmentPO
+      -->
+    <parameter name="AssignmentsSelection" type="java.lang.String" optional="true" description="&apos;all&apos;/&apos;assigned&apos;/&apos;notAssigned&apos;"/>
+    <parameter name="ContentEntryPointDefinitionInclusion" type="java.lang.String" optional="true" description="The qualified name of the content entry point definition inclusion selected by the user."/>
+  </parameters>
+  <processor name="OracleSQL">
+  </processor>
+  <template>
+    <template-if condition="isDefined(AssignmentsSelection)
+                        and (AssignmentsSelection eq &apos;assigned&apos; or AssignmentsSelection eq &apos;notAssigned&apos;)">
+      and <template-if condition="AssignmentsSelection eq &apos;notAssigned&apos;">not </template-if>
+          exists (
+            select 1
+              from pageletentrypoint pep
+              join <template-variable value="AssignmentTable" processing="text"/> pepa
+                on (pep.uuid=pepa.pageletentrypointid)
+             where pep.pageflag=<template-if condition="PageFlag eq &apos;true&apos;">1<if-else/>0</template-if>
+             <template-if condition="isDefined(BusinessObjectDomain)">  
+               and pepa.domainid=<template-variable value="BusinessObjectDomain:UUID"/>
+             </template-if>
+               and pepa.<template-variable value="AssignmentTableJoinField" processing="text"/> = <template-variable value="BusinessObjectAlias" processing="text"/>.uuid
+            <template-if condition="isDefined(ContentEntryPointDefinitionInclusion) and not (ContentEntryPointDefinitionInclusion EQ &apos;any&apos;)">
+               and pepa.definitionqualifiedname=<template-variable value="ContentEntryPointDefinitionInclusion"/>
+            </template-if>
+          )
+    </template-if>
+  </template>
+</query>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Statuses" type="java.util.Collection" optional="false"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="RatingComment" type="orm" class="com.intershop.component.rating.orm.internal.RatingCommentPO">
+		<return-attribute name="RatingCommentUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+
+SELECT rc.uuid RatingCommentUUID	
+	FROM RatingComment rc
+	<template-if condition="isDefined(SortAttribute)">
+		<template-if condition="SortAttribute EQ 'ReviewName'">
+		join ratingcomment_av rcav on rc.uuid = rcav.ownerid and rcav.name = 'title'
+		<if-elseif condition="SortAttribute EQ 'AuthorName'"/>
+		join basicprofile rcauthor on rc.authorid = rcauthor.uuid
+		</template-if>
+	</template-if>
+	 
+	WHERE 1=1
+	<template-if condition="hasLoopElements(Statuses)">
+	AND
+	(
+		<template-loop alias="Status" iterator="Statuses">
+			<loop-statement>
+				<template-if condition="Status:Name EQ 'NEW'">
+					rc.approvalStatus=0 OR rc.approvalStatus IS NULL
+				<if-elseif condition="Status:Name EQ 'APPROVED'"/>
+					rc.approvalStatus=1
+				<if-elseif condition="Status:Name EQ 'REJECTED'"/>
+					rc.approvalStatus=2
+				<if-else/>
+					<template-comment>Ensures that we don't get an error if the status is unknown</template-comment>
+					1=2
+				</template-if>		
+			</loop-statement>
+			<loop-separator> OR </loop-separator>
+		</template-loop>
+	)
+	</template-if>
+	
+	<template-if condition="isDefined(Locale)">
+		AND rc.localeID = <template-variable value="Locale:LocaleID"/>
+	</template-if>
+	
+	AND rc.domainid = <template-variable value="Domain:UUID"/>
+	
+	<template-if condition="isDefined(SortAttribute)">		
+	    <template-variable value="orderBy(column(identifier(SortAttribute), names('rc.rating', 'rcav.stringvalue:ReviewName', 'rcauthor.lastname:AuthorName', 'rc.creationtime:CreationTime', 'rc.approvalstatus:Status')), direction(SortDirection), if(isAscending(SortDirection), nullsLast(), nullsFirst()))" processing="text"/>
+	</template-if> 
+		
+</template>
+</query>

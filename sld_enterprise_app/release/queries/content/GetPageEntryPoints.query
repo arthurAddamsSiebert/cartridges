@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ContentRepository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the pagelet belongs to."/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="PageEntryPoint" type="orm" class="com.intershop.component.pmc.internal.pagelet.PageletEntryPointPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="SharingHelper" input="ContentRepository:RepositoryDomain" processing="ContentSharingHelper"/>
+</processor>
+<template type="countedobjects" sqlDialect="Oracle">
+SELECT UUID, COUNT(UUID) OVER() AS "ROWCOUNT" FROM (
+	SELECT
+	    pep.UUID AS UUID,
+	    <template-if condition="isDefined(SortBy) AND SortBy EQ &apos;ID&apos;">
+		pep.ID AS SORTING
+		<if-elseif condition="isDefined(SortBy) AND SortBy EQ &apos;lastModified&apos;"/>
+		pep.lastmodified AS SORTING
+		<if-else/>
+		pepav.stringvalue as sorting
+	</template-if>
+	FROM 
+	    PageletEntryPoint pep
+		<template-if condition="NOT(isDefined(SortBy)) OR (isDefined(SortBy) AND SortBy EQ &apos;name&apos;)">
+			LEFT OUTER JOIN PageletEntryPoint_av pepav
+		         ON (pep.uuid = pepav.ownerid AND pepav.name = &apos;displayName&apos; 
+		             and pepav.localeid = <template-variable value="Locale:LocaleID"/>)
+		</template-if>
+	WHERE 
+	    pep.pageflag = 1
+	AND
+		pep.dynamicflag = 1
+	AND 
+	    pep.DomainID IN (<template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain"><loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+		<loop-separator>,</loop-separator>
+	</template-loop>)
+	AND 
+	  NOT EXISTS (
+	    (
+	      SELECT 1 
+	      FROM catalogcategory_pepa
+	      WHERE pageletentrypointid=pep.UUID
+	    )
+	    UNION
+	    (
+	      SELECT 1 
+	      FROM product_pepa
+	      WHERE pageletentrypointid=pep.UUID
+	    )
+	    UNION
+	    (
+	      SELECT 1
+	      FROM viewcontext_pepa
+	      WHERE pageletentrypointid=pep.UUID
+	    )
+	  )
+UNION ALL	  
+	SELECT
+	    pep.UUID AS UUID,
+	    <template-if condition="isDefined(SortBy) AND SortBy EQ &apos;ID&apos;">
+		pep.ID AS SORTING
+		<if-elseif condition="isDefined(SortBy) AND SortBy EQ &apos;lastModified&apos;"/>
+		pep.lastmodified AS SORTING
+		<if-else/>
+		pepav.stringvalue as sorting
+	</template-if>
+	FROM 
+	    PageletEntryPoint pep
+		<template-if condition="NOT(isDefined(SortBy)) OR (isDefined(SortBy) AND SortBy EQ &apos;name&apos;)">
+			LEFT OUTER JOIN PageletEntryPoint_av pepav
+		         ON (pep.uuid = pepav.ownerid AND pepav.name = &apos;displayName&apos; 
+		             and pepav.localeid = <template-variable value="Locale:LocaleID"/>)
+		</template-if>
+	WHERE 
+	    pep.pageflag = 1
+	AND
+		pep.dynamicflag = 0
+	AND 
+	    pep.DomainID = <template-variable value="ContentRepository:RepositoryDomain:UUID"/>
+	ORDER BY SORTING
+	<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+		DESC NULLS FIRST
+		<if-else/>
+		ASC NULLS LAST
+	</template-if>
+)
+</template>
+
+<template type="countedobjects" sqlDialect="Microsoft">
+SELECT UUID, COUNT(UUID) OVER() AS "ROWCOUNT", sorting FROM (
+	SELECT
+	    pep.UUID AS UUID,
+	    <template-if condition="isDefined(SortBy) AND SortBy EQ &apos;ID&apos;">
+		pep.ID AS SORTING
+		<if-elseif condition="isDefined(SortBy) AND SortBy EQ &apos;lastModified&apos;"/>
+		pep.lastmodified AS SORTING
+		<if-else/>
+		pepav.stringvalue as sorting
+	</template-if>
+	FROM 
+	    PageletEntryPoint pep
+		<template-if condition="NOT(isDefined(SortBy)) OR (isDefined(SortBy) AND SortBy EQ &apos;name&apos;)">
+			LEFT OUTER JOIN PageletEntryPoint_av pepav
+		         ON (pep.uuid = pepav.ownerid AND pepav.name = &apos;displayName&apos; 
+		             and pepav.localeid = <template-variable value="Locale:LocaleID"/>)
+		</template-if>
+	WHERE 
+	    pep.pageflag = 1
+	AND
+		pep.dynamicflag = 1
+	AND 
+	    pep.DomainID IN (<template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain"><loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+		<loop-separator>,</loop-separator>
+	</template-loop>)
+	AND 
+	  NOT EXISTS (
+	    (
+	      SELECT 1 
+	      FROM catalogcategory_pepa
+	      WHERE pageletentrypointid=pep.UUID
+	    )
+	    UNION
+	    (
+	      SELECT 1 
+	      FROM product_pepa
+	      WHERE pageletentrypointid=pep.UUID
+	    )
+	    UNION
+	    (
+	      SELECT 1
+	      FROM viewcontext_pepa
+	      WHERE pageletentrypointid=pep.UUID
+	    )
+	  )
+UNION ALL	  
+	SELECT
+	    pep.UUID AS UUID,
+	    <template-if condition="isDefined(SortBy) AND SortBy EQ &apos;ID&apos;">
+		pep.ID AS SORTING
+		<if-elseif condition="isDefined(SortBy) AND SortBy EQ &apos;lastModified&apos;"/>
+		pep.lastmodified AS SORTING
+		<if-else/>
+		pepav.stringvalue as sorting
+	</template-if>
+	FROM 
+	    PageletEntryPoint pep
+		<template-if condition="NOT(isDefined(SortBy)) OR (isDefined(SortBy) AND SortBy EQ &apos;name&apos;)">
+			LEFT OUTER JOIN PageletEntryPoint_av pepav
+		         ON (pep.uuid = pepav.ownerid AND pepav.name = &apos;displayName&apos; 
+		             and pepav.localeid = <template-variable value="Locale:LocaleID"/>)
+		</template-if>
+	WHERE 
+	    pep.pageflag = 1
+	AND
+		pep.dynamicflag = 0
+	AND 
+	    pep.DomainID = <template-variable value="ContentRepository:RepositoryDomain:UUID"/>		
+) a
+ORDER BY
+	<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+		CASE
+			WHEN sorting is NULL THEN 0
+			ELSE 1
+		END, sorting DESC
+		<if-else/>
+		CASE 
+			WHEN sorting IS NULL THEN 1
+			ELSE 0
+		END, sorting ASC
+	</template-if>
+</template>
+</query>

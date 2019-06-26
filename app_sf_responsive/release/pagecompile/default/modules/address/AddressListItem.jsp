@@ -1,0 +1,26 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% {Object temp_obj = (replace(context.getFormattedValue(getObject("addressBO:ID"),null),(String)("\\."),(String)("\\-C"))); getPipelineDictionary().put("rowid", temp_obj);} %><div class="col-md-12">
+<div class="row myAccount-addressBox" data-testing-id="account-address-details">
+<div class="col-xs-11 col-sm-7 col-md-5">
+<div class="pull-right" id="myAccount-actionLinks-<% {String value = null;try{value=context.getFormattedValue(getObject("rowid"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {7}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>">
+<a class="btn-tool update-address"
+id="<% {String value = null;try{value=context.getFormattedValue(getObject("rowid"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {9}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+title="<% {out.write(localizeISText("account.addresses.edit_address.link","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+href="<%=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewUserAddressList-Edit",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("AddressID",null),context.getFormattedValue(getObject("addressBO:ID"),null))).addURLParameter(context.getFormattedValue("PreferredShipping",null),context.getFormattedValue((((context.getFormattedValue(getObject("addressBO:ID"),null).equals(context.getFormattedValue(getObject("userBO:PreferredShipToAddressBO:ID"),null)))) ? Boolean.TRUE : Boolean.FALSE),null)).addURLParameter(context.getFormattedValue("PreferredBilling",null),context.getFormattedValue((((context.getFormattedValue(getObject("addressBO:ID"),null).equals(context.getFormattedValue(getObject("userBO:PreferredInvoiceToAddressBO:ID"),null)))) ? Boolean.TRUE : Boolean.FALSE),null)).addURLParameter(context.getFormattedValue("AjaxRequestMarker",null),context.getFormattedValue("true",null))),null)%>"
+>
+<span class="glyphicon glyphicon-pencil"></span>
+</a><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("removable"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",15,e);}if (_boolean_result) { %><a class="btn-tool remove-address"
+data-dialog
+title="<% {out.write(localizeISText("account.addresses.delete_address.text","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+href="<%=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewUserAddressList-SelectPreferredAddresses",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("AddressID",null),context.getFormattedValue(getObject("addressBO:ID"),null))).addURLParameter(context.getFormattedValue("DeleteAddress",null),context.getFormattedValue("true",null)).addURLParameter(context.getFormattedValue("AjaxRequestMarker",null),context.getFormattedValue("true",null))),null)%>"
+>
+<span class="glyphicon glyphicon-trash"></span>
+</a><% } %></div><% processOpenTag(response, pageContext, "address", new TagParameter[] {
+new TagParameter("address",getObject("addressBO"))}, 25); %></div>
+</div>
+<div class="section myAccount-editBox-<% {String value = null;try{value=context.getFormattedValue(getObject("rowid"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {28}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %> myAccount-editBox my-account-address-form-container" style="display:none;"></div>
+</div><% printFooter(out); %>

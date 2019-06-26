@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="targetRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="sourceRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="targetProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+</parameters>
+
+<processor name="JDBC">
+</processor>
+<template sqlDialect="Oracle">
+            insert into productcategoryassignment (CATALOGCATEGORYID, PRODUCTID, DOMAINID, REPDOMAINID, REPTYPECODE, REPSKU, REPONLINEFLAG, REPAVAILABLEFLAG, REPPRODUCTTYPEID, REPOFFEREDPRODUCTID, REPLASTMODIFIED, ASSIGNMENTONLINEFLAG, POSITION, LASTMODIFIED, OCA) 
+            select tc.uuid, tp.uuid, tp.DOMAINID, tp.DOMAINID, tp.TYPECODE, tp.SKU, tp.ONLINEFLAG, tp.AVAILABLEFLAG, tp.PRODUCTTYPEID, tp.OFFEREDPRODUCTID, tp.LASTMODIFIED, 1, spca.POSITION, UTCTIMESTAMP(), 1
+            from CatalogCategory tc, CatalogCategory sc, productcategoryassignment spca, product tp
+            where   tc.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+                and sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                and ((sc.name = substr(tc.name, 0, instr(tc.name,'@',-1)-1)
+                        and instr(tc.name,'@',-1) &gt; 0
+                        and tc.uuid in (select i.uuid from CatalogCategory i 
+                                where   i.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+                                    and i.uuid &lt;&gt; <template-variable value="targetRoot:UUID"/> 
+                                start with i.uuid in (<template-variable value="targetRoot:UUID"/>)   
+                                connect by i.PARENTCATEGORYID = prior i.uuid ))
+                     or (sc.uuid = <template-variable value="sourceRoot:UUID"/> and tc.uuid = <template-variable value="targetRoot:UUID"/> ))
+                and spca.CATALOGCATEGORYID = sc.uuid
+                and tp.OFFEREDPRODUCTID = spca.PRODUCTID
+                and tp.domainid = <template-variable value="targetProductDomain:UUID"/>
+                and not exists (select * from productcategoryassignment tpca
+                                where tpca.CATALOGCATEGORYID = tc.uuid
+                                    and tpca.PRODUCTID = tp.uuid)
+</template>
+<template sqlDialect="Microsoft">
+with n(uuid) as (
+	select i.uuid from CatalogCategory i 
+	where i.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+	and i.uuid in (<template-variable value="targetRoot:UUID"/>)
+	union all
+	select ii.uuid from CatalogCategory ii, n 
+	where ii.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+	and ii.uuid &lt;&gt; <template-variable value="targetRoot:UUID"/> 
+	and ii.PARENTCATEGORYID = n.uuid
+)
+insert into productcategoryassignment (CATALOGCATEGORYID, PRODUCTID, DOMAINID, REPDOMAINID, REPTYPECODE, REPSKU, REPONLINEFLAG, REPAVAILABLEFLAG, REPPRODUCTTYPEID, REPOFFEREDPRODUCTID, REPLASTMODIFIED, ASSIGNMENTONLINEFLAG, POSITION, LASTMODIFIED, OCA) 
+	select tc.uuid, tp.uuid, tp.DOMAINID, tp.DOMAINID, tp.TYPECODE, tp.SKU, tp.ONLINEFLAG, tp.AVAILABLEFLAG, tp.PRODUCTTYPEID, tp.OFFEREDPRODUCTID, tp.LASTMODIFIED, 1, spca.POSITION, GetUTCDate(), 1
+	from CatalogCategory tc, CatalogCategory sc, productcategoryassignment spca, product tp
+	where   tc.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+	    and sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+	    and ((sc.name = substring(tc.name, 1, case when charIndex('@', tc.name)-1 > 0 then charIndex('@', tc.name)-1 else 0 end)
+	            and charIndex('@',tc.name) &gt; 0
+	            and tc.uuid in (select uuid from n where n.uuid &lt;&gt; <template-variable value="targetRoot:UUID"/>)
+	         )
+	         or (sc.uuid = <template-variable value="sourceRoot:UUID"/> and tc.uuid = <template-variable value="targetRoot:UUID"/> )
+	    )
+	    and spca.CATALOGCATEGORYID = sc.uuid
+	    and tp.OFFEREDPRODUCTID = spca.PRODUCTID
+	    and tp.domainid = <template-variable value="targetProductDomain:UUID"/>
+	    and not exists (select * from productcategoryassignment tpca
+	                    where tpca.CATALOGCATEGORYID = tc.uuid
+	                        and tpca.PRODUCTID = tp.uuid)
+</template>
+</query>

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+    <parameters>
+        <parameter name="ContentRepositoryDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+        <parameter name="ResourceSetIds" type="java.util.Collection" optional="false"/>
+    </parameters>
+    <return-mappings>
+        <return-mapping name="ContentEntries" type="bo-constructor" 
+            class="com.intershop.component.pmc.internal.impex.query.PageletExportResultMapper"
+            mapperclass="PageletExportResult2POMapper">
+            <return-attribute name="UUID" />
+            <return-attribute name="TYPE" />
+        </return-mapping>
+    </return-mappings>
+    <processor name="OracleSQL">
+        <processor-preprocessing output="SharingHelper" input="ContentRepositoryDomain" processing="ContentSharingHelper"/>
+    </processor>
+    <template type="countedobjects">
+        SELECT UUID, TYPE, count(*) over() as "rowcount" FROM
+        (
+            SELECT UUID, TYPE FROM
+            (
+                SELECT p.uuid AS UUID, 'pagelet' AS TYPE, p.resourceSetId AS resourceSetId 
+                FROM pagelet p
+                WHERE p.domainid IN (
+                    <template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain">
+                        <loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>)
+            UNION ALL
+                SELECT s.uuid AS UUID, 'slot' AS TYPE, s.resourceSetId AS resourceSetId
+                FROM slot s
+                WHERE s.domainid IN (
+                    <template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain">
+                        <loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>)
+            UNION ALL
+                SELECT pep1.uuid AS UUID, 'pageletentrypoint' AS TYPE, pep1.resourceSetId AS resourceSetId
+                FROM pageletentrypoint pep1
+                WHERE pep1.domainid IN (
+                    <template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain">
+                        <loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>)
+                AND pep1.dynamicflag=1
+            UNION ALL
+                SELECT pep2.uuid AS UUID, 'pageletentrypoint' AS TYPE, pep2.resourceSetId AS resourceSetId
+                FROM pageletentrypoint pep2
+                WHERE pep2.domainid=<template-variable value="ContentRepositoryDomain:UUID"/>
+                AND pep2.dynamicflag=0
+            UNION ALL
+                SELECT vc1.uuid AS UUID, 'viewcontext' AS TYPE, vc1.resourceSetId AS resourceSetId
+                FROM viewcontext vc1
+                WHERE vc1.domainid=<template-variable value="ContentRepositoryDomain:UUID"/>
+                AND vc1.systemmanagedflag=1
+            UNION ALL
+                SELECT vc2.uuid AS UUID, 'viewcontext' AS TYPE, vc2.resourceSetId AS resourceSetId
+                FROM viewcontext vc2
+                WHERE vc2.domainid IN (
+                    <template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain">
+                        <loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>)
+                AND vc2.systemmanagedflag=0
+                
+            UNION ALL
+                SELECT ph.uuid AS UUID, 'placeholder_parent' AS TYPE, phdef.resourceSetId AS resourceSetId
+                FROM placeholder_parent ph
+                JOIN placeholderdef phdef on (ph.targetPlaceholderDefinitionID = phdef.uuid)
+                WHERE ph.domainid IN (
+                    <template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain">
+                        <loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>)
+            UNION ALL
+                SELECT ph.uuid AS UUID, 'placeholder_ppa' AS TYPE, phdef.resourceSetId AS resourceSetId
+                FROM placeholder_ppa ph
+                JOIN placeholderdef phdef on (ph.targetPlaceholderDefinitionID = phdef.uuid)
+                WHERE ph.domainid IN (
+                    <template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain">
+                        <loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>)
+            UNION ALL
+                SELECT ph.uuid AS UUID, 'placeholder_spa' AS TYPE, phdef.resourceSetId AS resourceSetId
+                FROM placeholder_spa ph
+                JOIN placeholderdef phdef on (ph.targetPlaceholderDefinitionID = phdef.uuid)
+                WHERE ph.domainid IN (
+                    <template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain">
+                        <loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>)
+            )a
+            WHERE resourceSetId IN (
+                    <template-loop iterator="ResourceSetIds" alias="SetId">
+                        <loop-statement><template-variable value="SetId"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>)
+        )a
+    </template>
+</query>

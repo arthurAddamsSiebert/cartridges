@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="PriceList" type="com.intershop.component.pricing.capi.pricelist.PriceList" optional="false"/>
+	<parameter name="SortByName" type="java.lang.String" optional="true"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="UserGroupTypeName" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="UserGroup" type="orm" class="com.intershop.beehive.core.internal.user.UserGroupPO">
+		<return-attribute name="ID"/>
+		<return-attribute name="DomainID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+	SELECT ug.ID AS ID, ug.DomainID as DomainID, COUNT(*) over() AS "rowcount", ugi_av.stringvalue AS sorting
+		FROM pricelist pl
+		INNER JOIN pricelistusergroupassignment ass ON (pl.uuid = ass.pricelistuuid)
+		INNER JOIN usergroup ug ON (ass.usergroupid = ug.id AND ass.usergroupdomainid = ug.domainid)
+		INNER JOIN usergroupinformation ugi ON (ug.id = ugi.usergroupid and ug.domainid = ugi.domainid)
+		LEFT OUTER JOIN usergroupinformation_av ugi_av ON (ugi.uuid = ugi_av.ownerid AND ugi_av.name = &apos;name&apos; AND ugi_av.localeid = <template-variable value="LocaleInformation:LocaleID"/>)
+	WHERE pl.UUID= <template-variable value="PriceList:UUID"/>
+	<template-if condition="isDefined(UserGroupTypeName)">
+		AND (ug.typename IS NULL OR ug.typename != <template-variable value="UserGroupTypeName"/>)		
+	</template-if>
+	ORDER BY 
+		<template-if condition="isDefined(SortByName)">
+	        <template-if condition="ucase(pad(SortByName,1)) EQ 'D'">
+				<sql-dialect name="Microsoft">
+					CASE WHEN ugi_av.stringvalue IS NULL THEN 0 ELSE 1 END ASC, ugi_av.stringvalue DESC
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+					sorting DESC NULLS FIRST
+				</sql-dialect>
+	            
+	        <if-else/>
+				<sql-dialect name="Microsoft">
+					CASE WHEN ugi_av.stringvalue IS NULL THEN 0 ELSE 1 END DESC, ugi_av.stringvalue ASC
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+					sorting ASC NULLS LAST
+				</sql-dialect>
+	           
+	        </template-if>
+		<if-else/>
+			<sql-dialect name="Microsoft">
+				CASE WHEN ugi_av.stringvalue IS NULL THEN 0 ELSE 1 END DESC, ugi_av.stringvalue ASC
+			</sql-dialect>
+			<sql-dialect name="Oracle">
+				sorting ASC NULLS LAST
+			</sql-dialect>			
+	    </template-if>
+</template>
+</query>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="State" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="ReplicationProcess" type="constructor" class="com.intershop.beehive.core.internal.replication.ReplicationProcessImpl">
+        <return-attribute name="uuid"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+
+    SELECT 
+        p.uuid, p.StartDate,
+        <template-if condition="isDefined(State) AND State EQ 'WAITING'">      
+            p_av.doublevalue,
+        </template-if>
+        COUNT(*) over() AS "rowcount" 
+    FROM
+        process p
+        <template-if condition="isDefined(State) AND State EQ 'WAITING'">      
+            LEFT OUTER JOIN process_av p_av on (p.uuid=p_av.ownerid)
+                AND p_av.name ='ScheduledAt'
+                AND p_av.localizedflag =0
+        </template-if>  
+    WHERE
+        <template-if condition="isDefined(State) AND State NE ''">
+            p.State=<template-variable value="State"/>  
+            AND 
+        </template-if>   
+        p.Name=&apos;ReplicationProcess&apos;
+    <template-if condition="isDefined(State) AND (State EQ 'WAITING')">      
+    ORDER BY 
+        p_av.doublevalue asc        
+    <if-else/>           
+    ORDER BY 
+        p.StartDate desc
+    </template-if>        
+
+</template>
+</query>

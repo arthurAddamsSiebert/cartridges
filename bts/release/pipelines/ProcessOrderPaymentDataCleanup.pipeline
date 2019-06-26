@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Provides a job to removes payment detail information from orders older than a given age.
+@Group Payment-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessOrderPaymentDataCleanup" type="job">
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode15" strict="true" name="Create"
+      callMode="Private">
+<!--@BendPoints 9,4-->
+    <nodeSuccessors name="next" next="Pipelet7"/>
+<!--The Domain for tha a job configuration is to create.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet7">
+    <configurationValues name="DomainName" value=""/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateJobConfiguration.xml"/>
+    <nodeSuccessors name="next" next="Pipelet8"/>
+<!--@BendPoints 11,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet8">
+    <configurationValues name="Date" value="1970.01.01_at_00:00:00"/>
+    <configurationValues name="Descript" value="Removes all payment detail information (credit card, bank account numbers, etc.) from orders older than a given number of days."/>
+    <configurationValues name="EnableJob" value="false"/>
+    <configurationValues name="Interval" value="7"/>
+    <configurationValues name="Name" value="OrderPaymentDataCleanup"/>
+    <configurationValues name="PipelineName" value="ProcessOrderPaymentDataCleanup"/>
+    <configurationValues name="PipelineStartNode" value="Start"/>
+    <configurationValues name="Unit" value="Days"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateJobConfiguration.xml"/>
+    <nodeSuccessors name="next" next="UpdateCustomAttribute4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="JobDate" nullBinding="true"/>
+    <parameterBindings name="JobDescription" nullBinding="true"/>
+    <parameterBindings name="JobDomain" nullBinding="true"/>
+    <parameterBindings name="JobDomainName" nullBinding="true"/>
+    <parameterBindings name="JobEnable" nullBinding="true"/>
+    <parameterBindings name="JobInterval" nullBinding="true"/>
+    <parameterBindings name="JobJavaDate" nullBinding="true"/>
+    <parameterBindings name="JobName" nullBinding="true"/>
+    <parameterBindings name="JobPipelineName" nullBinding="true"/>
+    <parameterBindings name="JobPipelineStartNode" nullBinding="true"/>
+    <parameterBindings name="JobUUID" nullBinding="true"/>
+    <parameterBindings name="JobUnit" nullBinding="true"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttribute4">
+    <configurationValues name="DefaultAttributeName" value="OlderThan"/>
+    <configurationValues name="DefaultAttributeType" value="Integer"/>
+    <configurationValues name="DefaultAttributeValue" value="1095"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+<!--@BendPoints 9,10-->
+    <nodeSuccessors name="next" next="EndNode20"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode19"/>
+    <parameterBindings name="AttributeName" nullBinding="true"/>
+    <parameterBindings name="AttributeType" nullBinding="true"/>
+    <parameterBindings name="AttributeValue" nullBinding="true"/>
+    <parameterBindings name="ExtensibleObject" objectPath="JobConfiguration"/>
+    <parameterBindings name="LocaleInformation" nullBinding="true"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode20" strict="true">
+<!--The job configuration that is created.-->
+    <returnValues name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode19">
+<!--@BendPoints 11,10-->
+    <nodeSuccessors name="next" next="EndNode19"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode19" name="ERROR" strict="true"/>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="JoinNode19"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Start"
+      callMode="Private">
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameters name="Process" type="com.intershop.beehive.core.capi.locking.Process"/>
+    <parameters name="OlderThan" type="java.lang.Integer"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="ExecuteStoredProcedure1"/>
+    <parameterBindings name="InValue_1" objectPath="Process:Domain:UUID"/>
+    <returnValueBindings name="OutValue_1" objectPath="DomainID"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteStoredProcedure1">
+    <configurationValues name="AllowNullParameter" value="false"/>
+    <configurationValues name="ParameterDefinition" value="DomainID=string;OlderThan=number"/>
+    <configurationValues name="StoredProcedure" value="sp_orderPaymentDataCleanup"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteStoredProcedure.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 5,7-->
+    <nodeSuccessors name="pipelet_error" next="LogMessage1"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="RefreshCache1"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshCache1">
+    <configurationValues name="PersistentClassName_0" value="com.intershop.beehive.bts.internal.payment.PaymentInstrumentInfoPO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+    <nodeSuccessors name="next" next="LogMessage0"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage0">
+    <configurationValues name="Category" value="audits"/>
+    <configurationValues name="Level" value="Info"/>
+    <configurationValues name="Marker" value="audits"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <parameterBindings name="MessageParam0" objectPath="CurrentUser:Profile:Credentials:Login"/>
+    <parameterBindings name="MessageParam1" objectPath="OlderThan"/>
+    <parameterBindings name="MessageText" constant="SMC :{} : JOB Removes all payment detail information (credit card, bank account numbers, etc.) from orders older than {} days."/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage1">
+    <configurationValues name="Level" value="Error"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 5,11-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="MessageText" objectPath="Failed to cleanup order related payment data."/>
+  </nodes>
+</pipeline:Pipeline>

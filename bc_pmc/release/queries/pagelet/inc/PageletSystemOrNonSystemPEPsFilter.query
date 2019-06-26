@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="A filter query to be included in page variant/component search where to filter the set of pagelet by PageletEntryPoint assignments to system managed or non system managed PageletEntryPoints.">
+  <parameters>
+    <parameter name="PageletTableAlias" type="java.lang.String" optional="false" description="The Pagelet table alias from the main search where this filter is included."/>
+    <parameter name="SystemManaged" type="java.lang.Boolean" optional="true" description="Defines whether assignment filter is for system managed or non system managed PageletentryPoints."/>
+    <parameter name="AssignmentsSelection" type="java.lang.String" optional="true" description="&apos;all&apos;/&apos;notAssigned&apos;/&apos;assignedToSpecifiedType&apos;"/>
+    <parameter name="PageletEntryPointDefinitionQualifiedName" type="java.lang.String" optional="true" description="Qualified name of the PageletEntryPointDefinition selected by user (or &apos;any&apos;)."/>
+    <parameter name="PageletSearchParameters" type="java.util.Map" optional="false" description="A Map containing the Pagelet Search parameters for the PageletEntryPoint query."/>
+  </parameters>
+  <processor name="OracleSQL"/>
+  <template>
+    <template-if condition = "isDefined(AssignmentsSelection) and AssignmentsSelection ne &apos;all&apos;">
+      and <template-if condition="AssignmentsSelection eq &apos;notAssigned&apos;">not </template-if>exists
+          (select 1
+             from pageletentrypoint entry_point,
+                  pageletentrypoint_pa entry_point_pa
+      <template-if condition="SystemManaged">
+            where entry_point.dynamicflag = 0
+      <if-else/>
+             left outer join product_pepa product_pepa
+               on (entry_point_pa.entrypointid = product_pepa.pageletentrypointid)
+             left outer join catalogcategory_pepa category_pepa
+               on (entry_point_pa.entrypointid = category_pepa.pageletentrypointid)
+            where entry_point.dynamicflag = 1
+              and product_pepa.pageletentrypointid is null
+              and category_pepa.pageletentrypointid is null
+      </template-if>
+              and entry_point_pa.entrypointid = entry_point.uuid
+              and entry_point_pa.pageletid = <template-variable value="PageletTableAlias" processing="text"/>.pageletuuid
+      <template-if condition="(isDefined(AssignmentsSelection) and AssignmentsSelection ne &apos;notAssigned&apos;)
+                              and (isDefined(PageletEntryPointDefinitionQualifiedName) and (PageletEntryPointDefinitionQualifiedName ne &apos;any&apos;))">
+              and entry_point.definitionqualifiedname = <template-variable value="PageletEntryPointDefinitionQualifiedName"/>
+      </template-if>
+      <template-call name="pagelet/inc/PublishingFilter">
+        <call-parameter name="TableAlias" value="&apos;entry_point_pa&apos;"/>
+        <call-parameter name="WhereClause" value="false()"/>
+        <call-parameter name="PublishingOption" value="PageletSearchParameters:AssignmentsVisibility"/>
+        <call-parameter name="PublishedFromOption" value="PageletSearchParameters:AssignmentsVisibleFrom"/>
+        <call-parameter name="PublishedToOption" value="PageletSearchParameters:AssignmentsVisibleTo"/>
+        <call-parameter name="PublishedFromSinceDate" value="PageletSearchParameters:AssignmentsVisibleFromSinceDate"/>
+        <call-parameter name="PublishedFromTillDate" value="PageletSearchParameters:AssignmentsVisibleFromTillDate"/>
+        <call-parameter name="PublishedToSinceDate" value="PageletSearchParameters:AssignmentsVisibleToSinceDate"/>
+        <call-parameter name="PublishedToTillDate" value="PageletSearchParameters:AssignmentsVisibleToTillDate"/>
+      </template-call>)
+    </template-if>
+  </template>
+</query>

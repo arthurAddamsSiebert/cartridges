@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Serves for retrieving CatalogBO and CatalogCategoryBO instances.
+@Since 7.4.5
+@Group Catalog-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCatalogCategory" overrideMode="Inherit" type="process">
+<!--Retrieves a CatalogCategoryBO instance by its ID.
+@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="GetCatalogCategoryBOByID"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+<!--The BO repository that manages CatalogCategoryBO instances.-->
+    <parameters name="CatalogCategoryBORepository" type="com.intershop.component.catalog.capi.CatalogCategoryBORepository"/>
+<!--The ID of the desired CatalogCategoryBO.-->
+    <parameters name="CatalogCategoryID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <parameterBindings name="InValue_1" objectPath="CatalogCategoryBORepository:CatalogCategoryBOByID(CatalogCategoryID)"/>
+    <returnValueBindings name="OutValue_1" objectPath="CatalogCategoryBO"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+<!--The retrieved CatalogCategoryBO instance.-->
+    <returnValues name="CatalogCategoryBO" type="com.intershop.component.catalog.capi.CatalogCategoryBO"
+        optional="true"/>
+  </nodes>
+<!--Gets an offline category and traverses its parents till an online parent category is found \- then the latter is returned. If the root category is reached and no online category is found then the error exit is used.
+@Location 3,4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="GetFallbackCategory"
+      callMode="Private">
+<!--@BendPoints 7,10-->
+    <nodeSuccessors name="next" next="KeyMapper3"/>
+    <parameters name="OfflineCategoryBO" type="com.intershop.component.catalog.capi.CatalogCategoryBO"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="InValue_1" objectPath="OfflineCategoryBO:ParentCatalogCategoryBO"/>
+    <returnValueBindings name="OutValue_1" objectPath="ParentCategoryBO"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="ParentCategoryBO">
+    <nodeSuccessors name="decision_yes" next="DecisionNode2"/>
+<!--@BendPoints 9,15-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="ParentCategoryBO:Online"
+      operator="str_eq" conditionValue="false">
+<!--@BendPoints 7,18-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode3"/>
+<!--@BendPoints 8,17-->
+    <nodeSuccessors name="decision_no" next="EndNode6"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ParentCategoryBO:RootCatalogCategoryBO"
+      operator="str_eq" conditionValue="false">
+<!--@BendPoints 7,20-->
+    <nodeSuccessors name="decision_yes" next="KeyMapper2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+<!--@BendPoints 7,22 5,22 5,13-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="InValue_1" objectPath="ParentCategoryBO:ParentCatalogCategoryBO"/>
+    <returnValueBindings name="OutValue_1" objectPath="ParentCategoryBO"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="ERROR" strict="true">
+    <returnValues name="ParentCategoryBO" type="com.intershop.component.catalog.capi.CatalogCategoryBO"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="" strict="true">
+    <returnValues name="ParentCategoryBO" type="com.intershop.component.catalog.capi.CatalogCategoryBO"/>
+  </nodes>
+</pipeline:Pipeline>

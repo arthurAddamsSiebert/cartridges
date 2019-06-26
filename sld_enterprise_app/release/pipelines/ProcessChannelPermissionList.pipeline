@@ -1,0 +1,645 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline prepares the view of a permission list within the context of a channel
+@Group Channel-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessChannelPermissionList" type="process">
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start5" name="DepartmentRoleListAll"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetRepositoryByUUID3"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByUUID3">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByUUID.xml"/>
+    <nodeSuccessors name="next" next="GetDepartments1"/>
+<!--@BendPoints 15,3-->
+    <nodeSuccessors name="pipelet_error" next="Join8"/>
+    <parameterBindings name="UUID" objectPath="RepositoryUUID"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDepartments1">
+    <configurationValues name="ListAllDepartments" value="true"/>
+    <configurationValues name="Pagesize" value="2000000"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetDepartments.xml"/>
+    <nodeSuccessors name="next" next="Loop5"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop5" loop="Departments">
+<!--@BendPoints 11,7-->
+    <nodeSuccessors name="next" next="Decision12"/>
+    <entry key="Department">
+      <nodeSuccessors name="loop_entry_next" next="ListDepartmentRoles2"/>
+    </entry>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ListDepartmentRoles2">
+    <configurationValues name="Pagesize" value="200000"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/ListDepartmentRoles.xml"/>
+    <nodeSuccessors name="next" next="Call5"/>
+    <returnValueBindings name="Roles" objectPath="DRRoles"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call5">
+<!--@BendPoints 9,12 7,12 7,7-->
+    <nodeSuccessors name="next" next="Loop5_Entry"/>
+    <startNode referencedName="ProcessChannelPermissionList-DetermineDepartmentRoles"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision12" conditionKey="DepartmentRoles">
+    <nodeSuccessors name="decision_yes" next="GetDepartmentsByRoles1"/>
+<!--@BendPoints 13,9-->
+    <nodeSuccessors name="decision_no" next="Join15"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDepartmentsByRoles1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetDepartmentsByRoles.xml"/>
+<!--@BendPoints 11,15-->
+    <nodeSuccessors name="next" next="Join15"/>
+    <nodeSuccessors name="pipelet_error" next="Join8"/>
+    <parameterBindings name="Roles" objectPath="DepartmentRoles"/>
+    <returnValueBindings name="Departments" objectPath="AssignedDepartmentIter"/>
+    <returnValueBindings name="DepartmentsMap" objectPath="AssignedDepartmentMap"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join15">
+    <nodeSuccessors name="next" next="End6"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6"/>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join8">
+    <nodeSuccessors name="next" next="End10"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End10" name="ERROR"/>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start7" name="DetermineDepartmentRoles"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Loop1"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="DRRoles">
+    <nodeSuccessors name="next" next="End2"/>
+    <entry key="Role">
+      <nodeSuccessors name="loop_entry_next" next="GetAccessRolesForDR1"/>
+    </entry>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAccessRolesForDR1">
+    <configurationValues name="RoleType" value="Direct"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetAccessRolesForDR.xml"/>
+    <nodeSuccessors name="next" next="Call4"/>
+    <parameterBindings name="DepartmentRoleID" objectPath="Role:ID"/>
+    <parameterBindings name="DomainID" objectPath="Organization:DomainID"/>
+    <returnValueBindings name="Roles" objectPath="UnfilteredAccessRoles"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call4">
+    <nodeSuccessors name="next" next="Decision10"/>
+    <startNode referencedName="ProcessChannelPermission-GetUserGroupsForRepository"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision10" conditionKey="AssignedRoles">
+    <nodeSuccessors name="decision_yes" next="CheckForEmptyIterator1"/>
+<!--@BendPoints 23,9-->
+    <nodeSuccessors name="decision_no" next="Join13"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyIterator.xml"/>
+    <nodeSuccessors name="next" next="Decision8"/>
+    <nodeSuccessors name="pipelet_error" next="Join13"/>
+    <parameterBindings name="FilledIterator" objectPath="AssignedRoles"/>
+  </nodes>
+<!--@Location 10,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision8" conditionKey="ExecuteFilter"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="FilterRolesByPrefix4"/>
+    <nodeSuccessors name="decision_no" next="Join4"/>
+  </nodes>
+<!--@Location 10,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FilterRolesByPrefix4">
+    <configurationValues name="FilterPrefix1" value="SLD_AR_"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/FilterRolesByPrefix.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector6"/>
+    <parameterBindings name="SourceRoles" objectPath="UnfilteredAccessRoles"/>
+    <returnValueBindings name="FilteredRoles" objectPath="FilteredAccessRoles"/>
+  </nodes>
+<!--@Location 10,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="Call14"/>
+    <parameterBindings name="InVector" objectPath="OutVector"/>
+    <parameterBindings name="Object" objectPath="Role"/>
+    <returnValueBindings name="Iterator" objectPath="DepartmentRoles"/>
+    <returnValueBindings name="OutVector" objectPath="OutVector"/>
+  </nodes>
+<!--@Location 10,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call14">
+    <nodeSuccessors name="next" next="Join9"/>
+    <startNode referencedName="ProcessChannelPermissionList-DetermineRoleAssignedAR"/>
+  </nodes>
+<!--@Location 10,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join9">
+<!--@BendPoints 21,24 19,24 19,3-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+<!--@BendPoints 25,23-->
+    <nodeSuccessors name="next" next="Join9"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join13">
+    <nodeSuccessors name="next" next="Decision3"/>
+  </nodes>
+<!--@Location 12,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision3" conditionKey="ExecuteFilter"
+      operator="undef">
+<!--@BendPoints 26,11 26,15-->
+    <nodeSuccessors name="decision_yes" next="Join4"/>
+    <nodeSuccessors name="decision_no" next="AddObjectToVector4"/>
+  </nodes>
+<!--@Location 12,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="Join4"/>
+    <parameterBindings name="InVector" objectPath="OutVector"/>
+    <parameterBindings name="Object" objectPath="Role"/>
+    <returnValueBindings name="Iterator" objectPath="Roles"/>
+    <returnValueBindings name="OutVector" objectPath="OutVector"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start8" name="DetermineDeptRoles" callMode="Private">
+    <nodeSuccessors name="next" next="GetRepositoryByUUID4"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByUUID4">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByUUID.xml"/>
+    <nodeSuccessors name="next" next="GetDepartment1"/>
+    <nodeSuccessors name="pipelet_error" next="Join14"/>
+    <parameterBindings name="UUID" objectPath="RepositoryUUID"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDepartment1">
+    <configurationValues name="Source" value="PipelineDictionary"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetDepartment.xml"/>
+    <nodeSuccessors name="next" next="ListDepartmentRoles1"/>
+<!--@BendPoints 3,5-->
+    <nodeSuccessors name="pipelet_error" next="Join14"/>
+    <parameterBindings name="DepartmentUUID" objectPath="SelectedDepartmentUUID"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ListDepartmentRoles1">
+    <configurationValues name="Pagesize" value="20000"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/ListDepartmentRoles.xml"/>
+    <nodeSuccessors name="next" next="Call7"/>
+    <returnValueBindings name="Roles" objectPath="DRRoles"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call7">
+    <nodeSuccessors name="next" next="End8"/>
+    <startNode referencedName="ProcessChannelPermissionList-DetermineDepartmentRoles"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End8"/>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join14">
+    <nodeSuccessors name="next" next="End9"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End9" name="ERROR"/>
+<!--@Location 23,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start6" name="DetermineMasterRoles"
+      callMode="Private">
+    <nodeSuccessors name="next" next="RemoveDictionaryValue2"/>
+  </nodes>
+<!--@Location 23,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveDictionaryValue2">
+    <configurationValues name="Key" value="OutVector"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Loop6"/>
+  </nodes>
+<!--@Location 23,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop6" loop="MasterRoles">
+    <nodeSuccessors name="next" next="End11"/>
+    <entry key="Role">
+      <nodeSuccessors name="loop_entry_next" next="DetermineAccessRolesForOrganizationRole3"/>
+    </entry>
+  </nodes>
+<!--@Location 23,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineAccessRolesForOrganizationRole3">
+    <pipelet href="enfinity:/bc_organization/pipelets/DetermineAccessRolesForOrganizationRole.xml"/>
+    <nodeSuccessors name="next" next="Call6"/>
+<!--@BendPoints 50,7 50,13-->
+    <nodeSuccessors name="pipelet_error" next="Join11"/>
+    <parameterBindings name="DomainID" objectPath="Organization:DomainID"/>
+    <parameterBindings name="RoleID" objectPath="Role:ID"/>
+    <returnValueBindings name="AccessRoles" objectPath="UnfilteredAccessRoles"/>
+  </nodes>
+<!--@Location 23,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call6">
+    <nodeSuccessors name="next" next="Decision11"/>
+    <startNode referencedName="ProcessChannelPermission-GetUserGroupsForRepository"/>
+  </nodes>
+<!--@Location 23,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision11" conditionKey="AssignedRoles">
+    <nodeSuccessors name="decision_yes" next="CheckForEmptyIterator4"/>
+<!--@BendPoints 49,11-->
+    <nodeSuccessors name="decision_no" next="Join11"/>
+  </nodes>
+<!--@Location 23,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyIterator4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyIterator.xml"/>
+    <nodeSuccessors name="next" next="Decision2"/>
+    <nodeSuccessors name="pipelet_error" next="Join11"/>
+    <parameterBindings name="FilledIterator" objectPath="AssignedRoles"/>
+  </nodes>
+<!--@Location 23,9-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="ExecuteFilter"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="FilterRolesByPrefix3"/>
+    <nodeSuccessors name="decision_no" next="Join3"/>
+  </nodes>
+<!--@Location 23,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FilterRolesByPrefix3">
+    <configurationValues name="FilterPrefix1" value="SLD_AR_"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/FilterRolesByPrefix.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector5"/>
+    <parameterBindings name="SourceRoles" objectPath="UnfilteredAccessRoles"/>
+    <returnValueBindings name="FilteredRoles" objectPath="FilteredAccessRoles"/>
+  </nodes>
+<!--@Location 23,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="Call15"/>
+    <parameterBindings name="InVector" objectPath="OutVector"/>
+    <parameterBindings name="Object" objectPath="Role"/>
+    <returnValueBindings name="Iterator" objectPath="ChannelRoles"/>
+    <returnValueBindings name="OutVector" objectPath="OutVector"/>
+  </nodes>
+<!--@Location 23,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call15">
+    <nodeSuccessors name="next" next="Join12"/>
+    <startNode referencedName="ProcessChannelPermissionList-DetermineRoleAssignedAR"/>
+  </nodes>
+<!--@Location 23,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join12">
+<!--@BendPoints 47,28 45,28 45,5-->
+    <nodeSuccessors name="next" next="Loop6_Entry"/>
+  </nodes>
+<!--@Location 24,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+<!--@BendPoints 49,27-->
+    <nodeSuccessors name="next" next="Join12"/>
+  </nodes>
+<!--@Location 24,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join11">
+    <nodeSuccessors name="next" next="Decision7"/>
+  </nodes>
+<!--@Location 24,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision7" conditionKey="ExecuteFilter"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="Join3"/>
+<!--@BendPoints 51,15-->
+    <nodeSuccessors name="decision_no" next="AddObjectToVector1"/>
+  </nodes>
+<!--@Location 25,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 51,19-->
+    <nodeSuccessors name="next" next="Join3"/>
+    <parameterBindings name="InVector" objectPath="OutVector"/>
+    <parameterBindings name="Object" objectPath="Role"/>
+    <returnValueBindings name="Iterator" objectPath="Roles"/>
+    <returnValueBindings name="OutVector" objectPath="OutVector"/>
+  </nodes>
+<!--@Location 24,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End11"/>
+<!--@Location 15,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start11" name="DetermineRoleAssignedAR"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetParentUserGroups1"/>
+  </nodes>
+<!--@Location 15,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetParentUserGroups1">
+    <configurationValues name="Membership" value="Direct"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetParentUserGroups.xml"/>
+    <nodeSuccessors name="next" next="FilterRolesByPrefix5"/>
+    <parameterBindings name="UserGroup" objectPath="Role"/>
+    <returnValueBindings name="UserGroups" objectPath="AllDirectAssignedARs"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FilterRolesByPrefix5">
+    <configurationValues name="FilterPrefix1" value="SLD_AR_"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/FilterRolesByPrefix.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector3"/>
+    <parameterBindings name="SourceRoles" objectPath="AllDirectAssignedARs"/>
+    <returnValueBindings name="FilteredRoles" objectPath="DirectAssignedUserGroups"/>
+  </nodes>
+<!--@Location 15,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="Loop7"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" nullBinding="true"/>
+    <returnValueBindings name="OutVector" objectPath="DirectAssignedUserGroupsVector"/>
+  </nodes>
+<!--@Location 15,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop7" loop="DirectAssignedUserGroups">
+<!--@BendPoints 35,9-->
+    <nodeSuccessors name="next" next="Decision13"/>
+    <entry key="DirectAssignedUserGroup">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode2"/>
+    </entry>
+  </nodes>
+<!--@Location 15,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="DirectAssignedUserGroup:DomainID"
+      operator="str_eq" conditionItem="Repository:DomainID">
+    <nodeSuccessors name="decision_yes" next="AddObjectToVector2"/>
+<!--@BendPoints 32,11 32,15-->
+    <nodeSuccessors name="decision_no" next="Join19"/>
+  </nodes>
+<!--@Location 15,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="Join19"/>
+    <parameterBindings name="InVector" objectPath="DirectAssignedUserGroupsVector"/>
+    <parameterBindings name="Object" objectPath="DirectAssignedUserGroup"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="DirectAssignedUserGroupsItr"/>
+    <returnValueBindings name="OutVector" objectPath="DirectAssignedUserGroupsVector"/>
+  </nodes>
+<!--@Location 15,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join19">
+<!--@BendPoints 30,15 30,9-->
+    <nodeSuccessors name="next" next="Loop7_Entry"/>
+  </nodes>
+<!--@Location 17,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision13" conditionKey="DirectAssignedUserGroupsItr">
+    <nodeSuccessors name="decision_yes" next="AddEntryToMap1"/>
+<!--@BendPoints 36,11 36,15-->
+    <nodeSuccessors name="decision_no" next="Join16"/>
+  </nodes>
+<!--@Location 17,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddEntryToMap.xml"/>
+    <nodeSuccessors name="next" next="Join16"/>
+    <parameterBindings name="InMap" objectPath="UGMap"/>
+    <parameterBindings name="Key" objectPath="Role:ID"/>
+    <parameterBindings name="Value" objectPath="DirectAssignedUserGroupsItr"/>
+    <returnValueBindings name="OutMap" objectPath="UGMap"/>
+  </nodes>
+<!--@Location 17,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join16">
+<!--@BendPoints 35,16-->
+    <nodeSuccessors name="next" next="End14"/>
+  </nodes>
+<!--@Location 17,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End14"/>
+<!--@Location 31,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start9" name="GetAccessRolesForUsers"
+      callMode="Private">
+    <nodeSuccessors name="next" next="UpdateMapping1"/>
+<!--input-->
+    <parameters name="Users" type="com.intershop.beehive.core.capi.paging.PageableIterator"
+        optional="true"/>
+<!--output-->
+    <parameters name="User2RolesMap" type="java.util.Map" optional="true"/>
+<!--input-->
+    <parameters name="UserGroups" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 31,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateMapping1">
+    <configurationValues name="Mode" value="Add"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateMapping.xml"/>
+    <nodeSuccessors name="next" next="Loop4"/>
+    <parameterBindings name="InMap" nullBinding="true"/>
+    <parameterBindings name="Key" nullBinding="true"/>
+    <parameterBindings name="Value" nullBinding="true"/>
+    <returnValueBindings name="OutMap" objectPath="User2RolesMap"/>
+  </nodes>
+<!--@Location 31,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop4" loop="Users">
+    <nodeSuccessors name="next" next="End12"/>
+    <entry key="Profile">
+      <nodeSuccessors name="loop_entry_next" next="DetermineUser1"/>
+    </entry>
+  </nodes>
+<!--@Location 31,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUser1">
+    <pipelet href="enfinity:/core/pipelets/DetermineUser.xml"/>
+    <nodeSuccessors name="next" next="GetAssignedOrganizationRoles1"/>
+    <parameterBindings name="UserID" objectPath="Profile:UUID"/>
+  </nodes>
+<!--@Location 31,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetAssignedOrganizationRoles1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetAssignedOrganizationRoles.xml"/>
+    <nodeSuccessors name="next" next="UpdateMapping2"/>
+    <parameterBindings name="Roles" objectPath="UserGroups"/>
+    <returnValueBindings name="UserRoles" objectPath="AssignedRoles"/>
+  </nodes>
+<!--@Location 31,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateMapping2">
+    <configurationValues name="Mode" value="Add"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateMapping.xml"/>
+<!--@BendPoints 63,12 61,12 61,5-->
+    <nodeSuccessors name="next" next="Loop4_Entry"/>
+    <parameterBindings name="InMap" objectPath="User2RolesMap"/>
+    <parameterBindings name="Key" objectPath="User:ID"/>
+    <parameterBindings name="Value" objectPath="AssignedRoles"/>
+    <returnValueBindings name="OutMap" objectPath="User2RolesMap"/>
+  </nodes>
+<!--@Location 32,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End12"/>
+<!--@Location 29,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="GetAssignableUsers" callMode="Private">
+    <nodeSuccessors name="next" next="GetUsersByOrganization1"/>
+<!--required input-->
+    <parameters name="RepositoryUUID" type="java.lang.String" optional="true"/>
+<!--output-->
+    <parameters name="UserProfiles" type="com.intershop.beehive.core.capi.paging.PageableIterator"
+        optional="true"/>
+  </nodes>
+<!--@Location 29,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUsersByOrganization1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetUsersByOrganization.xml"/>
+    <nodeSuccessors name="next" next="UpdatePageSize2"/>
+  </nodes>
+<!--@Location 29,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePageSize2">
+    <configurationValues name="DefaultPageSize" value="10"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdatePageSize.xml"/>
+    <nodeSuccessors name="next" next="End4"/>
+    <parameterBindings name="PageSize" nullBinding="true"/>
+    <parameterBindings name="PageableIterator" objectPath="Users"/>
+  </nodes>
+<!--@Location 29,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 27,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="GetAssignedUsers" callMode="Private">
+    <nodeSuccessors name="next" next="Call9"/>
+<!--required input-->
+    <parameters name="RepositoryUUID" type="java.lang.String" optional="true"/>
+<!--output-->
+    <parameters name="Users" type="com.intershop.beehive.core.capi.paging.PageableIterator"
+        optional="true"/>
+  </nodes>
+<!--@Location 27,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call9">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <startNode referencedName="ProcessChannelPermission-GetAccessRoles"/>
+  </nodes>
+<!--@Location 27,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="SetDictionaryValue1"/>
+    <parameterBindings name="InValue_1" objectPath="AccessRoles"/>
+    <parameterBindings name="InValue_2" objectPath="Organization:Domain"/>
+    <returnValueBindings name="OutValue_1" objectPath="UserGroups"/>
+    <returnValueBindings name="OutValue_2" objectPath="UserDomain"/>
+  </nodes>
+<!--@Location 27,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="Filter"/>
+    <configurationValues name="Value" value="ProcessUserList-UserGroupsFilter"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="Call8"/>
+  </nodes>
+<!--@Location 27,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call8">
+    <nodeSuccessors name="next" next="UpdatePageSize1"/>
+    <startNode referencedName="ProcessUserList-ByFilter"/>
+  </nodes>
+<!--@Location 27,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdatePageSize1">
+    <configurationValues name="DefaultPageSize" value="1000"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdatePageSize.xml"/>
+    <nodeSuccessors name="next" next="End3"/>
+    <parameterBindings name="PageSize" nullBinding="true"/>
+    <parameterBindings name="PageableIterator" objectPath="Users"/>
+  </nodes>
+<!--@Location 27,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End3"/>
+<!--@Location 19,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="MasterRoleListAll" callMode="Private">
+    <nodeSuccessors name="next" next="GetRolesByDomain1"/>
+  </nodes>
+<!--@Location 19,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRolesByDomain1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetRolesByDomain.xml"/>
+    <nodeSuccessors name="next" next="GetRepositoryByUUID2"/>
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+    <parameterBindings name="DomainID" objectPath="Organization:DomainID"/>
+    <returnValueBindings name="DomainRoles" objectPath="OrgRoles"/>
+  </nodes>
+<!--@Location 19,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByUUID2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByUUID.xml"/>
+    <nodeSuccessors name="next" next="FilterRolesByPrefix1"/>
+<!--@BendPoints 41,5-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+    <parameterBindings name="UUID" objectPath="RepositoryUUID"/>
+  </nodes>
+<!--@Location 19,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FilterRolesByPrefix1">
+    <configurationValues name="FilterPrefix1" value="DMR_"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/FilterRolesByPrefix.xml"/>
+    <nodeSuccessors name="next" next="Jump2"/>
+    <parameterBindings name="SourceRoles" objectPath="OrgRoles"/>
+    <returnValueBindings name="FilteredRoles" objectPath="MasterRoles"/>
+  </nodes>
+<!--@Location 19,4-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump2">
+    <startNode referencedName="ProcessChannelPermissionList-DetermineMasterRoles"/>
+  </nodes>
+<!--@Location 20,1-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="End1"/>
+  </nodes>
+<!--@Location 21,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1" name="ERROR"/>
+<!--@Location 38,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="Remove" callMode="Private">
+    <nodeSuccessors name="next" next="Decision1"/>
+  </nodes>
+<!--@Location 38,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="PermissionType"
+      operator="str_eq" conditionValue="MasterRole">
+    <nodeSuccessors name="decision_yes" next="Join10"/>
+<!--@BendPoints 78,3 78,1 79,1-->
+    <nodeSuccessors name="decision_no" next="Decision9"/>
+  </nodes>
+<!--@Location 38,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join10">
+    <nodeSuccessors name="next" next="CreateIteratorForPrefix1"/>
+  </nodes>
+<!--@Location 38,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorForPrefix1">
+    <configurationValues name="Prefix" value="RoleID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorForPrefix.xml"/>
+    <nodeSuccessors name="next" next="Loop2"/>
+  </nodes>
+<!--@Location 38,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="PrefixIterator">
+<!--@BendPoints 79,9 79,11-->
+    <nodeSuccessors name="next" next="Join5"/>
+    <entry key="RoleID">
+      <nodeSuccessors name="loop_entry_next" next="Call1"/>
+    </entry>
+  </nodes>
+<!--@Location 38,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+<!--@BendPoints 77,12 75,12 75,9-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+    <startNode referencedName="ProcessChannelPermission-RemoveAllAccessRoles"/>
+  </nodes>
+<!--@Location 40,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+    <nodeSuccessors name="next" next="End5"/>
+  </nodes>
+<!--@Location 40,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5"/>
+<!--@Location 39,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision9" conditionKey="PermissionType"
+      operator="str_eq" conditionValue="DepartmentRole">
+<!--@BendPoints 79,5-->
+    <nodeSuccessors name="decision_yes" next="Join10"/>
+<!--@BendPoints 80,3 80,1 81,1-->
+    <nodeSuccessors name="decision_no" next="Decision4"/>
+  </nodes>
+<!--@Location 40,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision4" conditionKey="PermissionType"
+      operator="str_eq" conditionValue="User">
+<!--@BendPoints 81,4 83,4-->
+    <nodeSuccessors name="decision_yes" next="CreateIteratorForPrefix2"/>
+    <nodeSuccessors name="decision_no" next="End7"/>
+  </nodes>
+<!--@Location 41,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorForPrefix2">
+    <configurationValues name="Prefix" value="UserUUID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorForPrefix.xml"/>
+    <nodeSuccessors name="next" next="Loop3"/>
+  </nodes>
+<!--@Location 41,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop3" loop="PrefixIterator">
+<!--@BendPoints 84,7 84,11-->
+    <nodeSuccessors name="next" next="Join5"/>
+    <entry key="UserID">
+      <nodeSuccessors name="loop_entry_next" next="Call2"/>
+    </entry>
+  </nodes>
+<!--@Location 41,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+<!--@BendPoints 83,10 81,10 81,7-->
+    <nodeSuccessors name="next" next="Loop3_Entry"/>
+    <startNode referencedName="ProcessChannelPermission-RemoveAllAccessRoles"/>
+  </nodes>
+<!--@Location 41,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End7" name="ERROR"/>
+</pipeline:Pipeline>

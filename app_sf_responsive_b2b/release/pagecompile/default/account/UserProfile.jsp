@@ -1,0 +1,141 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"modules/common/Modules", null, "2");} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"modules/account/Modules", null, "3");} %><% {Object temp_obj = (getObject("CustomerBO:Extension(\"GroupCustomer\"):UserBOByID(UserID)")); getPipelineDictionary().put("SelectedUser", temp_obj);} %><div class="breadcrumbs row"><% processOpenTag(response, pageContext, "accountbreadcrumb", new TagParameter[] {
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewUsers-Start",null))))),
+new TagParameter("trailtext",context.getFormattedValue(localizeText(context.getFormattedValue("account.user.update_profile.link",null)),null) + context.getFormattedValue(" ",null) + context.getFormattedValue(getObject("SelectedUser:FirstName"),null) + context.getFormattedValue(" ",null) + context.getFormattedValue(getObject("SelectedUser:LastName"),null)),
+new TagParameter("text",localizeText(context.getFormattedValue("account.users.link",null)))}, 8); %></div>
+<div class="marketing-area"><% processOpenTag(response, pageContext, "marketingslot", new TagParameter[] {
+new TagParameter("id","baseMarketing")}, 13); %></div>
+<div class="account-wrapper" data-testing-id="edit-user-profile-page">
+<div class="row account-main">
+<div class="col-md-3 account-nav-box"><% processOpenTag(response, pageContext, "accountnavigation", new TagParameter[] {
+new TagParameter("selecteditem","USERS")}, 23); %></div>
+<div class="col-md-9">
+<div class="marketing-area"><% processOpenTag(response, pageContext, "marketingslot", new TagParameter[] {
+new TagParameter("id","contentMarketing")}, 29); %></div><% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (disableErrorMessages().isDefined(getObject("tabindexoffset")))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",32,e);}if (_boolean_result) { %><% {Object temp_obj = (new Double(0)); getPipelineDictionary().put("tabindexoffset", temp_obj);} %><% } %><h1><% {out.write(localizeISText("account.user.update_profile.heading","",null,null,null,null,null,null,null,null,null,null,null));} %> <% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:FirstName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {36}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %> <% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:LastName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {36}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></h1>
+<p class="indicates-required"><span class="required">*</span> <% {out.write(localizeISText("account.required_field.message","",null,null,null,null,null,null,null,null,null,null,null));} %></p><% URLPipelineAction action11 = new URLPipelineAction(context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewUserProfile-Update",null)))),null));String site11 = null;String serverGroup11 = null;String actionValue11 = context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewUserProfile-Update",null)))),null);if (site11 == null){  site11 = action11.getDomain();  if (site11 == null)  {      site11 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup11 == null){  serverGroup11 = action11.getServerGroup();  if (serverGroup11 == null)  {      serverGroup11 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewUserProfile-Update",null)))),null));out.print("\"");out.print(" novalidate=\"");out.print("novalidate");out.print("\"");out.print(" name=\"");out.print("UpdateProfileForm");out.print("\"");out.print(" class=\"");out.print("form-horizontal bv-form");out.print("\"");out.print(" data-bv-feedbackicons-valid=\"");out.print("glyphicon glyphicon-ok");out.print("\"");out.print(" data-bv-feedbackicons-invalid=\"");out.print("glyphicon glyphicon-remove");out.print("\"");out.print(" data-bv-feedbackicons-validating=\"");out.print("glyphicon glyphicon-refresh");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue11, site11, serverGroup11,true)); %><input name="UserID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:ID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {45}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" type="hidden" />
+<fieldset>
+<div class="form-group">
+<label class="control-label col-sm-4" for="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Title:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {49}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("account.update_profile.salutation.label","",null,null,null,null,null,null,null,null,null,null,null));} %></label> 
+<div class="col-sm-8"><% processOpenTag(response, pageContext, "salutationselectbox", new TagParameter[] {
+new TagParameter("formparameter",getObject("CurrentForm:Title:QualifiedName")),
+new TagParameter("salutation_enumeration_provider",getObject("SalutationEnumerationKeyProvider")),
+new TagParameter("salutation",getObject("SelectedUser:Title"))}, 51); %></div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:FirstName:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {58}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("account.update_profile.firstname.label","",null,null,null,null,null,null,null,null,null,null,null));} %><span class="required">*</span></label>
+<div class="col-sm-8">
+<input maxlength="35" 
+type="text"
+class="form-control<% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CurrentForm:FirstName:isInvalid"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",62,e);}if (_boolean_result) { %> error<% } %>"
+name="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:FirstName:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {63}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+aria-required="true"
+id="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:FirstName:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {65}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+value="<% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CurrentForm:Submitted"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",66,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:FirstName:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {66}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } else { %><% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:FirstName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {66}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %>"
+data-bv-notempty="true" 
+required 
+data-bv-notempty-message="<% {out.write(localizeISText("account.user.new.firstname.error.required","",null,null,null,null,null,null,null,null,null,null,null));} %>" 
+forbiddensymbols=""
+data-bv-forbiddensymbols-message="<% {out.write(localizeISText("error.forbiddensymbols","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+data-bv-field="UpdateProfileForm_FirstName"
+/><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CurrentForm:FirstName:isInvalid"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",74,e);}if (_boolean_result) { %><p class="help-block"><% {out.write(localizeISText("account.user.new.firstname.error.valid","",null,null,null,null,null,null,null,null,null,null,null));} %></p><% } %></div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:LastName:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {81}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("account.update_profile.lastname.label","",null,null,null,null,null,null,null,null,null,null,null));} %><span class="required">*</span></label>
+<div class="col-sm-8">
+<input maxlength="35"
+type="text"
+class="form-control<% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CurrentForm:LastName:isInvalid"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",85,e);}if (_boolean_result) { %> error<% } %>"
+aria-required="true"
+name="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:LastName:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {87}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+id="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:LastName:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {88}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+value="<% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CurrentForm:Submitted"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",89,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:LastName:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {89}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } else { %><% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:LastName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {89}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %>"
+data-bv-notempty="true" 
+required 
+data-bv-notempty-message="<% {out.write(localizeISText("account.user.new.lastname.error.required","",null,null,null,null,null,null,null,null,null,null,null));} %>" 
+forbiddensymbols=""
+data-bv-forbiddensymbols-message="<% {out.write(localizeISText("error.forbiddensymbols","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+data-bv-field="UpdateProfileForm_LastName"
+/><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CurrentForm:LastName:isInvalid"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",97,e);}if (_boolean_result) { %><p class="help-block"><% {out.write(localizeISText("account.user.new.lastname.error.valid","",null,null,null,null,null,null,null,null,null,null,null));} %></p><% } %></div>
+</div>
+</fieldset>
+<fieldset><% {Object temp_obj = (getObject("CustomerBO:Extension(\"CompanyCustomer\")")); getPipelineDictionary().put("CompanyCustomer", temp_obj);} %><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CompanyCustomer"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",107,e);}if (_boolean_result) { %><div class="form-group">
+<label class="control-label col-sm-4" for="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Department:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {109}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("account.update_profile.department.label","",null,null,null,null,null,null,null,null,null,null,null));} %></label>
+<div class="col-sm-8">
+<input maxlength="60"
+class="form-control"
+type="text"
+name="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Department:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {114}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+id="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Department:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {115}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+value="<% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CurrentForm:Submitted"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",116,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Department:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {116}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } else { %><% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:Department"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {116}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %>"
+/>
+</div>
+</div><% } %><div class="form-group">
+<div class="col-sm-8 col-sm-offset-4">
+<div class="checkbox">
+<label for="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Active:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {125}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>">
+<input type="checkbox"
+id="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Active:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {127}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+name="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Active:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {128}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+title="<% {out.write(localizeISText("account.user.active.label","",null,null,null,null,null,null,null,null,null,null,null));} %>"
+value="true"
+<% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CurrentForm:Submitted"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",131,e);}if (_boolean_result) { %><% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CurrentForm:Active:Value"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",132,e);}if (_boolean_result) { %>checked="checked"<% } %><% } else { %><% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (getObject("SelectedUser:Disabled"))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",134,e);}if (_boolean_result) { %>checked="checked"<% } %><% } %>/><% {out.write(localizeISText("account.user.active.label","",null,null,null,null,null,null,null,null,null,null,null));} %></label>
+</div>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Phone:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {143}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("account.update_profile.phone.label","",null,null,null,null,null,null,null,null,null,null,null));} %></label>
+<div class="col-sm-8">
+<input maxlength="20"
+class="form-control"
+type="text"
+name="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Phone:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {148}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+id="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Phone:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {149}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+value="<% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CurrentForm:Submitted"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",150,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Phone:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {150}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } else { %><% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:PhoneBusiness"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {150}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %>"
+/>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Fax:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {156}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("account.update_profile.fax.label","",null,null,null,null,null,null,null,null,null,null,null));} %></label>
+<div class="col-sm-6">
+<input maxlength="20"
+class="form-control"
+type="text"
+name="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Fax:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {161}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+id="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Fax:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {162}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"
+value="<% _boolean_result=false;try {_boolean_result=((Boolean)(getObject("CurrentForm:Submitted"))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",163,e);}if (_boolean_result) { %><% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Fax:Value"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {163}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } else { %><% {String value = null;try{value=context.getFormattedValue(getObject("SelectedUser:Fax"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {163}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %><% } %>"
+/>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:Birthday:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {169}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("account.default_address.birthday.label","",null,null,null,null,null,null,null,null,null,null,null));} %></label>
+<div class="col-sm-8"><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) getObject("CurrentForm:Birthday:Month:isInvalid")).booleanValue() || ((Boolean) getObject("CurrentForm:Birthday:Day:isInvalid")).booleanValue() || ((Boolean) getObject("CurrentForm:Birthday:Year:isInvalid")).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",171,e);}if (_boolean_result) { %><% processOpenTag(response, pageContext, "birthdayinput", new TagParameter[] {
+new TagParameter("birthday",getObject("SelectedUser:BirthdayDate")),
+new TagParameter("formparameter",getObject("CurrentForm:Birthday")),
+new TagParameter("type","select"),
+new TagParameter("class","error"),
+new TagParameter("required","false")}, 172); %><% } else { %><% processOpenTag(response, pageContext, "birthdayinput", new TagParameter[] {
+new TagParameter("birthday",getObject("SelectedUser:BirthdayDate")),
+new TagParameter("formparameter",getObject("CurrentForm:Birthday")),
+new TagParameter("type","select"),
+new TagParameter("required","false")}, 178); %><% } %></div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="<% {String value = null;try{value=context.getFormattedValue(getObject("CurrentForm:LocaleID:QualifiedName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {187}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"><% {out.write(localizeISText("account.update_profile.preferred_language.label","",null,null,null,null,null,null,null,null,null,null,null));} %><span class="required">*</span></label>
+<div class="col-sm-4"><% processOpenTag(response, pageContext, "preferredlocaleselectbox", new TagParameter[] {
+new TagParameter("currentlocale",getObject("CurrentSession:Locale")),
+new TagParameter("parametername",getObject("CurrentForm:LocaleID:QualifiedName")),
+new TagParameter("selected",getObject("SelectedUser:Extension(\"UserBOPreferencesExtension\"):PreferredLocale:LocaleID"))}, 189); %></div>
+</div>
+</fieldset>
+<div class="form-group">
+<div class="col-sm-offset-4 col-sm-8">
+<button class="btn btn-primary" type="submit" value="UpdateProfile" name="UpdateProfile" ><% {out.write(localizeISText("account.update.button.label","",null,null,null,null,null,null,null,null,null,null,null));} %></button>
+<a class="btn btn-default" href="<% {String value = null;try{value=context.getFormattedValue(url(true,context.getFormattedValue(getObject("SecureURL"),null), context.getFormattedValue("",null), (new URLPipelineAction(context.getFormattedValue("ViewUser-Start",null))), (new URLParameterSet().addURLParameter(context.getFormattedValue("UserID",null),context.getFormattedValue(getObject("SelectedUser:ID"),null)))),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {200}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>" ><% {out.write(localizeISText("account.cancel.link","",null,null,null,null,null,null,null,null,null,null,null));} %></a>
+</div>
+</div><% out.print("</form>"); %></div>
+</div>
+</div><% printFooter(out); %>

@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="RoleID" type="java.lang.String" optional="true"/>
+	<parameter name="FilterGroupID" type="java.lang.String" optional="true"/>
+	<parameter name="FilterGroupDomainID" type="java.lang.String" optional="true"/>
+	<parameter name="FilterPublishDate" type="java.util.Date" optional="true"/>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+	<processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template sqlDialect="Oracle">
+	<template-comment>
+	Notes for the "inline" hint:
+		The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+		of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+		not a good practice.
+	Solved problems:
+		Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+		if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+		data were not subsequently deleted.
+	</template-comment>
+
+	insert into catalogcategory_ra (ao_uuid,roleid,usergroupid,usergroupdomainid,lastmodified,oca)
+	WITH directcategories AS 
+	(
+		select /*+ inline - to avoid massive not released temporary tablespace data */ distinct pca.categoryid
+		from ieproductcategoryassignment pca,product_ra ra
+		where ra.usergroupid = <template-variable value="FilterGroupID"/>
+		and ra.usergroupdomainid = <template-variable value="FilterGroupDomainID"/>  
+		and ra.ao_uuid = pca.productid
+		and pca.categoryid in (
+			select distinct uuid from catalogcategory 
+			start with uuid in
+			(
+				select distinct associatedobjectid as categoryid
+				from filterobjectassignment
+				where catalogfilterid = <template-variable value="FilterGroupID"/>
+				and domainid = <template-variable value="FilterGroupDomainID"/>	
+				and typecode = 1
+				and referencemode = 1
+			)
+			connect by prior uuid = parentcategoryid	
+		)
+			
+		and (
+			pca.productdomainid in (<template-loop iterator="Sharing:Domains" alias="Domain"><loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+									<loop-separator>,</loop-separator></template-loop>)
+			<template-if condition="hasElements(Sharing:ProductSets)">
+			OR EXISTS (
+				SELECT 1
+				FROM
+					productsetassignment psa
+				JOIN
+					productset ps ON (psa.productsetuuid=ps.uuid)
+				WHERE
+					pca.productid=psa.productUUID
+				AND
+					pca.productdomainid=ps.domainid
+				AND
+					psa.productsetuuid IN (<template-loop iterator="Sharing:ProductSets" alias="ProductSet"><loop-statement><template-variable value="ProductSet:UUID"/></loop-statement>
+											<loop-separator>,</loop-separator></template-loop>)
+			)
+		</template-if>
+		)
+	), 
+	directparents as 
+	(
+		select /*+ inline */ distinct parentcategoryid
+		from catalogcategory
+		where uuid in (select * from directcategories)
+	)
+	select categoryid
+	, <template-variable value="RoleID"/> as roleid
+	, <template-variable value="FilterGroupID"/> as usergroupid
+	, <template-variable value="FilterGroupDomainID"/> as usergroupdomainid
+	, <template-variable value="FilterPublishDate"/> as lastmodified
+	, 1 as oca
+	from directcategories
+	union (
+		select distinct uuid
+		, <template-variable value="RoleID"/>
+		, <template-variable value="FilterGroupID"/>
+		, <template-variable value="FilterGroupDomainID"/>
+		, <template-variable value="FilterPublishDate"/>
+		, 1
+		from catalogcategory
+		start with uuid in (select * from directparents)
+		connect by uuid = prior parentcategoryid
+	)
+</template>
+<template sqlDialect="Microsoft">
+	<template-comment>
+	Notes for the "inline" hint:
+		The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+		of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+		not a good practice.
+	Solved problems:
+		Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+		if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+		data were not subsequently deleted.
+	</template-comment>
+	WITH uuidCategory(uuid) AS
+	(
+		select distinct uuid from catalogcategory 
+		WHERE UUID in
+			(
+				select distinct associatedobjectid as categoryid
+				from filterobjectassignment
+				where catalogfilterid = <template-variable value="FilterGroupID"/>
+				and domainid = <template-variable value="FilterGroupDomainID"/>	
+				and typecode = 1
+				and referencemode = 1
+			)
+		UNION ALL 
+			select c.uuid from catalogcategory c
+			INNER JOIN uuidCategory u on c.parentcategoryid = u.uuid
+	)
+	,directcategories AS 
+	(
+		select  distinct pca.categoryid
+		from ieproductcategoryassignment pca,product_ra ra
+		where ra.usergroupid = <template-variable value="FilterGroupID"/>
+		and ra.usergroupdomainid = <template-variable value="FilterGroupDomainID"/>  
+		and ra.ao_uuid = pca.productid
+		and pca.categoryid in (
+			SELECT uuid FROM uuidCategory
+		)
+			
+		and (
+			pca.productdomainid in (<template-loop iterator="Sharing:Domains" alias="Domain"><loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+									<loop-separator>,</loop-separator></template-loop>
+									)
+			<template-if condition="hasElements(Sharing:ProductSets)">
+			OR EXISTS (
+				SELECT 1
+				FROM
+					productsetassignment psa
+				JOIN
+					productset ps ON (psa.productsetuuid=ps.uuid)
+				WHERE
+					pca.productid=psa.productUUID
+				AND
+					pca.productdomainid=ps.domainid
+				AND
+					psa.productsetuuid IN (
+					<template-loop iterator="Sharing:ProductSets" alias="ProductSet"><loop-statement><template-variable value="ProductSet:UUID"/></loop-statement>
+											<loop-separator>,</loop-separator></template-loop>
+											)
+			)
+		</template-if>
+		)
+	), 
+	directparents(parentcategoryid) as 
+	(
+		select /*+ inline */ distinct parentcategoryid
+		from catalogcategory
+		where uuid in (select * from directcategories)
+	),
+	relativedirectparents(uuid, parentcategoryid) as
+	(
+		select distinct uuid
+		    , parentcategoryid
+			from catalogcategory
+			where uuid in (select * from directparents)
+			UNION ALL
+			select cc.uuid
+				, cc.parentcategoryid
+				from catalogcategory   cc
+				inner JOIN relativedirectparents nd on nd.parentcategoryid = cc.uuid
+		
+	)
+	insert into catalogcategory_ra (ao_uuid,roleid,usergroupid,usergroupdomainid,lastmodified,oca)
+	select categoryid
+	, <template-variable value="RoleID"/> as roleid
+	, <template-variable value="FilterGroupID"/> as usergroupid
+	, <template-variable value="FilterGroupDomainID"/> as usergroupdomainid
+	, <template-variable value="FilterPublishDate"/> as lastmodified
+	, 1 as oca
+	from directcategories
+	UNION (
+		SELECT distinct uuid
+		, <template-variable value="RoleID"/>
+		, <template-variable value="FilterGroupID"/>
+		, <template-variable value="FilterGroupDomainID"/>
+		, <template-variable value="FilterPublishDate"/>
+		, 1
+		FROM relativedirectparents
+	)
+</template>
+</query>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="gets the catalogs that use implicit binding from a list of catalogs">
+<parameters>
+	<parameter name="Catalogs" type="java.util.Iterator" optional="false" description="the catalogs to check"/>
+	<parameter name="OnlineFlag" type="java.lang.Integer" optional="true" description="the onlineflag of binding category to check"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="DynamicBindingCatalogs" type="orm" class="com.intershop.component.mvc.internal.catalog.CatalogPO" description="the catalogs that have dynamic binding at the categories enabled">
+	  <return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="CatalogConfiguration" input="" processing="CatalogConfigurationQueryProcessor"/>
+</processor>
+<template type="objects">
+SELECT UUID FROM catalog
+WHERE catalogdomainid IN
+  (SELECT domainid 
+   FROM catalogcategory c1
+   WHERE 
+     c1.rootcategoryflag = 1
+     AND EXISTS ( SELECT 1 FROM catalogcategory c2 
+                  WHERE searchquerydefinitionname IS NOT NULL AND 
+                        c1.domainid = c2.domainid 
+                        <template-if condition="isDefined(OnlineFlag) AND NOT (CatalogConfiguration:CatalogIgnoreOnline)">
+                        AND c2.onlineflag = <template-variable value="OnlineFlag"/>
+                        </template-if>
+                )
+    <template-if condition="hasLoopElements(Catalogs)">
+    AND c1.domainid IN 
+      (
+        <template-loop alias="Catalog" iterator="Catalogs">
+          <loop-statement>
+            <template-variable value="Catalog:CatalogDomain:DomainID"/>
+          </loop-statement>
+          <loop-separator>,</loop-separator>
+        </template-loop> 
+      )
+    </template-if>
+  )  
+</template>
+</query>

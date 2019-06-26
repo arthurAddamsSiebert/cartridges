@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="targetRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="sourceRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+</parameters>
+
+<processor name="JDBC">
+</processor>
+<template sqlDialect="Oracle">
+update catalogcategory tc
+            set tc.position= 
+                (select sc.position
+                from catalogcategory sc
+                where (sc.name||'@'||<template-variable value="sourceRoot:Domain:DomainName"/>)=tc.name
+                    and exists
+                        (select scc.uuid
+                        from catalogcategory scc
+                        where scc.uuid=sc.uuid
+                        start with scc.uuid=<template-variable value="sourceRoot:UUID"/>
+                        connect by prior scc.uuid=scc.parentcategoryid and scc.onlineflag=1))
+            where exists
+                (select 1 from catalogcategory tcc 
+                where tc.uuid=tcc.uuid
+                start with tcc.uuid=<template-variable value="targetRoot:UUID"/>
+                connect by prior tcc.uuid=tcc.parentcategoryid and tcc.onlineflag=1)
+</template>
+<template sqlDialect="Microsoft">
+with m(uuid) as (
+	select a.uuid from catalogcategory a 
+	where a.uuid = <template-variable value="targetRoot:UUID"/>
+	union all 
+	select b.uuid from catalogcategory b, m  
+	where m.uuid = b.parentcategoryid and b.onlineflag = 1
+), n(uuid) as (
+	select a.uuid from catalogcategory a
+	where a.uuid = <template-variable value="targetRoot:UUID"/>
+	union all 
+	select b.uuid from catalogcategory b, n  
+	where n.uuid = b.parentcategoryid and b.onlineflag = 1
+)
+update catalogcategory 
+set position= 
+    (	
+    	select sc.position
+    	from catalogcategory sc
+    	where (sc.name+'@'+<template-variable value="sourceRoot:Domain:DomainName"/>)=catalogcategory.name 
+        and catalogcategory.uuid in (select uuid from m)
+    )
+where uuid in (select uuid from n)
+</template>
+</query>

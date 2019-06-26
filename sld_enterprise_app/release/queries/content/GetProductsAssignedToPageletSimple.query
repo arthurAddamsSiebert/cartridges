@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="PageletUUID" type="java.lang.String" optional="false"/>
+	<parameter name="PageFlag" type="java.lang.Boolean" optional="false"/>
+	<parameter name="ContentRepository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false" description="This is the repository where the page belongs to."/>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="SortAssignmentsBy" type="java.lang.String" optional="true"/>
+	<parameter name="Filters" type="java.util.Iterator" optional="true"/>
+	<parameter name="Currency" type="java.lang.String" optional="true"/>
+	<parameter name="SortedViewContextInclusionIdentifiers" type="java.util.Map" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="PageletPageletEntryPointAssignment" type="orm" class="com.intershop.component.pmc.internal.pagelet.entrypoint.assignment.PageletPageletEntryPointAssignmentPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="Sharing" input="ContentRepository:RepositoryDomain" processing="ContentSharingHelper"/>
+</processor>
+<template type="countedobjects" sqlDialect="Oracle">
+SELECT
+	peppa.uuid AS uuid, 
+    COUNT(peppa.UUID) OVER() AS "ROWCOUNT",
+    <template-if condition="isDefined(SortAssignmentsBy) AND SortAssignmentsBy EQ &apos;validfrom&apos;">
+    	peppa.validfrom
+    <if-elseif condition="isDefined(SortAssignmentsBy) AND SortAssignmentsBy EQ &apos;validto&apos;"/>
+    	peppa.validto
+    <if-elseif condition="isDefined(SortAssignmentsBy) AND SortAssignmentsBy EQ &apos;position&apos;"/>
+    	peppa.position
+    <if-elseif condition="isDefined(SortAssignmentsBy) AND SortAssignmentsBy EQ &apos;type&apos;"/>
+        decode(prpepa.definitionqualifiedname||prpepa.viewcontextid
+        <template-loop iterator="SortedViewContextInclusionIdentifiers:EntrySet" alias="Identifier">
+            <loop-statement>
+                , <template-variable value="Identifier:Key"/>, <template-variable value="Identifier:Value"/> 
+            </loop-statement>
+        </template-loop>
+        , 99999)
+	<if-else/>
+    	pr.sorting
+	</template-if>
+	AS SORTING
+FROM
+(
+<template-call name="product/GetProductsByAdvancedSearch">
+    <call-parameter name="ProductDomain" value="ProductDomain"/>
+    <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+    <call-parameter name="NameOrID" value="NameOrID"/>
+    <call-parameter name="SortAttribute" value="SortBy"/>
+    <call-parameter name="Currency" value="Currency"/>
+    <call-parameter name="Filters" value="Filters"/>
+</template-call>
+) pr
+JOIN 
+    product_pepa prpepa ON (prpepa.productid = pr.uuid)
+JOIN 
+    pageletentrypoint_pa peppa ON (peppa.entrypointid = prpepa.pageletentrypointid AND peppa.pageletid = <template-variable value="PageletUUID"/>)
+JOIN 
+    pagelet p ON (peppa.pageletid = p.uuid)
+WHERE
+	<template-if condition="Sharing:SharingEnabled">
+	    peppa.domainid IN (<template-loop alias="DomainUUID" iterator="Sharing:DomainUUIDsAsSet">
+	        <loop-statement><template-variable value="DomainUUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+	<if-else/>
+	    peppa.domainid = <template-variable value="ContentRepository:RepositoryDomain:UUID"/>
+	</template-if>
+	<template-if condition="PageFlag">
+	    AND p.pageflag=1
+	<if-else/>
+	    AND p.pageflag=0
+	</template-if>
+ORDER BY sorting
+	<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+	    DESC NULLS FIRST
+	<if-else/>
+	    ASC NULLS LAST
+	</template-if>
+</template>
+<template type="countedobjects" sqlDialect="Microsoft">
+SELECT * FROM (
+	SELECT
+		peppa.uuid AS uuid, 
+	    COUNT(peppa.UUID) OVER() AS "ROWCOUNT",
+	    <template-if condition="isDefined(SortAssignmentsBy) AND SortAssignmentsBy EQ &apos;validfrom&apos;">
+	    	peppa.validfrom
+	    <if-elseif condition="isDefined(SortAssignmentsBy) AND SortAssignmentsBy EQ &apos;validto&apos;"/>
+	    	peppa.validto
+	    <if-elseif condition="isDefined(SortAssignmentsBy) AND SortAssignmentsBy EQ &apos;position&apos;"/>
+	    	peppa.position
+	    <if-elseif condition="isDefined(SortAssignmentsBy) AND SortAssignmentsBy EQ &apos;type&apos;"/>
+	        CASE 
+	        <template-loop iterator="SortedViewContextInclusionIdentifiers:EntrySet" alias="Identifier">
+	            <loop-statement>
+	                WHEN CONCAT(prpepa.definitionqualifiedname, prpepa.viewcontextid) = <template-variable value="Identifier:Key"/> THEN <template-variable value="Identifier:Value"/> 
+	            </loop-statement>
+	        </template-loop>
+	        ELSE 99999 END
+		<if-else/>
+	    	pr.sorting
+		</template-if>
+		AS SORTING
+	FROM
+	(
+	<template-call name="product/GetProductsByAdvancedSearch">
+	    <call-parameter name="ProductDomain" value="ProductDomain"/>
+	    <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+	    <call-parameter name="NameOrID" value="NameOrID"/>
+	    <call-parameter name="SortAttribute" value="SortBy"/>
+	    <call-parameter name="Currency" value="Currency"/>
+	    <call-parameter name="Filters" value="Filters"/>
+	</template-call>
+	) pr
+	JOIN 
+	    product_pepa prpepa ON (prpepa.productid = pr.uuid)
+	JOIN 
+	    pageletentrypoint_pa peppa ON (peppa.entrypointid = prpepa.pageletentrypointid AND peppa.pageletid = <template-variable value="PageletUUID"/>)
+	JOIN 
+	    pagelet p ON (peppa.pageletid = p.uuid)
+	WHERE
+		<template-if condition="Sharing:SharingEnabled">
+		    peppa.domainid IN (<template-loop alias="DomainUUID" iterator="Sharing:DomainUUIDsAsSet">
+		        <loop-statement><template-variable value="DomainUUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+		<if-else/>
+		    peppa.domainid = <template-variable value="ContentRepository:RepositoryDomain:UUID"/>
+		</template-if>
+		<template-if condition="PageFlag">
+		    AND p.pageflag=1
+		<if-else/>
+		    AND p.pageflag=0
+		</template-if>
+) sub 
+<template-variable value="orderBy('sub.sorting',direction(SortDirection),if(isAscending(SortDirection),nullsLast(),nullsFirst()))" processing="text"/>
+</template>
+</query>

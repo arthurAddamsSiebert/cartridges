@@ -1,0 +1,134 @@
+<%@
+	page import="com.intershop.beehive.core.capi.request.Request, 
+	 com.intershop.beehive.core.capi.log.Logger,
+	 com.intershop.beehive.core.capi.log.LogScope,
+	 com.intershop.beehive.core.internal.webservice.WebServiceMgrImpl, 
+	 com.intershop.beehive.core.internal.webservice.WebServiceMgr, 
+	 com.intershop.beehive.core.internal.webservice.WebServiceRequestWrapper, 
+	 com.intershop.beehive.core.internal.webservice.WebServiceServlet, 
+	 com.intershop.beehive.core.internal.webservice.configuration.WebServiceEngineConfiguration, 
+	 org.apache.axis.AxisEngine, 
+	 org.apache.axis.description.OperationDesc, 
+	 org.apache.axis.description.ServiceDesc, 
+	 java.util.Iterator, 
+	 java.util.ArrayList, 
+	 java.io.IOException"
+%>
+
+<%!
+	/**
+	 * This template is included from the WebService servlet to display a list 
+	 * of available webservices for a domain.
+	 */
+	 
+	public String getBaseURL(HttpServletRequest request)
+	{
+		String baseURL = null;
+		
+		String scheme = request.getScheme();
+		String host = request.getServerName();
+		int port = request.getServerPort();
+		String uri = request.getRequestURI();
+		String serverPort = null;
+		if (("http".equals(scheme) && (port == 80)) ||
+				("https".equals(scheme) && (port == 443)))
+		{
+				serverPort = "";
+		}
+		else
+		{
+				serverPort = ":" + port;
+		}
+		
+		if (host.endsWith(serverPort))
+		{
+				baseURL = scheme + "://" + host + uri + "/";
+		}
+		else 
+		{
+				baseURL = scheme + "://" + host + serverPort + uri + "/";
+		}
+
+		return baseURL; 
+	}
+%>
+
+<html>
+	<head>
+		<title><istext key="templates.WebServiceList.Intershop7WebServices.title"/></title>
+	</head>
+	<body>
+		<h2><istext key="templates.WebServiceList.Intershop7WebServices"/></h2>
+
+<%
+    WebServiceRequestWrapper requestWrapper = WebServiceServlet.getCurrentRequest();
+    
+    String baseURL = getBaseURL(requestWrapper);
+    String domainName = requestWrapper.getDomainName();
+    
+    // get iterator of deployed services
+    Iterator it = null; 
+        
+    try
+    {
+        WebServiceMgr webServiceMgr = WebServiceMgrImpl.getInstance(); 
+        WebServiceEngineConfiguration engConf = webServiceMgr.getEngineConfiguration(); 
+        if (engConf != null)
+        {
+            it = engConf.getDeployedServices(domainName); 
+        }
+    }
+    catch (Exception ex)
+    {
+        Logger.log(LogScope.ERROR, "webservice", this, "ISH-CORE-1574", "Couldn't get list of deployed web services.");
+            
+        Logger.log(LogScope.ERROR, "webservice", this, "ISH-CORE-1575", ex);
+    }
+    
+    if (it != null && it.hasNext()) 
+    {
+%>
+    
+<istext key="templates.WebServiceList.AvailableWebServicesForTheDomain"/> <%= domainName %>:<br>
+
+<ul>
+<%
+        while (it.hasNext())
+        {
+            ServiceDesc sd = (ServiceDesc) it.next();
+%>
+    <li><%= sd.getName() %> <a href="<%= baseURL %><%= sd.getName() %>?WSDL"><i><istext key="templates.WebServiceList.WSDL"/></i></a></li>
+
+<%    
+            ArrayList operations = sd.getOperations();
+            if (!operations.isEmpty())
+            {
+%>        
+    <ul>
+<%
+                for (int i = 0; i < operations.size(); i++)
+                {
+                    OperationDesc desc = (OperationDesc) operations.get(i);
+%>
+        <li><%= desc.getName() %></li>
+<%
+                }
+%>            
+    </ul>
+<%
+            }
+        }
+%>
+</ul>
+<%        
+    }
+    else
+    {
+%>    
+<istext key="templates.WebServiceList.ThereAreNoWebServicesAvailable"/>
+<%
+    }
+%>
+
+</body>
+</html>

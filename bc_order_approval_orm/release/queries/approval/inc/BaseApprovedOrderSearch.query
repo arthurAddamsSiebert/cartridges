@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+
+  <parameters>
+    <parameter name="Customer" type="com.intershop.component.customer.capi.CustomerBO" optional="false"/>
+    <parameter name="OrderDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="OrderCurrency" type="com.intershop.beehive.core.capi.currency.Currency" optional="true"/>
+    <parameter name="Approver" type="com.intershop.component.user.capi.UserBO" optional="true"/>
+    <parameter name="Buyer" type="com.intershop.component.user.capi.UserBO" optional="true"/>
+    <parameter name="IncludedStatusCodes" type="java.util.Collection" optional="true" description="A set of order status codes detemining orders of what statuses will appear in the result set"/>
+    <parameter name="ExcludedStatusCodes" type="java.util.Collection" optional="true" description="A set of order status codes detemining orders of what statuses will not appear in the result set"/>
+    <parameter name="Limit" type="java.lang.Integer" optional="true"/>
+  </parameters>
+
+  <processor name="OracleSQL"/>
+
+  <template sqlDialect="Oracle">
+    SELECT *
+      FROM isorder o
+         <template-if condition="isDefined(Approver)">
+           , isorder_av oav
+         </template-if>
+     WHERE o.customerid = <template-variable value="Customer:ID"/>
+       AND o.DomainID = <template-variable value="OrderDomain:UUID"/>
+     <template-if condition="isDefined(OrderCurrency)">
+       AND o.grandtotalgrosspricepccode = <template-variable value="OrderCurrency:Mnemonic"/>
+     </template-if>
+     <template-if condition="isDefined(Approver)">
+       AND o.uuid = oav.ownerid
+       AND oav.name = 'BusinessObjectAttributes#OrderApproval_ApproverID'
+       AND oav.stringvalue = <template-variable value="Approver:ID"/>
+     </template-if>
+     <template-if condition="isDefined(Buyer)">
+       AND o.userid = <template-variable value="Buyer:ID"/>
+     </template-if>
+     <template-if condition="isDefined(IncludedStatusCodes) and hasElements(IncludedStatusCodes)">
+       AND o.status in (<template-loop alias="StatusCode" iterator="IncludedStatusCodes"><loop-separator>,</loop-separator><loop-statement><template-variable value="StatusCode"/></loop-statement></template-loop>)
+     </template-if>
+     <template-if condition="isDefined(ExcludedStatusCodes) and hasLoopElements(ExcludedStatusCodes)">
+       AND NOT o.status in (<template-loop alias="StatusCode" iterator="ExcludedStatusCodes"><loop-separator>,</loop-separator><loop-statement><template-variable value="StatusCode"/></loop-statement></template-loop>)
+     </template-if>
+     <template-if condition="isDefined(Limit)">
+       AND ROWNUM &lt;= <template-variable value="Limit"/>
+     </template-if>
+  </template>
+   <template sqlDialect="Microsoft">
+	SELECT * FROM (
+		SELECT o.*
+			,ROW_NUMBER() OVER(ORDER BY o.uuid ASC) AS ROWNUM
+		  FROM isorder o
+			 <template-if condition="isDefined(Approver)">
+			   , isorder_av oav
+			 </template-if>
+		 WHERE o.customerid = <template-variable value="Customer:ID"/>
+		   AND o.DomainID = <template-variable value="OrderDomain:UUID"/>
+		 <template-if condition="isDefined(OrderCurrency)">
+		   AND o.grandtotalgrosspricepccode = <template-variable value="OrderCurrency:Mnemonic"/>
+		 </template-if>
+		 <template-if condition="isDefined(Approver)">
+		   AND o.uuid = oav.ownerid
+		   AND oav.name = 'BusinessObjectAttributes#OrderApproval_ApproverID'
+		   AND oav.stringvalue = <template-variable value="Approver:ID"/>
+		 </template-if>
+		 <template-if condition="isDefined(Buyer)">
+		   AND o.userid = <template-variable value="Buyer:ID"/>
+		 </template-if>
+		 <template-if condition="isDefined(IncludedStatusCodes) and hasElements(IncludedStatusCodes)">
+		   AND o.status in (<template-loop alias="StatusCode" iterator="IncludedStatusCodes"><loop-separator>,</loop-separator><loop-statement><template-variable value="StatusCode"/></loop-statement></template-loop>)
+		 </template-if>
+		 <template-if condition="isDefined(ExcludedStatusCodes) and hasLoopElements(ExcludedStatusCodes)">
+		   AND NOT o.status in (<template-loop alias="StatusCode" iterator="ExcludedStatusCodes"><loop-separator>,</loop-separator><loop-statement><template-variable value="StatusCode"/></loop-statement></template-loop>)
+		 </template-if>
+	) a
+		 <template-if condition="isDefined(Limit)">
+		   WHERE ROWNUM &lt;= <template-variable value="Limit"/>
+		 </template-if>
+		 
+  </template>
+</query>

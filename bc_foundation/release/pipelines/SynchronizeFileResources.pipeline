@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Pipeline for removing all file resource entries for which the corresponding files in the file system have been removed.
+@Group ImportExport-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="SynchronizeFileResources" type="job">
+  <registry xsi:type="pipeline:PipelineRegistry" href="enfinity:/bc_foundation/pipelines"/>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="Error" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="JobConfigurationUUID">
+    <nodeSuccessors name="decision_yes" next="GetJobConfiguration1"/>
+<!--@BendPoints 11,25-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetJobConfiguration1">
+    <pipelet href="enfinity:/core/pipelets/GetJobConfiguration.xml"/>
+    <nodeSuccessors name="next" next="UpdateCustomAttribute1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="JobUUID" objectPath="JobConfigurationUUID"/>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttribute1">
+    <configurationValues name="DefaultAttributeName" value="FinishedWithError"/>
+    <configurationValues name="DefaultAttributeType" value="String"/>
+    <configurationValues name="DefaultAttributeValue" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttribute.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="ExtensibleObject" objectPath="JobConfiguration"/>
+  </nodes>
+<!--@Location 4,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 9,32-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3"/>
+<!--@Location 5,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 11,31-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 5,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="GetSiteMap"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateSiteIterator2"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateSiteIterator2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateSiteIterator.xml"/>
+    <nodeSuccessors name="next" next="UpdateMapping1"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateMapping1">
+    <configurationValues name="Mode" value="Add"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateMapping.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <returnValueBindings name="OutMap" objectPath="SiteMap"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Sites">
+<!--@BendPoints 4,29-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <entry key="Site">
+<!--@BendPoints 3,30-->
+      <nodeSuccessors name="loop_entry_next" next="AddEntryToMap1"/>
+    </entry>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddEntryToMap1">
+    <pipelet href="enfinity:/core/pipelets/AddEntryToMap.xml"/>
+<!--@BendPoints 3,32 2,32 2,29-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+    <parameterBindings name="InMap" objectPath="SiteMap"/>
+    <parameterBindings name="Key" objectPath="Site:DomainInformation:DomainName"/>
+    <parameterBindings name="Value" objectPath="Site"/>
+    <returnValueBindings name="OutMap" objectPath="SiteMap"/>
+  </nodes>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true">
+    <returnValues name="SiteMap" type="java.util.Map" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode2"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="GetSystemDomain1"/>
+    <startNode referencedName="SynchronizeFileResources-GetSiteMap"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSystemDomain1">
+    <pipelet href="enfinity:/core/pipelets/GetSystemDomain.xml"/>
+    <nodeSuccessors name="next" next="GetResourceByName1"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetResourceByName1">
+    <pipelet href="enfinity:/core/pipelets/GetResourceByName.xml"/>
+    <nodeSuccessors name="next" next="GetResourceByName3"/>
+<!--@BendPoints 5,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="Domain" objectPath="SystemDomain"/>
+    <parameterBindings name="ResourceName" constant="Share"/>
+    <returnValueBindings name="Resource" objectPath="Share"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetResourceByName3">
+    <pipelet href="enfinity:/core/pipelets/GetResourceByName.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="Domain" objectPath="SystemDomain"/>
+    <parameterBindings name="ParentResource" objectPath="Share"/>
+    <parameterBindings name="ResourceName" constant="sites"/>
+    <returnValueBindings name="Resource" objectPath="SitesDir"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="SitesDir:SubResources">
+    <nodeSuccessors name="next" next="RefreshCache1"/>
+    <entry key="SiteDir">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode1"/>
+    </entry>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="SiteMap:get(SiteDir:Name)">
+<!--@BendPoints 3,16-->
+    <nodeSuccessors name="decision_yes" next="RemoveOutdatedFileResources1"/>
+<!--@BendPoints 4,15 4,19-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveOutdatedFileResources1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveOutdatedFileResources.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="Site" objectPath="SiteMap:get(SiteDir:Name)"/>
+    <parameterBindings name="SiteResource" objectPath="SiteDir"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 1,19 1,13-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshCache1">
+    <configurationValues name="PersistentClassName_0" value="com.intershop.beehive.core.internal.locking.ResourcePO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 6,11-->
+    <nodeSuccessors name="next" next="JumpNode1"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="SynchronizeFileResources-Error"/>
+  </nodes>
+</pipeline:Pipeline>

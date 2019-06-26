@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="remove placeholder overrides and override definitions when unsharing a content repository.">
+<parameters>
+	<parameter name="OwningRepository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false"/>
+	<parameter name="SharedMasterRepository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template>
+	<template-comment>remove any assignments to overriding placeholders that we remove with the next delete statement</template-comment>
+	<sql-dialect name="Oracle">
+		DELETE FROM placeholder_pa ppa 
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		DELETE ppa FROM placeholder_pa ppa 
+	</sql-dialect>
+		WHERE EXISTS
+		(
+		  SELECT 1 FROM placeholder_override pho
+			WHERE EXISTS 
+			  (
+				SELECT 1 FROM pagelet p
+				  WHERE pho.pageletid = p.uuid
+					AND p.domainid = <template-variable value="SharedMasterRepository:RepositoryDomain:UUID"/>
+			  )
+			  AND pho.domainid = <template-variable value="OwningRepository:RepositoryDomain:UUID"/>
+			  AND ppa.placeholderid = pho.uuid
+		)
+</template>
+<template>
+	<sql-dialect name="Oracle">
+		DELETE FROM placeholder_override pho 
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		DELETE pho FROM placeholder_override pho
+	</sql-dialect>
+		WHERE EXISTS 
+		  (
+			SELECT 1 FROM pagelet p
+			  WHERE pho.pageletid = p.uuid
+				AND p.domainid = <template-variable value="SharedMasterRepository:RepositoryDomain:UUID"/>
+		  )
+		  AND pho.domainid = <template-variable value="OwningRepository:RepositoryDomain:UUID"/>
+</template>
+<template>
+	<sql-dialect name="Oracle">
+		DELETE FROM placeholderdef_override phdo
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		DELETE phdo FROM placeholderdef_override phdo
+	</sql-dialect>
+		WHERE EXISTS 
+		  (
+			SELECT 1 FROM pagelet p
+			  WHERE phdo.pageletid = p.uuid
+				AND p.domainid = <template-variable value="SharedMasterRepository:RepositoryDomain:UUID"/>
+		  )
+		  AND phdo.domainid = <template-variable value="OwningRepository:RepositoryDomain:UUID"/>
+</template>
+<template>
+	<sql-dialect name="Oracle">
+		DELETE FROM placeholderdef_av phdav
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		DELETE phdav FROM placeholderdef_av phdav
+	</sql-dialect>
+		WHERE EXISTS 
+		  (
+			SELECT 1 FROM placeholderdef phd 
+			  WHERE phd.domainid = <template-variable value="SharedMasterRepository:RepositoryDomain:UUID"/>
+				AND phdav.ownerid = phd.uuid
+		  )
+		  AND phdav.name = 
+			( 
+			  SELECT CONCAT('OVPH_', domainname) FROM domaininformation 
+				WHERE domainid = <template-variable value="OwningRepository:RepositoryDomain:UUID"/>
+			)
+</template>
+</query>

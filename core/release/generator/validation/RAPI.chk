@@ -1,0 +1,73 @@
+import edl;
+extension util::EDLUtil;
+extension util::JavaUtil;
+
+/*
+ * Validates a RAPI model.
+ */
+
+/*
+ * RAPI Class Checks
+ */
+
+context EDLRAPIType
+	ERROR "[RAPI_CLASS_CYCLIC_INHERITANCE] The class '" + name + "' cannot inherit from itself.":
+	!this.isSubClass(this);
+
+context EDLRAPIType if (name != null)
+	ERROR "[RAPI_CLASS_NAME_NOT_JAVA_ID] The class name '" + name + "' is not a valid Java identifier.":
+	name.unescape().isValidJavaIdentifier();
+
+context EDLRAPIType if (name != null)
+	ERROR "[RAPI_CLASS_NAME_RESERVED_JAVA_KEYWORD] The class name '" + name + "' is a reserved Java keyword.":
+	!name.unescape().isJavaKeyword();
+
+context EDLRAPIType
+	WARNING "[RAPI_CLASS_MODIFIERS_NOT_UNIQUE] The class modifiers are not unique.":
+	modifiers.forAll(m | modifiers.select(x | x == m).size == 1);
+
+context EDLRAPIType if (!this.isSubClass(this) && modifiers.contains(EDLRAPITypeModifier::soap))
+	ERROR "[RAPI_OPERATION_NAMES_NOT_UNIQUE] The operation names for soap-enabled services must be unique.":
+	getAllOperations().forAll(o | getAllOperations().select(x | x.name == o.name).size == 1);
+
+context EDLRAPIType if (!this.isSubClass(this) && modifiers.contains(EDLRAPITypeModifier::soap))
+	ERROR "[RAPI_SUPERCLASS_NOT_SOAP] The superclasses of soap-enabled classes must be soap-enabled too.":
+	!superClasses.typeSelect(EDLRAPIType).exists(s | !s.modifiers.contains(EDLRAPITypeModifier::soap));
+
+/*
+ * RAPI Operation Checks
+ */
+
+context EDLRAPIOperation if (name != null)
+	ERROR "[RAPI_OPERATION_NAME_NOT_JAVA_ID] The operation name '" + name + "' is not a valid Java identifier.":
+	name.unescape().isValidJavaIdentifier();
+
+context EDLRAPIOperation if (name != null)
+	ERROR "[RAPI_OPERATION_NAME_RESERVED_JAVA_KEYWORD] The operation name '" + name + "' is a reserved Java keyword.":
+	!name.unescape().isJavaKeyword();
+
+context EDLRAPIOperation
+	ERROR "[RAPI_PARAMETER_NAMES_NOT_UNIQUE] The parameter names are not unique.":
+	parameters.forAll(p | parameters.select(x | x.name == p.name).size == 1);
+
+context EDLRAPIOperation if (((EDLRAPIType) eContainer).modifiers.contains(EDLRAPITypeModifier::soap) &&
+	!((EDLRAPIType) eContainer).modifiers.contains(EDLRAPITypeModifier::binary))
+	ERROR "[RAPI_RETURN_TYPE_NOT_SUPPORTED] The return type is not supported.":
+	(type.metaType == EDLXMLType) || (type.getClassName() == "void") || type.isValidParameterType();
+
+/*
+ * RAPI Operation Parameter Checks
+ */
+
+context EDLRAPIOperationParameter if (name != null)
+	ERROR "[RAPI_PARAMETER_NAME_NOT_JAVA_ID] The parameter name '" + name + "' is not a valid Java identifier.":
+	name.unescape().isValidJavaIdentifier();
+
+context EDLRAPIOperationParameter if (name != null)
+	ERROR "[RAPI_PARAMETER_NAME_RESERVED_JAVA_KEYWORD] The parameter name '" + name + "' is a reserved Java keyword.":
+	!name.unescape().isJavaKeyword();
+
+context EDLRAPIOperationParameter if (((EDLRAPIType) ((EDLRAPIOperation) eContainer).eContainer).modifiers.contains(EDLRAPITypeModifier::soap) &&
+	!((EDLRAPIType) ((EDLRAPIOperation) eContainer).eContainer).modifiers.contains(EDLRAPITypeModifier::binary))
+	ERROR "[RAPI_PARAMETER_TYPE_NOT_SUPPORTED] The parameter type is not supported.":
+	(type.metaType == EDLXMLType) || type.isValidParameterType();

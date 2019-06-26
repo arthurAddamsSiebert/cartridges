@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="targetRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="sourceRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+</parameters>
+
+<processor name="JDBC">
+</processor>
+<template sqlDialect="Oracle">
+            delete from productcategoryassignment
+            where (CATALOGCATEGORYID, PRODUCTID) in (
+                select tpca.CATALOGCATEGORYID, tpca.PRODUCTID
+                from CatalogCategory tc, CatalogCategory sc, productcategoryassignment tpca 
+                where   tc.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+                    and sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                    and ((sc.name = substr(tc.name, 0, instr(tc.name,'@',-1)-1)
+                            and instr(tc.name,'@',-1) &gt; 0
+                            and tc.uuid in (select i.uuid from CatalogCategory i 
+                                            where   i.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+                                                and i.uuid &lt;&gt; <template-variable value="targetRoot:UUID"/>
+                                            start with i.uuid in (<template-variable value="targetRoot:UUID"/>)   
+                                            connect by i.PARENTCATEGORYID = prior i.uuid ))
+                          or (sc.uuid = <template-variable value="sourceRoot:UUID"/> and tc.uuid = <template-variable value="targetRoot:UUID"/> ))
+                    and tpca.CATALOGCATEGORYID = tc.uuid
+                    and not exists (select * from productcategoryassignment spca
+                                    where spca.CATALOGCATEGORYID = sc.uuid
+                                        and spca.PRODUCTID = tpca.REPOFFEREDPRODUCTID))
+</template>
+<template sqlDialect="Microsoft">
+with n(uuid) as (
+	select a.uuid from CatalogCategory a
+	where a.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+	and a.uuid in (<template-variable value="targetRoot:UUID"/>)
+	union all
+	select b.uuid from CatalogCategory b, n
+	where b.uuid &lt;&gt; <template-variable value="targetRoot:UUID"/>
+	and b.parentcategoryid = n.uuid
+)
+delete from productcategoryassignment where exists (
+	select 1 from productcategoryassignment tpca, CatalogCategory sc, CatalogCategory tc
+	where tc.uuid = tpca.catalogcategoryid
+	and productcategoryassignment.productid = tpca.productid
+	and productcategoryassignment.catalogcategoryid = tpca.catalogcategoryid
+	and tc.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+	and sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+	and (		
+		sc.name = substring(tc.name, 1, case when charIndex('@', tc.name)-1 > 0 then charIndex('@', tc.name)-1 else 0 end)
+		and charIndex('@', tc.name, -1) &gt; 0
+		and tc.uuid in (select n.uuid from n where n.uuid &lt;&gt; <template-variable value="targetRoot:UUID" />)
+		or (sc.uuid = <template-variable value="sourceRoot:UUID"/> and tc.uuid = <template-variable value="targetRoot:UUID"/>)	
+	)
+	and not exists (
+		select * from productcategoryassignment spca 
+		where spca.CATALOGCATEGORYID = sc.uuid 
+		and spca.PRODUCTID = tpca.REPOFFEREDPRODUCTID)
+)
+</template>
+</query>

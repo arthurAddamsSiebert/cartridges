@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query determines currently acquired child instance resources for parent named resources owned by the given process.  
+If the parameter &apos;CheckUserControlledLocks&apos; is set to true only resources locked by users are returned,  otherwise only resources locked by other system processes are returned.">
+<parameters>
+	<parameter name="Process" type="com.intershop.beehive.core.capi.locking.Process" optional="false"/>
+	<parameter name="CheckUserControlledLocks" type="java.lang.Boolean" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="AcquiredChildInstanceResources" type="orm" class="com.intershop.beehive.core.internal.locking.ResourcePO">
+		<return-attribute name="uuid"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	<sql-dialect name="Microsoft">
+		;WITH isresource_cte(uuid) AS
+		(
+			select uuid
+			from isresource
+			where type = 0
+			  and resourceownerid = <template-variable value="Process:UUID"/>
+		
+			UNION ALL
+		
+			select r.uuid
+			from isresource r INNER JOIN isresource_cte c ON (r.PARENTRESOURCEID = c.uuid)
+		)
+		select r.uuid 
+		from isresource r 
+			INNER JOIN isresource_cte cte ON (r.parentresourceid = cte.uuid)
+			INNER JOIN resourcelock rl ON (r.uuid = rl.lockid)
+			INNER JOIN process p ON (r.resourceownerid = p.uuid)
+		where r.type = 1
+		AND 
+	</sql-dialect>
+	<sql-dialect name="Oracle">
+		SELECT 
+		r.uuid 
+		FROM 
+		isresource r, resourcelock rl, process p 
+		WHERE 
+		r.type=1 
+		AND r.uuid = rl.lockid 
+		AND r.resourceownerid = p.uuid
+		AND r.parentresourceid IN 
+		(
+		SELECT 
+			uuid 
+		FROM 
+			isresource 
+		WHERE 
+			type=0
+		START WITH 
+			resourceownerid = <template-variable value="Process:UUID"/>
+		CONNECT BY PRIOR 
+			uuid=parentresourceid
+		)
+		AND 
+	</sql-dialect>
+
+	(
+		(
+			r.lockexpirationdate IS NULL
+		) 
+		OR 
+		(
+			<sql-dialect name="Microsoft">
+				(r.lockexpirationdate &gt; GETUTCDATE())
+			</sql-dialect>
+			<sql-dialect name="Oracle">
+				r.lockexpirationdate &gt; utctimestamp()
+			</sql-dialect>
+
+		)
+	)
+	
+	<template-if condition="CheckUserControlledLocks EQ 'true'">
+
+		AND 
+		(
+			(
+				p.type IS NOT NULL
+			) 
+			AND 
+			(
+				p.type = &apos;Instance Acquisition&apos;
+			)
+		)
+	    AND 
+	    (
+	    	p.userid IS NOT NULL
+	    ) 
+	
+	<if-else/>	
+	
+	  	AND 
+	  	(
+	  		(
+	  			p.type IS NULL
+	  		)
+	  		OR
+	  		(
+	  			p.type!=&apos;Instance Acquisition&apos;
+	  		)
+	  	)
+	
+	</template-if>
+	
+</template>
+</query>

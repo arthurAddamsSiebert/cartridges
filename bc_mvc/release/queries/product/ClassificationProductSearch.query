@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="ClassificationAttributeMap" type="java.util.Map" optional="true"/>
+	<parameter name="ClassificationAttributeDefinedMap" type="java.util.Map" optional="true"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="Currency" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Product" type="provider" class="ProductViewProvider">
+		<return-attribute name="UUID"/>
+		<return-attribute name="DOMAINID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+<sql-dialect name="Microsoft">
+	select * from (
+</sql-dialect>
+	SELECT DISTINCT
+	    uuid,
+	    <template-variable value="ProductDomain:UUID"/> AS DOMAINID,
+	    COUNT(p.UUID) OVER() AS "ROWCOUNT",
+	    sorting
+	FROM
+	    (
+	    <template-call name="product/GetProductsByClassificationSearch">
+	        <call-parameter name="ProductDomain" value="ProductDomain"/>
+	        <call-parameter name="ClassificationAttributeMap" value="ClassificationAttributeMap"/>
+	        <call-parameter name="ClassificationAttributeDefinedMap" value="ClassificationAttributeDefinedMap"/>
+	        <call-parameter name="SortAttribute" value="SortAttribute"/>
+	        <call-parameter name="SortDirection" value="SortDirection"/>
+	        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+	        <call-parameter name="Currency" value="Currency"/>
+	    </template-call>
+	    ) p 
+
+	<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+		<sql-dialect name="Microsoft">
+			) a ORDER BY
+		    CASE
+		      WHEN SORTING is null THEN 0
+		      ELSE 1
+		    END,
+		    SORTING DESC
+		</sql-dialect>
+		<sql-dialect name="Oracle">
+			ORDER BY SORTING DESC NULLS FIRST
+		</sql-dialect>
+	<if-else/>
+		<sql-dialect name="Microsoft">
+			) a ORDER BY
+		    CASE
+		      WHEN SORTING is null THEN 1
+		      ELSE 0
+		    END,
+		    SORTING ASC
+		</sql-dialect>
+		<sql-dialect name="Oracle">
+			ORDER BY SORTING ASC NULLS LAST
+		</sql-dialect>
+	</template-if>
+</template>
+</query>

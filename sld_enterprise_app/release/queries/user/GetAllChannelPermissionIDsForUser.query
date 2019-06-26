@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Determines all permissions IDs that the current user has in the context of any channel or application.">
+<parameters>
+	<parameter name="User" type="com.intershop.beehive.core.capi.user.User" optional="false"/>
+</parameters>
+<processor name="OracleSQL"/>
+<template type="objects" sqlDialect="Oracle">
+    SELECT DISTINCT r2p.permissionid
+      FROM rolepermissionassignment r2p
+     WHERE r2p.roleid IN
+        (SELECT ra.roleid
+           FROM domain_ra ra
+          WHERE (ra.usergroupid, ra.usergroupdomainid) IN
+            (SELECT u2ug.usergroupid, u2ug.usergroupdomainid
+               FROM usergroupuserassignment u2ug
+              WHERE u2ug.userid = <template-variable value="User:ID"/>
+             UNION
+             SELECT ug2ug.parentusergroupid, ug2ug.parentusergroupdomainid
+               FROM usergroupassignment ug2ug
+               CONNECT BY PRIOR ug2ug.parentusergroupid       = childusergroupid
+                      AND PRIOR ug2ug.parentusergroupdomainid = childusergroupdomainid
+               START WITH (childusergroupid, childusergroupdomainid) IN
+                    (SELECT u2ug.usergroupid, u2ug.usergroupdomainid
+                       FROM usergroupuserassignment u2ug
+                      WHERE u2ug.userid = <template-variable value="User:ID"/>)
+            )
+        )
+</template>
+<template type="objects" sqlDialect="Microsoft">
+	WITH usergroup(usergroupid, usergroupdomainid) AS
+	(
+		SELECT u2ug.usergroupid, u2ug.usergroupdomainid FROM usergroupuserassignment u2ug
+		WHERE u2ug.userid = <template-variable value="User:ID"/>
+	)
+	,usergroup2(parentusergroupid, parentusergroupdomainid) AS
+	(
+		SELECT ug2ug.parentusergroupid, ug2ug.parentusergroupdomainid FROM usergroupassignment ug2ug
+		INNER JOIN usergroup a ON a.usergroupid = ug2ug.CHILDUSERGROUPID AND a.usergroupdomainid = ug2ug.childusergroupdomainid
+		UNION ALL 
+		SELECT ug2ug.parentusergroupid, ug2ug.parentusergroupdomainid FROM usergroupassignment ug2ug
+		INNER JOIN usergroup2 ac ON ac.parentusergroupdomainid = ug2ug.CHILDUSERGROUPDOMAINID AND ac.parentusergroupid = ug2ug.CHILDUSERGROUPID
+	)
+	,usergroup3(usergroupid, usergroupdomainid) AS
+	(
+		SELECT u2ug.usergroupid, u2ug.usergroupdomainid FROM usergroupuserassignment u2ug
+		WHERE u2ug.userid = <template-variable value="User:ID"/>
+		UNION
+		SELECT parentusergroupid, parentusergroupdomainid FROM usergroup2
+	)
+	SELECT DISTINCT r2p.permissionid FROM rolepermissionassignment r2p
+	WHERE r2p.roleid IN
+	(
+		SELECT ra.roleid FROM domain_ra ra
+		INNER JOIN usergroup3 ac ON ac.usergroupid = ra.usergroupid AND ac.usergroupdomainid = ra.usergroupdomainid
+	)
+</template>
+</query>

@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline is responsible to find and execute a search action before or after performing a search.
+@Group SearchIndex-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessSearchAction" type="process">
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="PostQuery" callMode="Private">
+<!--@BendPoints 13,4 12,4 12,5-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+<!--The search index query.-->
+    <parameters name="SearchIndexQuery" type="com.intershop.component.search.capi.SearchIndexQuery"/>
+<!--The current search index.-->
+    <parameters name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex"/>
+    <parameters name="SearchResult" type="com.intershop.component.search.capi.SearchResult"/>
+    <parameters name="SearchAction" type="com.intershop.component.search.capi.searchaction.SearchAction"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="SearchResult:Hits"
+      operator="has_elements">
+<!--@BendPoints 15,5-->
+    <nodeSuccessors name="decision_yes" next="JoinNode4"/>
+<!--@BendPoints 13,6 10,6 10,7-->
+    <nodeSuccessors name="decision_no" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 15,12-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="SearchAction">
+<!--@BendPoints 12,7-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode5"/>
+<!--@BendPoints 11,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="SearchAction:RedirectType">
+    <nodeSuccessors name="decision_yes" next="JoinNode4"/>
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 13,10-->
+    <nodeSuccessors name="next" next="FindMatchingSearchAction2"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FindMatchingSearchAction2">
+    <configurationValues name="SearchActionTime" value="noResult"/>
+    <configurationValues name="SearchActionType" value="redirect"/>
+    <pipelet href="enfinity:/bc_search/pipelets/FindMatchingSearchAction.xml"/>
+<!--@BendPoints 13,12-->
+    <nodeSuccessors name="next" next="JumpNode2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode2">
+    <startNode referencedName="ViewSearchAction-Redirect"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="PreQuery" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+<!--The current search index.-->
+    <parameters name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex"/>
+<!--The search index query.-->
+    <parameters name="SearchIndexQuery" type="com.intershop.component.search.capi.SearchIndexQuery"/>
+<!--a previous search action.-->
+    <parameters name="SearchAction" type="com.intershop.component.search.capi.searchaction.SearchAction"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="SearchAction">
+    <nodeSuccessors name="decision_yes" next="DecisionNode3"/>
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="SearchAction:RedirectType">
+    <nodeSuccessors name="decision_yes" next="DecisionNode6"/>
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="SearchAction:RedirectType"
+      operator="str_eq" conditionValue="search">
+    <nodeSuccessors name="decision_yes" next="KeyMapper5"/>
+<!--@BendPoints 4,9 4,13-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="InValue_1" objectPath="SearchAction:RedirectTarget"/>
+    <returnValueBindings name="OutValue_1" objectPath="SearchIndexQuery:QueryTerm"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 3,14-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3"/>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 5,10-->
+    <nodeSuccessors name="next" next="FindMatchingSearchAction3"/>
+  </nodes>
+<!--@displayNearNode@SearchTerm Based ProductRedirect
+@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FindMatchingSearchAction3">
+    <configurationValues name="SearchActionTime" value="beforeSearch"/>
+    <configurationValues name="SearchActionType" value="redirectProduct"/>
+    <pipelet href="enfinity:/bc_search/pipelets/FindMatchingSearchAction.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+<!--@BendPoints 7,11 7,12-->
+    <nodeSuccessors name="pipelet_error" next="FindMatchingSearchAction4"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 5,18-->
+    <nodeSuccessors name="next" next="JumpNode1"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="ViewSearchAction-Redirect"/>
+  </nodes>
+<!--@displayNearNode@SearchTerm Based CategoryRedirect
+@Location 3,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FindMatchingSearchAction4">
+    <configurationValues name="SearchActionTime" value="beforeSearch"/>
+    <configurationValues name="SearchActionType" value="redirectCategory"/>
+    <pipelet href="enfinity:/bc_search/pipelets/FindMatchingSearchAction.xml"/>
+<!--@BendPoints 7,16-->
+    <nodeSuccessors name="next" next="JoinNode6"/>
+<!--@BendPoints 9,13 9,14-->
+    <nodeSuccessors name="pipelet_error" next="FindMatchingSearchAction1"/>
+  </nodes>
+<!--@displayNearNode@Fixed Redirects
+@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FindMatchingSearchAction1">
+    <configurationValues name="SearchActionTime" value="beforeSearch"/>
+    <configurationValues name="SearchActionType" value="redirect"/>
+    <pipelet href="enfinity:/bc_search/pipelets/FindMatchingSearchAction.xml"/>
+<!--@BendPoints 9,17-->
+    <nodeSuccessors name="next" next="JoinNode6"/>
+<!--@BendPoints 11,15 11,16-->
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+</pipeline:Pipeline>

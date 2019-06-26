@@ -1,0 +1,116 @@
+<!---isnoloc--->
+<%@ page import="com.intershop.component.rest.capi.auth.Token" %>
+<%@ page import="com.intershop.component.rest.internal.auth.TokenImpl" %>
+<%@ page import="com.intershop.beehive.core.capi.user.User" %>
+<% 
+	getPipelineDictionary().put("HeaderParameterName" , Token.PARAMETER_NAME);
+	User user = (User)getPipelineDictionary().get("params:CurrentUser");
+	String token = new TokenImpl(user).getToken();
+	getPipelineDictionary().put("HeaderParameterValue" , token);
+%>
+<iscontent type="text/javascript" charset="UTF-8" compact="true" templatemarker="false" >
+(function () {
+		// construct channel part of the url e.g. "/inTronics/"
+	var channelPart = "/".concat('<isprint value="#params:ChannelID#">','/'),
+		// add user locale to the channel part of the url e.g. "/inTronics;loc=de_DE/"
+		localePart = "/".concat("<isprint value="#params:ChannelID#">",';loc=','<isprint value="#params:Locale#">',"/")			
+	var restBase = '<isprint value="#replace(URL(Servlet('')), 'servlet', 'rest')#">',
+		restStart = "<isprint value="#params:RestStartUri#">"
+			.replace(channelPart, localePart )
+			.replace('{key of item}', '#encodeValue(params:SearchIndexId)#')
+			.replace('{key of item}', '<isprint value="#params:SearchIndexAttributeName#" encoding="url,url">');
+
+	// Fixes ignored crossDomain=true for $.ajax
+	jQuery.support.cors = true;
+
+    /**
+     * Maps REST data to tree nodes
+     * @param {Array} data Data retrieved from REST
+     */
+    function TreeRestData(data) {
+        this.data = data || [];
+    }
+    /**
+     * Iterate over data and map each item as tree node
+     * @return {Array} Tree nodes
+     */
+    TreeRestData.prototype.map = function map() {
+        return $.map(this.data, this._mapNode);
+    };
+    /**
+     * Creates tree node from REST item
+     * @param  {Object} item Item retrieved from rest
+     * @return {Object} Tree node
+     */
+    TreeRestData.prototype._mapNode = function mapNode(item) {
+        return {
+            title: item.displayName || item.name,
+            data: {
+                checkbox: {
+                	value: item.domainId + '/' + item.name,
+                    checked: !! item.assigned,
+                    undetermined: !! item.hasAssignedDescendants
+                }
+            },
+            liAttr: {
+                'data-uri': item.uri.replace(channelPart, localePart )
+            },
+            children: !! item.hasChildren
+        };
+    };
+    /**
+     * Sorts array by given attribute and order
+     * @param  {String} attribute Name of the attribute
+     * @param  {Boolean} ascending Ascending order
+     * @return {Array} Sorted Array of Objects
+     */
+    TreeRestData.prototype.sort = function sort(attribute, ascending) {
+        var SMALLER = ascending === false ? 1 : -1,
+            BIGGER = ascending === false ? -1 : 1;
+
+        this.data.sort(function compare(a, b) {
+            if (a[attribute] < b[attribute]) return SMALLER;
+            if (a[attribute] > b[attribute]) return BIGGER;
+            return 0;
+        });
+
+        return this;
+    };
+
+    return function getData(node, callback) {
+        var uri = node !== -1 ? node.data('uri') : restStart;
+
+        function onSuccess(response) {
+            var data, tree;
+
+            if (!response.assignableCategoriesHierarchy) return onError();
+			if (response.assignableCategoriesHierarchy.length === 0) {
+				return callback({
+					title: 'There are currently no categories to show here.'
+				});
+			}
+
+            data = new TreeRestData(response.assignableCategoriesHierarchy);
+            tree = data.sort('displayName').map();
+
+            callback(tree);
+        }
+
+        function onError() {
+            callback({
+            	title: 'Error'
+            });
+        }
+
+        $.ajax(restBase + uri, {
+        	headers: {
+        		'<isprint value="#HeaderParameterName#">': '<isprint value="#HeaderParameterValue#">'
+        	},
+            timeout: 15000,
+            crossDomain: true,
+            success: onSuccess,
+            error: onError
+        });
+    };
+})()
+<!---/isnoloc--->

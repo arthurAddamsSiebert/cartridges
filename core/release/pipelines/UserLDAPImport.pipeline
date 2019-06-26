@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline is used by the eMC to perform the LDAP import of users.
+@Group DEPRECATED-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="UserLDAPImport" type="process">
+  <registry xsi:type="pipeline:PipelineRegistry" href="enfinity:/core/pipelines"/>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="Error" callMode="Private">
+    <nodeSuccessors name="next" next="CloseLoggers1"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CloseLoggers1">
+    <configurationValues name="PipeletID" value="CloseLoggersError"/>
+    <configurationValues name="UIDescription" value="Close Loggers"/>
+    <pipelet href="enfinity:/core/pipelets/CloseLoggers.xml"/>
+    <nodeSuccessors name="next" next="Join5"/>
+<!--@BendPoints 8,3 8,5-->
+    <nodeSuccessors name="pipelet_error" next="Join5"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+    <nodeSuccessors name="next" next="End6"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End6"/>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="AccessControl1"/>
+<!--The name of the store.-->
+    <parameters name="StoreName" type="java.lang.String" optional="true"/>
+<!--An implementation of an impex interactor (com.intershop.beehive.core.capi.impex.IImpexInterator).-->
+    <parameters name="Interactor" type="com.intershop.beehive.core.capi.impex.ImpexInteractor"
+        optional="true"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AccessControl1">
+    <configurationValues name="AccessControlPermission" value="MANAGE_USERS"/>
+    <configurationValues name="PerformAccessControl" value="true"/>
+    <configurationValues name="PerformIPRangeCheck" value="false"/>
+    <configurationValues name="RequireHTTPS" value="false"/>
+    <pipelet href="enfinity:/core/pipelets/AccessControl.xml"/>
+    <nodeSuccessors name="next" next="CreateImpexUnitFileStructure1"/>
+<!--@BendPoints 2,3-->
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateImpexUnitFileStructure1">
+    <pipelet href="enfinity:/core/pipelets/CreateImpexUnitFileStructure.xml"/>
+    <nodeSuccessors name="next" next="DetermineConfiguration1"/>
+    <nodeSuccessors name="pipelet_error" next="End4"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineConfiguration1">
+    <configurationValues name="CartridgeName" value="core"/>
+    <configurationValues name="Controller.Class" value="com.intershop.beehive.core.capi.impex.Controller"/>
+    <configurationValues name="File" value="UserLDAPImport.properties"/>
+    <configurationValues name="PerformAccessControl" value="true"/>
+    <configurationValues name="PipeletID" value="DetermineConfiguration"/>
+    <configurationValues name="PropertyMapping" value="CreateFileLogger.File=FileLogger.File;CreateFileLogger.RolloverSize=FileLogger.RolloverSize;CreateFileLogger.Truncate=FileLogger.Truncate;CreateFileLogger.Level=FileLogger.Level;DetermineConfiguration.SessionLocale=SessionLocale;DetermineConfiguration.File=PropertyFileName;SQLLDRFinish.DumpFiles.Delete=LoaderCleanup.DumpFiles.Delete;SQLLDRFinish.LogFiles.Delete=LoaderCleanup.LogFiles.Delete;SQLLDRFinish.ScriptFiles.Delete=LoaderCleanup.LogFiles.Delete;SQLLDRFinish.ControlFiles.Delete=LoaderCleanup.LogFiles.Delete"/>
+    <configurationValues name="UIDescription" value="DetermineConfiguration"/>
+    <pipelet href="enfinity:/core/pipelets/DetermineConfiguration.xml"/>
+    <nodeSuccessors name="next" next="CreateFileLogger1"/>
+    <nodeSuccessors name="pipelet_error" next="End5"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateFileLogger1">
+    <configurationValues name="BufferSize" value="1024"/>
+    <configurationValues name="Facility" value="default"/>
+    <configurationValues name="FlushTime" value="0"/>
+    <configurationValues name="Level" value="ERROR | WARN"/>
+    <configurationValues name="PipeletID" value="CreateFileLogger"/>
+    <configurationValues name="RolloverSize" value="102400"/>
+    <configurationValues name="UIDescription" value="CreateFileLogger"/>
+    <pipelet href="enfinity:/core/pipelets/CreateFileLogger.xml"/>
+    <nodeSuccessors name="next" next="LockImport1"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LockImport1">
+    <configurationValues name="PipeletID" value="LockImport"/>
+    <configurationValues name="Timeout" value="60"/>
+    <configurationValues name="UIDescription" value="LockImport"/>
+    <pipelet href="enfinity:/core/pipelets/LockImport.xml"/>
+    <nodeSuccessors name="next" next="SQLLDRPrepare1"/>
+    <nodeSuccessors name="pipelet_error" next="Jump1"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SQLLDRPrepare1">
+    <configurationValues name="DrainID" value="drain"/>
+    <configurationValues name="PipeletID" value="SQLLDRPrepare"/>
+    <configurationValues name="UIDescription" value="SQLLDRPrepare"/>
+    <pipelet href="enfinity:/core/pipelets/SQLLDRPrepare.xml"/>
+    <nodeSuccessors name="next" next="LDAPRetrieve1"/>
+<!--@BendPoints 5,13-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LDAPRetrieve1">
+    <configurationValues name="Bulker.Class" value="com.intershop.beehive.core.internal.user.impex.ElementBulkerSQLLDRUser"/>
+    <configurationValues name="Bulker.DirectMode" value="false"/>
+    <configurationValues name="ContentHandler.Class" value="com.intershop.beehive.core.internal.user.impex.LDAPRetrieveContentHandlerUser"/>
+    <configurationValues name="DefaultImportMode" value="OMIT"/>
+    <configurationValues name="DrainID" value="drain"/>
+    <configurationValues name="PageSize" value="100"/>
+    <configurationValues name="PipeletID" value="LDAPRetrieve"/>
+    <configurationValues name="SearchFilter" value="(objectclass=*)"/>
+    <configurationValues name="UIDescription" value="LDAPRetrieve"/>
+    <configurationValues name="Validator.Class" value="com.intershop.beehive.core.internal.user.impex.ElementValidatorUser"/>
+    <pipelet href="enfinity:/core/pipelets/LDAPRetrieve.xml"/>
+    <nodeSuccessors name="next" next="SQLLDRRun1"/>
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SQLLDRRun1">
+    <configurationValues name="DataSourceSpec" value="beehive:comp/env/jdbc/core/defaultDB"/>
+    <configurationValues name="DrainID" value="drain"/>
+    <configurationValues name="PipeletID" value="SQLLDRRun"/>
+    <configurationValues name="UIDescription" value="SQLLDRRun"/>
+    <pipelet href="enfinity:/core/pipelets/SQLLDRRun.xml"/>
+    <nodeSuccessors name="next" next="SQLLDRFinish1"/>
+<!--@BendPoints 3,17-->
+    <nodeSuccessors name="pipelet_error" next="Join9"/>
+  </nodes>
+<!--@Location 0,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SQLLDRFinish1">
+    <configurationValues name="DrainID" value="drain"/>
+    <configurationValues name="DumpFiles.Delete" value="false"/>
+    <configurationValues name="LogFiles.Delete" value="false"/>
+    <configurationValues name="PipeletID" value="SQLLDRFinish"/>
+    <configurationValues name="ScriptFiles.Delete" value="false"/>
+    <configurationValues name="UIDescription" value="SQLLDRFinish"/>
+    <pipelet href="enfinity:/core/pipelets/SQLLDRFinish.xml"/>
+    <nodeSuccessors name="next" next="Join10"/>
+    <nodeSuccessors name="pipelet_error" next="Join9"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join10">
+    <nodeSuccessors name="next" next="RefreshCache1"/>
+  </nodes>
+<!--@Location 0,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshCache1">
+    <configurationValues name="PersistentClassName_0" value="com.intershop.beehive.core.internal.profile.BasicCredentialsPO"/>
+    <configurationValues name="PersistentClassName_1" value="com.intershop.beehive.core.internal.profile.BasicProfilePO"/>
+    <configurationValues name="PersistentClassName_2" value="com.intershop.beehive.core.internal.profile.BasicAddressPO"/>
+    <configurationValues name="PersistentClassName_3" value="com.intershop.beehive.core.internal.user.UserGroupUserAssignmentPO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 0,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+    <nodeSuccessors name="next" next="UnlockImport1"/>
+  </nodes>
+<!--@Location 0,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UnlockImport1">
+    <configurationValues name="PipeletID" value="UnlockImport"/>
+    <configurationValues name="UIDescription" value="UnlockImport"/>
+    <pipelet href="enfinity:/core/pipelets/UnlockImport.xml"/>
+    <nodeSuccessors name="next" next="Join2"/>
+<!--@BendPoints 2,27 2,29-->
+    <nodeSuccessors name="pipelet_error" next="Join2"/>
+  </nodes>
+<!--@Location 0,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="CloseLoggers2"/>
+  </nodes>
+<!--@Location 0,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CloseLoggers2">
+    <configurationValues name="PipeletID" value="CloseLoggers"/>
+    <configurationValues name="UIDescription" value="CloseLoggers"/>
+    <pipelet href="enfinity:/core/pipelets/CloseLoggers.xml"/>
+    <nodeSuccessors name="next" next="End7"/>
+    <nodeSuccessors name="pipelet_error" next="End2"/>
+  </nodes>
+<!--@Location 0,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End7"/>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join9">
+<!--@BendPoints 3,21-->
+    <nodeSuccessors name="next" next="Join10"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+<!--@BendPoints 5,25-->
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump1">
+    <startNode referencedName="UserLDAPImport-Error"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5"/>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+</pipeline:Pipeline>

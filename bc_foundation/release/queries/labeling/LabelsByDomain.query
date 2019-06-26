@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="SortOrder" type="java.lang.String" optional="true"/>
+	<parameter name="SortByDisplayName" type="java.lang.String" optional="true"/>
+	<parameter name="SortByUserName" type="java.lang.String" optional="true"/>
+	<parameter name="SortByName" type="java.lang.String" optional="true"/>
+	<parameter name="LocaleId" type="java.lang.String" optional="true"/>
+	<parameter name="ExcludeLabels" type="java.util.Collection" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Label" type="orm" class="com.intershop.component.foundation.capi.labeling.LabelPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+	select uuid, count(uuid) over() as "ROWCOUNT" 
+	from 
+	(
+	select l.uuid
+	 <template-if condition="isDefined(SortByDisplayName)">
+	 	, lav.stringvalue as sorting
+	 <if-elseif condition="isDefined(SortByUserName)"/>
+		, concat(bp.lastname, bp.firstname) AS sorting
+	<if-else/>
+		, l.name as sorting
+	</template-if>
+	from label l 
+	<template-if condition="isDefined(SortByDisplayName)">
+		, label_av lav 
+  	<if-elseif condition="isDefined(SortByUserName)"/>
+		, basicprofile bp 
+	</template-if>
+	where l.domainid = <template-variable value="Domain:UUID"/>
+	<template-if condition="isDefined(ExcludeLabels) AND hasElements(ExcludeLabels)">
+		AND l.uuid NOT IN (
+		<template-loop alias="ExcludeLabel" iterator="ExcludeLabels">
+			<loop-statement><template-variable value="ExcludeLabel"/></loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>
+		) 
+	</template-if>
+	<template-if condition="isDefined(SortByDisplayName)">
+		and l.uuid = lav.ownerid
+		and lav.name = 'displayName'
+		and lav.localeid = <template-variable value="LocaleId"/>
+	<if-elseif condition="isDefined(SortByUserName)"/>
+		and bp.uuid = l.userid
+	</template-if>
+	) l
+	order by sorting
+	<template-if condition="isDefined(SortOrder)">	
+		<template-variable value="SortOrder" processing="text"/>
+	<if-else/>
+		asc
+	</template-if>
+</template>
+</query>

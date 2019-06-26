@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets entries for table PRICESCALEATBLE for the provided shared Product.">
+<parameters>
+	<parameter name="Product" type="com.intershop.beehive.xcs.capi.product.Product" optional="false"/>
+	<parameter name="DomainID" type="java.lang.String" optional="false" description="The Product domain ID (since the Product could reside in the RecycleBin, the actual products domain is requred)"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="PriceScaleTable" type="orm" class="com.intershop.component.pricing.internal.scale.PriceScaleTablePO">
+        <return-attribute name="UUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+SELECT psc.UUID, count(*) over() AS "rowcount"  FROM
+    pricescaletable psc
+WHERE 
+    psc.UUID IN (
+                SELECT psta.pricescaletableuuid 
+                FROM pricescaletableassignment psta 
+                	 INNER JOIN product p ON psta.productuuid = p.uuid
+                WHERE
+                	 p.uuid = <template-variable value="Product:UUID"/>
+                	 AND psta.domainid IN (
+                	 					SELECT DISTINCT psda.domainid
+                	 					FROM productsetdomainassignment psda
+                	 					INNER JOIN productset ps ON psda.productsetuuid = ps.UUID
+                	 					WHERE ps.domainid = <template-variable value="DomainID"/>
+                	 					AND (
+                	 						ps.allflag = 1 OR
+                	 						EXISTS(SELECT 1 FROM productsetassignment psa 
+                	 						       WHERE psa.productsetuuid = ps.UUID 
+                	 						       AND psa.productuuid = <template-variable value="Product:UUID"/>)
+                	 						)
+                	 					)
+                )
+</template>
+</query>

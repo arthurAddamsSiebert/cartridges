@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--PromotionCode handling ...
+@Group Rebate-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessPromotionCodeForBasket" overrideMode="Inherit" type="process">
+<!--TODO Pipeline rework:
+* Still retrieves CurrentSession.
+* needs Application
+Must be handed in via parameter!
+@Location 12,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--Promotion Code handling
+@Location 1,12-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--Promotion Code from 
+Code Group handling
+@Location 6,12-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2"/>
+<!--TODO Pipeline rework:
+* Still retrieves CurrentSession.
+* needs Application
+Must be handed in via parameter!
+@Location 3,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text3"/>
+<!--TODO Pipeline rework:
+GetPromoCode:
+* Still retrieves Application
+Must be handed in via parameter!
+@Location 0,7-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text4"/>
+<!--@deprecated: Since 7.9
+Not used anymore
+@Location 2,12-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="AssignOrderToPromotion"
+      callMode="Private">
+<!--@BendPoints 5,26-->
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <parameters name="AppliedRebateBOs" type="java.util.Collection&lt;com.intershop.component.promotion.capi.AppliedRebateBO>"/>
+    <parameters name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="AppliedRebateBOs">
+<!--@BendPoints 6,27 6,31 5,31-->
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <entry key="AppliedRebateBO">
+<!--@BendPoints 5,28-->
+      <nodeSuccessors name="loop_entry_next" next="AddOrderToPromotion0"/>
+    </entry>
+  </nodes>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddOrderToPromotion0">
+    <pipelet href="enfinity:/bc_marketing/pipelets/AddOrderToPromotion.xml"/>
+<!--@BendPoints 5,30 4,30 4,27-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <parameterBindings name="PromotionBO" objectPath="AppliedRebateBO:RebateBO:PromotionBO"/>
+  </nodes>
+<!--@Location 2,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--@deprecated: Since 7.9
+Not used anymore
+@Location 7,12-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="AssignOrderToPromotionCode"
+      callMode="Private">
+    <nodeSuccessors name="next" next="AddOrderToPromotionCode0"/>
+    <parameters name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"/>
+    <parameters name="PromotionCode" type="com.intershop.component.marketing.capi.code.PromotionCode"/>
+    <parameters name="CurrentUserUserGroups" type="java.util.Iterator"/>
+<!--Prevent statistics from being updated.-->
+    <parameters name="SoftAssign" type="java.lang.Boolean" optional="true"/>
+  </nodes>
+<!--@Location 7,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddOrderToPromotionCode0">
+    <pipelet href="enfinity:/bc_marketing/pipelets/AddOrderToPromotionCode.xml"/>
+<!--@BendPoints 15,28-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 7,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@deprecated since 7.9 
+Use BO layer to redeem
+a PromotionCode or use this
+pipeline branch "RedeemPromotionCodes"
+This node is not called anymore
+@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="OnCreateOrder"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"/>
+    <parameters name="CurrentUserUserGroups" type="java.util.Iterator"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--When assigning this parameter prevents statistics from being updated.-->
+    <parameters name="SoftAssign" type="java.lang.Boolean" optional="true"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="CurrentSession:getObject(&quot;T_StorefrontEditingContext&quot;)"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="GetDomainPreference0"/>
+<!--@BendPoints 10,3 10,21-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference0">
+    <configurationValues name="DefaultPreferenceKey" value="PriceType"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Organization:OwningDomain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="PriceType"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Extension(&quot;Order&quot;):getOrderBORepository(Order)"/>
+    <returnValueBindings name="OutValue_1" objectPath="OrderBORepository"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <startNode referencedName="ProcessOrders-GetOrderBO"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="OrderBO:Extension(&quot;AppliedRebate&quot;):AssignedCouponCodes">
+<!--@BendPoints 9,13 9,20 5,20-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <entry key="Code">
+<!--@BendPoints 5,14-->
+      <nodeSuccessors name="loop_entry_next" next="GetPromotionCodeByCode0"/>
+    </entry>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPromotionCodeByCode0">
+    <pipelet href="enfinity:/bc_marketing/pipelets/GetPromotionCodeByCode.xml"/>
+<!--@BendPoints 5,16-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+<!--@BendPoints 7,15 7,16-->
+    <nodeSuccessors name="pipelet_error" next="CallNode2"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <startNode referencedName="ProcessPromotionCodeForBasket-AssignOrderToPromotionCode"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 3,19 3,13-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 7,19-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="AppliedRebateBOs" objectPath="OrderBO:Extension(&quot;AppliedRebate&quot;):AppliedPromotions(Code)"/>
+    <startNode referencedName="ProcessPromotionCodeForBasket-AssignOrderToPromotion"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 5,22-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@displayNearNode@Check if promotion have assigned user groups or users.
+@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="PromotionTargetGroupsEmpty"
+      callMode="Private">
+<!--@BendPoints 15,2-->
+    <nodeSuccessors name="next" next="GetPromotionTargetGroupUserGroups0"/>
+    <parameters name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPromotionTargetGroupUserGroups0">
+    <pipelet href="enfinity:/bc_marketing/pipelets/GetPromotionTargetGroupUserGroups.xml"/>
+<!--@BendPoints 15,4-->
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="UserGroups"
+      operator="has_elements">
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+<!--@BendPoints 17,5 17,6-->
+    <nodeSuccessors name="decision_no" next="ExecuteCountQuery0"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 15,12-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCountQuery0">
+    <configurationValues name="ParameterName_01" value="DomainID"/>
+    <configurationValues name="ParameterName_02" value="PromotionUUID"/>
+    <configurationValues name="ParameterName_03" value="TargetGroupID"/>
+    <configurationValues name="QueryName" value="promotion/CountPromotionTargetGroupUsers"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCountQuery.xml"/>
+<!--@BendPoints 17,8-->
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+<!--@BendPoints 19,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Promotion:TargetGroup:DomainID"/>
+    <parameterBindings name="ParameterValue_02" objectPath="Promotion:UUID"/>
+    <parameterBindings name="ParameterValue_03" objectPath="Promotion:TargetGroup:ID"/>
+    <returnValueBindings name="Count" objectPath="UserCount"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="UserCount"
+      operator="str_neq" conditionValue="0">
+<!--@BendPoints 17,11-->
+    <nodeSuccessors name="decision_yes" next="JoinNode2"/>
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 19,12-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="ERROR" strict="true"/>
+<!--@Location 16,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_wIAeMDzSEeelPKZTm8sekA" strict="true"
+      name="RedeemPromotionCodes" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode_wH5JcDzSEeelPKZTm8sekA"/>
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+    <parameters name="BasketBO" type="com.intershop.component.basket.capi.BasketBO"/>
+  </nodes>
+<!--@Location 16,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode_wH5JcDzSEeelPKZTm8sekA"
+      conditionKey="CurrentSession:getObject(&quot;T_StorefrontEditingContext&quot;)"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="LoopNode_wH0Q8DzSEeelPKZTm8sekA"/>
+<!--@BendPoints 36,3 36,11-->
+    <nodeSuccessors name="decision_no" next="JoinNode_wIEvoDzSEeelPKZTm8sekA"/>
+  </nodes>
+<!--@Location 16,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode_wH0Q8DzSEeelPKZTm8sekA" loop="OrderBO:Extension(&quot;AppliedRebate&quot;):AssignedCouponCodes">
+<!--@BendPoints 35,5 35,10 33,10-->
+    <nodeSuccessors name="next" next="JoinNode_wIEvoDzSEeelPKZTm8sekA"/>
+    <entry key="Code">
+      <nodeSuccessors name="loop_entry_next" next="RedeemPromotionCode_KOMj8DzTEeelPKZTm8sekA"/>
+    </entry>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RedeemPromotionCode_KOMj8DzTEeelPKZTm8sekA">
+    <pipelet href="enfinity:/bc_order/pipelets/RedeemPromotionCode.xml"/>
+<!--@BendPoints 33,9 32,9 32,5-->
+    <nodeSuccessors name="next" next="LoopNode_wH0Q8DzSEeelPKZTm8sekA_Entry"/>
+    <parameterBindings name="PromotionCode" objectPath="Code"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode_wIEvoDzSEeelPKZTm8sekA">
+<!--@BendPoints 33,12-->
+    <nodeSuccessors name="next" next="EndNode_wIEIkDzSEeelPKZTm8sekA"/>
+  </nodes>
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode_wIEIkDzSEeelPKZTm8sekA" strict="true"/>
+<!--@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="RemoveOrderAssignments"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"/>
+    <parameters name="CurrentUserUserGroups" type="java.util.Iterator"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="CurrentSession:getObject(&quot;T_StorefrontEditingContext&quot;)"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="GetDomainPreference1"/>
+<!--@BendPoints 28,3 28,21-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference1">
+    <configurationValues name="DefaultPreferenceKey" value="PriceType"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Organization:OwningDomain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="PriceType"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Extension(&quot;Order&quot;):getOrderBORepository(Order)"/>
+    <returnValueBindings name="OutValue_1" objectPath="OrderBORepository"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <startNode referencedName="ProcessOrders-GetOrderBO"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="OrderBO:Extension(&quot;AppliedRebate&quot;):AssignedCouponCodes">
+<!--@BendPoints 27,13 27,20 23,20-->
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <entry key="Code">
+<!--@BendPoints 23,14-->
+      <nodeSuccessors name="loop_entry_next" next="GetPromotionCodeByCode1"/>
+    </entry>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPromotionCodeByCode1">
+    <pipelet href="enfinity:/bc_marketing/pipelets/GetPromotionCodeByCode.xml"/>
+    <nodeSuccessors name="next" next="CallNode4"/>
+<!--@BendPoints 25,15-->
+    <nodeSuccessors name="pipelet_error" next="CallNode5"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <startNode referencedName="ProcessPromotionCodeForBasket-RemoveOrderFromPromotionCode"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 21,19 21,13-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 12,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+<!--@BendPoints 25,19-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="AppliedRebateBOs" objectPath="OrderBO:Extension(&quot;AppliedRebate&quot;):AppliedPromotions(Code)"/>
+    <startNode referencedName="ProcessPromotionCodeForBasket-RemoveOrderFromPromotion"/>
+  </nodes>
+<!--@Location 11,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 23,22-->
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 11,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--@deprecated: Since 7.9
+Not used anymore
+@Location 4,12-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="RemoveOrderFromPromotion"
+      callMode="Private">
+<!--@BendPoints 9,26-->
+    <nodeSuccessors name="next" next="LoopNode3"/>
+    <parameters name="AppliedRebateBOs" type="java.util.Collection&lt;com.intershop.component.promotion.capi.AppliedRebateBO>"/>
+    <parameters name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="AppliedRebateBOs">
+<!--@BendPoints 10,27 10,31 9,31-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+    <entry key="AppliedRebateBO">
+      <nodeSuccessors name="loop_entry_next" next="RemoveOrderFromPromotion0"/>
+    </entry>
+  </nodes>
+<!--@Location 4,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveOrderFromPromotion0">
+    <pipelet href="enfinity:/bc_marketing/pipelets/RemoveOrderFromPromotion.xml"/>
+<!--@BendPoints 9,30 8,30 8,27-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+    <parameterBindings name="PromotionBO" objectPath="AppliedRebateBO:RebateBO:PromotionBO"/>
+  </nodes>
+<!--@Location 4,16-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true"/>
+<!--@deprecated: Since 7.9
+Not used anymore
+@Location 9,12-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="RemoveOrderFromPromotionCode"
+      callMode="Private">
+    <nodeSuccessors name="next" next="RemoveOrderFromPromotionCode0"/>
+    <parameters name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"/>
+    <parameters name="PromotionCode" type="com.intershop.component.marketing.capi.code.PromotionCode"/>
+    <parameters name="CurrentUserUserGroups" type="java.util.Iterator"/>
+  </nodes>
+<!--@Location 9,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveOrderFromPromotionCode0">
+    <pipelet href="enfinity:/bc_marketing/pipelets/RemoveOrderFromPromotionCode.xml"/>
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 9,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true"/>
+</pipeline:Pipeline>

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="OrderDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="ContractBase" type="com.intershop.component.contract.capi.ContractBaseBO" optional="false"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true" description="the attribute to sort the result set"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true" description="sort the result set in ascending or descending order"/>	
+	<parameter name="Limit" type="java.lang.Integer" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Count" type="rename">
+		<return-attribute name="count"/>
+	</return-mapping>
+	<return-mapping name="OrderBO" type="bo-orm" class="com.intershop.beehive.bts.internal.orderprocess.fulfillment.OrderPO" mapperclass="OrderPOToOrderBOMapper">
+		<return-attribute name="OrderUUID" />
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="count">
+	SELECT DISTINCT COUNT(*) as count
+	FROM isorder o, contractrevenueassignment cra
+	WHERE 
+	    cra.orderUUID=o.uuid
+	AND 
+	    cra.contractBaseUUID=<template-variable value="ContractBase:ID"/>
+	AND 
+	    o.DomainID=<template-variable value="OrderDomain:UUID"/>
+</template>
+<template type="countedobjects">
+	<sql-dialect name="Microsoft">
+        SELECT OrderUUID, COUNT(*) over() AS "rowcount", SORTING FROM(
+	</sql-dialect>
+	SELECT DISTINCT o.uuid as OrderUUID, 
+		<sql-dialect name="Oracle">
+			COUNT(*) over() AS "rowcount", 
+		</sql-dialect>
+			<template-call name="contract/inc/SearchOrdersSorting">
+				<call-parameter name="OrderAlias" value="'o'"/>
+				<call-parameter name="ContractRevenueAssignmentAlias" value="'cra'"/>
+				<call-parameter name="SortAttribute" value="SortAttribute"/>
+			</template-call> AS SORTING
+	FROM isorder o, contractrevenueassignment cra
+	WHERE 
+		cra.orderUUID=o.uuid
+	AND
+		cra.contractBaseUUID=<template-variable value="ContractBase:ID"/>
+	AND 
+		o.DomainID=<template-variable value="OrderDomain:UUID"/>
+	<sql-dialect name="Microsoft">
+	   ) abc
+	</sql-dialect>
+	<template-variable value="orderBy('SORTING',direction(SortDirection),if(isAscending(SortDirection),nullsLast(),nullsFirst()))" processing="text"/>
+</template>
+<template type="objects">	
+	<sql-dialect name="Microsoft">
+	   SELECT * FROM (
+    </sql-dialect>
+	<sql-dialect name="Oracle"> 
+		<template-if condition="isDefined(Limit)">
+			SELECT * FROM (
+		</template-if>
+    </sql-dialect>
+	SELECT DISTINCT o.uuid as OrderUUID,
+            <template-call name="contract/inc/SearchOrdersSorting">
+                <call-parameter name="OrderAlias" value="'o'"/>
+                <call-parameter name="ContractRevenueAssignmentAlias" value="'cra'"/>
+                <call-parameter name="SortAttribute" value="SortAttribute"/>
+            </template-call> AS SORTING
+	<template-if condition="isDefined(Limit)">
+	    , ROW_NUMBER() OVER(
+	        <sql-dialect name="Oracle">
+                ORDER BY 
+                <template-call name="contract/inc/SearchOrdersSorting">
+                    <call-parameter name="OrderAlias" value="'o'"/>
+                    <call-parameter name="ContractRevenueAssignmentAlias" value="'cra'"/>
+                    <call-parameter name="SortAttribute" value="SortAttribute"/>
+                </template-call> 
+                <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+                    DESC NULLS FIRST
+                    <if-else/>
+                    ASC NULLS LAST  
+                </template-if>
+            </sql-dialect>
+            <sql-dialect name="Microsoft">
+                ORDER BY CASE WHEN 
+                <template-call name="contract/inc/SearchOrdersSorting">
+                    <call-parameter name="OrderAlias" value="'o'"/>
+                    <call-parameter name="ContractRevenueAssignmentAlias" value="'cra'"/>
+                    <call-parameter name="SortAttribute" value="SortAttribute"/>
+                </template-call> IS NULL THEN 0 ELSE 1 END
+                <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+                    ASC, 
+                    <template-call name="contract/inc/SearchOrdersSorting">
+                        <call-parameter name="OrderAlias" value="'o'"/>
+                        <call-parameter name="ContractRevenueAssignmentAlias" value="'cra'"/>
+                        <call-parameter name="SortAttribute" value="SortAttribute"/>
+                    </template-call> DESC
+                    <if-else/>
+                    DESC, 
+                    <template-call name="contract/inc/SearchOrdersSorting">
+                        <call-parameter name="OrderAlias" value="'o'"/>
+                        <call-parameter name="ContractRevenueAssignmentAlias" value="'cra'"/>
+                        <call-parameter name="SortAttribute" value="SortAttribute"/>
+                    </template-call> ASC
+                </template-if>
+            </sql-dialect>) AS "ROWNUMBER"
+    </template-if>	   
+	FROM isorder o, contractrevenueassignment cra
+	WHERE 
+	    cra.orderUUID=o.uuid
+	AND
+	    cra.contractBaseUUID=<template-variable value="ContractBase:ID"/>
+	AND 
+	    o.DomainID=<template-variable value="OrderDomain:UUID"/>	
+	<sql-dialect name="Oracle">
+	    <template-variable value="orderBy('SORTING',direction(SortDirection),if(isAscending(SortDirection),nullsLast(),nullsFirst()))" processing="text"/>
+	    <template-if condition="isDefined(Limit)">
+            ) WHERE ROWNUMBER &lt;= <template-variable value="Limit"/>
+        </template-if>
+	</sql-dialect>	
+	<sql-dialect name="Microsoft">
+        ) abc	   
+        <template-if condition="isDefined(Limit)">
+            WHERE ROWNUMBER &lt;= <template-variable value="Limit"/>
+        </template-if>
+        <template-variable value="orderBy('SORTING',direction(SortDirection),if(isAscending(SortDirection),nullsLast(),nullsFirst()))" processing="text"/>
+	</sql-dialect>
+</template>
+</query>

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Query to retrieve orders for export.">
+    <parameters>
+        <parameter name="OrderDomains" type="java.util.Collection" optional="true"/>
+        <parameter name="DocumentNos" type="java.util.Collection" optional="true"/>
+        <parameter name="LoginName" type="java.lang.String" optional="true"/>
+        <parameter name="CreationDateFrom" type="java.util.Date" optional="true"/>
+        <parameter name="CreationDateTo" type="java.util.Date" optional="true"/>
+        <parameter name="TotalAmountFrom" type="com.intershop.beehive.foundation.quantity.Money" optional="true"/>
+        <parameter name="TotalAmountTo" type="com.intershop.beehive.foundation.quantity.Money" optional="true"/>
+        <parameter name="OrderStatuses" type="java.util.Collection" optional="true"/>
+        <parameter name="PaymentStatuses" type="java.util.Collection" optional="true"/>
+        <parameter name="ShippingStatuses" type="java.util.Collection" optional="true"/>
+        <parameter name="CustomerTypes" type="java.util.Collection" optional="true"/>
+        <parameter name="CustomerNo" type="java.util.Collection" optional="true"/>
+        <parameter name="PLIStatuses" type="java.util.Collection" optional="true"/>
+        <parameter name="PLIStatuses2" type="java.util.Collection" optional="true"/>
+        <parameter name="SKUs" type="java.util.Collection" optional="true"/>
+        <parameter name="PaymentTransactionStatuses" type="java.util.Collection" optional="true"/>
+    </parameters>
+    <return-mappings>
+        <return-mapping name="Order" type="orm" class="com.intershop.beehive.bts.internal.orderprocess.fulfillment.OrderPO">
+            <return-attribute name="UUID"/>
+        </return-mapping>
+    </return-mappings>
+
+    <processor name="OracleSQL">
+    </processor>
+    <template type="countedobjects">
+        SELECT 
+            o.uuid, 
+            o.creationdate,
+            o.documentno,
+            COUNT(*) OVER() AS "ROWCOUNT" 
+        FROM isorder o
+        WHERE 1=1
+        <template-if condition="isDefined(OrderDomains) AND hasElements(OrderDomains)">
+            AND o.domainid IN 
+            (
+                <template-loop iterator="OrderDomains" alias="OrderDomain">
+                    <loop-statement><template-variable value="OrderDomain:UUID"/></loop-statement>
+                    <loop-separator>,</loop-separator>
+                </template-loop>
+            )
+        </template-if>
+        <template-if condition="isDefined(DocumentNos) AND hasElements(DocumentNos)">
+            AND o.documentno in (
+               <template-loop iterator="DocumentNos" alias="DocumentNo">
+                    <loop-statement><template-variable value="DocumentNo"/></loop-statement>
+                    <loop-separator>,</loop-separator>
+                </template-loop>
+            )  
+        </template-if>
+        <template-if condition="isDefined(LoginName) AND (LoginName NE '')">
+            AND EXISTS (SELECT * FROM basiccredentials bc WHERE (bc.basicprofileid = o.userid) AND (bc.login = <template-variable value="LoginName"/>) )
+        </template-if>
+        <template-if condition="isDefined(CreationDateFrom)">
+            AND o.creationdate &gt;= <template-variable value="CreationDateFrom" />
+        </template-if>
+        <template-if condition="isDefined(CreationDateTo)">
+            AND o.creationdate &lt; <template-variable value="CreationDateTo" />
+        </template-if>
+        <template-if condition="isDefined(TotalAmountFrom) AND TotalAmountFrom:Available">
+            AND o.grandtotalgrosspricepcvalue &gt;= <template-variable value="TotalAmountFrom:Value" />
+            AND o.grandtotalgrosspricepccode = <template-variable value="TotalAmountFrom:CurrencyMnemonic" />
+        </template-if>
+        <template-if condition="isDefined(TotalAmountTo) AND TotalAmountTo:Available">
+            AND o.grandtotalgrosspricepcvalue &lt;= <template-variable value="TotalAmountTo:Value" />
+            AND o.grandtotalgrosspricepccode = <template-variable value="TotalAmountTo:CurrencyMnemonic" />
+        </template-if>
+        <template-if condition="isDefined(OrderStatuses) AND hasElements(OrderStatuses)">
+            AND o.status in (
+               <template-loop iterator="OrderStatuses" alias="s">
+                    <loop-statement><template-variable value="s"/></loop-statement>
+                    <loop-separator>,</loop-separator>
+                </template-loop>
+            )  
+        </template-if>
+        <template-if condition="isDefined(PaymentStatuses) AND hasElements(PaymentStatuses)">
+            AND o.paymentstatus in (
+               <template-loop iterator="PaymentStatuses" alias="s">
+                    <loop-statement><template-variable value="s"/></loop-statement>
+                    <loop-separator>,</loop-separator>
+                </template-loop>
+            )  
+        </template-if>
+        <template-if condition="isDefined(ShippingStatuses) AND hasElements(ShippingStatuses)">
+            AND o.shippingstatus in (
+               <template-loop iterator="ShippingStatuses" alias="s">
+                    <loop-statement><template-variable value="s"/></loop-statement>
+                    <loop-separator>,</loop-separator>
+                </template-loop>
+            )  
+        </template-if>
+        <template-if condition="isDefined(CustomerTypes) AND hasElements(CustomerTypes)">
+            AND o.customertypeid in (
+               <template-loop iterator="CustomerTypes" alias="s">
+                    <loop-statement><template-variable value="s"/></loop-statement>
+                    <loop-separator>,</loop-separator>
+                </template-loop>
+            )  
+        </template-if>
+
+        <template-if condition="isDefined(CustomerNo) AND hasElements(CustomerNo)">
+            AND EXISTS (SELECT * FROM customer c WHERE c.uuid = o.customerid
+            AND ( c.customerno in (
+                   <template-loop iterator="CustomerNo" alias="s">
+                        <loop-statement><template-variable value="s"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>)  
+
+            ) )
+        </template-if>
+
+        <template-if condition="(isDefined(PLIStatuses) AND hasElements(PLIStatuses)) OR (isDefined(PLIStatuses2) AND hasElements(PLIStatuses2))">
+            AND EXISTS (SELECT * FROM productlineitem pli WHERE pli.lineitemctnrid = o.uuid  
+            AND ( 1=2
+            <template-if condition="isDefined(PLIStatuses) AND hasElements(PLIStatuses)">
+                OR pli.status in (
+                   <template-loop iterator="PLIStatuses" alias="s">
+                        <loop-statement><template-variable value="s"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>
+                )  
+            </template-if>
+            <template-if condition="isDefined(PLIStatuses2) AND hasElements(PLIStatuses2)">
+                OR pli.status2 in (
+                   <template-loop iterator="PLIStatuses2" alias="s">
+                        <loop-statement><template-variable value="s"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>
+                )  
+            </template-if>
+            ) )
+        </template-if>
+        <template-if condition="(isDefined(SKUs) AND hasElements(SKUs)))">
+            AND EXISTS (SELECT * FROM productlineitem pli WHERE pli.lineitemctnrid = o.uuid
+            AND ( 1=2
+            <template-if condition="isDefined(SKUs) AND hasElements(SKUs)">
+                OR pli.offerproductrefproductsku in (
+                   <template-loop iterator="SKUs" alias="s">
+                        <loop-statement><template-variable value="s"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>
+                )  
+            </template-if>
+           ) )
+        </template-if>
+        <template-if condition="isDefined(PaymentTransactionStatuses) AND hasElements(PaymentTransactionStatuses)">
+            AND EXISTS (SELECT * FROM paymenttransaction pt WHERE pt.orderid = o.uuid  
+                AND pt.status in (
+                   <template-loop iterator="PaymentTransactionStatuses" alias="s">
+                        <loop-statement><template-variable value="s"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>
+                )  
+            )
+        </template-if>
+        ORDER BY o.creationdate ASC, o.documentno ASC  
+    </template>
+</query>

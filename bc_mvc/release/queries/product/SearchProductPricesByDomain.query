@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="AllWarrantyTypes" type="java.lang.Boolean" optional="true"/>
+	<parameter name="FallbackCurrencyPercentagePrices" type="java.lang.String" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+	<processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+<template-if condition="Sharing:Enabled">
+	SELECT productid, currency, value
+    FROM derivedproductlistprice 
+    WHERE domainid = <template-variable value="ProductDomain:UUID"/> 
+    UNION ALL 
+    SELECT productid, currency, value
+    FROM productlistprice pl
+    WHERE NOT EXISTS (SELECT 1 FROM derivedproductlistprice  dpl
+			          WHERE dpl.productid = pl.productid
+			          AND dpl.domainid = <template-variable value="ProductDomain:UUID"/>
+			          AND dpl.currency = pl.currency)
+    UNION ALL 
+    (	SELECT shared_warranty.baseproductid as productid, 
+	          <template-if condition="isDefined(AllWarrantyTypes) AND (AllWarrantyTypes) AND isDefined(FallbackCurrencyPercentagePrices)">
+				CASE 
+			<sql-dialect name="Microsoft">
+			     WHEN  shared_warranty.attributes.exist('//attrs/attr[@name=''WarrantyPriceProvider'']/string [contains(., ''WarrantyPriceProvider.Percentage'')]') >0 
+			</sql-dialect>
+			<sql-dialect name="Oracle">
+		        WHEN contains(shared_warranty.attributes, '(WarrantyPriceProvider.Percentage) INPATH (/attrs/attr[@name="WarrantyPriceProvider"]/string)')>0 
+			</sql-dialect>
+		
+		
+		        THEN <template-variable value="FallbackCurrencyPercentagePrices"/>
+		        ELSE p_entry.singlebasepricecode 
+		        END 
+		        as currency, 
+		    <if-else/>
+		    	p_entry.singlebasepricecode as currency, 
+			</template-if>
+          p_entry.singlebasepricevalue as value 
+        FROM derivedproduct shared_warranty, pricescaletableassignment pst_assignment, pricescaleentry p_entry, pricelist p_list
+          WHERE shared_warranty.domainid = <template-variable value="ProductDomain:UUID"/>
+          <template-if condition="isDefined(AllWarrantyTypes) AND (AllWarrantyTypes)">
+				<sql-dialect name="Microsoft">
+					AND shared_warranty.attributes.exist('//attrs/attr[@name=''WarrantyPriceProvider'']/string ') >0 
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+	          		AND contains(shared_warranty.attributes, 'HASPATH (/attrs/attr[@name="WarrantyPriceProvider"]/string)')>0
+				</sql-dialect>		
+      <if-else/>
+				<sql-dialect name="Microsoft">
+					AND  shared_warranty.attributes.exist('//attrs/attr[@name=''WarrantyPriceProvider'']/string [contains(., ''WarrantyPriceProvider.FixedPrice'')]') >0 
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+					AND contains(shared_warranty.attributes, '(WarrantyPriceProvider.FixedPrice) INPATH (/attrs/attr[@name="WarrantyPriceProvider"]/string)')>0
+				</sql-dialect>
+          </template-if>
+          AND shared_warranty.baseproductid = pst_assignment.productuuid
+          AND pst_assignment.domainid = <template-variable value="ProductDomain:UUID"/> 
+          AND pst_assignment.pricescaletableuuid = p_entry.pricescaletableid
+          AND pst_assignment.pricelistuuid = p_list.uuid
+          AND p_list.domainid = pst_assignment.domainid 
+          AND p_list.pricetype='ES_WarrantyPrice'
+       UNION
+          SELECT warranty.uuid as productid,
+               	<template-if condition="isDefined(AllWarrantyTypes) AND (AllWarrantyTypes) AND isDefined(FallbackCurrencyPercentagePrices)">
+					CASE
+				<sql-dialect name="Microsoft">
+					WHEN  warranty.attributes.exist('//attrs/attr[@name=''WarrantyPriceProvider'']/string [contains(., ''WarrantyPriceProvider.Percentage'')]') >0 
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+				    WHEN contains(warranty.attributes, '(WarrantyPriceProvider.Percentage) INPATH (/attrs/attr[@name="WarrantyPriceProvider"]/string)')>0 
+				</sql-dialect>
+				
+			    
+			        THEN <template-variable value="FallbackCurrencyPercentagePrices"/>
+			        ELSE p_entry.singlebasepricecode 
+			        END 
+			        as currency, 
+			    <if-else/>
+			    	p_entry.singlebasepricecode as currency, 
+				</template-if>  
+                  p_entry.singlebasepricevalue as value 
+          FROM product warranty, pricescaletableassignment pst_assignment, pricescaleentry p_entry, pricelist p_list
+          WHERE warranty.domainid IN (<template-loop alias="Domain" iterator="Sharing:Domains"><loop-statement><template-variable value="Domain:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+          <template-if condition="isDefined(AllWarrantyTypes) AND (AllWarrantyTypes)">
+		  <sql-dialect name="Microsoft">
+					AND  warranty.attributes.exist('//attrs/attr[@name=''WarrantyPriceProvider'']/string ') >0 
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+					AND contains(warranty.attributes, 'HASPATH (/attrs/attr[@name="WarrantyPriceProvider"]/string)')>0
+				</sql-dialect>
+				
+	    	  
+		  <if-else/>
+		  <sql-dialect name="Microsoft">
+					AND   warranty.attributes.exist('//attrs/attr[@name=''WarrantyPriceProvider'']/string [contains(., ''WarrantyPriceProvider.FixedPrice'')]') >0 
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+				   AND contains(warranty.attributes, '(WarrantyPriceProvider.FixedPrice) INPATH (/attrs/attr[@name="WarrantyPriceProvider"]/string)')>0
+				</sql-dialect>
+				
+		  </template-if>
+          AND NOT EXISTS (SELECT 1 FROM derivedproduct der_pr 
+                          WHERE der_pr.baseproductid = warranty.uuid 
+                            AND der_pr.domainid = <template-variable value="ProductDomain:UUID"/>
+                            AND 
+				<sql-dialect name="Microsoft">
+					 der_pr.attributes.exist('//attrs/attr[@name=''WarrantyPriceProvider'']/string ') >0 
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+						contains(der_pr.attributes, 'HASPATH (/attrs/attr[@name="WarrantyPriceProvider"])')>0
+				</sql-dialect>
+						
+                        )
+          AND warranty.uuid = pst_assignment.productuuid
+          AND (pst_assignment.domainid = <template-variable value="ProductDomain:UUID"/> OR 
+          		(pst_assignment.domainid = warranty.domainid AND warranty.domainid &lt;&gt; <template-variable value="ProductDomain:UUID"/> 
+          			AND NOT EXISTS (SELECT 1 FROM pricescaletableassignment pst_a 
+          							WHERE pst_a.productuuid = warranty.uuid 
+          							AND pst_a.domainid = <template-variable value="ProductDomain:UUID"/>
+						            AND EXISTS (SELECT 1 FROM pricelist pr_list WHERE pr_list.uuid = pst_a.pricelistuuid AND pr_list.domainid = pst_a.domainid AND pr_list.pricetype='ES_WarrantyPrice'))
+          		)
+          	  )
+          AND pst_assignment.pricescaletableuuid = p_entry.pricescaletableid
+          AND pst_assignment.pricelistuuid = p_list.uuid
+          AND p_list.domainid = pst_assignment.domainid 
+          AND p_list.pricetype='ES_WarrantyPrice'
+    )
+<if-else/>
+	SELECT productid, currency, value FROM productlistprice 
+	UNION ALL
+	SELECT warranty.uuid as productid,
+		<template-if condition="isDefined(AllWarrantyTypes) AND (AllWarrantyTypes) AND isDefined(FallbackCurrencyPercentagePrices)">
+			CASE
+			 <sql-dialect name="Microsoft">
+					WHEN   warranty.attributes.exist('//attrs/attr[@name=''WarrantyPriceProvider'']/string [contains(., ''WarrantyPriceProvider.Percentage'')]') >0 
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+			WHEN contains(warranty.attributes, '(WarrantyPriceProvider.Percentage) INPATH (/attrs/attr[@name="WarrantyPriceProvider"]/string)')>0 
+				</sql-dialect>
+				
+	        
+	        THEN <template-variable value="FallbackCurrencyPercentagePrices"/>
+	        ELSE p_entry.singlebasepricecode 
+	        END 
+	        as currency, 
+	    <if-else/>
+	    	p_entry.singlebasepricecode as currency, 
+		</template-if>
+	        p_entry.singlebasepricevalue as value 
+	FROM PRICELIST p_list, PRICESCALETABLEASSIGNMENT pst_assignment, PRICESCALEENTRY p_entry, PRODUCT warranty
+	WHERE warranty.domainid = <template-variable value="ProductDomain:UUID"/>
+	<template-if condition="isDefined(AllWarrantyTypes) AND (AllWarrantyTypes)">
+	<sql-dialect name="Microsoft">
+					 AND warranty.attributes.exist('//attrs/attr[@name=''WarrantyPriceProvider'']/string ') >0 
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+		AND contains(warranty.attributes, 'HASPATH (/attrs/attr[@name="WarrantyPriceProvider"]/string)')>0
+				</sql-dialect>
+				
+				
+	    
+	<if-else/>
+		 <sql-dialect name="Microsoft">
+					AND    warranty.attributes.exist('//attrs/attr[@name=''WarrantyPriceProvider'']/string [contains(., ''WarrantyPriceProvider.FixedPrice'')]') >0 
+				</sql-dialect>
+				<sql-dialect name="Oracle">
+		AND contains(warranty.attributes, '(WarrantyPriceProvider.FixedPrice) INPATH (/attrs/attr[@name="WarrantyPriceProvider"]/string)')>0
+				</sql-dialect>
+				
+		
+	</template-if>
+	  	AND warranty.uuid = pst_assignment.productuuid
+	  	AND pst_assignment.domainid = <template-variable value="ProductDomain:UUID"/>
+	  	AND pst_assignment.pricescaletableuuid = p_entry.pricescaletableid
+	  	AND pst_assignment.pricelistuuid = p_list.uuid
+	  	AND p_list.domainid = <template-variable value="ProductDomain:UUID"/> 
+	  	AND p_list.pricetype='ES_WarrantyPrice'
+</template-if>
+</template>
+</query>

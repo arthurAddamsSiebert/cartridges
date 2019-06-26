@@ -1,0 +1,2122 @@
+/*
+ * Generates the source code for ORM classes
+ */
+
+«IMPORT edl»
+«EXTENSION util::EDLUtil»
+«EXTENSION org::eclipse::xtend::util::stdlib::properties»
+
+«DEFINE generateClasses FOR EDLModel»
+    «FOREACH eAllContents.typeSelect(EDLORMType) AS t»
+        «EXPAND generateClass FOR t»
+    «ENDFOREACH»
+«ENDDEFINE»
+
+«DEFINE generateClass FOR EDLORMType-»
+«FILE getClassName().replaceAll("\\.", "/") + ".java"-»
+«LET {} AS imports-»
+«EXPAND generateHeader FOR this-»
+package «getPackageName()»;
+
+//PREPAREIMPORTS «getPackageName()»
+//{{ imports
+// insert your imports here
+//}} imports
+
+/**
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ * @generated 
+ */
+public «modifiers.contains(EDLORMTypeModifier::abstract) ? "abstract" : ""» class «name.unescape()»
+«IF superClass != null-»
+    «imports.addImport(superClass.getClassName())-»
+    extends «superClass.getClassName().getShortName()»
+«ELSE-»
+    «imports.addImport("com.intershop.beehive.orm.capi.common.ORMObject")-»
+    extends ORMObject
+«ENDIF-»
+«IF interfaces.size > 0-»
+    implements
+    «FOREACH interfaces AS i SEPARATOR ", "-»
+        «imports.addImport(i.getClassName())-»
+        «i.getClassName().getShortName()»
+    «ENDFOREACH-»
+«ENDIF-»
+    //{{ parents
+    // insert your implemented interfaces here
+    //}} parents
+{
+«REM»
+    ------------------------------------------------------------------------
+                                ORM Accessor Variables
+    ------------------------------------------------------------------------
+«ENDREM»
+    «EXPAND generateORMAccessors(imports) FOR this-»
+«REM»
+    ------------------------------------------------------------------------
+                              Standard lifecycle methods
+    ------------------------------------------------------------------------
+«ENDREM»
+«EXPAND generateConstructor(imports) FOR this-»
+«REM»
+    ------------------------------------------------------------------------
+                                AttributeValue methods
+    ------------------------------------------------------------------------
+«ENDREM»
+«REM»
+    ------------------------------------------------------------------------
+                               RoleAssignment methods
+    ------------------------------------------------------------------------
+«ENDREM»
+«IF isImplementor("com.intershop.beehive.core.capi.security.RoleAssignment")-»
+    «EXPAND generateRAMethods(imports) FOR this-»
+«ENDIF-»
+«REM»
+    ------------------------------------------------------------------------
+                             Attribute accessor methods
+    ------------------------------------------------------------------------
+«ENDREM»
+«FOREACH getAttributes() AS att-»
+    «IF att.isForeignKey()-»
+        «EXPAND generateGetAttribute(imports) FOR att-»        
+        «IF !att.modifiers.contains(EDLORMAttributeModifier::required) && !att.isPrimaryKey()-»
+            «EXPAND generateGetForeignKeyAttributeNull(imports) FOR att-»
+        «ENDIF-»        
+    «ELSEIF att.modifiers.contains(EDLORMAttributeModifier::localized)-»
+        «EXPAND generateGetLEOA(imports) FOR att-»
+        «EXPAND generateGetLEOALocale(imports) FOR att-»
+        «EXPAND generateSetLEOALocale(imports) FOR att-»
+    «ELSEIF att.modifiers.contains(EDLORMAttributeModifier::mapped)-»
+        «EXPAND generateGetEOA(imports) FOR att-»
+        «EXPAND generateSetEOA(imports) FOR att-»
+    «ELSEIF att.modifiers.contains(EDLORMAttributeModifier::replicated)-»
+        «EXPAND generateGetREOA(imports) FOR att-»
+        «IF !att.modifiers.contains(EDLORMAttributeModifier::readonly) && !att.isPrimaryKey()-»
+            «EXPAND generateSetREOA(imports) FOR att-»
+        «ENDIF-»
+        «EXPAND generateGetREOANull(imports) FOR att-»
+        «IF !att.modifiers.contains(EDLORMAttributeModifier::readonly) && !att.isPrimaryKey() && 
+            !att.modifiers.contains(EDLORMAttributeModifier::required)-»
+            «EXPAND generateSetREOANull(imports) FOR att-»
+        «ENDIF-»    
+    «ELSE-»
+        «IF att.type.getClassName() == "boolean"-»
+            «EXPAND generateIsAttributeBoolean(imports) FOR att-»
+            «IF !att.modifiers.contains(EDLORMAttributeModifier::readonly) && !att.isPrimaryKey()-»
+                «EXPAND generateSetAttributeBoolean(imports) FOR att-»
+            «ENDIF-»
+        «ELSE-»
+            «EXPAND generateGetAttribute(imports) FOR att-»
+            «IF !att.modifiers.contains(EDLORMAttributeModifier::readonly) && !att.isPrimaryKey()-»
+                «EXPAND generateSetAttribute(imports) FOR att-»
+            «ENDIF-»
+            «IF !att.modifiers.contains(EDLORMAttributeModifier::required) && !att.isPrimaryKey()-»
+                «EXPAND generateGetAttributeNull(imports) FOR att-»    
+            «ENDIF-»
+            «IF !att.modifiers.contains(EDLORMAttributeModifier::readonly) && !att.isPrimaryKey() && 
+                !att.modifiers.contains(EDLORMAttributeModifier::required)-»
+                «EXPAND generateSetAttributeNull(imports) FOR att-»
+            «ENDIF-»    
+        «ENDIF-»
+    «ENDIF-»
+    «IF att.modifiers.contains(EDLORMAttributeModifier::observable)-»
+        «EXPAND generateOnAttributeChange(imports) FOR att-»
+        «IF !att.modifiers.contains(EDLORMAttributeModifier::required) && att.type.getClassName() != "boolean"-»
+            «EXPAND generateOnAttributeChangeNull(imports) FOR att-»
+        «ENDIF-»
+    «ENDIF-»
+«ENDFOREACH-»
+«IF modifiers.contains(EDLORMTypeModifier::timestamp)-»
+    «EXPAND generateGetLastModified(imports) FOR this-»
+    «EXPAND generateSetLastModified(imports) FOR this-»
+    «EXPAND generateGetLastModifiedNull(imports) FOR this-»
+    «EXPAND generateSetLastModifiedNull(imports) FOR this-»
+«ENDIF-»
+«IF modifiers.contains(EDLORMTypeModifier::oca)-»
+    «EXPAND generateGetOca(imports) FOR this-»
+    «EXPAND generateSetOca(imports) FOR this-»
+    «EXPAND generateGetOcaNull(imports) FOR this-»
+    «EXPAND generateSetOcaNull(imports) FOR this-»
+«ENDIF-»
+«REM»
+    ------------------------------------------------------------------------
+                           Authorization object accessors
+    ------------------------------------------------------------------------
+«ENDREM»
+«IF !modifiers.contains(EDLORMTypeModifier::abstract) && isImplementor("com.intershop.beehive.core.capi.security.AuthorizationObject")-»
+    «EXPAND generateAddRoleAssignment(imports) FOR this-»
+    «EXPAND generateRemoveRoleAssignment(imports) FOR this-»
+    «EXPAND generateFindRoleAssignment(imports) FOR this-»
+    «EXPAND generateCreateAssignablePermissionTypesIdIterator(imports) FOR this-»
+    «EXPAND generateIsAssignableRole(imports) FOR this-»
+«ENDIF-»
+«REM»
+    ------------------------------------------------------------------------
+                           Replication Object methods
+    ------------------------------------------------------------------------
+«ENDREM»
+«IF isImplementor("com.intershop.beehive.core.capi.replication.ReplicationObject")-»
+    «EXPAND generateReplicationObjectMethods(imports) FOR this-»
+«ENDIF-»
+«REM»
+    ------------------------------------------------------------------------
+                           Relationship accessor methods
+    ------------------------------------------------------------------------
+«ENDREM»
+«FOREACH getRelations() AS rel-»
+    «IF rel.cardinality == EDLORMRelationCardinality::zeroToOne || rel.cardinality == EDLORMRelationCardinality::oneToOne-»
+        «EXPAND generateGetRelation(imports) FOR rel-»        
+        «IF !rel.isPrimaryKey()-»
+            «EXPAND generateSetRelation(imports) FOR rel-»
+        «ENDIF-»
+    «ENDIF-»    
+    «IF rel.cardinality == EDLORMRelationCardinality::zeroToMany-»
+        «EXPAND generateGetRelations(imports) FOR rel-»
+        «EXPAND generateIsInRelation(imports) FOR rel-»
+        «EXPAND generateGetRelationCount(imports) FOR rel-»        
+        «IF rel.modifiers.contains(EDLORMRelationModifier::pageable)-»
+            «EXPAND generateCreateRelationPageable(imports) FOR rel-»
+        «ELSE-»
+            «EXPAND generateCreateRelationIterator(imports) FOR rel-»
+        «ENDIF-»
+    «ENDIF-»
+    «IF rel.cardinality == EDLORMRelationCardinality::zeroToMany && rel.inverseRelation != null &&
+        rel.inverseRelation.cardinality == EDLORMRelationCardinality::zeroToOne-»
+        «EXPAND generateAddToRelation(imports) FOR rel-»
+        «EXPAND generateRemoveFromRelation(imports) FOR rel-»
+    «ENDIF-»
+    «IF rel.capiRelation != null-»
+        «IF rel.cardinality == EDLORMRelationCardinality::zeroToOne ||
+            rel.cardinality == EDLORMRelationCardinality::oneToOne-»            
+            «EXPAND generateGetRelationAlias(imports) FOR rel-»
+            «IF !rel.isPrimaryKey()-»
+                «EXPAND generateSetRelationAlias(imports) FOR rel-»
+            «ENDIF-»
+        «ENDIF-»
+        «IF rel.cardinality == EDLORMRelationCardinality::zeroToMany-»
+            «EXPAND generateIsInRelationAlias(imports) FOR rel-»
+            «EXPAND generateGetRelationCountAlias(imports) FOR rel-»
+            «EXPAND generateCreateRelationIteratorAlias(imports) FOR rel-»
+        «ENDIF-»
+        «IF rel.cardinality == EDLORMRelationCardinality::zeroToMany && rel.inverseRelation != null &&
+            rel.inverseRelation.cardinality == EDLORMRelationCardinality::zeroToOne-»
+            «EXPAND generateAddToRelationAlias(imports) FOR rel-»
+            «EXPAND generateRemoveFromRelationAlias(imports) FOR rel-»
+        «ENDIF-»
+    «ENDIF-»
+«ENDFOREACH-»
+«REM»
+    ------------------------------------------------------------------------
+                             Weak relation accessor methods
+    ------------------------------------------------------------------------
+«ENDREM»
+«FOREACH getDependencies() AS dep-»
+    «EXPAND generateGetDependency(imports) FOR dep-»
+
+    «IF !dep.isReadOnly() && !dep.isPrimaryKey()-»
+        «EXPAND generateSetDependency(imports) FOR dep-»
+    «ENDIF-»
+«ENDFOREACH-»
+    //{{ methods
+    // insert your methods here
+    //}} methods
+}
+//ADDIMPORTS «FOREACH imports AS i SEPARATOR ", "»«i»«ENDFOREACH»
+«ENDLET»
+«ENDFILE»
+«ENDDEFINE»
+
+
+«DEFINE generateORMAccessors(List[String] imports) FOR EDLORMType-»
+«FOREACH getAttributes().reject(a | a.isLocalized() || a.isMapped()) AS att-»
+    «imports.addImport("com.intershop.beehive.orm.capi.description.AttributeDescription")-»
+    «IF att.type.getClassName() == "com.intershop.beehive.foundation.quantity.Money"-»
+        /**
+         * @generated
+         */
+        public static AttributeDescription «att.name.unescape()»CodeAttribute = null;
+
+        /**
+         * @generated
+         */
+        public static AttributeDescription «att.name.unescape()»ValueAttribute = null;
+    «ELSEIF att.type.getClassName() == "com.intershop.beehive.foundation.quantity.Quantity"-»
+        /**
+         * @generated
+         */
+        public static AttributeDescription «att.name.unescape()»UnitAttribute = null;
+
+        /**
+         * @generated
+         */
+        public static AttributeDescription «att.name.unescape()»ValueAttribute = null;
+    «ELSEIF att.type.getClassName() == "com.intershop.beehive.xcs.common.ProductRef"-»
+        /**
+         * @generated
+         */
+        public static AttributeDescription «att.name.unescape()»ProductSKUAttribute = null;
+
+        /**
+         * @generated
+         */
+        public static AttributeDescription «att.name.unescape()»DomainNameAttribute = null;
+    «ELSEIF att.type.getClassName() == "com.intershop.beehive.core.capi.user.User"-»
+        /**
+         * @generated
+         */
+        public static AttributeDescription «att.name.unescape()»IDAttribute = null;
+    «ELSEIF att.type.getClassName() == "boolean"-»
+        /**
+         * @generated
+         */
+        public static AttributeDescription «att.name.unescape()»FlagAttribute = null;
+    «ELSE-»
+        /**
+         * @generated
+         */
+        public static AttributeDescription «att.name.unescape()»Attribute = null;
+    «ENDIF-»
+«ENDFOREACH-»
+
+«IF modifiers.contains(EDLORMTypeModifier::timestamp)-»
+    «imports.addImport("com.intershop.beehive.orm.capi.description.AttributeDescription")-»
+    /**
+     * @generated
+     */
+    public static AttributeDescription lastModifiedAttribute = null;
+«ENDIF-»
+
+«IF modifiers.contains(EDLORMTypeModifier::oca)-»
+    «imports.addImport("com.intershop.beehive.orm.capi.description.AttributeDescription")-»
+    /**
+     * @generated
+     */
+    public static AttributeDescription ocaAttribute = null;
+«ENDIF-»
+
+«FOREACH getRelations() AS rel-»
+    «imports.addImport("com.intershop.beehive.orm.capi.description.RelationDescription")-»
+    /**
+     * @generated
+     */
+    public static RelationDescription «rel.name.unescape()»Relation = null;
+«ENDFOREACH-»
+«ENDDEFINE»
+
+
+«DEFINE generateRAMethods(List[String] imports) FOR EDLORMType»
+/**
+ * Returns the role associated with the role assignment.
+ *
+ * @return      the role
+ * @generated
+ */                                               
+public Role getRole()
+    «imports.addImport("com.intershop.beehive.core.capi.naming.NamingMgr")-»
+    «imports.addImport("com.intershop.beehive.core.capi.security.RoleMgr")-»
+    «imports.addImport("com.intershop.beehive.core.capi.security.Role")-»
+{
+    RoleMgr roleMgr = (RoleMgr) NamingMgr.getInstance().lookupManager(RoleMgr.REGISTRY_NAME);
+                                    
+    return roleMgr.getRole(getRoleID());
+}
+
+/**
+ * Returns the user group associated with the role assignment.
+ *
+ * @return      The user group.
+ * @generated
+ */
+public UserGroup getUserGroup()
+    «imports.addImport("com.intershop.beehive.core.capi.naming.NamingMgr")-»
+    «imports.addImport("com.intershop.beehive.core.capi.user.UserGroupMgr")-»
+    «imports.addImport("com.intershop.beehive.core.capi.user.UserGroup")-»
+{
+    UserGroupMgr userGroupMgr = (UserGroupMgr) NamingMgr.getInstance().lookupManager(UserGroupMgr.REGISTRY_NAME);
+                                  
+    return userGroupMgr.getUserGroup(getUserGroupID(), getUserGroupDomainID());
+}
+    
+/**
+ * Returns the domain of the user group associated with the role assignment.
+ *
+ * @return      The user group's domain.
+ * @generated
+ */
+public Domain getUserGroupDomain()
+    «imports.addImport("com.intershop.beehive.core.capi.naming.NamingMgr")-»
+    «imports.addImport("com.intershop.beehive.core.capi.domain.DomainMgr")-»
+    «imports.addImport("com.intershop.beehive.core.capi.domain.Domain")-»
+{
+    DomainMgr domainMgr = (DomainMgr) NamingMgr.getInstance().lookupManager(DomainMgr.REGISTRY_NAME);
+                        
+    return domainMgr.getDomainByUUID(getUserGroupDomainID());
+}
+«ENDDEFINE»
+
+
+«DEFINE generateHeader FOR EDLORMType-»
+// =============================================================================
+// File: «name.unescape()».java
+// Generated by JGen Code Generator from INTERSHOP Communications AG.
+// Generator template: ORMClass.xpt(checksum: «getProperty("ORMClass.xpt.checksum")»)
+// =============================================================================
+// The JGen Code Generator software is the property of INTERSHOP Communications AG. 
+// Any rights to use are granted under the license agreement. 
+// =============================================================================
+«ENDDEFINE»
+
+
+«DEFINE generateGetRelation(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Returns the object for the relation '«name.unescape()»'.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the object for the relation '«name.unescape()»'
+ * @generated
+ */
+public «type.getClassName().getShortName()» get«name.unescape().toFirstUpper()»()
+    «imports.addImport(type.getClassName())-»
+{
+    return («type.getClassName().getShortName()») getRelatedObject(«name.unescape()»Relation); 
+}
+«ENDDEFINE»
+
+
+«DEFINE generateSetRelation(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Sets the object for the relation '«name.unescape()»'.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       instance                    the new object for the relation
+ * @generated
+ */
+public void set«name.unescape().toFirstUpper()»(«type.getClassName().getShortName()» instance)
+    «imports.addImport(type.getClassName())-»
+{
+    setRelatedObject(«name.unescape()»Relation, instance);
+}
+«ENDDEFINE»
+
+    
+«DEFINE generateGetRelations(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Returns all associated objects via the relation '«name.unescape()»'.
+ *
+ * @return      the enumeration of associated objects
+ * @generated
+ */
+@SuppressWarnings("unchecked")
+public Collection<«type.getClassName().getShortName()»> get«name.unescape().toFirstUpper()»()
+    «imports.addImport("java.util.Collection")-»
+    «imports.addImport(type.getClassName())-»
+{
+    return getRelatedObjects(«name.unescape()»Relation);
+}
+«ENDDEFINE»
+
+
+«DEFINE generateIsInRelation(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Checks whether the specified element participates in the relationship.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       anElement   the element to check for participation
+ * @return      true, if the element is part of the relationship, 
+ *              false otherwise
+ * @generated
+ */
+public boolean isIn«name.unescape().toFirstUpper()»(«type.getClassName().getShortName()» anElement)
+    «imports.addImport(type.getClassName())-»
+{
+    return get«name.unescape().toFirstUpper()»().contains(anElement);
+}
+«ENDDEFINE»
+
+
+«DEFINE generateGetRelationCount(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Determines the number of elements participating in the relationship.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the number of elements participating in the relation
+ * @generated
+ */
+public int get«name.unescape().toFirstUpper()»Count()
+{
+    return get«name.unescape().toFirstUpper()»().size();
+}
+«ENDDEFINE»
+
+
+«DEFINE generateCreateRelationPageable(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Creates a pageable iterator containing the elements of the relationship.
+ * The pagesize is set to the number of elements in the relationship. Thus,
+ * by default, all elements of the relationship will reside on one page.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the pageable iterator with the elements of the relation
+ * @generated
+ */
+public PageableIterator /*<«type.getClassName().getShortName()»>*/ create«name.unescape().toFirstUpper()»Iterator()
+    «imports.addImport("java.util.Collection")-»
+    «imports.addImport("com.intershop.beehive.core.capi.paging.PageableIterator")-»
+    «imports.addImport("com.intershop.beehive.core.internal.paging.PageableIteratorImpl")-»
+{
+    Collection elements = get«name.unescape().toFirstUpper()»();
+    return new PageableIteratorImpl(elements.iterator(), elements.size());
+}
+«ENDDEFINE»
+    
+    
+«DEFINE generateCreateRelationIterator(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Creates an iterator containing the elements of the relationship.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the iterator with the elements of the relation
+ * @generated
+ */
+public Iterator<«type.getClassName().getShortName()»> create«name.unescape().toFirstUpper()»Iterator()
+    «imports.addImport(type.getClassName())-»
+    «imports.addImport("java.util.Iterator")-»
+{
+    return get«name.unescape().toFirstUpper()»().iterator();
+}
+«ENDDEFINE»
+
+
+«DEFINE generateAddToRelation(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Associates an object via the relation '«name.unescape()»'.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       instance        the new member object of the relation
+ * @generated
+ */
+public void addTo«name.unescape().toFirstUpper()»(«type.getClassName().getShortName()» instance)
+    «imports.addImport(type.getClassName())-»
+{
+    if (instance == null)
+    {
+        throw new NullPointerException("«type.getClassName().getShortName()» parameter is null.");
+    }
+
+    addToRelatedObjects(«name.unescape()»Relation, instance);
+}
+«ENDDEFINE»
+
+
+«DEFINE generateRemoveFromRelation(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Removes an associated object from the relation '«name.unescape()»'.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       instance        the member of the relation to be removed
+ * @generated
+ */
+public void removeFrom«name.unescape().toFirstUpper()»(«type.getClassName().getShortName()» instance)
+    «imports.addImport(type.getClassName())-»
+{
+    if (instance == null)
+    {
+        throw new NullPointerException("«type.getClassName().getShortName()» parameter is null.");
+    }
+
+    removeFromRelatedObjects(«name.unescape()»Relation, instance);
+}
+«ENDDEFINE»
+
+
+«DEFINE generateGetDependency(List[String] imports) FOR EDLORMDependency-»
+/**
+ * Returns the «type.getClassName().getShortName()» that is associated with this 
+ * object through a weak relation.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the associated object, or null if no instance is associated
+ * @generated
+ */ 
+public «type.getClassName().getShortName()» get«name.unescape().toFirstUpper()»()
+    «imports.addImport(type.getClassName())-»
+{
+    «IF !isRequired() && !isPrimaryKey()-»
+        if (get«foreignKeyAttribute.name.unescape().toFirstUpper()»Null())
+        {
+            return null;
+        }
+    «ENDIF-»
+
+    «IF handler == null-»
+        «imports.addImport(type.getClassName() + "Factory")-»
+        «imports.addImport(type.getClassName() + "Key")-»
+        «imports.addImport("com.intershop.beehive.core.capi.naming.NamingMgr")-»
+
+        «type.getClassName().getShortName()»Factory factory = («type.getClassName().getShortName()»Factory)
+            NamingMgr.getInstance().lookupFactory(«type.getClassName().getShortName()».class);
+
+        return («type.getClassName().getShortName()») factory.getObjectByPrimaryKey(
+            new «type.getClassName().getShortName()»Key(get«foreignKeyAttribute.name.unescape().toFirstUpper()»()));
+    «ELSE-»
+        «imports.addImport(handler.toString())-»
+        «imports.addImport("com.intershop.beehive.core.capi.naming.NamingMgr")-»
+
+        «handler.toString().getShortName()» factory = («handler.toString().getShortName()»)
+            NamingMgr.getInstance().lookupManager(«handler.toString().getShortName()».REGISTRY_NAME);
+
+        return («type.getClassName().getShortName()») factory.resolve«type.getClassName().getShortName()»FromID(
+            get«foreignKeyAttribute.name.unescape().toFirstUpper()»());
+    «ENDIF-»
+}
+«ENDDEFINE»
+
+
+«DEFINE generateSetDependency(List[String] imports) FOR EDLORMDependency-»
+/**
+ * Sets the «type.getClassName().getShortName()» to be associated with this object.
+ * The association is established through a weak relation.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       «name.unescape()»    the «type.getClassName().getShortName()» to be associated with this object
+ * @generated
+ */
+public void set«name.unescape().toFirstUpper()»(«type.getClassName().getShortName()» «name.unescape()»)
+    «imports.addImport(type.getClassName())-»
+{ 
+    if («name.unescape()» == null)
+    {
+        «IF !isRequired()-»
+            set«foreignKeyAttribute.name.unescape().toFirstUpper()»Null(true);
+        «ELSE-»
+            throw new NullPointerException("«type.getClassName().getShortName()» parameter is null.");
+        «ENDIF-»
+    }
+    else
+    {
+        set«foreignKeyAttribute.name.unescape().toFirstUpper()»(«name.unescape()».getUUID());
+    }
+} 
+«ENDDEFINE»
+ 
+ 
+«DEFINE generateAddRoleAssignment(List[String] imports) FOR EDLORMType-»
+/**
+ * This method creates a role assignment between the passed
+ * role, the passed user group and the bean. If the role assignment
+ * already exists, nothing happens.
+ *
+ * @param   role    The role instance.
+ * @param   group   The user group instance.
+ * @generated
+ */
+public void addRoleAssignment(Role role, UserGroup group)
+    «imports.addImport("com.intershop.beehive.core.capi.security.Role")-»
+    «imports.addImport("com.intershop.beehive.core.capi.user.UserGroup")-»
+{
+    «name.unescape()»RoleAssignmentPO result = findRoleAssignment(role, group);
+
+    if (result == null)
+    {
+        «name.unescape()»RoleAssignmentPOFactory factory = («name.unescape()»RoleAssignmentPOFactory)
+            getFactory().getEngine().getFactory(«name.unescape()»RoleAssignmentPO.class);
+        
+        result = factory.create(group.getID(), group.getDomainID(), role.getID(), this);
+    }
+}
+«ENDDEFINE»
+
+
+«DEFINE generateRemoveRoleAssignment(List[String] imports) FOR EDLORMType-»
+/**
+ * This method removes an existing role assignment for the passed role,
+ * the passed user group and the bean.
+ * If no appropriate role assignment exists, nothing happens.
+ *
+ * @param role The role instance.
+ * @param group The user group instance.
+ * @generated
+ */
+public void removeRoleAssignment(Role role, UserGroup group)
+    «imports.addImport("com.intershop.beehive.core.capi.security.Role")-»
+    «imports.addImport("com.intershop.beehive.core.capi.user.UserGroup")-»
+{
+    «name.unescape()»RoleAssignmentPO result = findRoleAssignment(role, group);
+
+    if(result != null)
+    {
+        result.remove();
+    }
+}
+«ENDDEFINE»
+
+
+«DEFINE generateFindRoleAssignment(List[String] imports) FOR EDLORMType-»
+/**
+ * This method returns the role assignment for the passed role and 
+ * the passed user group for the bean.
+ *
+ * @param role The role instance.
+ * @param group The user group instance.
+ * @return The role assignment.
+ * @generated
+ */
+protected «name.unescape()»RoleAssignmentPO findRoleAssignment(Role role, UserGroup group)
+    «imports.addImport("com.intershop.beehive.core.capi.security.Role")-»
+    «imports.addImport("com.intershop.beehive.core.capi.user.UserGroup")-»
+{
+    «name.unescape()»RoleAssignmentPOFactory factory = («name.unescape()»RoleAssignmentPOFactory)
+        getFactory().getEngine().getFactory(«name.unescape()»RoleAssignmentPO.class);
+
+    return factory.getObjectByPrimaryKey(new «name.unescape()»RoleAssignmentPOKey(
+        group.getID(), group.getDomainID(), role.getID(),
+        «FOREACH getAllPrimaryKeyAttributes() AS key SEPARATOR ", "-»
+            get«key.name.unescape().toFirstUpper()»()
+        «ENDFOREACH-»
+        ));
+}
+«ENDDEFINE»
+    
+
+«DEFINE generateCreateAssignablePermissionTypesIdIterator(List[String] imports) FOR EDLORMType-»
+/**
+ * Returns an iterator on the id's of the permission type that are accepted by 
+ * this authorization object. If the iterator has no elements, the authorization 
+ * object does not define any permission type constraint; 
+ * permissions (and roles) of any type can be assigned.
+ *
+ * @return Iterator on the permission type id's; if no element, 
+ *         no constraints are defined.
+ * @generated modifiable
+ */
+public Iterator createAssignablePermissionTypesIdIterator() 
+    «imports.addImport("java.util.Vector")-»
+    «imports.addImport("java.util.Iterator")-»
+    «imports.addImport("com.intershop.beehive.foundation.util.Iterators")-»
+{
+    Vector types = new Vector();
+        
+    //{{ bean_type_id
+    //   put your code here
+    //}} bean_type_id
+    
+    return Iterators.createIterator(types);
+}    
+«ENDDEFINE»
+
+
+«DEFINE generateIsAssignableRole(List[String] imports) FOR EDLORMType-»
+/**
+ * Returns true if the passed role is assignable to the authorization object,
+ * otherwise false. <p>
+ * 
+ * The method checks if the authorization object has defined an 
+ * permission type constraint. If yes, the permission type of the 
+ * object is compared against the type of the passed role. If the 
+ * types match, true is returned, otherwise false. If the object does 
+ * not define an permission type, true is returned.
+ *
+ * @see getAssignablePermissionTypeID
+ * @generated
+ */
+public boolean isAssignableRole(Role role)
+    «imports.addImport("com.intershop.beehive.core.capi.security.Role")-»
+    «imports.addImport("java.util.Iterator")-»
+{
+    Iterator myTypes = createAssignablePermissionTypesIdIterator();
+    if(!myTypes.hasNext())
+    {
+        // no permission type constraint defined for this authorization object
+        return true;
+    }
+        
+    String roleTypeID = role.getPermissionTypeID();
+    while(myTypes.hasNext())
+    {
+        String nextType = (String) myTypes.next();
+        if(nextType.equals(roleTypeID))
+        {
+            return true;
+        }
+    }
+    
+    return false;        
+}
+«ENDDEFINE»
+
+
+«DEFINE generateAttributeValuesRelationMethods(List[String] imports) FOR EDLORMType-»
+/**
+ * Returns all associated objects via the relation 'attributeValues'.
+ *
+ * @return      the enumeration of associated objects
+ * @generated
+ */
+public Collection getAttributeValues()
+    «imports.addImport("java.util.Collection")-»
+{
+    return getRelatedObjects(attributeValuesRelation);
+}
+
+/**
+ * The cached locale manager (does never change).
+ * @generated
+ */
+private static LocaleMgr localeMgr;
+    «imports.addImport("com.intershop.beehive.core.capi.localization.LocaleMgr")-»
+
+/**
+ * Use this function to get an attribute of given type and name.
+ * If the attribute does not exist it will be created. If there is
+ * another attribute of different type already existing, an exception is thrown.
+ *
+ * @param    aName    The attribute name, the definition name.
+ * @param    aType    The attribute type.
+ * @return   The found or newly created AttributeValue,
+ *           never <code>null</code>.
+ * @exception java.lang.IllegalArgumentException
+              if the attribute exists with a different type or
+              the locale on a localized attribute cannot be set
+ * @generated
+ */
+protected AttributeValue getAttributeValue(String aName, int aType)
+    «imports.addImport("com.intershop.beehive.core.capi.domain.AttributeValue")-»
+    «imports.addImport("com.intershop.beehive.core.capi.localization.LocaleMgr")-»
+    «imports.addImport("com.intershop.beehive.core.capi.localization.LocaleInformation")-»
+    «imports.addImport("com.intershop.beehive.core.capi.naming.NamingMgr")-»
+{
+    AttributeValue result = findAttributeValue(aName);
+
+    if (result == null)
+    {
+        «name.unescape()»AttributeValuePOFactory factory = («name.unescape()»AttributeValuePOFactory)
+            getFactory().getEngine().getFactory(«name.unescape()»AttributeValuePO.class);
+
+        // get the locale mgr
+        if (localeMgr == null)
+        {
+            localeMgr = (LocaleMgr) NamingMgr.getInstance().
+                lookupManager(LocaleMgr.REGISTRY_NAME);
+        }
+
+        // assign the locale for further usage, localized already set
+        LocaleInformation leadLocale = localeMgr.getLeadLocale();
+
+        // create new val
+        result = factory.create(aName, leadLocale.getLocaleID(), aType, this);
+
+        // unset localized flag
+        result.setLocalized(false);
+    }
+    else
+    {
+        // check type
+        if (aType != result.getType())
+        {
+            throw new IllegalArgumentException(
+                "Attribute exists with different type (" + aName + ")");
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Use this function to get an attribute of given type and name.
+ * If the attribute does not exist it will be created and a definition
+ * will be added. If there is another atribute of different type
+ * already existing, an exception is thrown.
+ *
+ * @param    aName    The attribute name, the definition name.
+ * @param    aType    The attribute type.
+ * @param    aLocale  The locale of the attribute you search for.
+ * @return   The found or newly created AttributeValue,
+ *           never <code>null</code>.
+ * @exception java.lang.IllegalArgumentException
+ *            if the attribute exists with a different type or
+ *            the locale on a localized attribute cannot be set
+ * @generated
+ */
+protected AttributeValue getLocalizedAttributeValue(
+    String aName, int aType, LocaleInformation aLocale)
+    «imports.addImport("com.intershop.beehive.core.capi.domain.AttributeValue")-»
+    «imports.addImport("com.intershop.beehive.core.capi.localization.LocaleInformation")-»
+    «imports.addImport("com.intershop.beehive.orm.capi.common.FindMode")-»
+{
+    «name.unescape()»AttributeValuePOFactory factory = («name.unescape()»AttributeValuePOFactory)
+        getFactory().getEngine().getFactory(«name.unescape()»AttributeValuePO.class);
+    
+    // preload AVs
+    getAttributeValues().size();
+
+    // search value
+    AttributeValue result = factory.getObjectByPrimaryKey(new «name.unescape()»AttributeValuePOKey(
+        getUUID(), aName, aLocale.getLocaleID()), FindMode.CACHE);
+
+    if (result != null)
+    {
+        // found something
+        if (!result.isLocalized())
+        {
+            throw new IllegalArgumentException(
+                "Attribute is not localized (" + aName + ")");
+        }
+
+        if (aType != result.getType())
+        {
+            // error if attribute exists with different type
+            throw new IllegalArgumentException(
+                "Attribute exists with different type (" + aName + ")");
+        }
+    }
+    else
+    {
+        // create new value
+        result = factory.create(aName, aLocale.getLocaleID(), aType, this);
+    }
+
+    return result;
+}
+
+/**
+ * Use this function to find the attribute of the given name. This
+ * function returns the result depending on a locale fallback strategy.
+ *
+ * @param    aName    The attribute name, the definition name.
+ * @return   The found AttributeValue or <code>null</code> if
+ *           nothing found.
+ * @generated
+ */
+protected AttributeValue findAttributeValue(String aName)
+    «imports.addImport("com.intershop.beehive.core.capi.domain.AttributeValue")-»
+    «imports.addImport("com.intershop.beehive.core.capi.localization.LocaleMgr")-»
+    «imports.addImport("com.intershop.beehive.core.capi.localization.LocaleInformation")-»
+    «imports.addImport("com.intershop.beehive.core.capi.naming.NamingMgr")-»
+    «imports.addImport("com.intershop.beehive.orm.capi.common.FindMode")-»
+{
+    AttributeValue result = null;
+
+    «name.unescape()»AttributeValuePOFactory factory = («name.unescape()»AttributeValuePOFactory)
+        getFactory().getEngine().getFactory(«name.unescape()»AttributeValuePO.class);
+
+    // preload AVs
+    getAttributeValues().size();
+
+    LocaleInformation locale = null;
+        
+    Request request = Request.getCurrent();
+    if (request != null)
+    {
+        locale = request.getLocale();
+    }
+
+    «name.unescape()»AttributeValuePOKey avk = new «name.unescape()»AttributeValuePOKey();
+    avk.setOwnerID(getUUID());
+    avk.setName(aName);
+
+    if (locale != null)
+    {
+        // try to get attribute for the locale
+        avk.setLocaleID(locale.getLocaleID());
+        
+        result = factory.getObjectByPrimaryKey(avk, FindMode.CACHE);
+    }
+
+    if (result == null)
+    {
+        // get the locale mgr
+        if (localeMgr == null)
+        {
+            localeMgr = (LocaleMgr) NamingMgr.getInstance().lookupManager(
+                LocaleMgr.REGISTRY_NAME);
+        }
+
+        // get locales for fallback strategy: request -> lead
+        LocaleInformation leadLocale = localeMgr.getLeadLocale();
+        if ((leadLocale != null) && !leadLocale.equals(locale))
+        {
+            avk.setLocaleID(leadLocale.getLocaleID());
+
+            // try to get attribute for lead locale
+            result = factory.getObjectByPrimaryKey(avk, FindMode.CACHE);
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Use this function to find the attribute of the given name. This
+ * function returns the result depending on a locale fallback strategy.
+ *
+ * @param    aName    The attribute name, the definition name.
+ * @param    aLocale  The locale of the attribute you search for.
+ * @return   The found AttributeValue or <code>null</code> if
+ *           nothing found.
+ * @generated
+ */
+protected AttributeValue findLocalizedAttributeValue(String aName,
+    LocaleInformation aLocale)
+    «imports.addImport("com.intershop.beehive.core.capi.domain.AttributeValue")-»
+    «imports.addImport("com.intershop.beehive.core.capi.localization.LocaleInformation")-»
+    «imports.addImport("com.intershop.beehive.orm.capi.common.FindMode")-»
+{
+    «name.unescape()»AttributeValuePOFactory factory = («name.unescape()»AttributeValuePOFactory)
+        getFactory().getEngine().getFactory(«name.unescape()»AttributeValuePO.class);
+        
+    // preload AVs
+    getAttributeValues().size();
+
+    // try to get attribute for parameter locale
+    AttributeValue result = factory.getObjectByPrimaryKey(new «name.unescape()»AttributeValuePOKey(
+        getUUID(), aName, aLocale.getLocaleID()), FindMode.CACHE);
+
+    if (result != null)
+    {
+        // assign null to the return value if attribute is not localized
+        if (!result.isLocalized())
+        {
+            result = null;
+        }
+    }
+        
+    return result;
+}
+
+/**
+ * Adds a copy of the given attribute value (extensible object 
+ * attribute) to this extensible object under the given attribute name. 
+ * If the <code>name</code> parameter is <code>null</code>, the 
+ * attribute name specified by the given attribute value is used 
+ * instead. If the attribute already exists, its values are overridden. 
+ * Otherwise a new attribute is created.
+ * 
+ * @param name The name of the extensible object attribute which 
+ * value(s) should be updated. If this parameter is <code>null</code> 
+ * the name specified by the given <code>AttributeValue</code> object is 
+ * used instead.
+ * @param value The attribute value that should be added to this 
+ * ExtensibleObject.
+ * @generated
+ */
+public void putAttributeValue(String name, AttributeValue value)
+    «imports.addImport("com.intershop.beehive.core.capi.domain.AttributeDefinitionConstants")-»
+    «imports.addImport("com.intershop.beehive.core.capi.domain.AttributeValue")-»
+    «imports.addImport("com.intershop.beehive.orm.capi.common.FindMode")-»
+{
+    if (value != null)
+    {
+        «name.unescape()»AttributeValuePOFactory factory = («name.unescape()»AttributeValuePOFactory)
+            getFactory().getEngine().getFactory(«name.unescape()»AttributeValuePO.class);
+
+        // preload AVs
+        getAttributeValues().size();
+
+        «name.unescape()»AttributeValuePOKey avk = new «name.unescape()»AttributeValuePOKey();
+            
+        String attrName;
+        if (name != null)
+        {
+            attrName = name;
+        }
+        else
+        {
+            attrName = value.getName();
+        }
+    
+        // try to find matching AttributeValues in original and copy
+        avk.setOwnerID(getUUID());
+        avk.setName(attrName);
+        avk.setLocaleID(value.getLocaleID());
+
+        «name.unescape()»AttributeValuePO newVal = factory.getObjectByPrimaryKey(avk, FindMode.CACHE);
+        if (newVal == null)
+        {
+            // in case there is no matching AttributeValue
+            // create a new «name.unescape()»AttributeValue
+            newVal = factory.create(attrName, value.getLocaleID(), value.getType(), this);
+        }
+    
+        // copy values
+        switch (value.getType())
+        {
+            case AttributeDefinitionConstants.ATTRIBUTE_TYPE_DOUBLE:
+                newVal.setDoubleValue(value.getDoubleValue());
+                break;
+            case AttributeDefinitionConstants.ATTRIBUTE_TYPE_INT:
+                newVal.setIntValue(value.getIntValue());
+                break;
+            case AttributeDefinitionConstants.ATTRIBUTE_TYPE_OBJECT:
+                newVal.setObjectType(value.getObjectType());
+                newVal.setObjectValue(value.getObjectValue());
+                break;
+            default:
+                newVal.setStringValue(value.getStringValue());
+                break;
+        }
+        newVal.setLocalized(value.isLocalized()); 
+    }        
+}
+«ENDDEFINE»
+
+
+«DEFINE generateGetRelationAlias(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Convenience wrapper that implements the public API relation
+ * '«capiRelation.name.unescape()»'. The implementation just forwards the call to the
+ * internal relation implementation '«name.unescape()»'.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the object for the relation '«name.unescape()»'
+ * @generated
+ */
+public «capiRelation.type.getClassName().getShortName()» get«capiRelation.name.unescape().toFirstUpper()»()
+    «imports.addImport(capiRelation.type.getClassName())-» 
+{
+    return get«name.unescape().toFirstUpper()»();
+}
+«ENDDEFINE»
+
+
+«DEFINE generateSetRelationAlias(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Convenience wrapper that implements the public API relation
+ * '«capiRelation.name.unescape()»'. The implementation just forwards the call to the
+ * internal relation implementation '«name.unescape()»'.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       instance  the new object for the relation
+ * @generated
+ */
+public void set«capiRelation.name.unescape().toFirstUpper()»(«capiRelation.type.getClassName().getShortName()» instance) 
+    «imports.addImport(capiRelation.type.getClassName())-» 
+    «imports.addImport(type.getClassName())-» 
+{
+    set«name.unescape().toFirstUpper()»((«type.getClassName().getShortName()») instance);
+}
+«ENDDEFINE»
+
+
+«DEFINE generateIsInRelationAlias(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Convenience wrapper that implements the public API relation
+ * '«capiRelation.name.unescape()»'. The implementation just forwards the call to the
+ * internal relation implementation '«name.unescape()»'.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       anElement   the element to check for participation
+ * @return      true, if the element is part of the relationship, 
+ *              false otherwise
+ * @generated
+ */
+public boolean isIn«capiRelation.name.unescape().toFirstUpper()»(«capiRelation.type.getClassName().getShortName()» anElement)
+    «imports.addImport(capiRelation.type.getClassName())-» 
+    «imports.addImport(type.getClassName())-» 
+{
+    return isIn«name.unescape().toFirstUpper()»((«type.getClassName().getShortName()») anElement);
+}
+«ENDDEFINE»
+
+
+«DEFINE generateGetRelationCountAlias(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Convenience wrapper that implements the public API relation
+ * '«capiRelation.name.unescape()»'. The implementation just forwards the call to the
+ * internal relation implementation '«name.unescape()»'.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the number of elements participating in the relation
+ * @generated
+ */
+public int get«capiRelation.name.unescape().toFirstUpper()»Count()
+{
+    return get«name.unescape().toFirstUpper()»Count();
+}
+«ENDDEFINE»
+
+
+«DEFINE generateCreateRelationIteratorAlias(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Convenience wrapper that implements the public API relation
+ * '«capiRelation.name.unescape()»'. The implementation just forwards the call to the
+ * internal relation implementation '«name.unescape()»'.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the iterator with the elements of the relation
+ * @generated
+ */
+@SuppressWarnings("unchecked")
+public Iterator<«capiRelation.type.getClassName().getShortName()»> create«capiRelation.name.unescape().toFirstUpper()»Iterator()
+    «imports.addImport(capiRelation.type.getClassName())-» 
+    «imports.addImport("java.util.Iterator")-»
+{
+    return (Iterator) create«name.unescape().toFirstUpper()»Iterator();
+}
+«ENDDEFINE»        
+
+
+«DEFINE generateAddToRelationAlias(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Convenience wrapper that implements the public API relation
+ * '«capiRelation.name.unescape()»'. The implementation just forwards the call to the
+ * internal relation implementation '«name.unescape()»'.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       instance        the new member object of the relation
+ * @generated
+ */
+public void addTo«capiRelation.name.unescape().toFirstUpper()»(«capiRelation.type.getClassName().getShortName()» instance) 
+    «imports.addImport(capiRelation.type.getClassName())-» 
+    «imports.addImport(type.getClassName())-» 
+{
+    addTo«name.unescape().toFirstUpper()»((«type.getClassName().getShortName()») instance);
+}
+«ENDDEFINE»
+
+
+«DEFINE generateRemoveFromRelationAlias(List[String] imports) FOR EDLORMRelation-»
+/**
+ * Convenience wrapper that implements the public API relation
+ * '«capiRelation.name.unescape()»'. The implementation just forwards the call to the
+ * internal relation implementation '«name.unescape()»'.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       instance        the member of the relation to be removed
+ * @generated
+ */
+public void removeFrom«capiRelation.name.unescape().toFirstUpper()»(«capiRelation.type.getClassName().getShortName()» instance) 
+    «imports.addImport(capiRelation.type.getClassName())-» 
+    «imports.addImport(type.getClassName())-» 
+{
+    removeFrom«name.unescape().toFirstUpper()»((«type.getClassName().getShortName()») instance);
+}
+«ENDDEFINE»
+
+
+«DEFINE generateConstructor(List[String] imports) FOR EDLORMType-»
+/**
+ * The constructor.
+ *
+ * @generated
+ */
+public «name.unescape()»(ORMObjectFactory factory, «name.unescape()»Key key)
+    «imports.addImport("com.intershop.beehive.orm.capi.common.ORMObjectFactory")-»
+{
+    super(factory, key);
+}
+
+/**
+ * Returns the name of the factory that manages this type of objects.
+ * The name can be used to lookup the factory from the NamingMgr.
+ *
+ * @return  the factory name
+ * @generated
+ */
+public String getFactoryName()
+{
+    return getClass().getName();
+}
+
+/**
+ * Loads the state of the object from the database.
+ *
+ * @deprecated      use refresh now
+ * @generated
+ */
+public void load()
+{
+    refresh();
+}
+
+/**
+ * This hook is called whenever the bean has been modified.
+ *
+ * @generated modifiable
+ */
+public void onChange()
+{
+    //{{ bean_onchange
+    // put your custom onChange code here
+    //}} bean_onchange
+
+    «IF superClass != null-»
+    super.onChange();
+    «ENDIF-»
+}
+«ENDDEFINE»
+
+
+«DEFINE generateGetAttribute(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Returns the value of attribute '«name.unescape()»'.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the value of the attribute '«name.unescape()»'
+ * @generated
+ */
+public «type.getClassName().getShortName()» get«name.unescape().toFirstUpper()»()
+{
+    «IF type.getClassName() == "java.lang.String"-»
+        «IF type.metaType == EDLPrimitiveType && ((EDLPrimitiveType) type).name.unescape() == "text"-»
+        char[] value = (char[]) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? new String(value) : null;
+        «ELSE-»
+        String value = (String) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value : "";
+        «ENDIF-»
+    «ELSEIF type.getClassName() == "byte"-»
+        Byte value = (Byte) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.byteValue() : (byte) 0;
+    «ELSEIF type.getClassName() == "char"-»
+        Character value = (Character) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.charValue() : (char) 0;
+    «ELSEIF type.getClassName() == "short"-»
+        Short value = (Short) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.shortValue() : (short) 0;
+    «ELSEIF type.getClassName() == "int"-»
+        Integer value = (Integer) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.intValue() : (int) 0;
+    «ELSEIF type.getClassName() == "long"-»
+        Long value = (Long) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.longValue() : (long) 0;
+    «ELSEIF type.getClassName() == "float"-»
+        Float value = (Float) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.floatValue() : (float) 0.0;
+    «ELSEIF type.getClassName() == "double"-»
+        Double value = (Double) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.doubleValue() : (double) 0.0;
+    «ELSEIF type.getClassName() == "com.intershop.beehive.foundation.quantity.ExchangeRate"-»
+        «imports.addImport("com.intershop.beehive.foundation.quantity.ExchangeRate")-»
+        return ExchangeRate.readFromString((String) getAttributeValue(«name.unescape()»Attribute));
+    «ELSEIF type.getClassName() == "com.intershop.beehive.foundation.quantity.Money"-»
+        «imports.addImport("com.intershop.beehive.foundation.quantity.Money")-»
+        «imports.addImport("java.math.BigDecimal")-»
+        String code = (String) getAttributeValue(«name.unescape()»CodeAttribute);
+        BigDecimal value = (BigDecimal) getAttributeValue(«name.unescape()»ValueAttribute);
+        return new Money((code != null) ? code : "", (value != null) ? value : new BigDecimal("0"));
+    «ELSEIF type.getClassName() == "com.intershop.beehive.xcs.common.ProductRef"-»
+        «imports.addImport("com.intershop.beehive.xcs.common.ProductRef")-»
+        return new ProductRef((String) getAttributeValue(«name.unescape()»ProductSKUAttribute),
+                              (String) getAttributeValue(«name.unescape()»DomainNameAttribute));
+    «ELSEIF type.getClassName() == "com.intershop.beehive.foundation.quantity.Quantity"-»
+        «imports.addImport("com.intershop.beehive.foundation.quantity.Quantity")-»
+        «imports.addImport("java.math.BigDecimal")-»
+        BigDecimal value = (BigDecimal) getAttributeValue(«name.unescape()»ValueAttribute);
+        String unit = (String) getAttributeValue(«name.unescape()»UnitAttribute);
+        return new Quantity((value != null) ? value : new BigDecimal("0"), (unit != null) ? unit : "");
+    «ELSEIF type.getClassName() == "com.intershop.beehive.core.capi.user.User"-»
+        «imports.addImport("com.intershop.beehive.core.capi.user.User")-»
+        String userId = (String) getAttributeValue(«name.unescape()»IDAttribute);
+        return userId==null || userId.trim().isEmpty() ? null : new User(userId);
+    «ELSEIF type.getClassName() == "java.math.BigDecimal"-»
+        «imports.addImport("java.math.BigDecimal")-»
+        BigDecimal value = (BigDecimal) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value : new BigDecimal("0");
+    «ELSE-»
+        «imports.addImport(type.getClassName())-»
+        return («type.getClassName().getShortName()») getAttributeValue(«name.unescape()»Attribute);
+    «ENDIF-»
+}
+«ENDDEFINE»    
+
+
+«DEFINE generateSetAttribute(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Sets the value of the attribute '«name.unescape()»'.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       aValue        the new value of the attribute
+ * @generated
+ */
+public void set«name.unescape().toFirstUpper()»(«type.getClassName().getShortName()» aValue)
+«imports.addImport(type.getClassName())-»
+{
+    «REM»Note: | forces evaluation of BOTH setter-methods, || is not sufficient!«ENDREM»
+    «IF type.getClassName() == "java.lang.String"-»
+        «IF type.metaType == EDLPrimitiveType && ((EDLPrimitiveType) type).name.unescape() == "text"-»
+        if (setAttributeValue(«name.unescape()»Attribute, aValue != null ? aValue.toCharArray() : null))
+        «ELSE-»
+        if (setAttributeValue(«name.unescape()»Attribute, aValue))
+        «ENDIF-»
+    «ELSEIF type.getClassName() == "byte"-»        
+        if (setAttributeValue(«name.unescape()»Attribute, new Byte(aValue)))
+    «ELSEIF type.getClassName() == "char"-»        
+        if (setAttributeValue(«name.unescape()»Attribute, new Character(aValue)))
+    «ELSEIF type.getClassName() == "short"-»        
+        if (setAttributeValue(«name.unescape()»Attribute, new Short(aValue)))
+    «ELSEIF type.getClassName() == "int"-»        
+        if (setAttributeValue(«name.unescape()»Attribute, new Integer(aValue)))
+    «ELSEIF type.getClassName() == "long"-»        
+        if (setAttributeValue(«name.unescape()»Attribute, new Long(aValue)))
+    «ELSEIF type.getClassName() == "float"-»        
+        if (setAttributeValue(«name.unescape()»Attribute, new Float(aValue)))
+    «ELSEIF type.getClassName() == "double"-»        
+        if (setAttributeValue(«name.unescape()»Attribute, new Double(aValue)))
+    «ELSEIF type.getClassName() == "com.intershop.beehive.foundation.quantity.ExchangeRate"-»        
+        String rateStr = aValue.writeToString();
+        if (setAttributeValue(«name.unescape()»Attribute, rateStr))
+    «ELSEIF type.getClassName() == "com.intershop.beehive.foundation.quantity.Money"-»        
+        if (setAttributeValue(«name.unescape()»CodeAttribute, aValue.getCurrencyMnemonic()) |        
+            setAttributeValue(«name.unescape()»ValueAttribute, aValue.getValue()))
+    «ELSEIF type.getClassName() == "com.intershop.beehive.xcs.common.ProductRef"-»        
+        if (setAttributeValue(«name.unescape()»ProductSKUAttribute, aValue.getProductSKU()) |
+            setAttributeValue(«name.unescape()»DomainNameAttribute, aValue.getDomainName()))
+    «ELSEIF type.getClassName() == "com.intershop.beehive.foundation.quantity.Quantity"-»        
+        if (setAttributeValue(«name.unescape()»UnitAttribute, aValue.getUnit()) |
+            setAttributeValue(«name.unescape()»ValueAttribute, aValue.getValue()))
+    «ELSEIF type.getClassName() == "com.intershop.beehive.core.capi.user.User"-»        
+        if (setAttributeValue(«name.unescape()»IDAttribute, aValue.getID()))
+    «ELSE-»        
+        if (setAttributeValue(«name.unescape()»Attribute, aValue))
+    «ENDIF-»
+        {
+    «IF modifiers.contains(EDLORMAttributeModifier::observable)-»
+            on«name.unescape().toFirstUpper()»Change(aValue);
+    «ENDIF-»        
+            onChange();
+        }
+    }
+«ENDDEFINE»    
+
+
+«DEFINE generateGetAttributeNull(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Checks whether the value of the attribute '«name.unescape()»' is null.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      true if the value of attribute '«name.unescape()»' is null, 
+ *              false otherwise
+ * @generated
+ */
+public boolean get«name.unescape().toFirstUpper()»Null()
+{
+    «IF type.getClassName() == "com.intershop.beehive.foundation.quantity.Money"-»
+    return (getAttributeValue(«name.unescape()»CodeAttribute) == null) ||
+           (getAttributeValue(«name.unescape()»ValueAttribute) == null);
+    «ELSEIF type.getClassName() == "com.intershop.beehive.xcs.common.ProductRef"-»
+    return (getAttributeValue(«name.unescape()»ProductSKUAttribute) == null) ||
+           (getAttributeValue(«name.unescape()»DomainNameAttribute) == null);
+    «ELSEIF type.getClassName() == "com.intershop.beehive.foundation.quantity.Quantity"-»
+    return (getAttributeValue(«name.unescape()»UnitAttribute) == null) ||
+           (getAttributeValue(«name.unescape()»ValueAttribute) == null);
+    «ELSEIF type.getClassName() == "com.intershop.beehive.core.capi.user.User"-»
+    return (getAttributeValue(«name.unescape()»IDAttribute) == null);
+    «ELSE-»
+    return (getAttributeValue(«name.unescape()»Attribute) == null);
+    «ENDIF-»
+}
+«ENDDEFINE»
+
+
+«DEFINE generateSetAttributeNull(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Sets the value of the attribute '«name.unescape()»' to null.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       aFlag       meaningless
+ * @generated
+ */
+public void set«name.unescape().toFirstUpper()»Null(boolean aFlag)
+{
+    «REM»Note: | forces evaluation of BOTH setter-methods, || is not sufficient!«ENDREM»
+    «IF type.getClassName() == "com.intershop.beehive.foundation.quantity.Money"-»
+    if (setAttributeValue(«name.unescape()»CodeAttribute, null) |
+        setAttributeValue(«name.unescape()»ValueAttribute, null))
+    «ELSEIF type.getClassName() == "com.intershop.beehive.xcs.common.ProductRef"-»
+    if (setAttributeValue(«name.unescape()»ProductSKUAttribute, null) |
+        setAttributeValue(«name.unescape()»DomainNameAttribute, null))
+    «ELSEIF type.getClassName() == "com.intershop.beehive.foundation.quantity.Quantity"-»
+    if (setAttributeValue(«name.unescape()»UnitAttribute, null) |
+        setAttributeValue(«name.unescape()»ValueAttribute, null))
+    «ELSEIF type.getClassName() == "com.intershop.beehive.core.capi.user.User"-»
+    if (setAttributeValue(«name.unescape()»IDAttribute, null))
+    «ELSE-»
+    if (setAttributeValue(«name.unescape()»Attribute, null))
+    «ENDIF-»
+    {
+        «IF modifiers.contains(EDLORMAttributeModifier::observable)-»
+                on«name.unescape().toFirstUpper()»ChangeNull(aFlag);
+        «ENDIF-»
+            
+        onChange();
+    }
+}
+«ENDDEFINE»    
+
+
+«DEFINE generateGetOca(List[String] imports) FOR EDLORMType-»
+/**
+ * Returns the value of attribute 'oca'.<p>
+ *
+ * @return      the value of the attribute 'oca'
+ * @generated
+ */
+public int getOca()
+{
+    Integer value = (Integer) getAttributeValue(ocaAttribute);
+    return (value != null) ? value.intValue() : (int) 0;
+}
+«ENDDEFINE»    
+
+
+«DEFINE generateSetOca(List[String] imports) FOR EDLORMType-»
+/**
+ * Sets the value of the attribute 'oca'.<p>
+ *
+ * @param       aValue        the new value of the attribute
+ * @generated
+ */
+public void setOca(int aValue)
+{
+    // oca may not be set from outside
+}
+«ENDDEFINE»
+
+
+«DEFINE generateGetOcaNull(List[String] imports) FOR EDLORMType-»
+/**
+ * Checks whether the value of the attribute 'oca' is null.<p>
+ *
+ * @return      true if the value of attribute 'oca' is null, 
+ *              false otherwise
+ * @generated
+ */
+public boolean getOcaNull()
+{
+    return (getAttributeValue(ocaAttribute) == null);
+}
+«ENDDEFINE»
+
+
+«DEFINE generateSetOcaNull(List[String] imports) FOR EDLORMType-»
+/**
+ * Sets the value of the attribute 'oca' to null.<p>
+ *     
+ * @param       aFlag       meaningless
+ * @generated
+ */
+public void setOcaNull(boolean aFlag)
+{
+    // oca may not be set from outside
+}
+«ENDDEFINE»
+
+
+«DEFINE generateGetREOA(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Returns the value of the replicated extensible object attribute 
+ * '«name.unescape()»'. 
+ * The value will be retrieved from the local copy of the attribute.
+ * There is no access to the copy managed through the extensible object.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the value of the attribute '«name.unescape()»'
+ * @generated
+ */
+public «type.getClassName().getShortName()» get«name.unescape().toFirstUpper()»()
+    «imports.addImport(type.getClassName())-»
+{
+    «IF type.getClassName() == "java.lang.String"-»
+        String value = (String) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value : "";
+    «ELSE-»
+        return («type.getClassName().getShortName()») getAttributeValue(«name.unescape()»Attribute);
+    «ENDIF-»
+}
+«ENDDEFINE»    
+
+
+«DEFINE generateSetREOA(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Sets the value of the replicated attribute '«name.unescape()»'. The method
+ * will update the locale copy of the attribute as well as the copy
+ * managed through the extensible object mechanism.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       aValue        the new value of the attribute
+ * @generated
+ */
+public void set«name.unescape().toFirstUpper()»(«type.getClassName().getShortName()» aValue)
+    «imports.addImport(type.getClassName())-»
+{
+    if (setAttributeValue(«name.unescape()»Attribute, aValue))
+    {
+        // update the extensible object attribute copy too
+        «IF type.getClassName() == "java.lang.String"-»
+        putString("«name.unescape()»", aValue); 
+        «ELSEIF type.getClassName() == "int" || type.getClassName() == "java.lang.Integer"-»
+        putInteger("«name.unescape()»", aValue); 
+	    «ELSEIF type.getClassName() == "long" || type.getClassName() == "java.lang.Long"-»
+	    putLong("«name.unescape()»", aValue);        
+        «ELSEIF type.getClassName() == "double" || type.getClassName() == "java.lang.Double"-»
+        putDouble("«name.unescape()»", aValue); 
+	    «ELSEIF type.getClassName() == "boolean" || type.getClassName() == "java.lang.Boolean"-»
+	    putBoolean("«name.unescape()»", aValue);        
+	    «ELSEIF type.getClassName() == "datetime" || type.getClassName() == "java.util.Date"-»
+	    putDate("«name.unescape()»", aValue);        
+	    «ELSEIF type.getClassName() == "java.math.BigDecimal"-»
+	    putDecimal("«name.unescape()»", aValue);        
+	    «ELSEIF type.getClassName() == "text"-»
+	    putText("«name.unescape()»", aValue);        
+	    «ENDIF-»
+
+        «IF modifiers.contains(EDLORMAttributeModifier::observable)-»
+            on«name.unescape().toFirstUpper()»Change(aValue);
+        «ENDIF-»        
+
+        onChange();
+    }
+}
+«ENDDEFINE»
+
+
+«DEFINE generateGetREOANull(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Checks whether the value of the attribute '«name.unescape()»' is null.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      true if the value of attribute '«name.unescape()»' is null, 
+ *              false otherwise
+ * @generated
+ */
+public boolean get«name.unescape().toFirstUpper()»Null()
+{
+    return (getAttributeValue(«name.unescape()»Attribute) == null);
+}
+«ENDDEFINE»
+
+
+«DEFINE generateSetREOANull(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Sets the value of the attribute '«name.unescape()»' to null.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       aFlag       meaningless
+ * @generated
+ */
+public void set«name.unescape().toFirstUpper()»Null(boolean aFlag)
+{
+    if (setAttributeValue(«name.unescape()»Attribute, null))
+    {
+        // update the extensible object attribute too
+        removeAttribute("«name.unescape()»");
+        «IF modifiers.contains(EDLORMAttributeModifier::observable)-»
+        on«name.unescape().toFirstUpper()»ChangeNull(aFlag);
+        «ENDIF-»
+
+        onChange();
+    }
+}
+«ENDDEFINE»
+
+
+«DEFINE generateGetLEOA(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Returns the value of the localized extensible object attribute
+ * "«name.unescape()»" for the current locale.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the value of the localized extensible object attribute,
+ *              or null if it wasn't found
+ * @generated
+ */
+public «type.getClassName().getShortName()» get«name.unescape().toFirstUpper()»()
+    «imports.addImport(type.getClassName())-»
+{
+    «IF type.getClassName() == "java.lang.String"-»
+        return getString("«name.unescape()»");
+    «ELSEIF type.getClassName() == "int" || type.getClassName() == "java.lang.Integer"-»
+        return getInteger("«name.unescape()»");
+    «ELSEIF type.getClassName() == "long" || type.getClassName() == "java.lang.Long"-»
+        return getLong("«name.unescape()»");
+    «ELSEIF type.getClassName() == "double" || type.getClassName() == "java.lang.Double"-»
+        return getDouble("«name.unescape()»");
+    «ELSEIF type.getClassName() == "boolean" || type.getClassName() == "java.lang.Boolean"-»
+        return getBoolean("«name.unescape()»");
+    «ELSEIF type.getClassName() == "datetime" || type.getClassName() == "java.util.Date"-»
+        return getDate("«name.unescape()»");
+    «ELSEIF type.getClassName() == "java.math.BigDecimal"-»
+        return getDecimal("«name.unescape()»");
+    «ELSEIF type.getClassName() == "text"-»
+        return getText("«name.unescape()»");
+    «ENDIF-»
+}
+«ENDDEFINE»
+
+
+«DEFINE generateGetLEOALocale(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Returns the value of the localized extensible object attribute 
+ * "«name.unescape()»" for the specified locale.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       aLocale     the locale to determine the attribute value
+ * @return      the value of the localized extensible object attribute, or
+ *              null if it wasn't found
+ * @generated
+ */
+public «type.getClassName().getShortName()» get«name.unescape().toFirstUpper()»(LocaleInformation aLocale)
+    «imports.addImport("com.intershop.beehive.core.capi.localization.LocaleInformation")-»
+    «imports.addImport(type.getClassName())-»
+{
+    «IF type.getClassName() == "java.lang.String"-»
+        return getLocalizedString("«name.unescape()»", aLocale);
+    «ELSEIF type.getClassName() == "int" || type.getClassName() == "java.lang.Integer"-»
+        return getLocalizedInteger("«name.unescape()»", aLocale);
+    «ELSEIF type.getClassName() == "long" || type.getClassName() == "java.lang.Long"-»
+        return getLocalizedLong("«name.unescape()»", aLocale);
+    «ELSEIF type.getClassName() == "double" || type.getClassName() == "java.lang.Double"-»
+        return getLocalizedDouble("«name.unescape()»", aLocale);
+    «ELSEIF type.getClassName() == "boolean" || type.getClassName() == "java.lang.Boolean"-»
+        return getLocalizedBoolean("«name.unescape()»", aLocale);
+    «ELSEIF type.getClassName() == "datetime" || type.getClassName() == "java.util.Date"-»
+        return getLocalizedDate("«name.unescape()»", aLocale);
+    «ELSEIF type.getClassName() == "java.math.BigDecimal"-»
+        return getLocalizedDecimal("«name.unescape()»", aLocale);
+    «ELSEIF type.getClassName() == "text"-»
+        return getLocalizedText("«name.unescape()»", aLocale);
+    «ENDIF-»
+}
+«ENDDEFINE»
+
+
+«DEFINE generateSetLEOALocale(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Sets the value of the localized extensible object attribute 
+ * "«name.unescape()»" for the specified locale.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param  a«name.unescape().toFirstUpper()»    the new value for the extensible object attribute
+ * @param  aLocale  the locale to set the localized attribute value for
+ * @generated
+ */
+public void set«name.unescape().toFirstUpper()»(«type.getClassName().getShortName()» a«name.unescape().toFirstUpper()», LocaleInformation aLocale)
+    «imports.addImport("com.intershop.beehive.core.capi.localization.LocaleInformation")-»
+{
+    «IF type.getClassName() == "java.lang.String"-»
+        putLocalizedString("«name.unescape()»", a«name.unescape().toFirstUpper()», aLocale);
+    «ELSEIF type.getClassName() == "int" || type.getClassName() == "java.lang.Integer"-»
+        putLocalizedInteger("«name.unescape()»", a«name.unescape().toFirstUpper()», aLocale);   
+    «ELSEIF type.getClassName() == "long" || type.getClassName() == "java.lang.Long"-»
+        putLocalizedLong("«name.unescape()»", a«name.unescape().toFirstUpper()», aLocale);    
+    «ELSEIF type.getClassName() == "double" || type.getClassName() == "java.lang.Double"-»
+        putLocalizedDouble("«name.unescape()»", a«name.unescape().toFirstUpper()», aLocale);    
+    «ELSEIF type.getClassName() == "boolean" || type.getClassName() == "java.lang.Boolean"-»
+        putLocalizedBoolean("«name.unescape()»", a«name.unescape().toFirstUpper()», aLocale);  
+    «ELSEIF type.getClassName() == "datetime" || type.getClassName() == "java.util.Date"-»
+        putLocalizedDate("«name.unescape()»", a«name.unescape().toFirstUpper()», aLocale);
+    «ELSEIF type.getClassName() == "java.math.BigDecimal"-»
+        putLocalizedDecimal("«name.unescape()»", a«name.unescape().toFirstUpper()», aLocale); 
+    «ELSEIF type.getClassName() == "text"-»
+        putLocalizedText("«name.unescape()»", a«name.unescape().toFirstUpper()», aLocale); 
+    «ENDIF-»
+
+    onChange();        
+}
+«ENDDEFINE»
+
+
+«DEFINE generateGetLastModified(List[String] imports) FOR EDLORMType-»
+/**
+ * Returns the value of attribute 'lastModified'.
+ *
+ * This field contains the timestamp the objects was written to the 
+ * database.
+ *
+ * @return      the value of the attribute 'lastModified'.
+ * @generated
+ */
+public Date getLastModified()
+    «imports.addImport("java.util.Date")-»
+{
+    return (Date) getAttributeValue(lastModifiedAttribute);
+}
+«ENDDEFINE»
+
+
+«DEFINE generateSetLastModified(List[String] imports) FOR EDLORMType-»
+/**
+ * Sets the value of the attribute 'lastModified'.<p>
+ * 
+ * This field contains the timestamp the objects was written to the 
+ * database.
+ *
+ * @param       aValue        the new value of the attribute
+ * @generated
+ */
+public void setLastModified(Date aValue)
+    «imports.addImport("java.util.Date")-»
+{
+    if (setAttributeValue(lastModifiedAttribute, aValue))
+    {
+        onChange();
+    }
+}
+«ENDDEFINE»    
+
+
+«DEFINE generateGetLastModifiedNull(List[String] imports) FOR EDLORMType-»
+/**
+ * Checks whether the value of the attribute 'lastModified' is null.<p>
+ * 
+ * This field contains the timestamp the objects was written to the 
+ * database.
+ *     
+ * @return      true if the value of attribute 'lastModified' is null, 
+ *              false otherwise
+ * @generated
+ */
+public boolean getLastModifiedNull()
+{
+    return (getAttributeValue(lastModifiedAttribute) == null);
+}
+«ENDDEFINE»
+
+
+«DEFINE generateSetLastModifiedNull(List[String] imports) FOR EDLORMType-»
+/**
+ * Sets the value of the attribute 'lastModified' to null.<p>
+ * 
+ * This field contains the timestamp the objects was written to the 
+ * database.
+ *     
+ * @param       aFlag       meaningless
+ * @generated
+ */
+public void setLastModifiedNull(boolean aFlag)
+{
+    if (setAttributeValue(lastModifiedAttribute, null))
+    {
+        onChange();
+    }
+}
+«ENDDEFINE»
+
+
+«DEFINE generateOnAttributeChange(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * This change hook is called whenever attribute '«name.unescape()»' changed.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param     value The new value of attribute '«name.unescape()»'.
+ * @generated modifiable
+ */
+protected void on«name.unescape().toFirstUpper()»Change(«type.getClassName().getShortName()» value)
+    «imports.addImport(type.getClassName())-» 
+{
+    //{{ onChange_«name.unescape().toFirstUpper()»
+    // custom code section - put your code here
+    //}} onChange_«name.unescape().toFirstUpper()»    
+}
+«ENDDEFINE»
+
+
+«DEFINE generateOnAttributeChangeNull(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * This change hook is called whenever attribute '«name.unescape()»' is set 
+ * to 'null'.
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       aFlag A flag indicating whether the attribute should be
+ *                    set to 'null'.
+ * @generated modifiable
+ */
+protected void on«name.unescape().toFirstUpper()»ChangeNull(boolean aFlag) 
+{
+    //{{ onChangeNull_«name.unescape().toFirstUpper()»
+    // custom code section - put your code here
+    //}} onChangeNull_«name.unescape().toFirstUpper()»    
+}
+«ENDDEFINE»
+
+
+«DEFINE generateGetForeignKeyAttribute(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Returns the value of attribute '«name.unescape()»'.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the value of the attribute '«name.unescape()»'
+ * @generated
+ */
+public «type.getClassName().getShortName()» get«name.unescape().toFirstUpper()»()
+    «imports.addImport(type.getClassName())-» 
+{
+    «IF type.getClassName() == "java.lang.String"-»
+        «IF type.metaType == EDLPrimitiveType && ((EDLPrimitiveType) type).name.unescape() == "text"-»
+        char[] value = (char[]) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? new String(value) : null;
+        «ELSE-»
+        String value = (String) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value : "";
+        «ENDIF-»
+    «ELSEIF type.getClassName() == "byte"-»
+        Byte value = (Byte) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.byteValue() : (byte) 0;
+    «ELSEIF type.getClassName() == "char"-»
+        Character value = (Character) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.charValue() : (char) 0;
+    «ELSEIF type.getClassName() == "short"-»
+        Short value = (Short) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.shortValue() : (short) 0;
+    «ELSEIF type.getClassName() == "int"-»
+        Integer value = (Integer) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.intValue() : (int) 0;
+    «ELSEIF type.getClassName() == "long"-»
+        Long value = (Long) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.longValue() : (long) 0;
+    «ELSEIF type.getClassName() == "float"-»
+        Float value = (Float) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.floatValue() : (float) 0.0;
+    «ELSEIF type.getClassName() == "double"-»
+        Double value = (Double) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value.doubleValue() : (double) 0.0;
+    «ELSEIF type.getClassName() == "java.math.BigDecimal"-»
+        BigDecimal value = (BigDecimal) getAttributeValue(«name.unescape()»Attribute);
+        return (value != null) ? value : new BigDecimal("0");
+    «ELSE-»
+        return («type.getClassName().getShortName()») getAttributeValue(«name.unescape()»Attribute);
+    «ENDIF-»
+}
+«ENDDEFINE»    
+
+
+«DEFINE generateGetForeignKeyAttributeNull(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Checks whether the value of the attribute '«name.unescape()»' is null.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      true if the value of attribute '«name.unescape()»' is null, 
+ *              false otherwise
+ * @generated
+ */
+public boolean get«name.unescape().toFirstUpper()»Null()
+{
+    return (getAttributeValue(«name.unescape()»Attribute) == null);
+}
+«ENDDEFINE»    
+
+
+«DEFINE generateGetEOA(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Returns the value of the non-localized extensible object 
+ * attribute "«name.unescape()»".<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the value of the attribute, or null if it wasn't found
+ * @generated
+ */
+public «type.getClassName().getShortName()» get«name.unescape().toFirstUpper()»()
+    «imports.addImport(type.getClassName())-» 
+{
+    «IF type.getClassName() == "java.lang.String"-»
+        return getString("«name.unescape()»");
+    «ELSEIF type.getClassName() == "int" || type.getClassName() == "java.lang.Integer"-»
+        return getInteger("«name.unescape()»");
+    «ELSEIF type.getClassName() == "long" || type.getClassName() == "java.lang.Long"-»
+        return getLong("«name.unescape()»");
+    «ELSEIF type.getClassName() == "double" || type.getClassName() == "java.lang.Double"-»
+        return getDouble("«name.unescape()»");
+    «ELSEIF type.getClassName() == "boolean" || type.getClassName() == "java.lang.Boolean"-»
+        return getBoolean("«name.unescape()»");
+    «ELSEIF type.getClassName() == "datetime" || type.getClassName() == "java.util.Date"-»
+        return getDate("«name.unescape()»");
+    «ELSEIF type.getClassName() == "java.math.BigDecimal"-»
+        return getDecimal("«name.unescape()»");
+    «ELSEIF type.getClassName() == "text"-»
+        return getText("«name.unescape()»");
+    «ENDIF-»
+}
+«ENDDEFINE»    
+
+
+«DEFINE generateSetEOA(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Sets the value of the non-localized extensible object
+ * attribute "«name.unescape()»".<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       a«name.unescape().toFirstUpper()»       the new value for attribute «name.unescape()»
+ * @generated
+ */
+public void set«name.unescape().toFirstUpper()»(«type.getClassName().getShortName()» a«name.unescape().toFirstUpper()»)
+    «imports.addImport(type.getClassName())-» 
+{
+    «IF type.getClassName() == "java.lang.String"-»
+        putString("«name.unescape()»", a«name.unescape().toFirstUpper()»);
+    «ELSEIF type.getClassName() == "int" || type.getClassName() == "java.lang.Integer"-»
+        putInteger("«name.unescape()»", a«name.unescape().toFirstUpper()»);        
+    «ELSEIF type.getClassName() == "long" || type.getClassName() == "java.lang.Long"-»
+        putLong("«name.unescape()»", a«name.unescape().toFirstUpper()»);        
+    «ELSEIF type.getClassName() == "double" || type.getClassName() == "java.lang.Double"-»
+        putDouble("«name.unescape()»", a«name.unescape().toFirstUpper()»);        
+    «ELSEIF type.getClassName() == "boolean" || type.getClassName() == "java.lang.Boolean"-»
+        putBoolean("«name.unescape()»", a«name.unescape().toFirstUpper()»);        
+    «ELSEIF type.getClassName() == "datetime" || type.getClassName() == "java.util.Date"-»
+        putDate("«name.unescape()»", a«name.unescape().toFirstUpper()»);        
+    «ELSEIF type.getClassName() == "java.math.BigDecimal"-»
+        putDecimal("«name.unescape()»", a«name.unescape().toFirstUpper()»);        
+    «ELSEIF type.getClassName() == "text"-»
+        putText("«name.unescape()»", a«name.unescape().toFirstUpper()»);        
+    «ENDIF-»
+
+    onChange();
+}
+«ENDDEFINE»
+
+
+«DEFINE generateIsAttributeBoolean(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Returns the value of attribute '«name.unescape()»'.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @return      the value of the attribute '«name.unescape()»'
+ * @generated
+ */
+public boolean is«name.unescape().toFirstUpper()»() 
+{
+    Boolean value = (Boolean) getAttributeValue(«name.unescape()»FlagAttribute);
+    return (value != null) ? value.booleanValue() : false;
+}
+«ENDDEFINE»
+
+
+«DEFINE generateSetAttributeBoolean(List[String] imports) FOR EDLORMAttribute-»
+/**
+ * Sets the value of the attribute '«name.unescape()»'.<p>
+«IF comment != null-»
+ * «comment»
+«ENDIF-»
+ *
+ * @param       aFlag The new value of the attribute.
+ * @generated
+ */
+public void set«name.unescape().toFirstUpper()»(boolean aFlag) 
+{
+    if (setAttributeValue(«name.unescape()»FlagAttribute, new Boolean(aFlag)))
+    {
+        «IF modifiers.contains(EDLORMAttributeModifier::observable)-»
+            on«name.unescape().toFirstUpper()»Change(aFlag);
+        «ENDIF-»
+        
+        onChange();
+    }
+}
+«ENDDEFINE»
+
+«DEFINE generateReplicationObjectMethods(List[String] imports) FOR EDLORMType-»
+«imports.addImport("com.intershop.beehive.core.capi.replication.ReplicationTimesAdapter")-»
+«imports.addImport("com.intershop.beehive.core.capi.naming.NamingMgr")-»
+«imports.addImport("java.util.Map")-»
+«imports.addImport("java.util.Date")-»
+/**
+ * @generated
+ */
+@Override 
+public Date getLastReplicationTime(String targetClusterID)
+{
+    return getLastReplicationTimes().get(targetClusterID);
+}
+
+/**
+ * @generated
+ */
+@Override 
+public void setLastReplicationTime(String targetClusterID, Date lastReplicationTime)
+{
+    «name.unescape()»ReplicationTimePO replicationTimePO = ReplicationTimesAdapter.getReplicationTimePOByTarget(getReplicationTimePOs(), targetClusterID);
+    boolean created = false;
+    if (replicationTimePO==null)
+    {
+        «name.unescape()»ReplicationTimePOFactory replicationTimePOFactory = («name.unescape()»ReplicationTimePOFactory)NamingMgr.getInstance().lookupFactory(«name.unescape()»ReplicationTimePO.class);
+        replicationTimePO = replicationTimePOFactory.create(targetClusterID, this);
+    }
+    
+    replicationTimePO.setLastReplicationTime(lastReplicationTime);
+    
+    if (created)
+    {
+        addToRelatedObjects(replicationTimePOsRelation, replicationTimePO);
+    }
+}
+
+/**
+ * @generated
+ */
+@Override 
+public Map<String, Date> getLastReplicationTimes()
+{
+    return ReplicationTimesAdapter.getReplicationTimesMap(getReplicationTimePOs());   
+}
+«ENDDEFINE»        

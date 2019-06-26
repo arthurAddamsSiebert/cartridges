@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="CatalogFilterUUID" type="java.lang.String" optional="false"/>
+	<parameter name="FilterRuleMode" type="java.lang.Double" optional="false"/>
+	<parameter name="ForInsert" type="java.lang.Boolean" optional="false"/>
+	<parameter name="RoleID" type="java.lang.String" optional="true"/>
+	<parameter name="FilterGroupID" type="java.lang.String" optional="true"/>
+	<parameter name="FilterGroupDomainID" type="java.lang.String" optional="true"/>
+	<parameter name="FilterPublishDate" type="java.util.Date" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+	<processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template>
+SELECT 	distinct productid 
+<template-if condition="ForInsert">
+		, <template-variable value="RoleID"/> as roleid
+		, <template-variable value="FilterGroupID"/> as usergroupid
+		, <template-variable value="FilterGroupDomainID"/> as usergroupdomainid
+		, <template-variable value="FilterPublishDate"/> as lastmodified
+		, 1 as oca
+</template-if>
+FROM 	ieproductcategoryassignment pca
+WHERE
+(
+pca.productdomainid in (<template-loop iterator="Sharing:Domains" alias="Domain"><loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+		<loop-separator>,</loop-separator>
+	</template-loop>)
+    <template-if condition="hasElements(Sharing:ProductSets)">
+	        OR EXISTS (
+	            SELECT 1
+	            FROM
+	                productsetassignment psa
+	            JOIN
+	                productset ps ON (psa.productsetuuid=ps.uuid)
+	            WHERE
+	                pca.productid=psa.productUUID
+	            AND
+	                pca.productdomainid=ps.domainid
+	            AND
+	                psa.productsetuuid IN (<template-loop iterator="Sharing:ProductSets" alias="ProductSet"><loop-statement><template-variable value="ProductSet:UUID"/></loop-statement>
+		<loop-separator>,</loop-separator>
+	</template-loop>)
+	        )
+	    </template-if>
+)
+AND
+<sql-dialect name="Oracle">
+ pca.categoryid in (
+	SELECT distinct uuid 
+	FROM catalogcategory
+	START WITH uuid in (
+		SELECT distinct associatedobjectid
+		FROM filterobjectassignment
+		WHERE catalogfilterid = <template-variable value="CatalogFilterUUID"/>
+		AND typecode = 1 
+		AND referencemode = <template-variable value="FilterRuleMode"/>
+	)
+	CONNECT BY parentcategoryid = prior uuid
+)
+</sql-dialect>
+<sql-dialect name="Microsoft">
+ pca.categoryid in (
+	select uuid from dbo.ufn_Returncatalogcategory(<template-variable value="CatalogFilterUUID"/>,<template-variable value="FilterRuleMode"/>)
+)
+</sql-dialect>
+</template>
+</query>

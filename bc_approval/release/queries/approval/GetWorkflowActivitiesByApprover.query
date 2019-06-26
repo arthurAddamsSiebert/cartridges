@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="@deprecated since ICM 7.9. Should be removed with the ApprovalMgrIml class.">
+<parameters>
+	<parameter name="User" type="com.intershop.beehive.core.capi.user.User" optional="false"/>
+	<parameter name="OnBehalfUser" type="java.lang.Boolean" optional="false"/>
+	<parameter name="AnsweringUser" type="java.lang.Boolean" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="WorkflowActivity" type="orm" class="com.intershop.beehive.core.internal.workflow.WorkflowActivityPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	  
+	SELECT b.uuid,
+	<template-if condition="AnsweringUser AND OnBehalfUser">
+			b.creationdate,
+	</template-if> 
+	COUNT(b.uuid) over() AS "rowcount"
+	FROM (      
+		SELECT DISTINCT w.UUID AS UUID 
+		<template-if condition="AnsweringUser AND OnBehalfUser">
+			, w.creationdate
+		</template-if>
+		FROM WorkflowActivity w, ApprovalAnswer a
+		WHERE 
+		<template-if condition="NOT AnsweringUser AND OnBehalfUser">
+			a.ONBEHALFUSERID = <template-variable value="User:ID"/>
+		<if-elseif condition="NOT OnBehalfUser AND AnsweringUser"/>
+			a.ANSWERINGUSERID = <template-variable value="User:ID"/>
+		<if-elseif condition="AnsweringUser AND OnBehalfUser"/>
+			(a.ONBEHALFUSERID = <template-variable value="User:ID"/> 
+			OR a.ANSWERINGUSERID = <template-variable value="User:ID"/>) 
+		<if-else/>
+		</template-if>  
+		AND w.UUID = a.ACTIVITYID
+		
+	) b
+	<template-if condition="AnsweringUser AND OnBehalfUser">
+			ORDER BY b.creationdate DESC
+	</template-if>
+</template>
+</query>

@@ -1,0 +1,24 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %>
+
+<% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) ((disableErrorMessages().isDefined(getObject("previewAttribute"))))).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("previewAttribute:ID"),null).equals(context.getFormattedValue("PreviewDisplayDevice",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",3,e);}if (_boolean_result) { %>
+		<tr>
+			<% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("previewAttribute:SelectedValue:ValueObject:Id"),null).equals(context.getFormattedValue("BROWSER",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",5,e);}if (_boolean_result) { %>
+				<td class="label"><% {out.write(localizeISText("PreviewDisplayDevice.DisplaySize.label","",null,null,null,null,null,null,null,null,null,null,null));} %>:</td>
+				<td>
+			<% } else { %>
+				<td class="label sfe-preview-summary-parameter-group-nondefault"><% {out.write(localizeISText("PreviewDisplayDevice.DisplaySize.label","",null,null,null,null,null,null,null,null,null,null,null));} %>:</td>
+				<td class="sfe-preview-summary-parameter-group-nondefault">
+			<% } %>
+					<span id="sfe-display-height"><% {String value = null;try{value=context.getFormattedValue(getObject("previewAttribute:SelectedValue:ValueObject:Height"),"0",null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {12}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></span>&nbsp;x&nbsp;<span id="sfe-display-width"><% {String value = null;try{value=context.getFormattedValue(getObject("previewAttribute:SelectedValue:ValueObject:Width"),"0",null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {12}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></span>&nbsp;(<% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("previewAttribute:SelectedValue:ValueObject:Id"),null).equals(context.getFormattedValue("BROWSER",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",12,e);}if (_boolean_result) { %><% {out.write(localizeISText("PreviewDisplayDevice.VariableDisplaySize","",null,null,null,null,null,null,null,null,null,null,null));} %><% } else { %><% {out.write(localizeISText("PreviewDisplayDevice.FixedDisplaySize","",null,null,null,null,null,null,null,null,null,null,null));} %><% } %>)
+				</td>
+		</tr>
+		<tr>
+			<td class="label"><% {out.write(localizeISText("PreviewDisplayDevice.WindowedDisplaySize.label","",null,null,null,null,null,null,null,null,null,null,null));} %>:</td>
+			<td><span class="viewable-area-display"></span>&nbsp;(<% {out.write(localizeISText("PreviewDisplayDevice.VariableWindowedDisplaySize","",null,null,null,null,null,null,null,null,null,null,null));} %>)</td>
+		</tr>
+<% } %><% printFooter(out); %>

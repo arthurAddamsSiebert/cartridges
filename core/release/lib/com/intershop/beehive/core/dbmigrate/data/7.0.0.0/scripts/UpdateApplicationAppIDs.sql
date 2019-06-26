@@ -1,0 +1,3 @@
+--The product name has changed to intershop so that we remove the enfinity substring in the app id field (this is also related to intershop.enfinity.System, intershop.enfinity.ETest, intershop.enfinity.SMC, intershop.enfinity.SLDSystem, intershop.enfinity.EnterpriseBackoffice, intershop.enfinity.B2CWebShop)
+exec staging.update_table('application', 'SET APPID=REPLACE(APPID,''intershop.enfinity.'',''intershop.'') WHERE appid LIKE ''intershop.enfinity.%''');
+COMMIT;

@@ -1,0 +1,96 @@
+<iscontent type="text/html" charset="UTF-8" compact="true">
+
+<%@page import = "com.intershop.sellside.enterprise.internal.product.validation.ProductValidationResultModel"%>
+<%@page import = "com.intershop.component.product.validation.capi.config.ValidationRuleConfigurationBORepository"%>
+<%@page import = "com.intershop.beehive.core.capi.query.Row"%>
+
+<isinclude template="inc/Modules">
+
+<isif condition="#isDefined(ProductValidationResult)#">
+
+	<!--- Initialize a helper class that facilitates the display of VRs --->
+	<%
+	    ValidationRuleConfigurationBORepository validationRuleConfigurationBORepository = getPipelineDictionary()
+	                    .get("ValidationRuleConfigurationBORepository");
+	
+	    ProductValidationResultModel pvrModel = new ProductValidationResultModel(
+	                    validationRuleConfigurationBORepository.getAllActiveValidationRuleConfigurationBOs(),
+	                    (Iterator<Row>)getPipelineDictionary().get("ProductValidationResult"));
+	
+	    getPipelineDictionary().put("ResultNodes", pvrModel.getResultNodes());
+	%>
+	
+	<isif condition="#hasLoopElements(ResultNodes)#">
+		<table border="0" cellspacing="5" cellpadding="0" width="100%" class="sm">
+			<tr>
+				<td class="table_detail">
+					<isapptext key="product.validation.completeness.sublabel">
+				</td>
+			</tr>
+		</table>
+		
+		<isset name="All" value="#0#" scope="request">
+		<isset name="Counter" value="#0#" scope="request" />
+		<isloop iterator="ResultNodes" alias="ResultNode"><isset scope="request" name="All" value="#All + 1#"></isloop>
+		<isloop iterator="ResultNodes" alias="ResultNode">
+		<isset scope="request" name="Counter" value="#Counter + 1#">
+			<table width="100%" cellspacing="5" cellpadding="0" border="0">		
+				<tr>
+					<td class="table_detail">
+						<!--- If job is not running, check if any of the active rules is modified in the mean time or is not executed. --->
+						<isif condition="#isDefined(Process) AND (Process:Status==0) AND NOT (Process:ExtendedStatus==1)#">
+							<!--- If the rule is not executed, display edited, otherwise check last modified date of the rule and the last execution time of the process to display edited or failures count --->
+							<isif condition="#(ProductValidationAssortmentConfigurationBO:Configuration:String(ResultNode:ValidationRuleConfigurationID) NE NULL)#">
+								<isif condition="#isDefined(ResultNode:LastModified) AND isDefined(Process:LastExecutionTime) AND (ResultNode:LastModified:Time > Process:LastExecutionTime:Time)#">
+									<isprint value="#ResultNode:ValidationRuleConfigurationName#" />
+								<iselse/>
+									<isif condition="#ResultNode:FailuresCount > 0#">		
+										<a class="table_detail_link"
+											href="#URL(Action('ViewProductValidationResultList-Start'), Parameter('ValidationRuleConfigurationID', ResultNode:ValidationRuleConfigurationID), Parameter('ValidationAssortmentID', ProductValidationOverviewForm_ProductAssortmentName))#" target="_parent">
+											<isprint value="#ResultNode:ValidationRuleConfigurationName#" />
+										</a>
+									<iselse/>
+										<isprint value="#ResultNode:ValidationRuleConfigurationName#" />
+									</isif>
+								</isif>
+							<iselse/>
+								<isprint value="#ResultNode:ValidationRuleConfigurationName#" />
+							</isif>
+						<iselse/>
+							<isif condition="#ResultNode:FailuresCount > 0#">		
+								<a class="table_detail_link"
+									href="#URL(Action('ViewProductValidationResultList-Start'), Parameter('ValidationRuleConfigurationID', ResultNode:ValidationRuleConfigurationID), Parameter('ValidationAssortmentID', ProductValidationOverviewForm_ProductAssortmentName))#" target="_parent">
+									<isprint value="#ResultNode:ValidationRuleConfigurationName#" />
+								</a>
+							<iselse/>
+								<isprint value="#ResultNode:ValidationRuleConfigurationName#" />
+							</isif>
+						</isif>
+					</td>
+					<td align="right" class="table_detail" nowrap="nowrap">
+						<!--- If job is not running, check if any of the active rules is modified in the mean time or is not executed. --->
+						<isif condition="#isDefined(Process) AND (Process:Status==0) AND NOT (Process:ExtendedStatus==1)#">
+							<!--- If the rule is not executed, display edited, otherwise check last modified date of the rule and the last execution time of the process to display edited or failures count --->
+							<isif condition="#(ProductValidationAssortmentConfigurationBO:Configuration:String(ResultNode:ValidationRuleConfigurationID) NE NULL)#">
+								<isif condition="#isDefined(ResultNode:LastModified) AND isDefined(Process:LastExecutionTime) AND (ResultNode:LastModified:Time > Process:LastExecutionTime:Time)#">
+									<isapptext key="product.validation.completeness.rule.edited">
+								<iselse/>
+									<isprint value="#ResultNode:FailuresCount#" style="INTEGER" />
+								</isif>
+							<iselse/>
+								<isapptext key="product.validation.completeness.rule.edited">
+							</isif>
+						<iselse/>
+							<isprint value="#ResultNode:FailuresCount#" style="INTEGER" />
+						</isif>		
+					</td>
+				</tr>				
+				<isif condition="#Counter < All#">
+					<tr>
+						<td colspan="2" class="overview_line"><img src="#WebRoot()#/images/space.gif" width="2" height="1" alt="" border="0" style="float: left;"/></td>					
+					</tr>
+				</isif>
+			</table>			
+		</isloop>
+	</isif>
+</isif>

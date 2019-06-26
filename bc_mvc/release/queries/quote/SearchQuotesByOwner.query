@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Owner" type="com.intershop.beehive.core.capi.profile.Profile" optional="false"/>
+	<parameter name="StateGroup" type="java.lang.String" optional="false"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="SortByQuote" type="java.lang.String" optional="true"/>
+	<parameter name="SortByQuoteAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="SortByQuoteEvent" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="SimpleSearchExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" />
+</parameters>
+<return-mappings>
+	<return-mapping name="count" type="rename">
+		<return-attribute name="count"/>
+	</return-mapping>
+	<return-mapping name="ProductList" type="orm" class="com.intershop.component.mvc.internal.product.ProductListPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+	<processor-preprocessing output="ContainsSearchExpression" input="SimpleSearchExpression" processing="SearchExpression2Contains"/>
+</processor>
+<template type="count">
+       SELECT count(*) as count from productlist pl
+       WHERE pl.ScopeUUID = <template-variable value="Owner:UUID"/>
+       AND pl.typecode = 4
+       <template-if condition="isDefined(SimpleSearchExpression)">
+           <template-call name="inc/SearchExpression2Like">
+               <call-parameter name="SearchExpression" value="SimpleSearchExpression"/>
+               <call-parameter name="ColumnNames" value="&quot;pl.DocumentNo&quot;"/>
+               <call-parameter name="CaseInsensitive" value="true()"/>
+               <call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+           </template-call>
+       </template-if>
+       <template-if condition="StateGroup EQ &apos;Pending&apos;">
+           AND pl.state in (0,1,2,3,4,5,6)
+           <if-elseif condition="StateGroup EQ &apos;Accepted&apos;" />
+           AND pl.state in (7,8)
+           <if-elseif condition="StateGroup EQ &apos;Archive&apos;" />
+           AND pl.state in (9,10,11,12)
+       </template-if>
+</template>
+<template type="objects">
+       SELECT pl.uuid as uuid
+       <template-if condition="(isDefined(SortByQuoteAttribute))">
+           FROM productlist pl LEFT JOIN productlist_av av ON (pl.UUID = av.ownerID AND av.name = &apos;displayName&apos; AND av.localeid = <template-variable value="LocaleInformation:LocaleID" />)
+       <if-elseif condition="(isDefined(SortByQuoteEvent))"/>  
+           FROM productlist pl LEFT JOIN productlistevent ple ON (
+           		pl.uuid = ple.productlistUUID
+           		<template-if condition="(SortByQuoteEvent EQ 'CreatedOn')">
+	               AND (ple.TypeCode is null or (pl.state in (0,1,2,3,4,5,6) AND ple.TypeCode = 'CreatedByBuyer'))
+	           <if-elseif condition="(SortByQuoteEvent EQ 'AcceptedOn')"/>
+	               AND (ple.TypeCode is null or (pl.state=7 AND ple.TypeCode='AcceptedByApprover') OR (pl.state=8 AND ple.TypeCode='AutoAccepted'))
+	           <if-elseif condition="(SortByQuoteEvent EQ 'ArchivedOn')"/>
+	               AND (ple.TypeCode is null or (pl.state=9 AND ple.TypeCode='RefusedByApprover') OR (pl.state=10 AND ple.TypeCode='CancelledBySeller') OR (pl.state=11 AND ple.TypeCode='CancelledByApprover') OR (pl.state=12 AND ple.TypeCode='ClosedByBuyer'))
+	           </template-if>
+           )
+       <if-else/>
+           from productlist pl
+       </template-if>
+       WHERE pl.ScopeUUID = <template-variable value="Owner:UUID"/>
+       <template-if condition="isDefined(SimpleSearchExpression)">
+           AND pl.uuid IN (SELECT ownerid FROM productlist_av WHERE
+           name = &apos;name&apos; AND (localeid=
+           <template-variable value="LocaleInformation:LocaleID" />
+           OR localizedflag=0) AND 
+           <sql-dialect name="Oracle">
+           		instr(stringvalue,<template-variable value="ContainsSearchExpression" />) &gt; 0
+           </sql-dialect>
+           <sql-dialect name="Microsoft">
+           		charIndex(<template-variable value="ContainsSearchExpression" />, stringvalue) &gt; 0
+           </sql-dialect>
+           )
+       </template-if>
+       <template-if condition="StateGroup EQ &apos;Pending&apos;">
+           AND pl.state in (0,1,2,3,4,5,6)
+           <if-elseif condition="StateGroup EQ &apos;Accepted&apos;" />
+           AND pl.state in (7,8)
+           <if-elseif condition="StateGroup EQ &apos;Archive&apos;" />
+           AND pl.state in (9,10,11,12)
+       </template-if>
+       
+       <template-if condition="isDefined(SortByQuote)">
+       		<template-variable value="orderBy(column(identifier(SortByQuote), names('pl.DocumentNo', 'pl.ValidFrom:ValidFrom', 'pl.ValidTo:ValidTo', 'pl.TotalValue:TotalValue', 'pl.NegotiationTotalValue:NegotiationTotalValue', 'pl.State:State')), direction(SortDirection), if(isAscending(SortDirection), nullsLast(), nullsFirst()))" processing="text"/>
+       <if-elseif condition="isDefined(SortByQuoteAttribute)" />
+       		<template-variable value="orderBy('av.stringvalue', direction(SortDirection), if(isAscending(SortDirection), nullsLast(), nullsFirst()))" processing="text"/>
+       <if-elseif condition="isDefined(SortByQuoteEvent)" />
+       		<template-variable value="orderBy('ple.EventDate', direction(SortDirection), if(isAscending(SortDirection), nullsLast(), nullsFirst()))" processing="text"/>
+	<if-else/>
+		<template-variable value="orderBy('pl.DocumentNo', direction(SortDirection), if(isAscending(SortDirection), nullsLast(), nullsFirst()))" processing="text"/>        	
+       </template-if>
+</template>
+</query>

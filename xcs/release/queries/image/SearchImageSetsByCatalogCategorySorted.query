@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Searches all ImageSetDefinitions assigned to the provided CatalogCategory. Can be sorted by ID or name, ascending or descending.">
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="CatalogCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="SortOrder" type="java.lang.String" optional="true"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="ImageSetDefinition" type="orm" class="com.intershop.component.image.internal.orm.ImageSetDefinitionPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+		SELECT iset.uuid , COUNT(*) OVER() AS "ROWCOUNT" FROM imageset iset
+		LEFT OUTER JOIN imageset_av iav ON (iset.uuid = iav.ownerid and iav.localeid = <template-variable value="LocaleInformation:LocaleID"/>)
+		INNER JOIN imagesetcategoryassignment isca on iset.uuid = isca.imagesetdefinitionuuid
+	WHERE iset.domainid = <template-variable value="Domain:UUID"/>
+	AND isca.catalogcategoryuuid = <template-variable value="CatalogCategory:UUID"/>
+	AND iav.name = &apos;name&apos;
+	<template-if condition="isDefined(SortAttribute) AND SortAttribute NE &apos;&apos;">
+		<template-if condition="SortAttribute EQ &apos;name&apos;">
+			<template-variable value="orderBy('iav.stringvalue',direction(SortOrder),if(isAscending(SortOrder),nullsLast(),nullsFirst()))" processing="text"/>
+		<if-else/>
+			<template-variable value="orderBy('iset.id',direction(SortOrder),if(isAscending(SortOrder),nullsLast(),nullsFirst()))" processing="text"/>
+		</template-if>
+	<if-else/>
+		<template-variable value="orderBy('iav.stringvalue','ASC','NULLS LAST')" processing="text"/>
+	</template-if>
+</template>
+</query>

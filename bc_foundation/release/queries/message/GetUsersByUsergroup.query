@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="DirectStmt" type="java.lang.String" optional="false"/>
+	<parameter name="InDirectStmt" type="java.lang.String" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Profile" type="orm" class="com.intershop.beehive.core.internal.profile.BasicProfilePO">
+		<return-attribute name="uuid"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template>
+WITH n(childusergroupid, childusergroupdomainid) AS (
+	SELECT ug.childusergroupid, ug.childusergroupdomainid
+	FROM usergroupassignment ug
+	WHERE <template-variable value="InDirectStmt" processing="text"/>
+	UNION ALL
+	SELECT ug2.childusergroupid, ug2.childusergroupdomainid
+	FROM usergroupassignment ug2, n 
+	WHERE ug2.parentusergroupid = n.childusergroupid
+	AND ug2.parentusergroupdomainid = n.childusergroupdomainid
+)
+SELECT uuid, count(uuid) over() AS "rowcount" 
+FROM basicprofile
+WHERE 
+uuid IN ( 
+SELECT   
+  bp.uuid 
+FROM 
+  basicprofile bp, usergroupuserassignment ugua 
+WHERE    
+  (<template-variable value="DirectStmt" processing="text"/> AND ugua.userid = bp.uuid) 
+UNION SELECT DISTINCT 
+  bp.uuid  
+FROM  
+  basicprofile bp, usergroupuserassignment ugua  
+WHERE ugua.userid = bp.uuid AND 
+      ugua.usergroupid IN (SELECT childusergroupid FROM n)
+)
+</template>
+</query>

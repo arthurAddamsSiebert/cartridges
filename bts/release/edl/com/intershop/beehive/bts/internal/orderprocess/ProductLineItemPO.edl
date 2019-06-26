@@ -1,0 +1,295 @@
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/ProductLineItem.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/BundledProductLineItemPO.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/LineItemCtnrPO.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/LineItemGroupPO.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/LineItemPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/Domain.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+external ProductRef type "com.intershop.beehive.xcs.common.ProductRef";
+
+namespace com.intershop.beehive.bts.internal.orderprocess
+{
+    /*
+     * A LineItem which references an offer and a product definition.
+     * 
+     * <p>The appropriate OrderProcessMgr (eg BasketMgr is an OrderProcessMgr) is responsible for creation and removal of ProductLineItems.
+     * <br>For creation use one of these methods:
+     * <br>OrderProcessMgr.addProduct(ProductRef, BigDecimal, LineItemCtnr) - creates an independent ProductLineItem
+     * <br>OrderProcessMgr.createDependentProductLineItem(ProductRef, BigDecimal, LineItemCtnr, ProductLineItem) - creates a dependent ProductLineItem (see below)
+     * <br>For removal use one of these methods:
+     * <br>OrderProcessMgr.removeProductLineItem(ProductLineItem)
+     * <br>OrderProcessMgr.removeProductLineItems(Iterator, LineItemCtnr)
+     * <br>OrderProcessMgr.removeZeroQuantityProductLineItems(LineItemCtnr)
+     * <br>OrderProcessMgr.removeProductLineItemsForProductRef(LineItemCtnr, ProductRef)
+     * <br>Note: The use of these OrderProcessMgr methods is a requirement for the correct positioning of the ProductLineItems within the LineItemCtnr
+     * 
+     * <br>When a ProductLineItem is cloned from one LineItemCtnr to another (eg when a Order is created from a Basket) the following methods are used:
+     * <br>OrderProcessMgr.cloneIndependentProductLineItem(ProductLineItem, LineItemCtnr) - clone a parent ProductLineItem
+     * <br>OrderProcessMgr.cloneDependentProductLineItem(ProductLineItem, LineItemCtnr, ProductLineItem) - clone a dependent ProductLineItem (see below)
+     * 
+     * <P>Price summary (generally PC is Purchase Currency, LC Lead Currency, Base means before discount, Single means a price for a single unit of the product)
+     * <BR>SingleBasePricePC - price per single unit of product before discount
+     * <BR>SinglePricePC - price per single unit of product after applying discount
+     * <BR>BasePricePC - SingleBasePricePC times quantity (note: this price is not further used in the calculation process, is made available for reporting purposes)
+     * <BR>NetPricePC - price net of tax (= SinglePricePC times quantity when isBasedOnNetPrice is true, see price notes)
+     * <BR>TaxPC - tax (calculated from PricePC or GrossPricePC depending upon  isBasedOnNetPrice flag, see price notes)
+     * <BR>GrossPricePC - price gross of tax (= SinglePricePC times quantity when isBasedOnNetPrice is false, see price notes)
+     * <BR>NetPriceLC - NetPricePC converted to LC
+     * <BR>TaxLC - TaxPC converted to LC
+     * <BR>GrossPriceLC - GrossPricePC converted to LC
+     * 
+     * <P>Price notes:
+     * <BR>A ProductLineItem is taxable and belongs to a tax class identified with the attribute TaxClassCode which is used to calculate the decimal TaxRate attribute (e.g. 17.5% = 0.175).
+     * <BR>The SingleBasePricePC may be gross or net of tax (method isBasedOnNetPrice), this flag is used in the tax calculation process.
+     * <BR>The SingleBasePricePC may be fixed (method isBasePriceFixed), meaning the designated price should not be overwritten by another pricing system.
+     * 
+     * <p>Dependent ProductLineItems:
+     * <br>A ProductLineItem may have 0 to many dependent ProductLineItems, in which case it is called the parent ProductLineItem of these ProductLineItems. An example of the use of this relationship is when a free product is available on condition that another product is present (i.e. a buy X get Y for free discount).
+     * 
+     * <br>A dependent ProductLineItem is linked to and dependent upon its parent (for which there are get/set methods in ProductLineItem class). When the parent is deleted, all dependent ProductLineItems are automatically removed. (This removal is handled by Persistence automatically). The creation of a second level of dependent ProductLineItems is not recommended. (It might work in the Basket, but 'sub-dependent' ProductLineItems would not be copied into the placedorder / order.)
+     * 
+     * <br>Each LineItemCtnr (such as a Basket) has the following methods for ProductLineItem access:
+     * <br>createProductLineItemsIterator() - returns all
+     * <br>createIndependentProductLineItemsIterator() - returns all non-dependent
+     * <br>createDependentProductLineItemsIterator() - returns all dependent
+     * 
+     * <br>A ProductLineItem has these methods for dependent ProductLineItem access:
+     * <br>createDependentProductLineItemsIterator() - returns all dependent
+     * <br>get/setParentProductLineItem - set or return the parent
+     * <br>isDependent() - has the ProductLineItem a parent?
+     * 
+     * <p>Bundles, BundledProductLineItems and product variations:
+     * <br>A ProductLineItem may represent one of either a product bundle or a product item, depending upon the Product referenced.
+     * <br>Product variations are not available in any form in the ProductLineItem - the decision as to which product item (which variation) is to be added to the basket is made previous to the ProductLineItem being created.
+     * <br>If a ProductLineItem represents a product bundle, it will have one or more BundledProductLineItems attached to it. Class ProductLineItem provides the following methods for accessing bundle information:
+     * <br>isBundle - does the ProductLineItem represent a product bundle?
+     * <br>createBundledProductLineItemsIterator - returns all BundledProductLineItems
+     * 
+     * <p>Sorting ProductLineItems:
+     * <br>Each LineItemCtnr (such as a Basket) has the following methods for ProductLineItem access:
+     * <br>createProductLineItemsOrderedByPositionIterator - returns all ordered by position
+     * <br>createProductLineItemsOrderedByProductNameIterator - returns all ordered by product name
+     * 
+     * <p>Tracking ProductLineItems between Basket and Order:
+     * <br>Within the order process an Order is created from a Basket or from another Order. ProductLineItems are cloned from the source LineItemCtnr into the target LineItemCtnr in this process. Sometimes it is useful to have a back-reference on the ProductLineItem level which enables the identification of for instance the source ProductLineItem in the Basket from which a ProductLineItem in the Order was created. This is provided by the ProductLineItem attribute OriginID:
+     * <br>- when a ProductLineItem is created, its OriginID is set to be identical to its uuid
+     * <br>- when a ProductLineItem is cloned, the OriginID of the new ProductLineItem is set to be identical to the OriginID of the ProductLineItem being cloned.
+     * <br>2 ProductLineItems a and b can be said to have the same origin when (a.getOriginID().equals(b.getOriginID())
+     * 
+     * @see com.intershop.beehive.bts.capi.orderprocess.OrderProcessMgr
+     * @see com.intershop.beehive.bts.capi.orderprocess.basket.BasketMgr
+     * @see com.intershop.beehive.bts.capi.orderprocess.BundledProductLineItem
+     * @see com.intershop.beehive.bts.capi.orderprocess.LineItemCtnr
+     * @see com.intershop.beehive.xcs.common.ProductRef
+     */
+    partitionable orm class ProductLineItemPO extends LineItemPO implements ProductLineItem table "ProductLineItem"
+    {
+        index(originID);
+
+        index(lineItemCtnrID);
+
+        index(shipFromAddressURN);
+
+        index(lineItemGroupID);
+
+        index(quoteID);
+
+        /*
+         * Name of product, copied when product is added to LineItemCtnr.
+         */
+        attribute productName : string<256>;
+
+        /*
+         * Short description of product, copied when product is added to LineItemCtnr.
+         */
+        attribute productShortDescription : string<4000>;
+
+        /*
+         * Image used to represent the product thumbnail,  copied when product is added to LineItemCtnr.
+         */
+        attribute productThumbnail : string<256>;
+
+        /*
+         * Quantity of product represented by this ProductLineItem.
+         * 
+         * <P>Note: the quantity of a ProductLineItem must obey the limits set by the ProductLineItem's attributes 'MinOrderQuantity' and 'StepQuantity', i.e. for a 'MinOrderQuantity' of 2.0 and a 'StepQuantity' of 2.5 then values 2.0, 4.5, 7.0... are allowed values.
+         */
+        attribute quantity : Quantity;
+
+        /*
+         * The selected quantity may be used to process quantity changes in a LineItemCtnr in which the quantity before and quantity-to-be need to be known.
+         */
+        attribute selectedQuantity : Quantity;
+
+        /*
+         * Minimal order quantity allowed for the product represented by the ProductLineItem (copied from product on initialization).
+         * 
+         * <P>Note: the quantity of a ProductLineItem must obey the limits set by the ProductLineItem's attributes 'MinOrderQuantity' and 'StepQuantity', i.e. for a 'MinOrderQuantity' of 2.0 and a 'StepQuantity' of 2.5 then values 2.0, 4.5, 7.0... are allowed values.
+         */
+        attribute minOrderQuantity : Quantity;
+        
+         /*
+         * Maximal item quantity allowed for one order
+          */
+        attribute maxOrderQuantity : Quantity;
+
+        /*
+         * Step quantity allowed for the product represented by the ProductLineItem (copied from product on initialization).
+         * 
+         * <P>Note: the quantity of a ProductLineItem must obey the limits set by the ProductLineItem's attributes 'MinOrderQuantity' and 'StepQuantity', i.e. for a 'MinOrderQuantity' of 2.0 and a 'StepQuantity' of 2.5 then values 2.0, 4.5, 7.0... are allowed values.
+         */
+        attribute stepQuantity : Quantity;
+
+        /*
+         * The position within the LineItemCtnr assigned to the ProductLineItem upon its creation, may be used as a sort-order.
+         * 
+         * <br>The position is updated in the following way:
+         * <br>When a ProductLineItem is added to the LineItemCtnr, it is assigned the next available position, based on the current count
+         * <br>When a ProductLineItem is removed from the LineItemCtnr then LineItemCtnr method reassignPositions is called, so that the 'gap' left by the removed line-item is refilled. This method is dependent on no 2 ProductLineItem having the same position.
+         * 
+         * <br>When a LineItemCtnr is copied (eg when a PlacedOrder is created from a Basket), no special position handling is necessary as the ProductLineItems are added according to theie current position ordering in the source LineItemCtnr.
+         */
+        attribute position : int;
+
+        /*
+         * Decimal tax rate to be applied to the product represented by this ProductLineItem. A value  of 0.175 represents a percentage of 17.5%.
+         */
+        attribute taxRate : decimal;
+
+        /*
+         * In situations where multiple pricing systems are used to provide product prices, this flag is used to indicate whether the SingleBasePricePC may be overwritten or not (a value 'true' indicates the price may not be overwritten).
+         */
+        attribute basePriceFixed : boolean;
+
+        /*
+         * Whether the SingleBasePricePC is gross or net of tax. The calculation process uses the value of this flag to control how tax and tax-dependent prices are calculated from the SingleBasePricePC.
+         */
+        attribute basedOnNetPrice : boolean = true;
+
+        /*
+         * Whether this ProductLineItem represents a product bundle or not. If true, this ProductLineItem will have BundledProductLineItems attached.
+         */
+        attribute bundle : boolean;
+
+        /*
+         * Price of a single unit before applying a discount, in the purchase currency, may be net or gross of tax depending on the value of flag BasedOnNetPrice.
+         */
+        attribute singleBasePricePC : Money;
+
+        /*
+         * Price of a single unit after applying a discount, in the purchase currency, may be net or gross of tax depending on the value of flag BasedOnNetPrice.
+         */
+        attribute singlePricePC : Money;
+
+        /*
+         * Price net of tax in purchase currency.
+         * 
+         * <P>Note: this attribute and all LineItem price attributes have a subclass-dependent contents  (for instance in subclass ProductLineItem this is the price net of tax paid for the given quantity of a product, in subclass Subtotal this is the price net of tax summed for all products held in the LineItemCtnr).
+         */
+        attribute netPriceLC : Money;
+
+        /*
+         * See class description - tracking ProductLineItems between Basket, PlacedOrder & Order
+         */
+        attribute originID : uuid;
+
+        /*
+         * UUID of LineItemCtnr to which this ProductLineItem belongs
+         */
+        attribute lineItemCtnrID : uuid;
+
+        /*
+         * UUID of quote which this ProductLineItem belongs to
+         */
+        attribute quoteID : uuid;
+
+        /*
+         * The ProductRef instance identifying the <i>offer</i> represented by this ProductLineItem.
+         * 
+         * <br>Whereas the  <i>offered Product</i> is defined by one unit, and identified by the <i>DefinitionProductRef</i>, the <i>offer</i> may be owned by a 2nd selling unit, and is identified by the <i>sellerProductRef</i>.
+         * 
+         * @return The ProductRef instance identifying the offer
+         * @see com.intershop.beehive.capi.bts.ProductLineItem#getSellingDomain()
+         * @see com.intershop.beehive.capi.bts.ProductLineItem#getDefinitionProductRef()
+         * @see com.intershop.beehive.capi.bts.ProductLineItem#getProductDefiningDomain()
+         */
+        attribute offerProductRef : ProductRef;
+
+        /*
+         * The ProductRef instance identifying the <i>offered Product</i> represented by this ProductLineItem.
+         * 
+         * <br>Whereas the  <i>offered Product</i> is defined by one unit, and identified by the <i>DefinitionProductRef</i>, the <i>Offer</i> may be owned by a 2nd selling unit, and is identified by the <i>sellerProductRef</i>.
+         * 
+         * @return The ProductRef instance identifying the offered Product
+         * @see com.intershop.beehive.capi.bts.ProductLineItem#getSellerProductRef()
+         * @see com.intershop.beehive.capi.bts.ProductLineItem#getSellingDomain()
+         * @see com.intershop.beehive.capi.bts.ProductLineItem#getProductDefiningDomain()
+         */
+        attribute definitionProductRef : ProductRef;
+
+        /*
+         * The code of the TaxClass assigned to this Product line-item
+         */
+        attribute taxClassCode : string<256>;
+
+        attribute supplierDomainID : uuid;
+
+        /*
+         * URN of line item's ship-from address.
+         */
+        attribute shipFromAddressURN : string<256>;
+
+        attribute lineItemGroupID : uuid;
+
+        attribute status : int;
+
+        attribute status2 : int;
+
+        /*
+         * Whether the ProductLineItem is 'Adhoc' or not, i.e. a ProductLineItem is 'Adhoc' if it does not directly represent a product in the system.
+         */
+        attribute adhoc : boolean;
+
+        /*
+         * Returns BigDecimal instance representing the quantity of item for  which the set price applies. By default set to 1.0
+         * 
+         * <br>e.g. if price quantity for nails is set to 100 then the given price is per 100 nails. A price of 2USD would imply each nail costs 0.02USD and 250 nails cost 5USD.
+         * 
+         * <br>Method <code>isPriceQuantityAvailable()</code> can be used to check whether a valid non-default value has been set.
+         */
+        attribute priceQuantityValue : decimal = 1.0;
+
+        attribute mergeGroup : int;
+        
+        /*
+         * A computed ProductLineItem instance represents an product that is automatically added to the LineItemCtnr during calculation (e.g. applying a discount)),
+         * instead as result of an user action. This kind of product might be automatically removed in the course of a recalculation.
+         */
+        attribute computedItemID : string<256> column "COMPUTED";
+        
+        attribute desiredDeliveryDate : datetime;
+
+        relation lineItemCtnrPO : LineItemCtnrPO[1..1] inverse productLineItemPOs
+        {
+            foreign key(lineItemCtnrID) -> (UUID);
+        }
+
+        relation lineItemGroupPO : LineItemGroupPO[0..1] inverse productLineItemPOs
+        {
+            foreign key(lineItemGroupID) -> (UUID);
+        }
+
+       	relation bundledProductLineItemPOs : BundledProductLineItemPO[0..n] inverse productLineItemPO implements bundledProductLineItems delete propagate;
+
+        /*
+         * The business unit responsible for supplying the ProductLineItem. By default this is set to be identical to the product defining business unit.
+         * @return The business unit responsible for supplying the ProductLineItem
+         */
+        dependency supplyingDomain : Domain handler "com.intershop.beehive.core.capi.domain.DomainMgr"
+        {
+            foreign key(supplierDomainID);
+        }
+
+    }
+}

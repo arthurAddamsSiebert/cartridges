@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="ProductAlias" type="java.lang.String" optional="false"/>
+    <parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttributeType" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttributeLocalizedFlag" type="java.lang.Integer" optional="true"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<processor name="OracleSQL"/>
+<template>
+<template-if condition="SortAttribute EQ 'sku' OR SortAttribute EQ 'SKU'">
+    <template-variable value="ProductAlias" processing="text"/>.sku
+<if-elseif condition="SortAttribute EQ 'manufacturername' OR SortAttribute EQ 'manufacturerName'"/>
+    <template-variable value="ProductAlias" processing="text"/>.manufacturername
+<if-elseif condition="SortAttribute EQ 'SupplierName'"/>
+	<template-variable value="ProductAlias" processing="text"/>.suppliername
+<if-elseif condition="SortAttribute EQ 'name' AND isDefined(LocaleInformation)"/>
+    <template-variable value="ProductAlias" processing="text"/>.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/>
+<if-elseif condition="isDefined(SortAttribute) AND isDefined(SortAttributeLocalizedFlag) AND (SortAttributeLocalizedFlag==0)"/>
+    /* localized or non localized attribute */
+	
+   <template-if condition="isDefined(SortAttributeType) AND ((SortAttributeType EQ 'Integer') OR (SortAttributeType EQ 'Float'))">
+	    cast
+	    ((
+	</template-if>
+<sql-dialect name="Microsoft">
+	CASE 
+	 	WHEN (<template-if condition="isDefined(LocaleInformation)">(<template-variable value="ProductAlias" processing="text"/>.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>.value('(/attrs/attr[@name="<template-variable value="SortAttribute" processing="text" />"]/<template-if condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')">int	 <if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')"/>float<if-else/>string</template-if>)[1]', 'varchar(30)') IS NULL) AND </template-if>
+	 	     (<template-variable value="ProductAlias" processing="text"/>.attributes.value('(/attrs/attr[@name="<template-variable value="SortAttribute" processing="text" />"]/<template-if condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')">int	 <if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')"/>float<if-else/>string</template-if>)[1]', 'varchar(30)') IS NULL))
+	 	THEN NULL
+	 	ELSE (
+	 		<template-if condition="isDefined(LocaleInformation)">
+	 			isnull(<template-variable value="ProductAlias" processing="text"/>.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>.value('(/attrs/attr[@name="<template-variable value="SortAttribute" processing="text" />"]/<template-if condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')">int	 <if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')"/>float<if-else/>string</template-if>)[1]', 'varchar(30)'), '')	+
+	 		</template-if>
+	 		isnull(<template-variable value="ProductAlias" processing="text"/>.attributes.value('(/attrs/attr[@name="<template-variable value="SortAttribute" processing="text" />"]/<template-if condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')">int	 <if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')"/>float<if-else/>string</template-if>)[1]', 'varchar(30)'), '')
+	 	)
+	 END
+</sql-dialect>	
+	
+	 <sql-dialect name="Oracle">
+		<template-if condition="isDefined(LocaleInformation)">
+			extractValue(XMLType(nvl(<template-variable value="ProductAlias" processing="text"/>.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, '&lt;attrs/&gt;')), '/attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/<template-if condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')">int<if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')"/>float<if-else/>string</template-if>[1]') ||
+		</template-if>
+		extractValue(XMLType(nvl(<template-variable value="ProductAlias" processing="text"/>.attributes, '&lt;attrs/&gt;')), '/attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/<template-if condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')">int<if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')"/>float<if-else/>string</template-if>[1]')
+	</sql-dialect>	
+	
+    
+   
+	<template-if condition="isDefined(SortAttributeType) AND ((SortAttributeType EQ 'Integer') OR (SortAttributeType EQ 'Float'))">
+        ) as <template-if condition="SortAttributeType EQ 'Integer'">int<if-elseif condition="SortAttributeType EQ 'Float'"/>float<if-else/>string</template-if>) 
+    </template-if>
+<if-elseif condition="isDefined(SortAttribute) AND isDefined(LocaleInformation)"/>
+    <template-if condition="isDefined(SortAttributeType) AND ((SortAttributeType EQ 'Integer') OR (SortAttributeType EQ 'Float'))">
+        cast
+        ((
+    </template-if>
+	<sql-dialect name="Microsoft">
+		<template-variable value="ProductAlias" processing="text"/>.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>.value('(/attrs/attr[@name="<template-variable value="SortAttribute" processing="text" />"]/<template-if condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')">int	 <if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')"/>float<if-else/>string</template-if>)[1]', 'varchar(30)')
+	</sql-dialect>
+		<sql-dialect name="Oracle">
+		 extractValue(XMLType(nvl(<template-variable value="ProductAlias" processing="text" />.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>, '&lt;attrs/&gt;')),'/attrs/attr[@name="' || <template-variable value="SortAttribute"/> || '"]/<template-if condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Integer')">int<if-elseif condition="isDefined(SortAttributeType) AND (SortAttributeType EQ 'Float')"/>float<if-else/>string</template-if>[1]')
+		</sql-dialect>
+		
+   
+    <template-if condition="isDefined(SortAttributeType) AND ((SortAttributeType EQ 'Integer') OR (SortAttributeType EQ 'Float'))">
+        ) as <template-if condition="SortAttributeType EQ 'Integer'">int<if-elseif condition="SortAttributeType EQ 'Float'"/>float<if-else/>string</template-if>) 
+    </template-if>
+<if-elseif condition="isDefined(LocaleInformation)"/>
+    <template-variable value="ProductAlias" processing="text"/>.name_<template-variable value="LocaleInformation:LocaleID" processing="text"/>
+<if-else/>
+    <template-variable value="ProductAlias" processing="text"/>.sku
+</template-if> 
+</template>
+</query>

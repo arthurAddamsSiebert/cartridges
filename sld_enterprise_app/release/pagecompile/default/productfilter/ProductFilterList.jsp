@@ -1,0 +1,86 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><!-- TEMPLATENAME: productfilter/ProductFilterList_52.isml -->
+<!-- Working Area --><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/Modules", null, "4");} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/GlobalJavaScript", null, "5");} %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("hide","true"),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelCatalogOverview_52-Show",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ChannelID",null),context.getFormattedValue(getObject("CurrentChannel:UUID"),null))))),
+new TagParameter("start","true"),
+new TagParameter("text",localizeText(context.getFormattedValue("ProductFilterList.ChannelCatalogs.text",null)))}, 7); %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("listview","true"),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductFilterList-List",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ChannelID",null),context.getFormattedValue(getObject("ChannelID"),null))))),
+new TagParameter("text",localizeText(context.getFormattedValue("ProductFilterList.PredefinedProductFilters.text",null)))}, 8); %><!-- Titel and Description --><% URLPipelineAction action496 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductFilterList-Dispatch",null)))),null));String site496 = null;String serverGroup496 = null;String actionValue496 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductFilterList-Dispatch",null)))),null);if (site496 == null){  site496 = action496.getDomain();  if (site496 == null)  {      site496 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup496 == null){  serverGroup496 = action496.getServerGroup();  if (serverGroup496 == null)  {      serverGroup496 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductFilterList-Dispatch",null)))),null));out.print("\"");out.print(" name=\"");out.print("detailForm");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue496, site496, serverGroup496,true)); %><table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td width="100%" class="table_title aldi"><% {out.write(localizeISText("ProductFilterList.PredefinedProductFilters.table_title",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_MANAGE_PRODUCTS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",16,e);}if (_boolean_result) { %> 
+<!-- delete confirmation if one is selected --><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("confirmDelete")))).booleanValue() && ((Boolean) (hasLoopElements("ProductFiltersClipboard:ObjectUUIDs") ? Boolean.TRUE : Boolean.FALSE)).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",18,e);}if (_boolean_result) { %><% processOpenTag(response, pageContext, "messagebox", new TagParameter[] {
+new TagParameter("subject",localizeText(context.getFormattedValue("sld_enterprise_app.ProductFilter.subject",null))),
+new TagParameter("cancelbtnname","cancelConfirm"),
+new TagParameter("okbtnname","delete"),
+new TagParameter("type","mdc")}, 19); %><% } %><!-- delete confirmation if nothing is selected--><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("confirmDelete")))).booleanValue() && ((Boolean) ((((Boolean) ((hasLoopElements("ProductFiltersClipboard:ObjectUUIDs") ? Boolean.TRUE : Boolean.FALSE))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",22,e);}if (_boolean_result) { %><% processOpenTag(response, pageContext, "messagebox", new TagParameter[] {
+new TagParameter("subject",localizeText(context.getFormattedValue("sld_enterprise_app.ProductFilter.subject",null))),
+new TagParameter("type","mde")}, 23); %><% } %><tr><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("ErrorCode")))).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("ErrorCode"),null).equals(context.getFormattedValue("ProductFilterIsUsed",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",26,e);}if (_boolean_result) { %><tr>
+<td>
+<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box w e s">
+<tr valign="top">
+<td class="error_icon e" ><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/error.gif" alt="" border="0"/></td>
+<td class="error top" width="100%"><% {out.write(localizeISText("ProductFilterList.SomeItemsCouldNotBeDeletedBecauseTheyAreInUse.error",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table>
+</td>
+</tr><% } %><td class="table_title_description w e s"><% {out.write(localizeISText("ProductFilterList.TheListContainsPredefinedProductFilters.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% } else { %><tr>
+<td class="table_title_description w e s"><% {out.write(localizeISText("ProductFilterList.TheListContainsPredefinedProductFilters.table_title_description1",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% } %><!-- EO Titel and Description -->
+<!-- Main Content --><% _boolean_result=false;try {_boolean_result=((Boolean)((hasLoopElements("ProductFiltersPageable") ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",52,e);}if (_boolean_result) { %><tr>
+<td>
+<table width="100%" border="0" cellspacing="0" cellpadding="0" class="w">
+<tr><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_MANAGE_PRODUCTS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",57,e);}if (_boolean_result) { %> 
+<td class="e s" nowrap="nowrap" width="80">
+<div id="A">
+<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+<tr>
+<td nowrap="nowrap"><a href="javascript:selectAll('detailForm','SelectedProductFilterUUID','A','B');" class="tableheader"><% {out.write(localizeISText("ProductFilterList.SelectAll.link",null,null,null,null,null,null,null,null,null,null,null,null));} %></a></td>
+</tr>
+</table>
+</div>
+<div id="B" style="display:none">
+<table border="0" cellspacing="0" cellpadding="0" class="table_header center" width="80">
+<tr>
+<td nowrap="nowrap"><a href="javascript:selectAll('detailForm','SelectedProductFilterUUID','A','B');" class="tableheader"><% {out.write(localizeISText("ProductFilterList.ClearAll.link",null,null,null,null,null,null,null,null,null,null,null,null));} %></a></td>
+</tr>
+</table>
+</div>
+</td><% } %><td class="table_header e s"><% {out.write(localizeISText("ProductFilterList.Name.table_header",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="table_header e s"><% {out.write(localizeISText("ProductFilterList.ID.table_header",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="table_header e s"><% {out.write(localizeISText("ProductFilterList.Description.table_header",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+<td class="table_header e s"><% {out.write(localizeISText("ProductFilterList.Localized.table_header",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% while (loop("ProductFiltersPageable","ProductFilter",null)) { %><tr><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_MANAGE_PRODUCTS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",82,e);}if (_boolean_result) { %><td class="e s center top">
+<input type="hidden" name="AllProductFilterUUID" value="<%=context.getFormattedValue(getObject("ProductFilter:UUID"),null)%>"/>
+<input type="checkbox" name="SelectedProductFilterUUID" value="<%=context.getFormattedValue(getObject("ProductFilter:UUID"),null)%>"
+<% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("ProductFilter:UUID"),null).equals(context.getFormattedValue(getObject("ProductFiltersClipboard:ObjectUUID(ProductFilter:UUID)"),null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",86,e);}if (_boolean_result) { %>checked="checked"<% } %><% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) ((((context.getFormattedValue(getObject("ProductFilter:UUID"),null).equals(context.getFormattedValue(getObject("DefaultProductFilter:UUID"),null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue() || ((Boolean) ((((context.getFormattedValue(getObject("ProductFilter:Name"),null).equals(context.getFormattedValue("fallback_searchquerydefinition",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",86,e);}if (_boolean_result) { %>disabled="disabled"<% } %>/>
+</td><% } %><td class="table_detail e s top" nowrap="nowrap"><a href="<%=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductFilter-Edit",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ProductFilterUUID",null),context.getFormattedValue(getObject("ProductFilter:UUID"),null))).addURLParameter(context.getFormattedValue("ChannelID",null),context.getFormattedValue(getObject("ChannelID"),null))),null)%>" class="table_detail_link"><% {String value = null;try{value=context.getFormattedValue(getObject("ProductFilter:DisplayName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {89}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></a>&nbsp;</td>
+<td class="table_detail e s top" nowrap="nowrap"><a href="<%=context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewProductFilter-Edit",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ProductFilterUUID",null),context.getFormattedValue(getObject("ProductFilter:UUID"),null))).addURLParameter(context.getFormattedValue("ChannelID",null),context.getFormattedValue(getObject("ChannelID"),null))),null)%>" class="table_detail_link"><% {String value = null;try{value=context.getFormattedValue(getObject("ProductFilter:Name"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {90}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %></a>&nbsp;</td>
+<td class="table_detail e s top"><% {String value = null;try{value=context.getFormattedValue(getObject("ProductFilter:Description"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {91}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>&nbsp;</td>
+<td class="table_detail e s top"><% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("ProductFilter:isActivated"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",92,e);}if (_boolean_result) { %><% {out.write(localizeISText("ProductFilterList.Yes.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } else { %><% {out.write(localizeISText("ProductFilterList.No.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %><% } %></td>
+</tr><% } %></table>
+<!-- EO Main Content -->
+</td>
+</tr><% } else { %><tr>
+<td class="table_detail w e s"><% {out.write(localizeISText("ProductFilterList.CurrentlyThisChannelHasNoProductFilters.table_detail",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% } %><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_MANAGE_PRODUCTS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",104,e);}if (_boolean_result) { %><tr>
+<td class="w e s" align="right">
+<table border="0" cellspacing="4" cellpadding="0">
+<tr>
+<td class="button">
+<input name="ChannelID" type="hidden" value="<% {String value = null;try{value=context.getFormattedValue(getObject("ProductFilterID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {110}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input class="button" type="submit" name="new" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ProductFilterList.New.button",null)),null)%>"/>
+</td><% _boolean_result=false;try {_boolean_result=((Boolean)((hasLoopElements("ProductFiltersPageable") ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",113,e);}if (_boolean_result) { %><td class="button"><input class="button" type="submit" name="confirmDelete" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ProductFilterList.Delete.button",null)),null)%>"/></td><% } %></tr>
+</table>
+</td>
+</tr><% } %></table>
+<div><img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif" width="1" height="6" alt="" border="0"/></div><% processOpenTag(response, pageContext, "pagingbar", new TagParameter[] {
+new TagParameter("pageable","ProductFiltersPageable")}, 123); %><% out.print("</form>"); %><!-- End Page Cursor -->
+<!-- EO Working Area --><% printFooter(out); %>

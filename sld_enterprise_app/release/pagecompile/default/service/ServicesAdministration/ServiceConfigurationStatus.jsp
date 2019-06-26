@@ -1,0 +1,26 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %>
+
+<% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("ServiceConfiguration:isActivated"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",3,e);}if (_boolean_result) { %>
+	<% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("ServiceConfiguration:isEnabled"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",4,e);}if (_boolean_result) { %>
+		<% _boolean_result=false;try {_boolean_result=((Boolean)((((context.getFormattedValue(getObject("ServiceConfiguration:isHardOff"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",5,e);}if (_boolean_result) { %>
+			<img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/error.gif" alt="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ServiceConfigurationStatus.DeactivatedBySystemManagementConsole.alt",null)),null)%>"
+				title="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ServiceConfigurationStatus.DeactivatedBySystemManagementConsole.title",null)),null)%>" />
+		<% } else { %>
+			<img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/online.png" alt="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ServiceConfigurationStatus.Enabled.alt",null)),null)%>" title="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ServiceConfigurationStatus.Enabled.title",null)),null)%>" />
+		<% } %>
+	<% } else { %>
+		<img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/offline.png" alt="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ServiceConfigurationStatus.Disabled.alt",null)),null)%>" title="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ServiceConfigurationStatus.DisabledByServiceConfiguration.title",null)),null)%>" />
+	<% } %>
+<% } else { %>
+	<img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/offline.png" alt="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ServiceConfigurationStatus.Deactivated.alt",null)),null)%>" title="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ServiceConfigurationStatus.DisabledByLocalAssignment.title",null)),null)%>" />
+<% } %>
+<% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) ((((context.getFormattedValue(getObject("ServiceConfiguration:hasOwnActivationState"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue() && ((Boolean) ((((context.getFormattedValue(getObject("ServiceConfiguration:isShared"),null).equals(context.getFormattedValue("true",null)))) ? Boolean.TRUE : Boolean.FALSE))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",17,e);}if (_boolean_result) { %>
+	<img src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/confirmation.gif" alt="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ServiceConfigurationStatus.LocalAssignmentForServiceConfigurationIsSet.alt",null)),null)%>"
+		title="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ServiceConfigurationStatus.SharedAndEdited.title",null)),null)%>" />
+<% } %>
+<% printFooter(out); %>

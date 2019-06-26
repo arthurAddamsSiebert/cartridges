@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Retrieves the CustomerBO instances which can potentially be assigned to a Promotion (if not already directly or indirectly assigned to it).">
+  <parameters>
+    <parameter name="CustomerBORepository" type="com.intershop.component.customer.capi.CustomerBORepository" optional="false"/>
+    <parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+  </parameters>
+  <return-mappings>
+    <return-mapping name="CustomerBO" type="bo-orm" class="com.intershop.component.customer.orm.internal.orm.CustomerPO" mapperclass="CustomerPOToCustomerBOMapper">
+      <return-attribute name="cuuid"/>
+    </return-mapping>
+  </return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+      select c.uuid as cuuid,
+             count(c.uuid) over() as "rowcount"
+        from customer c 
+       where c.domainid =<template-variable value="CustomerBORepository:RepositoryID"/>
+       <template-if condition="isDefined(NameOrID)">
+         and exists (
+               select 1
+                 from customerprofileassignment cpa 
+                 left join basicprofile bp on cpa.profileid=bp.uuid
+                 left join basiccredentials bc on bc.basicprofileid=bp.uuid
+                 left join companyprofile cp on cp.customerid=cpa.customerid
+                where c.uuid = cpa.customerid
+                      <template-call name="inc/SearchExpression2Like">
+                        <call-parameter name="SearchExpression" value="NameOrID"/>
+                        <call-parameter name="ColumnNames" value="&quot;bp.lastName bp.firstName bp.businessPartnerNo cp.companyname cp.companyname2 c.customerno&quot;"/>
+                        <call-parameter name="CaseInsensitive" value="true()"/>
+                        <call-parameter name="ConcatenationOperator" value="&quot; and &quot;"/>
+                      </template-call>
+             )
+       </template-if>
+       <sql-dialect name="Oracle">order by lastmodified asc nulls first</sql-dialect>
+       <sql-dialect name="Microsoft">
+       		ORDER BY
+       		CASE
+       			WHEN lastmodified IS NULL THEN 0
+       			ELSE 1
+       		END,
+       		lastmodified asc
+       </sql-dialect>
+</template>
+</query>

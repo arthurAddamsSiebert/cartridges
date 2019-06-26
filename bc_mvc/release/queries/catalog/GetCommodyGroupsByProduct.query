@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="Product" type="com.intershop.beehive.xcs.capi.product.Product" optional="false"/>
+    <parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<return-mappings>
+    <return-mapping name="CommodityGroupPO" type="orm" class="com.intershop.component.mvc.internal.commodity.CommodityGroupPO">
+        <return-attribute name="UUID"/>
+    </return-mapping>
+</return-mappings>
+<template type="objects" sqlDialect="Oracle">
+    select uuid from CommodityGroup where uuid in (
+        select distinct commoditygroupid from commoditygroupassignment
+        where domainid = <template-variable value="Domain:UUID"/> 
+        and catalogcategoryid in (
+            select uuid from catalogcategory 
+            start with uuid in (
+                select distinct categoryid 
+                from ieproductcategoryassignment 
+                where productid = <template-variable value="Product:UUID"/>) 
+            connect by uuid = prior parentcategoryid))
+</template>
+<template type="objects" sqlDialect="Microsoft">
+	;WITH n(uuid) as
+	(		
+		select uuid from catalogcategory where uuid in(
+		select  categoryid from ieproductcategoryassignment 
+					where productid = <template-variable value="Product:UUID"/>
+					)
+		UNION ALL 
+			select nplus1.uuid from catalogcategory nplus1, n
+				   where n.uuid = nplus1.parentcategoryid
+	)
+	select uuid from CommodityGroup where uuid in (
+	select distinct commoditygroupid from commoditygroupassignment
+	where domainid = <template-variable value="Domain:UUID"/> 
+	and catalogcategoryid in (select uuid from n))
+</template>
+</query>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true"/>
+    <parameter name="ProductAlias" type="java.lang.String" optional="true"/>
+    <parameter name="DerivedAlias" type="java.lang.String" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+    <template-if condition="Sharing:Enabled">
+    SELECT 
+        productid, domainid, currency, value, netpriceflag
+    FROM
+        derivedproductlistprice 
+    WHERE 
+        domainid = <template-variable value="ProductDomain:UUID"/> 
+    UNION ALL 
+    SELECT 
+        productid, <template-variable value="ProductDomain:UUID"/> AS DOMAINID, currency, value, netpriceflag
+    FROM 
+        productlistprice 
+        <template-if condition="isdefined(ProductAlias)"><template-variable value="ProductAlias" processing="text"/><if-else />pl</template-if>
+    WHERE
+        NOT EXISTS (
+            SELECT 1
+            FROM
+                derivedproductlistprice <template-if condition="isdefined(DerivedAlias)"><template-variable value="DerivedAlias" processing="text"/><if-else />dpl</template-if>
+            WHERE
+                <template-if condition="isdefined(DerivedAlias)"><template-variable value="DerivedAlias" processing="text"/><if-else />dpl</template-if>.productid = <template-if condition="isdefined(ProductAlias)"><template-variable value="ProductAlias" processing="text"/><if-else />pl</template-if>.productid
+            AND
+                <template-if condition="isdefined(DerivedAlias)"><template-variable value="DerivedAlias" processing="text"/><if-else />dpl</template-if>.domainid = <template-variable value="ProductDomain:UUID"/>
+            AND 
+             	<template-if condition="isdefined(DerivedAlias)"><template-variable value="DerivedAlias" processing="text"/><if-else />dpl</template-if>.currency = <template-if condition="isdefined(ProductAlias)"><template-variable value="ProductAlias" processing="text"/><if-else />pl</template-if>.currency
+        )
+    <if-else/>
+    SELECT * FROM productlistprice 
+    </template-if>
+</template>
+</query>

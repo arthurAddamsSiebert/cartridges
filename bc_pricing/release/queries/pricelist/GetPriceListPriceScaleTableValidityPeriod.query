@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query obtains the validity period of the given price scale table. The given price scale table must be the one that applies for the given date, otherwise the query will not return valid results. The returned validity period is not just the start and end date of the given price scale table&apos;s accordant attribtues but a calculation/comparison of dates taking also other price scale tables into account. The applying price scale table might be obtained using the pricelist/GetApplyingPriceListPriceScaleTable query for a certain date.">
+<parameters>
+	<parameter name="PriceListUUID" type="java.lang.String" optional="false"/>
+	<parameter name="ProductUUID" type="java.lang.String" optional="false"/>
+	<parameter name="CurrencyCode" type="java.lang.String" optional="false"/>
+	<parameter name="Date" type="java.util.Date" optional="false"/>
+	<parameter name="PriceScaleTableUUID" type="java.lang.String" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+	<processor-configuration name="readType.ValidityPeriodStartDate" value="Timestamp.GMT"/>
+	<processor-configuration name="readType.ValidityPeriodEndDate" value="Timestamp.GMT"/>
+</processor>
+<template type="objects">
+	SELECT
+	  COALESCE(
+	    (SELECT distinct
+	      max(validTo) over()
+	     FROM
+	      (
+	      SELECT
+	        pstFrom.validTo AS validto
+	      FROM
+	        PriceScaleTable pstFrom
+	        JOIN PriceScaleTableAssignment psta ON (psta.pricescaletableuuid = pstFrom.uuid)
+	        JOIN PriceScaleTable given ON (given.uuid = <template-variable value="PriceScaleTableUUID"/>)
+	      WHERE
+	        psta.pricelistuuid = <template-variable value="PriceListUUID"/>
+	        AND psta.productuuid = <template-variable value="ProductUUID"/>
+	        AND pstFrom.currencycode = <template-variable value="CurrencyCode"/>
+	        AND ((COALESCE(given.validFrom, 
+	                <sql-dialect name="Oracle">to_date(1, &apos;J&apos;)</sql-dialect>
+			        <sql-dialect name="Microsoft">CONVERT(DATETIME, '')</sql-dialect>
+			        ) &lt; COALESCE(pstFrom.validTo, 
+			        <sql-dialect name="Oracle">to_date(5373484, &apos;J&apos;)</sql-dialect>
+			        <sql-dialect name="Microsoft">CONVERT(DATETIME, '9999-12-31', 121)</sql-dialect>
+			        )
+			     )
+	        	AND (COALESCE(pstFrom.validTo, 
+		        <sql-dialect name="Oracle">to_date(5373484, &apos;J&apos;)</sql-dialect>
+		        <sql-dialect name="Microsoft">CONVERT(DATETIME, '9999-12-31', 121)</sql-dialect>
+		        ) &lt;= <template-variable value="Date"/>))
+	        AND ((COALESCE(given.validFrom, 
+	        <sql-dialect name="Oracle">to_date(1, &apos;J&apos;)</sql-dialect>
+	        <sql-dialect name="Microsoft">CONVERT(DATETIME, '')</sql-dialect>
+	      	) &lt; COALESCE(pstFrom.validFrom, 
+	        <sql-dialect name="Oracle">to_date(1, &apos;J&apos;)</sql-dialect>
+	        <sql-dialect name="Microsoft">CONVERT(DATETIME, '')</sql-dialect>
+	        )) AND (COALESCE(pstFrom.validFrom, 
+	        <sql-dialect name="Oracle">to_date(1, &apos;J&apos;)</sql-dialect>
+	        <sql-dialect name="Microsoft">CONVERT(DATETIME, '')</sql-dialect>
+	        ) &lt; <template-variable value="Date"/>))
+	      )a
+	    ), (SELECT
+	      validFrom
+	     FROM
+	      PriceScaleTable
+	     WHERE
+	      uuid = <template-variable value="PriceScaleTableUUID"/>)
+	  ) AS ValidityPeriodStartDate
+	  , COALESCE(
+	    (SELECT distinct
+	      min(validFrom) over()
+	     FROM
+	      (
+	      SELECT
+	        pstTo.validFrom AS validfrom
+	      FROM
+	        PriceScaleTable pstTo
+	        JOIN PriceScaleTableAssignment psta ON (psta.pricescaletableuuid = pstTo.uuid)
+	        JOIN PriceScaleTable given ON (given.uuid = <template-variable value="PriceScaleTableUUID"/>)
+	      WHERE
+	        psta.pricelistuuid = <template-variable value="PriceListUUID"/>
+	        AND psta.productuuid = <template-variable value="ProductUUID"/>
+	        AND pstTo.currencycode = <template-variable value="CurrencyCode"/>
+	        AND pstTo.uuid != given.uuid
+	        AND ((<template-variable value="Date"/> &lt; COALESCE(pstTo.validFrom, 
+			        <sql-dialect name="Oracle">to_date(1, &apos;J&apos;)</sql-dialect>
+			        <sql-dialect name="Microsoft">CONVERT(DATETIME, '')</sql-dialect>
+			        )
+			    )
+	        	AND (COALESCE(pstTo.validFrom, 
+			        <sql-dialect name="Oracle">to_date(1, &apos;J&apos;)</sql-dialect>
+			        <sql-dialect name="Microsoft">CONVERT(DATETIME, '')</sql-dialect>
+			        ) &lt;= COALESCE(given.validTo, 
+			        <sql-dialect name="Oracle">to_date(5373484, &apos;J&apos;)</sql-dialect>
+			        <sql-dialect name="Microsoft">CONVERT(DATETIME, '9999-12-31', 121)</sql-dialect>
+	        		)
+	        	))
+	      )b)
+	  , (SELECT
+	      validTo
+	     FROM
+	      PriceScaleTable
+	     WHERE
+	      uuid = <template-variable value="PriceScaleTableUUID"/>)
+	  ) AS ValidityPeriodEndDate
+	<sql-dialect name="Oracle">  
+		FROM
+		  dual
+	</sql-dialect>
+</template>
+</query>

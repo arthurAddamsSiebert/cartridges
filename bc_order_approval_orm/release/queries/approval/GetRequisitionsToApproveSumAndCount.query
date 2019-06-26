@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+	<parameters>
+		<parameter name="Customer" type="com.intershop.component.customer.capi.CustomerBO" optional="true"/>
+		<parameter name="Approver" type="com.intershop.component.user.capi.UserBO" optional="false"/>
+		<parameter name="BasketTypes" type="java.util.Collection" optional="true"/>
+	</parameters>
+
+	<return-mappings>
+		<return-mapping name="Total" type="rename">
+			<return-attribute name="total"/>
+		</return-mapping>
+		<return-mapping name="Count" type="rename">
+			<return-attribute name="count"/>
+		</return-mapping>
+	</return-mappings>
+
+	<processor name="OracleSQL"/>
+
+	<template type="objects">
+	  SELECT CASE
+				WHEN SUM(grandtotalgrosspricepcvalue) IS NULL THEN 0
+				ELSE SUM(grandtotalgrosspricepcvalue)
+			 END as total,
+			 COUNT(*) as count
+		FROM Basket basket,
+		(
+			SELECT DISTINCT step.approvalItemID as approvalItemID
+			  FROM ApprovalStep step
+			 WHERE status = 0
+			   AND
+					(
+						(
+							step.eligibleApproverPredicateID = 'CostCenterEligibleApproverPredicate'
+							AND EXISTS
+							(
+								SELECT 1
+								  FROM CostCenterBase cc, Basket_AV basketav
+								 WHERE cc.uuid = basketav.stringvalue
+								   AND cc.userIDOwner = <template-variable value="Approver:ID"/>
+								   AND basketav.name = 'BusinessObjectAttributes#Order_CostCenter'
+								   AND basketav.ownerid = step.approvalItemID
+							)
+						)
+						<template-if condition="isDefined(Approver:Extension(&quot;UserBORoleExtension&quot;):UserPermissionMap:APP_B2B_ORDER_APPROVAL)">
+						OR
+						(
+							step.eligibleApproverPredicateID = 'ApprovalPermissionEligibleApproverPredicate'
+						)
+						</template-if>
+					)
+				) approvalItem
+		<template-if condition="isDefined(Customer)">
+			    , customerprofileassignment customerAssignment
+		</template-if>
+		 WHERE basket.uuid = approvalItemID
+		<template-if condition="isDefined(Customer)">
+		   AND basket.userid = customerAssignment.profileid
+		   AND                 customerAssignment.customerid = <template-variable value="Customer:ID"/>
+		</template-if>
+		<template-if condition="isDefined(BasketTypes) AND hasElements(BasketTypes)">
+		   AND basket.type IN 
+				(
+					<template-loop alias="BasketType" iterator="BasketTypes">
+						<loop-statement><template-variable value="BasketType"/></loop-statement>
+						<loop-separator>,</loop-separator>
+					</template-loop>
+				)
+		</template-if>
+		   AND basket.status = 11
+	</template>
+</query>

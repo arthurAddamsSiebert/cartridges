@@ -1,0 +1,173 @@
+import "enfinity:/bc_customer/edl/com/intershop/component/customer/capi/Customer.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/fulfillment/Order.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/LineItemCtnrPO.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/basket/BasketPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+namespace com.intershop.beehive.bts.internal.orderprocess.fulfillment
+{
+    /*
+     * An Order is created from a Basket or from another Order using methods provided in the FulfillmentMgr.
+     * 
+     * <P>An Order has a status, which may one of the values
+     * <BR>CREATED (the Order has recently been created and will shortly be
+     * assigned the correct status)
+     * <BR>NEW (the Order has not yet been processed, is not paid and not shipped)
+     * <BR>OPEN (processing of the Order has begun)
+     * <BR>COMPLETED (completely shipped and paid)
+     * <BR>CANCELLED
+     * 
+     * <P>The order status is dependent upon the payment and shipping status values:
+     * <BR>Payment status can be one of PAID, PARTPAID or NOTPAID
+     * <BR>Shipping status can be one of SHIPPED, PARTSHIPPED or NOTSHIPPED
+     * 
+     * <P>In addition an order has further status values which may be set, no other status is dependent upon changes to these status values:
+     * <BR>Invoice status can be one of INVOICED, PARTINVOICED or NOTINVOICED
+     * <BR>Export status can be one of EXPORTED or NOTEXPORTED
+     */
+    partitionable orm class OrderPO extends LineItemCtnrPO implements Order table "isorder"
+    {
+        index(basketID);
+        index(customerID);
+        index(externalReferenceID);
+
+        /*
+         * Shipping Status of Order an integer, identifying one of the stati:  <P>
+         * 
+         * - NOTSHIPPED (No OLIs shipped).                                <br>
+         * -PARTSHIPPED (Some but not all OLIs shipped)             <br>
+         * - SHIPPED (All OLIs shipped)                                   <br>
+         * 
+         * NOTE: changing the status or shippingStatus of an Order is likely to cause
+         * a change in the stati of the related PlacedOrder
+         */
+        attribute shippingStatus : int;
+
+        attribute paymentStatus : int;
+
+        attribute invoiceStatus : int;
+
+        attribute exportStatus : int;
+
+        /*
+         * Settable option. Should Invoices be treated as PackingSlips?
+         */
+        attribute invoiceUsedAsPackingSlip : boolean;
+
+        /*
+         * Settable option. Should Split Shipments be allowed?
+         */
+        attribute splitShipmentAllowed : boolean;
+
+        attribute basketID : uuid;
+        
+        attribute customerID : uuid;
+
+        attribute externalReferenceID : string<256>;
+
+        attribute taxationID : string<256>;
+
+		/*
+         * Combined name (firstname + lastname) of the buying user.
+         * @since 7.4.1.0
+     	 * @deprecated Will be removed in the next major release. Use buyerFirstName and buyerLastName instead.
+         */
+        attribute buyerName : string<256>;
+        
+        /*
+         * First name of the buying user.
+         */
+        attribute buyerFirstName : string<256>;
+        
+        /*
+         * Last name of the buying user.
+         */
+        attribute buyerLastName : string<256>;
+
+		/*
+         * Combined name (firstname + lastname) of the buying user.
+         * @since 7.4.1.0
+     	 * @deprecated Will be removed in the next major release. Use buyerFirstName and buyerLastName instead.
+         */
+        attribute originalBuyerName : string<256>;
+
+        /*
+         * Describes the kind of Order, usually one of the types defined in OrderConstants either ORDERTYPE_SELLER or ORDERTYPE_SUPPLIER.
+         * 
+         * <br>Seller orders are created as a 1:1 copy of the PlacedOrder (which represents the receipt from the buyer-perspective) and belongs to a selling domain. A seller order may have multiple supplier orders as its child orders.
+         * 
+         * <br>Supplier orders are usually created by splitting a seller order into its supplier-specific parts, and belong to supplying domains (note it is possible that a domain is both selling and supplying). A supplier order will have a single seller order as its parent order.
+         * 
+         * <br>Seller orders are used to handle payment data and processes: they have a PaymentTransaction attached, whereas supplier orders do not.
+         * 
+         * @see com.intershop.beehive.bts.capi.orderprocess.fulfillment.OrderConstants
+         * @see com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order#getParentOrder()
+         * @see com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order#createChildOrdersIterator()
+         */
+        attribute orderType : int;
+
+        attribute parentOrderID : uuid;
+        
+        /*
+         * Customer number of the customer. 
+         */
+        attribute customerNo : string;
+				
+        /*
+         * Company name of the purchaser. Only set in case of business customers.
+         */
+        attribute companyName : string;
+        
+        /*
+         * Company name 2 of the purchaser. Only set in case of business customers.
+         */
+        attribute companyName2 : string;
+        
+        /*
+         * The ID of the customer type. Its a configurable enumeration.
+         */
+        attribute customerTypeID : string;
+        
+        /*
+         * Name of the price display preference which shows how the line item container is represented to the user (NET or GROSS).
+         */
+        attribute priceDisplayTypeName : string;
+        
+        /*
+         * Additional text to be displayed together with the prices to the user.
+         */
+        attribute priceDisplayTypeText : string;
+        
+        /*
+         * Department of the purchasing user. Only set in case of business customers. 
+         */
+        attribute department : string;
+        
+        /*
+         * Code for the reason which led to the last status change
+         */
+        attribute statusReasonCode : int;
+
+		/* 
+		 * The ID of the recurring order. 
+		 */
+		attribute recurringOrderID : uuid;
+
+		/**
+		 * Flag for specifying if an order is to be deleted.
+		 */
+		attribute toBeDeleted : boolean = false;
+
+        relation childOrderPOs : OrderPO[0..n] inverse parentOrderPO;
+
+        relation parentOrderPO : OrderPO[0..1] inverse childOrderPOs
+        {
+            foreign key(parentOrderID) -> (UUID);
+        }
+
+        dependency basketPO : BasketPO
+        {
+            foreign key(basketID);
+        }
+    }
+}

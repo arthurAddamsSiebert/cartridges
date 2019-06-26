@@ -1,0 +1,484 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Provides the necessary functionality to manage product locks, e.g. lock/unlock, lookup and check.
+@Group Product-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessProductLock" type="process">
+<!--Check if the product locked by the current user and extends the acquisition if the product is already acquired by the user.
+@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Check"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode5"/>
+<!--The product to be check.-->
+    <parameters name="Product" type="com.intershop.beehive.core.capi.domain.PersistentObject"/>
+<!--The user who wants to check the product lock.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+<!--The domain where the preference should be read.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The domain to acquire the instance resource for the given product and user.-->
+    <parameters name="LockingDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <startNode referencedName="ProcessProductLock-Lookup"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ProductLockedForMe">
+    <nodeSuccessors name="decision_yes" next="GetDomainPreference0"/>
+<!--@BendPoints 23,5-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference0">
+    <configurationValues name="DefaultPreferenceKey" value="ProductLockTimeout"/>
+    <configurationValues name="Type" value="Integer"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 22,7 22,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <returnValueBindings name="PreferenceIntValue" objectPath="ProductLockLifetime"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="CallNode11"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode11">
+    <nodeSuccessors name="ERROR" next="JoinNode0"/>
+    <nodeSuccessors name="LOCKED" next="EndNode2"/>
+    <parameterBindings name="LockLifetime" objectPath="ProductLockLifetime"/>
+    <parameterBindings name="PersistentObject" objectPath="Product"/>
+    <parameterBindings name="ProcessDescription" constant="Product is locked for editing"/>
+    <parameterBindings name="ProcessName" constant="Product Editing"/>
+    <startNode referencedName="ProcessLock-LockInstance"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="Pipelet1"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="Name" value="ProductLockLost"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--The product is locked by the current user.
+@Location 11,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="NO_LOCK" strict="true">
+    <returnValues name="ProductLockCreationDate" type="java.util.Date" optional="true"/>
+    <returnValues name="ProductLockExpirationDate" type="java.util.Date" optional="true"/>
+    <returnValues name="ProductLockLifetime" type="java.lang.Integer" optional="true"/>
+    <returnValues name="ProductLockOwner" type="com.intershop.beehive.core.capi.user.User"
+        optional="true"/>
+    <returnValues name="Resource" type="com.intershop.beehive.core.capi.locking.Resource"
+        optional="true"/>
+    <returnValues name="Process" type="com.intershop.beehive.core.capi.locking.Process"
+        optional="true"/>
+<!--Key ist set if the lock expired or no lock exist.-->
+    <returnValues name="ProductLockLost" type="java.lang.String" optional="true"/>
+<!--Key is set if the product locked by other user.-->
+    <returnValues name="ProductLockedForOther" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--The product is locked by the current user.
+@Location 10,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="" strict="true">
+    <returnValues name="ProductLockCreationDate" type="java.util.Date" optional="true"/>
+    <returnValues name="ProductLockExpirationDate" type="java.util.Date" optional="true"/>
+    <returnValues name="ProductLockLifetime" type="java.lang.Integer" optional="true"/>
+    <returnValues name="ProductLockOwner" type="com.intershop.beehive.core.capi.user.User"
+        optional="true"/>
+    <returnValues name="Resource" type="com.intershop.beehive.core.capi.locking.Resource"
+        optional="true"/>
+    <returnValues name="ProductLockedForMe" type="java.lang.String" optional="true"/>
+<!--The process using the instance resource.-->
+    <returnValues name="Process" type="com.intershop.beehive.core.capi.locking.Process"/>
+  </nodes>
+<!--Check if the given product locked by other user.
+@Location 13,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="CheckUnlocked"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode12"/>
+<!--The product to be check.-->
+    <parameters name="Product" type="com.intershop.beehive.core.capi.domain.PersistentObject"/>
+<!--The ID of the user to check the product lock for.-->
+    <parameters name="CheckedUserID" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 13,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode12">
+<!--@BendPoints 28,7-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+<!--@BendPoints 29,5-->
+    <nodeSuccessors name="LOCKED_FOR_ME" next="JoinNode3"/>
+<!--@BendPoints 27,6-->
+    <nodeSuccessors name="LOCKED_FOR_OTHER" next="EndNode9"/>
+    <parameterBindings name="PersistentObject" objectPath="Product"/>
+    <parameterBindings name="UserID" objectPath="CheckedUserID"/>
+    <startNode referencedName="ProcessLock-LookupInstanceResource"/>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode10"/>
+  </nodes>
+<!--@Location 14,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" strict="true"/>
+<!--@Location 13,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="LOCKED" strict="true"/>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="GetLockPreference"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetProperties0"/>
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProperties0">
+    <configurationValues name="DefaultValue1" value="60"/>
+    <configurationValues name="DefaultValue2" value="true"/>
+    <configurationValues name="DefaultValue3" value="60"/>
+    <configurationValues name="DictionaryKey1" value="ReplicationAcquisitionTimeout"/>
+    <configurationValues name="DictionaryKey2" value="CorrelatedLockingEnabled"/>
+    <configurationValues name="DictionaryKey3" value="ImportAcquisitionTimeout"/>
+    <configurationValues name="PropertyName1" value="staging.objects.locking.acquisition.timeout"/>
+    <configurationValues name="PropertyName2" value="intershop.locking.correlatedLockingEnabled"/>
+    <configurationValues name="PropertyName3" value="import.locking.acquisition.timeout"/>
+    <pipelet href="enfinity:/core/pipelets/GetProperties.xml"/>
+    <nodeSuccessors name="next" next="GetDomainPreference1"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference1">
+    <configurationValues name="DefaultPreferenceKey" value="ProductLockActivated"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="ProductLockActivated"/>
+  </nodes>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ProductLockActivated"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="GetDomainPreference2"/>
+<!--@BendPoints 7,29-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 2,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference2">
+    <configurationValues name="DefaultPreferenceKey" value="ProductLockTimeout"/>
+    <configurationValues name="Type" value="Integer"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <returnValueBindings name="PreferenceIntValue" objectPath="ProductLockLifetime"/>
+  </nodes>
+<!--@Location 2,16-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="ProductLockLifetime"
+      operator="gt" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 2,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="ProductLockActivated"/>
+    <configurationValues name="Value" value="true"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="EndNode15"/>
+  </nodes>
+<!--@Location 2,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" strict="true">
+    <returnValues name="ProductLockLifetime" type="java.lang.Integer"/>
+<!--is pagelet locking enabled (=true) or disabled (=false)-->
+    <returnValues name="ProductLockActivated" type="java.lang.String"/>
+    <returnValues name="CorrelatedLockingEnabled" type="java.lang.String"/>
+    <returnValues name="ImportAcquisitionTimeout" type="java.lang.String"/>
+    <returnValues name="ReplicationAcquisitionTimeout" type="java.lang.String"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="SetDictionaryValue0"/>
+  </nodes>
+<!--@Location 3,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue0">
+    <configurationValues name="Name" value="ProductLockActivated"/>
+    <configurationValues name="Value" value="false"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="EndNode14"/>
+  </nodes>
+<!--@Location 3,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" name="LOCKING_DISABLED" strict="true">
+    <returnValues name="ProductLockActivated" type="java.lang.String"/>
+    <returnValues name="CorrelatedLockingEnabled" type="java.lang.String"/>
+    <returnValues name="ImportAcquisitionTimeout" type="java.lang.String"/>
+    <returnValues name="ReplicationAcquisitionTimeout" type="java.lang.String"/>
+  </nodes>
+<!--@Location 0,11-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="GetUserID"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet3"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+  </nodes>
+<!--@Location 0,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="DefaultString0" value=""/>
+    <configurationValues name="DefaultString1" value=""/>
+    <configurationValues name="DefaultString2" value=""/>
+    <configurationValues name="DefaultString4" value=""/>
+    <configurationValues name="DefaultString6" value=""/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <parameterBindings name="String0" objectPath="User:Profile:BasicCredentials:Login"/>
+    <parameterBindings name="String1" constant=" "/>
+    <parameterBindings name="String2" constant="("/>
+    <parameterBindings name="String3" objectPath="User:Profile:FirstName"/>
+    <parameterBindings name="String4" constant=" "/>
+    <parameterBindings name="String5" objectPath="User:Profile:LastName"/>
+    <parameterBindings name="String6" constant=")"/>
+    <returnValueBindings name="Concatenated" objectPath="UserID"/>
+  </nodes>
+<!--@Location 0,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true">
+    <returnValues name="UserID" type="java.lang.String"/>
+  </nodes>
+<!--Lock the given product and create an new product history entry if the history enabled for the PreferenceDomain.
+@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="Lock"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet8"/>
+<!--The product to lock.-->
+    <parameters name="Product" type="com.intershop.beehive.xcs.capi.product.Product"/>
+<!--The domain where the preference should be read.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The user who wants to lock the product.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+<!--The ID for which user the history entry should be created. If no ID found the login (FirsName Lastname) of the current user will be set.-->
+    <parameters name="UserID" type="java.lang.String" optional="true"/>
+<!--The name of the process that update a product.-->
+    <parameters name="ProcessName" type="java.lang.String" optional="true"/>
+<!--The domain to acquire the instance resource for the given product and user.-->
+    <parameters name="LockingDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet8">
+    <configurationValues name="DefaultPreferenceKey" value="ProductLockTimeout"/>
+    <configurationValues name="Type" value="Integer"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+<!--@BendPoints 10,3 10,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <returnValueBindings name="PreferenceIntValue" objectPath="ProductLockLifetime"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="CallNode4"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 11,7-->
+    <nodeSuccessors name="ERROR" next="EndNode12"/>
+    <nodeSuccessors name="LOCKED" next="DecisionNode11"/>
+    <parameterBindings name="LockLifetime" objectPath="ProductLockLifetime"/>
+    <parameterBindings name="PersistentObject" objectPath="Product"/>
+    <parameterBindings name="ProcessDescription" constant="Product is locked for edititng"/>
+    <parameterBindings name="ProcessName" constant="Product Editing"/>
+    <startNode referencedName="ProcessLock-LockInstance"/>
+  </nodes>
+<!--@Location 5,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" name="ERROR" strict="true"/>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode11" conditionKey="UserID"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="CallNode1"/>
+<!--@BendPoints 10,9 10,13-->
+    <nodeSuccessors name="decision_no" next="JoinNode11"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <startNode referencedName="This:GetUserID"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="CallNode6"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="StartSafeChangesBlock1"/>
+    <startNode referencedName="ProcessProductHistory-PrepareData"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="StartSafeChangesBlock1">
+    <pipelet href="enfinity:/core/pipelets/StartSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="CallNode7"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="EndSafeChangesBlock1"/>
+    <startNode referencedName="ProcessProductHistory-CreateChangeEntry"/>
+  </nodes>
+<!--@Location 4,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EndSafeChangesBlock1">
+    <pipelet href="enfinity:/core/pipelets/EndSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true">
+<!--The process using the instance resource.-->
+    <returnValues name="Process" type="com.intershop.beehive.core.capi.locking.Process"/>
+  </nodes>
+<!--Determines lock information for the given product and user.
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="Lookup"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+<!--The product instance to determine resource information for.-->
+    <parameters name="Product" type="com.intershop.beehive.xcs.capi.product.Product"/>
+<!--The user that wants to lock the product.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+<!--@BendPoints 1,5 1,6-->
+    <nodeSuccessors name="next" next="EndNode8"/>
+<!--@BendPoints 3,5-->
+    <nodeSuccessors name="LOCKED_FOR_ME" next="EndNode13"/>
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="LOCKED_FOR_OTHER" next="EndNode5"/>
+    <parameterBindings name="PersistentObject" objectPath="Product"/>
+    <parameterBindings name="UserID" objectPath="User:ID"/>
+    <startNode referencedName="ProcessLock-LookupInstanceResource"/>
+    <returnValueBindings name="AllInstancesLocked" objectPath="AllProductsLocked"/>
+    <returnValueBindings name="LockCreationDate" objectPath="ProductLockCreationDate"/>
+    <returnValueBindings name="LockExpirationDate" objectPath="ProductLockExpirationDate"/>
+    <returnValueBindings name="LockLifetime" objectPath="ProductLockLifetime"/>
+    <returnValueBindings name="LockOwner" objectPath="ProductLockOwner"/>
+    <returnValueBindings name="LockedForMe" objectPath="ProductLockedForMe"/>
+    <returnValueBindings name="LockedForOther" objectPath="ProductLockedForOther"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="" strict="true"/>
+<!--The product is locked by the current user.
+@Location 1,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode13" name="LOCKERD_FOR_ME" strict="true">
+<!--The acquisition start date.-->
+    <returnValues name="ProductLockCreationDate" type="java.util.Date" optional="true"/>
+<!--The acquisition end date.-->
+    <returnValues name="ProductLockExpirationDate" type="java.util.Date" optional="true"/>
+<!--Remaining acquisition lifetime in seconds.-->
+    <returnValues name="ProductLockLifetime" type="java.lang.Integer" optional="true"/>
+<!--The process owner that holds the lock.-->
+    <returnValues name="ProductLockOwner" type="com.intershop.beehive.core.capi.user.User"
+        optional="true"/>
+<!--The resource found for the instance.-->
+    <returnValues name="Resource" type="com.intershop.beehive.core.capi.locking.Resource"
+        optional="true"/>
+<!--Key is set if the product locked by the current user.-->
+    <returnValues name="ProductLockedForMe" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--The product is locked by other user.
+@Location 2,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="LOCKED_FOR_OTHER" strict="true">
+    <returnValues name="ProductLockCreationDate" type="java.util.Date" optional="true"/>
+    <returnValues name="ProductLockExpirationDate" type="java.util.Date" optional="true"/>
+    <returnValues name="ProductLockLifetime" type="java.lang.Integer" optional="true"/>
+    <returnValues name="ProductLockOwner" type="com.intershop.beehive.core.capi.user.User"
+        optional="true"/>
+    <returnValues name="Resource" type="com.intershop.beehive.core.capi.locking.Resource"
+        optional="true"/>
+    <returnValues name="ProductLockedForOther" type="java.lang.String" optional="true"/>
+    <returnValues name="AllProductsLocked" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="LookupParentNamedResource"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode13"/>
+    <parameters name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode13">
+<!--@BendPoints 5,15-->
+    <nodeSuccessors name="next" next="EndNode11"/>
+<!--@BendPoints 3,15-->
+    <nodeSuccessors name="LOCKED" next="EndNode0"/>
+    <parameterBindings name="LockingDomain" objectPath="ProductDomain"/>
+    <parameterBindings name="PersistentObjectClassName" constant="com.intershop.beehive.xcs.capi.product.Product"/>
+    <startNode referencedName="ProcessLock-LookupParentNamedResource"/>
+    <returnValueBindings name="Locked" objectPath="AllProductsLocked"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" strict="true"/>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="LOCKED" strict="true">
+    <returnValues name="Resource" type="com.intershop.beehive.core.capi.locking.Resource"/>
+    <returnValues name="AllProductsLocked" type="java.lang.String"/>
+  </nodes>
+<!--Unlock the given product, update and close the product history entry if the history enabled for the PreferenceDomain.
+@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="Unlock"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode10"/>
+<!--The product to unlock.-->
+    <parameters name="Product" type="com.intershop.beehive.xcs.capi.product.Product"/>
+<!--The domain where the preference should be read.-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+<!--The user who wants to unlock the product.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+<!--@BendPoints 17,3-->
+    <nodeSuccessors name="ERROR" next="JoinNode9"/>
+    <nodeSuccessors name="UNLOCKED" next="DecisionNode12"/>
+    <parameterBindings name="PersistentObject" objectPath="Product"/>
+    <startNode referencedName="ProcessLock-UnlockInstance"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 8,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR" strict="true"/>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode12" conditionKey="UserID"
+      operator="undef">
+    <nodeSuccessors name="decision_yes" next="CallNode2"/>
+<!--@BendPoints 16,5 16,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode12"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <startNode referencedName="This:GetUserID"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="CallNode9"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="Pipelet15"/>
+    <startNode referencedName="ProcessProductHistory-PrepareData"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet15">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetJournalEntryByProcessUUID.xml"/>
+    <nodeSuccessors name="next" next="StartSafeChangesBlock2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+    <parameterBindings name="JournalEntryProcessUUID" objectPath="Process:UUID"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="StartSafeChangesBlock2">
+    <pipelet href="enfinity:/core/pipelets/StartSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="CallNode8"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="EndSafeChangesBlock2"/>
+    <startNode referencedName="ProcessProductHistory-UpdateChangeEntry"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EndSafeChangesBlock2">
+    <pipelet href="enfinity:/core/pipelets/EndSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="EndNode7"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true"/>
+</pipeline:Pipeline>

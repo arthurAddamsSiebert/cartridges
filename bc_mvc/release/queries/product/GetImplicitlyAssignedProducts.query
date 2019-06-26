@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="BindingAttribute" type="java.lang.String" optional="false"/>
+    <parameter name="BindingValue" type="java.lang.String" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+    <parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttributeType" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttributeLocalizedFlag" type="java.lang.Integer" optional="true"/>
+    <parameter name="Currency" type="java.lang.String" optional="true"/>
+    <parameter name="Online" type="java.lang.Integer" optional="true"/>
+    <parameter name="Filters" type="java.util.Iterator" optional="true"/>
+    <parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Product" type="provider" class="ProductViewProvider">
+        <return-attribute name="UUID"/>
+        <return-attribute name="DOMAINID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="ProductConfiguration" input="" processing="ProductConfigurationQueryProcessor"/>
+</processor>
+<template type="countedobjects">
+     SELECT 
+        p.uuid AS UUID,
+        <template-variable value="ProductDomain:UUID"/> as DOMAINID,
+        count(*) over() as "ROWCOUNT",
+    <template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'value')">
+        plp.value AS SORTING
+    <if-else/>
+        p.sorting AS SORTING
+    </template-if>
+    FROM 
+   (
+     <template-if condition="ProductConfiguration:ProductIgnoreOnline">
+       <template-call name="product/GetProductsByAttributeSearch">
+           <call-parameter name="ProductDomain" value="ProductDomain"/>
+           <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+           <call-parameter name="BindingAttribute" value="BindingAttribute"/>
+           <call-parameter name="BindingValue" value="BindingValue"/>
+           <call-parameter name="SortAttribute" value="SortAttribute"/>
+           <call-parameter name="SortAttributeType" value="SortAttributeType"/>
+           <call-parameter name="SortAttributeLocalizedFlag" value="SortAttributeLocalizedFlag"/>
+           <call-parameter name="NameOrID"  value="NameOrID"/>
+       </template-call>
+     <if-else/>
+       <template-call name="product/GetProductsByAttributeSearch">
+           <call-parameter name="ProductDomain" value="ProductDomain"/>
+           <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+           <call-parameter name="BindingAttribute" value="BindingAttribute"/>
+           <call-parameter name="BindingValue" value="BindingValue"/>
+           <call-parameter name="Online" value="Online"/>
+           <call-parameter name="SortAttribute" value="SortAttribute"/>
+           <call-parameter name="SortAttributeType" value="SortAttributeType"/>
+           <call-parameter name="SortAttributeLocalizedFlag" value="SortAttributeLocalizedFlag"/>
+           <call-parameter name="NameOrID"  value="NameOrID"/>
+       </template-call>
+     </template-if>
+    )p
+     <template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'value')">
+        LEFT OUTER JOIN
+        (
+            <template-call name="price/GetListPricesByDomain">
+                <call-parameter name="ProductDomain" value="ProductDomain"/>
+            </template-call>
+        ) plp
+    </template-if>
+      <template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'value')">
+        ON (plp.productid = p.uuid OR plp.productid IS NULL)
+        AND (plp.currency = <template-variable value="Currency"/> OR plp.currency IS NULL)
+    </template-if>
+    <template-if condition="isDefined(Filters) AND hasElements(Filters)">
+	AND EXISTS (SELECT * FROM product_ra ra 
+					WHERE p.uuid = ra.ao_uuid
+					AND (ra.usergroupid) IN (
+				        <template-loop iterator="Filters" alias="Filter">
+				            <loop-statement>
+					            (<template-variable value="Filter:FilterGroup:ID"/>)
+				            </loop-statement>
+				            <loop-separator>,</loop-separator>
+				        </template-loop>
+						)
+						AND (ra.usergroupdomainid) IN (
+				        <template-loop iterator="Filters" alias="Filter">
+				            <loop-statement>
+					            (<template-variable value="Filter:FilterGroup:DomainID"/>)
+				            </loop-statement>
+				            <loop-separator>,</loop-separator>
+				        </template-loop>
+						)
+					)
+		
+    </template-if>
+    ORDER BY SORTING
+    <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+        DESC
+    <if-else/>
+        ASC
+    </template-if>
+</template>
+</query>

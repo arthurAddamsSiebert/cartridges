@@ -1,0 +1,65 @@
+<iscontent personalized="true" type="application/x-gzip">
+<%@page import="java.io.File" %>
+<isif condition="#isDefined(CurrentSyndication:JobConfiguration:JobCondition:NextValidDate)#">
+	<% 
+	    //calculate a caching period until the next runtime date of the syndication, if applicable
+	   java.util.Date currentDate = new java.util.Date();  
+	   java.util.Date nextDate = (java.util.Date)getPipelineDictionary().get("CurrentSyndication:JobConfiguration:JobCondition:NextValidDate");
+	   long diff = nextDate.getTime() - currentDate.getTime();
+	   
+	   if(diff > 0)
+	   {
+	       long hours = (diff/1000)/3600;  
+	       long minutes = ((diff - (hours*3600*1000))/1000) / 60;
+	       
+	       getPipelineDictionary().put("CacheHour", hours);
+	       getPipelineDictionary().put("CacheMinutes", minutes);   
+	   }	   
+	 %>
+	 <isif condition="#isDefined(CacheHour) AND isDefined(CacheMinutes)#" >
+		 <iscache type="relative" hour="#CacheHour#" minute="#CacheMinutes#">
+		 <iscachekey keyword="SyndicationFeeds"/>
+	 </isif>
+</isif>
+<isset scope="request" name="SiteMapXMLFileName" value="#SiteMapXMLFile:Name#" />
+<%
+	   if (getPipelineDictionary().getFormValue("SiteMapXMLFile", false) != null)
+	   {
+			throw new SecurityException("Parameter SiteMapXMLFile was injected as form parameter.");
+	   }
+	   
+	   String fileNoStr = (String)getPipelineDictionary().get("SiteMapFileNo");
+	   String fileTypeStr = (String)getPipelineDictionary().get("FilePattern");
+	   if(fileNoStr != null)
+	   {
+	   
+	       try
+	       {
+	           int fileNo = Integer.valueOf(fileNoStr);
+	           File siteMapXMLFile = (File)getPipelineDictionary().get("SiteMapXMLFile");
+	           String fileNamePattern = (String)getPipelineDictionary().get("CurrentSyndication:SiteMapFileName");
+	           if(fileNamePattern == null)
+	           {
+	               fileNamePattern = (String)getPipelineDictionary().get("CurrentSyndication:FileName");
+	           }
+	           
+	           //create a file with <filePattern>-<fileNo>
+	           String siteMapFileName = String.format(fileNamePattern, fileTypeStr, Integer.valueOf(fileNoStr));
+	           if(!siteMapFileName.endsWith(".gz"))
+	           {
+	               siteMapFileName +=".gz";
+	           }
+	           
+	           siteMapXMLFile = new File(siteMapXMLFile.getParent(), siteMapFileName);
+	           if(siteMapXMLFile.exists())
+	           {
+		           getPipelineDictionary().put("SiteMapXMLFile", siteMapXMLFile);
+		           getPipelineDictionary().put("SiteMapXMLFileName", siteMapXMLFile.getName());
+		       }
+	       }
+	       catch(NumberFormatException e)
+	       {	       
+	       }
+	   }
+ %>
+<isbinary file="#SiteMapXMLFile#" downloadname="#SiteMapXMLFileName#" >

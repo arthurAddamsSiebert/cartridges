@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline includes the main logic pipelines of the checkout. 
+@Group Checkout-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessCheckout" type="process">
+<!--Save the highest CurrentSteps in the cart as a custom attribute.
+@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" name="BasketStep" callMode="Private">
+    <nodeSuccessors name="next" next="StartSafeChangesBlock1"/>
+<!--The actually step in the basket.-->
+    <parameters name="CurrentStep" type="java.lang.Integer"/>
+<!--The basket.-->
+    <parameters name="CurrentCart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="StartSafeChangesBlock1">
+    <pipelet href="enfinity:/core/pipelets/StartSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode16"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode16" conditionKey="CurrentCart:BasketStep">
+<!--@BendPoints 11,6-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode17"/>
+<!--@BendPoints 13,5 13,6-->
+    <nodeSuccessors name="decision_no" next="UpdateCustomAttributes1"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode17" conditionKey="CurrentCart:BasketStep"
+      operator="lt" conditionItem="CurrentStep">
+<!--@BendPoints 11,8-->
+    <nodeSuccessors name="decision_yes" next="UpdateCustomAttributes2"/>
+<!--@BendPoints 12,7 12,10-->
+    <nodeSuccessors name="decision_no" next="JoinNode20"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes2">
+    <configurationValues name="Attribute_1_Name" value="BasketStep"/>
+    <configurationValues name="Attribute_1_Type" value="Integer"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="JoinNode20"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="CurrentStep"/>
+    <parameterBindings name="ExtensibleObject" objectPath="CurrentCart"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode20">
+    <nodeSuccessors name="next" next="EndSafeChangesBlock1"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EndSafeChangesBlock1">
+    <pipelet href="enfinity:/core/pipelets/EndSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name=""/>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes1">
+    <configurationValues name="Attribute_1_Name" value="BasketStep"/>
+    <configurationValues name="Attribute_1_Type" value="Integer"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+<!--@BendPoints 13,11-->
+    <nodeSuccessors name="next" next="JoinNode20"/>
+    <parameterBindings name="Attribute_1_Value" constant="1"/>
+    <parameterBindings name="ExtensibleObject" objectPath="CurrentCart"/>
+  </nodes>
+<!--@Deprecated since 7.10.
+use BasketValidation instead
+
+@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode11" strict="true" name="CheckInventory"
+      callMode="Private">
+    <nodeSuccessors name="next" next="StartSafeChangesBlock0"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+<!--The current user.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+<!--The basket to search for the PLIID in.-->
+    <parameters name="BasketBORepository" type="com.intershop.component.basket.capi.BasketBORepository"/>
+<!--the domain holding the preference 'InventoryService', specifiying the service to be used-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="AppContext" type="com.intershop.beehive.app.capi.AppContext"/>
+    <parameters name="Quantities" type="java.util.Map&lt;java.lang.String, java.lang.String>"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="StartSafeChangesBlock0">
+    <pipelet href="enfinity:/core/pipelets/StartSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="CallNode20" action="begin"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode20">
+    <nodeSuccessors name="next" next="CallNode22"/>
+    <parameterBindings name="Organization" objectPath="Organization"/>
+    <parameterBindings name="User" objectPath="User"/>
+    <startNode referencedName="ProcessCart-GetCurrentCart"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode22">
+    <nodeSuccessors name="next" next="EndSafeChangesBlock0" action="commit"/>
+    <parameterBindings name="BasketBO" objectPath="CurrentCartBO"/>
+    <parameterBindings name="Cart" objectPath="CurrentCart"/>
+    <parameterBindings name="CurrentAppContext" objectPath="AppContext"/>
+    <startNode referencedName="ProcessCart-Update"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EndSafeChangesBlock0">
+    <pipelet href="enfinity:/core/pipelets/EndSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="EndNode16"/>
+  </nodes>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" strict="true">
+    <returnValues name="AdjustedItems" type="java.util.Map" optional="true"/>
+    <returnValues name="NotAvailableProductBOs" type="java.util.Iterator" optional="true"/>
+    <returnValues name="NotAvailableProducts" type="java.util.Iterator" optional="true"/>
+    <returnValues name="QUANTITY_FORMAT_PLIUUID" type="java.lang.String" optional="true"/>
+    <returnValues name="QUANTITY_SUBMITTED_VALUE" type="java.lang.String" optional="true"/>
+    <returnValues name="UpdateError" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="DefaultSettings"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"
+        optional="true"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+<!--The domain to create the PaymentInstrumentInfo in.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"
+        optional="true"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--The customer repository in which this customer is.-->
+    <parameters name="CustomerBORepository" type="com.intershop.component.customer.capi.CustomerBORepository"/>
+<!--The user repository in which this user is.-->
+    <parameters name="UserBORepository" type="com.intershop.component.user.capi.UserBORepository"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Cart">
+    <nodeSuccessors name="decision_yes" next="StartSafeChangesBlock2"/>
+<!--@BendPoints 9,3 9,11-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="StartSafeChangesBlock2">
+    <pipelet href="enfinity:/core/pipelets/StartSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="CallNode6"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="EndSafeChangesBlock2"/>
+    <startNode referencedName="ProcessCheckout-Safe_DefaultSettings"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EndSafeChangesBlock2">
+    <pipelet href="enfinity:/core/pipelets/EndSafeChangesBlock.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name=""/>
+<!--@Deprecated since 7.10
+use BasketValidation instead
+
+@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="Safe_CheckInventory"
+      callMode="Private">
+<!--@BendPoints 21,2-->
+    <nodeSuccessors name="next" next="StartSafeChangesBlock4"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+<!--The current user.-->
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+<!--The basket to search for the PLIID in.-->
+    <parameters name="BasketBORepository" type="com.intershop.component.basket.capi.BasketBORepository"/>
+<!--the domain holding the preference 'InventoryService', specifiying the service to be used-->
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="AppContext" type="com.intershop.beehive.app.capi.AppContext"/>
+    <parameters name="Quantities" type="java.util.Map&lt;java.lang.String, java.lang.String>"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="StartSafeChangesBlock4">
+    <pipelet href="enfinity:/core/pipelets/StartSafeChangesBlock.xml"/>
+<!--@BendPoints 21,4-->
+    <nodeSuccessors name="next" next="CallNode4"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 21,6-->
+    <nodeSuccessors name="next" next="EndSafeChangesBlock4"/>
+    <startNode referencedName="ProcessCheckout-CheckInventory"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="EndSafeChangesBlock4">
+    <pipelet href="enfinity:/core/pipelets/EndSafeChangesBlock.xml"/>
+<!--@BendPoints 21,8-->
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true">
+    <returnValues name="AdjustedItems" type="java.util.Map" optional="true"/>
+    <returnValues name="NotAvailableProductBOs" type="java.util.Iterator" optional="true"/>
+    <returnValues name="NotAvailableProducts" type="java.util.Iterator" optional="true"/>
+    <returnValues name="QUANTITY_FORMAT_PLIUUID" type="java.lang.String" optional="true"/>
+    <returnValues name="QUANTITY_SUBMITTED_VALUE" type="java.lang.String" optional="true"/>
+    <returnValues name="UpdateError" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="Safe_DefaultSettings"
+      callMode="Private">
+<!--@BendPoints 1,2-->
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameters name="Cart" type="com.intershop.beehive.bts.capi.orderprocess.basket.Basket"/>
+    <parameters name="User" type="com.intershop.beehive.core.capi.user.User"/>
+<!--The domain to create the PaymentInstrumentInfo in.-->
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="CurrentAppContext" type="com.intershop.beehive.app.capi.AppContext"
+        optional="true"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--The customer repository in which this customer is.-->
+    <parameters name="CustomerBORepository" type="com.intershop.component.customer.capi.CustomerBORepository"/>
+<!--The user repository in which this user is.-->
+    <parameters name="UserBORepository" type="com.intershop.component.user.capi.UserBORepository"/>
+    <parameters name="CurrentCartBO" type="com.intershop.component.basket.capi.BasketBO"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+<!--@BendPoints 0,5-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 2,5-->
+    <nodeSuccessors name="ADDRESSES_CHANGED" next="JoinNode1"/>
+    <parameterBindings name="BasketBO" objectPath="CurrentCartBO"/>
+    <startNode referencedName="ProcessCheckoutAddresses-DefaultSettings"/>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 1,8-->
+    <nodeSuccessors name="next" next="CallNode5"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+<!--@BendPoints 0,11-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+<!--@BendPoints 2,11-->
+    <nodeSuccessors name="SHIPPING_SETTINGS_CHANGED" next="JoinNode2"/>
+    <parameterBindings name="BasketBORepository" objectPath="ApplicationBO:Extension(&quot;Basket&quot;):getBasketBORepository(CurrentDomain)"/>
+    <startNode referencedName="ProcessShipping-DefaultSettings"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@displayNearNode@The creation of a CartBO triggers the correct calculation of the basket.
+If this is omitted the calculation will be incorrect if a product is being added
+to the basket for the first time.
+@Location 0,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <parameterBindings name="Basket" objectPath="Cart"/>
+    <parameterBindings name="BasketBORepository" objectPath="ApplicationBO:Extension(&quot;Basket&quot;):getBasketBORepository(Cart)"/>
+    <startNode referencedName="ProcessCart-GetCurrentCartBO"/>
+  </nodes>
+<!--@Location 0,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <startNode referencedName="ProcessCheckoutPayment-CheckDefaultUserSettings"/>
+  </nodes>
+<!--@Location 0,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <parameterBindings name="Basket" objectPath="BasketBO"/>
+    <startNode referencedName="ProcessBasket-Calculate"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="" strict="true"/>
+</pipeline:Pipeline>

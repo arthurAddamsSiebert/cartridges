@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="DomainID" type="java.lang.String" optional="false"/>
+	<parameter name="CurrencyCode" type="java.lang.String" optional="false"/>
+	<parameter name="CurrentDate" type="java.util.Date" optional="false"/>
+	<parameter name="TargetGroups" type="java.util.Iterator" optional="false"/>
+	<parameter name="AppID" type="java.lang.String" optional="false"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Promotion" type="orm" class="com.intershop.component.marketing.internal.rebate.PromotionPO" description="The promotion.">
+		<return-attribute name="PromotionUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	SELECT p.uuid as PromotionUUID
+	FROM rebate r left join Promotion_AA aa on aa.appid = <template-variable value="AppID"/> and aa.promotionid = r.promotionuuid
+	, promotion p, usergroup ug
+	WHERE
+	(
+	r.DOMAINID=<template-variable value="DomainID"/>
+	    AND r.CLASSIFICATIONTYPECODE IS NULL 
+	    AND (r.CURRENCYCODE IS NULL 
+	        OR r.CURRENCYCODE=<template-variable value="CurrencyCode"/>)
+	    AND p.DOMAINID=<template-variable value="DomainID"/>
+	    AND p.ENABLEDFLAG=1
+	    AND p.STARTDATE&lt;=<template-variable value="CurrentDate"/> AND p.ENDDATE&gt;<template-variable value="CurrentDate"/>
+	    AND p.uuid = r.promotionuuid     
+	    AND ug.id = p.targetgroupid
+	    AND ug.domainid = p.targetgroupdomainid
+	    AND (
+	<template-loop iterator="TargetGroups" alias="G"><loop-statement>(ug.DOMAINID=<template-variable value="G:DomainID"/> AND ug.ID=<template-variable value="G:ID"/>)</loop-statement>
+		<loop-separator> OR </loop-separator>
+	</template-loop>
+		)
+	AND aa.appid IS NOT NULL
+	)
+	group by 
+	p.uuid, 
+	p.rank,
+	p.startdate 
+	order by 
+	p.rank desc, p.startdate desc
+</template>
+</query>

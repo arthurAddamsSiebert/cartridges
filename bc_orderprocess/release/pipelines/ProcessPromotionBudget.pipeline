@@ -1,0 +1,504 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Handles promotion budgets
+@Group OnlineMarketing-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessPromotionBudget" overrideMode="Inherit" type="process">
+<!--TODO Pipeline rework:
+ProcessMail Pipelets still retrieving CurrentRequest.
+The Request must be handed in via Parameter!
+@Location 10,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--TODO Pipeline rework:
+SendBudgetNotification call needs 
+CurrentRequest as Parameter!
+@Location 0,1-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--TODO Rework: 
+PromotionBO:Budget
+should not be accessed anymore
+@Location 7,7-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text2"/>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="CreateAccountTransaction"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateAccountTransaction1" action="begin"/>
+<!--an order view object-->
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+    <parameters name="AppliedRebateBO" type="com.intershop.component.promotion.capi.AppliedRebateBO"/>
+<!--transaction mode: can by 'debit' or 'credit'-->
+    <parameters name="TransactionMode" type="java.lang.String" optional="true"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateAccountTransaction1">
+    <pipelet href="enfinity:/bc_organization/pipelets/CreateAccountTransaction.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <nodeSuccessors name="pipelet_error" next="End21" action="rollback"/>
+    <parameterBindings name="Owner" objectPath="Domain"/>
+    <parameterBindings name="TypeCode" objectPath="TransactionTypeCode"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="TransactionMode"
+      operator="str_eq" conditionValue="credit">
+<!--@BendPoints 13,8-->
+    <nodeSuccessors name="decision_yes" next="UpdateAccountTransaction1"/>
+<!--@BendPoints 15,7 15,8-->
+    <nodeSuccessors name="decision_no" next="UpdateAccountTransaction4"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateAccountTransaction1">
+    <configurationValues name="AmountUpdatePolicy" value="AlwaysNegative"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/UpdateAccountTransaction.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="Amount" objectPath="AppliedRebateBO:Amount"/>
+    <parameterBindings name="AmountCurrency" nullBinding="true"/>
+    <parameterBindings name="AmountValue" nullBinding="true"/>
+    <parameterBindings name="TimeStamp" nullBinding="true"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="UpdateCustomAttributes4"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes4">
+    <configurationValues name="Attribute_1_Name" value="OrderUUID"/>
+    <configurationValues name="Attribute_1_Type" value="String"/>
+    <configurationValues name="Attribute_2_Name" value="PromotionUUID"/>
+    <configurationValues name="Attribute_2_Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="Pipelet34"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="OrderBO:ID"/>
+    <parameterBindings name="Attribute_2_Value" objectPath="AppliedRebateBO:RebateBO:PromotionBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject:UUID"/>
+    <parameterBindings name="ExtensibleObject" objectPath="AccountTransaction"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet34">
+    <pipelet href="enfinity:/bc_organization/pipelets/BindAccountTransaction.xml"/>
+<!--@BendPoints 13,18-->
+    <nodeSuccessors name="next" next="EndNode2" action="commit"/>
+    <parameterBindings name="Account" objectPath="AppliedRebateBO:RebateBO:PromotionBO:Budget:Account"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateAccountTransaction4">
+    <configurationValues name="AmountUpdatePolicy" value="AlwaysPositive"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/UpdateAccountTransaction.xml"/>
+<!--@BendPoints 15,11-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="Amount" objectPath="AppliedRebateBO:Amount"/>
+    <parameterBindings name="AmountCurrency" nullBinding="true"/>
+    <parameterBindings name="AmountValue" nullBinding="true"/>
+    <parameterBindings name="TimeStamp" nullBinding="true"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End21" name="error" strict="true"/>
+<!--@displayNearNode@Increase remaining budget amount <br>
+after an order will be canceled related<br>
+to applied promotions.
+@Location 3,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="OnCancelOrder"
+      callMode="Private">
+    <nodeSuccessors name="next" next="SetDictionaryValue2"/>
+<!--current organization-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--The OrderBO to be cancelled.-->
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue2">
+    <configurationValues name="Name" value="TransactionMode"/>
+    <configurationValues name="Value" value="debit"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 5,8-->
+    <nodeSuccessors name="next" next="GetDomainPreference1"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainPreference1">
+    <configurationValues name="DefaultPreferenceKey" value="PriceType"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainPreference.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+<!--@BendPoints 6,9 6,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="PreferenceDomain" objectPath="Organization:OwningDomain"/>
+    <returnValueBindings name="PreferenceStringValue" objectPath="PriceType"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="LoopNode1"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="OrderBO:Extension(&quot;AppliedRebate&quot;):AppliedPromotions">
+<!--@BendPoints 6,13-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <entry key="AppliedRebateBO">
+<!--@BendPoints 5,14-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode2"/>
+    </entry>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="AppliedRebateBO:RebateBO:PromotionBO:hasBudget"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode3"/>
+<!--@BendPoints 7,15 7,17 7,27-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="CheckPromotionBudgetNotificationRequired1"/>
+    <parameterBindings name="AppliedRebateBO" objectPath="AppliedRebateBO"/>
+    <parameterBindings name="Domain" objectPath="Organization:OwningDomain"/>
+    <startNode referencedName="This:CreateAccountTransaction"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckPromotionBudgetNotificationRequired1">
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/CheckPromotionBudgetNotificationRequired.xml"/>
+    <nodeSuccessors name="next" next="CallNode4"/>
+<!--@BendPoints 6,19 6,23-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <startNode referencedName="This:SendBudgetNotificationMail"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="DisablePromotionByBudgetEvent1"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DisablePromotionByBudgetEvent1">
+    <configurationValues name="BudgetEvent" value="BudgetReached"/>
+    <pipelet href="enfinity:/bc_marketing/pipelets/DisablePromotionByBudgetEvent.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <parameterBindings name="PromotionBO" objectPath="AppliedRebateBO:RebateBO:PromotionBO"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 4,27 3,27 4,13-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@displayNearNode@Increase remaining budget amount <br>
+after an order will be canceled related<br>
+to applied promotions.
+@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="OnCancelOrder2"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetOrderBO0"/>
+<!--current organization-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--The OrderBO to be cancelled.-->
+    <parameters name="Order" type="com.intershop.beehive.bts.capi.orderprocess.fulfillment.Order"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrderBO0">
+    <pipelet href="enfinity:/bc_order/pipelets/GetOrderBO.xml"/>
+    <nodeSuccessors name="next" next="JumpNode0"/>
+    <parameterBindings name="OrderBORepository" objectPath="ApplicationBO:Repository(&quot;OrderBORepository&quot;)"/>
+    <parameterBindings name="OrderID" nullBinding="true"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode0">
+    <startNode referencedName="ProcessPromotionBudget-OnCancelOrder"/>
+  </nodes>
+<!--@displayNearNode@Reduce remaining budget amount <br>
+after order creation related <br>
+to applied promotions.
+@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="OnCreateOrder"
+      callMode="Private">
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="SetDictionaryValue1"/>
+<!--current organization-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+<!--The order to be created.-->
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="TransactionMode"/>
+    <configurationValues name="Value" value="credit"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="SendBudgetNotificationMail"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetApplicationPreference0"/>
+    <parameters name="AppliedRebateBO" type="com.intershop.component.promotion.capi.AppliedRebateBO"/>
+<!--an organization-->
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+<!--an order view object-->
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationPreference0">
+    <configurationValues name="DefaultApplicationPreferenceKey" value="BudgetNotificationEmailFrom"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/GetApplicationPreference.xml"/>
+    <nodeSuccessors name="next" next="CheckForEmptyString8"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <returnValueBindings name="ApplicationPreferenceStringValue" objectPath="MailFrom"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString8">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="GetLocale1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="FilledString" objectPath="AppliedRebateBO:RebateBO:PromotionBO:BudgetNotificationEmail"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="AddMultipleEntriesToMap2"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddMultipleEntriesToMap2">
+    <configurationValues name="Mode" value="OverwriteValue"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddMultipleEntriesToMap.xml"/>
+    <nodeSuccessors name="next" next="CheckPromotionBudgetNotificationRequired2"/>
+    <parameterBindings name="Key1" constant="{{PROMOTION}}"/>
+    <parameterBindings name="Key2" constant="{{BUDGET}}"/>
+    <parameterBindings name="Key3" constant="{{THRESHOLD}}"/>
+    <parameterBindings name="Value1" objectPath="AppliedRebateBO:RebateBO:PromotionBO:DisplayName(Locale)"/>
+    <parameterBindings name="Value2" objectPath="AppliedRebateBO:RebateBO:PromotionBO:BudgetAmount"/>
+    <parameterBindings name="Value3" objectPath="AppliedRebateBO:RebateBO:PromotionBO:BudgetNotificationThreshold"/>
+    <returnValueBindings name="OutMap" objectPath="Placeholders"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckPromotionBudgetNotificationRequired2">
+    <configurationValues name="Scope" value="BudgetPercentage"/>
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/CheckPromotionBudgetNotificationRequired.xml"/>
+    <nodeSuccessors name="next" next="Pipelet1"/>
+<!--@BendPoints 21,13-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode14"/>
+  </nodes>
+<!--@Location 9,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/core/pipelets/CreateLocalizationContextFromApplication.xml"/>
+    <nodeSuccessors name="next" next="Pipelet2"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <parameterBindings name="LocaleInformation" objectPath="Locale"/>
+  </nodes>
+<!--@Location 9,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/core/pipelets/DetermineLocalizedTextByLocale.xml"/>
+    <nodeSuccessors name="next" next="GetFirstElementOfIterator1"/>
+    <parameterBindings name="SearchedKey" constant="promotion.budget.threshold.email.subject"/>
+    <returnValueBindings name="LocalizationTexts" objectPath="MailSubjects"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFirstElementOfIterator1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFirstElementOfIterator.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode14"/>
+    <parameterBindings name="Iterator" objectPath="MailSubjects"/>
+    <returnValueBindings name="FirstElement" objectPath="RawMailSubject"/>
+  </nodes>
+<!--@Location 9,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="CheckForEmptyString6"/>
+    <parameterBindings name="localizedResult" objectPath="RawMailSubject"/>
+    <startNode referencedName="ProcessLocalization-GetLocalizedValue"/>
+    <returnValueBindings name="localizedValue" objectPath="RawMailSubjectValue"/>
+  </nodes>
+<!--@Location 9,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString6">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationPreference1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode17"/>
+    <parameterBindings name="FilledString" objectPath="RawMailSubjectValue"/>
+  </nodes>
+<!--@Location 9,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationPreference1">
+    <configurationValues name="DefaultApplicationPreferenceKey" value="BudgetNotificationEmailTemplatePercentage"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/GetApplicationPreference.xml"/>
+    <nodeSuccessors name="next" next="CheckForEmptyString2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode9"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <returnValueBindings name="ApplicationPreferenceStringValue" objectPath="MailTemplate"/>
+  </nodes>
+<!--@Location 9,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="FormatString1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode16"/>
+    <parameterBindings name="FilledString" objectPath="MailTemplate"/>
+  </nodes>
+<!--@Location 9,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FormatString1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/FormatString.xml"/>
+    <nodeSuccessors name="next" next="ProcessMail1"/>
+    <parameterBindings name="InputString" objectPath="RawMailSubjectValue"/>
+    <returnValueBindings name="OutputString" objectPath="MailSubject"/>
+  </nodes>
+<!--@Location 9,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail1">
+    <configurationValues name="UseErrorConnector" value="true"/>
+    <configurationValues name="WaitForResult" value="true"/>
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+    <parameterBindings name="Domain" objectPath="Organization:OwningDomain"/>
+    <parameterBindings name="LocaleID" objectPath="Locale:LocaleID"/>
+    <parameterBindings name="MailSubject" objectPath="MailSubject"/>
+    <parameterBindings name="MailTo" objectPath="AppliedRebateBO:RebateBO:PromotionBO:BudgetNotificationEmail"/>
+  </nodes>
+<!--@Location 9,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="CheckPromotionBudgetNotificationRequired3"/>
+  </nodes>
+<!--@Location 9,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckPromotionBudgetNotificationRequired3">
+    <configurationValues name="Scope" value="BudgetExhausted"/>
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/CheckPromotionBudgetNotificationRequired.xml"/>
+    <nodeSuccessors name="next" next="Pipelet4"/>
+<!--@BendPoints 21,35-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+  </nodes>
+<!--@Location 9,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <pipelet href="enfinity:/core/pipelets/CreateLocalizationContextFromApplication.xml"/>
+    <nodeSuccessors name="next" next="Pipelet3"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <parameterBindings name="LocaleInformation" objectPath="Locale"/>
+  </nodes>
+<!--@Location 9,19-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <pipelet href="enfinity:/core/pipelets/DetermineLocalizedTextByLocale.xml"/>
+    <nodeSuccessors name="next" next="GetFirstElementOfIterator2"/>
+    <parameterBindings name="SearchedKey" constant="promotion.budget.exhausted.email.subject"/>
+    <returnValueBindings name="LocalizationTexts" objectPath="MailSubjects"/>
+  </nodes>
+<!--@Location 9,20-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFirstElementOfIterator2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFirstElementOfIterator.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="Iterator" objectPath="MailSubjects"/>
+    <returnValueBindings name="FirstElement" objectPath="RawMailSubject"/>
+  </nodes>
+<!--@Location 9,21-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="CheckForEmptyString5"/>
+    <parameterBindings name="localizedResult" objectPath="RawMailSubject"/>
+    <startNode referencedName="ProcessLocalization-GetLocalizedValue"/>
+    <returnValueBindings name="localizedValue" objectPath="RawMailSubjectValue"/>
+  </nodes>
+<!--@Location 9,22-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString5">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationPreference2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode15"/>
+    <parameterBindings name="FilledString" objectPath="RawMailSubjectValue"/>
+  </nodes>
+<!--@Location 9,23-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationPreference2">
+    <configurationValues name="DefaultApplicationPreferenceKey" value="BudgetNotificationEmailTemplateExhausted"/>
+    <configurationValues name="Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/GetApplicationPreference.xml"/>
+    <nodeSuccessors name="next" next="CheckForEmptyString1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode10"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <returnValueBindings name="ApplicationPreferenceStringValue" objectPath="MailTemplate"/>
+  </nodes>
+<!--@Location 9,24-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyString1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CheckForEmptyString.xml"/>
+    <nodeSuccessors name="next" next="FormatString3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode18"/>
+    <parameterBindings name="FilledString" objectPath="MailTemplate"/>
+  </nodes>
+<!--@Location 9,25-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FormatString3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/FormatString.xml"/>
+    <nodeSuccessors name="next" next="ProcessMail2"/>
+    <parameterBindings name="InputString" objectPath="RawMailSubjectValue"/>
+    <returnValueBindings name="OutputString" objectPath="MailSubject"/>
+  </nodes>
+<!--@Location 9,26-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail2">
+    <configurationValues name="UseErrorConnector" value="true"/>
+    <configurationValues name="WaitForResult" value="true"/>
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode13"/>
+    <parameterBindings name="Domain" objectPath="Organization:OwningDomain"/>
+    <parameterBindings name="LocaleID" objectPath="Locale:LocaleID"/>
+    <parameterBindings name="MailSubject" objectPath="MailSubject"/>
+    <parameterBindings name="MailTo" objectPath="AppliedRebateBO:RebateBO:PromotionBO:BudgetNotificationEmail"/>
+  </nodes>
+<!--@Location 9,27-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+<!--@BendPoints 19,56-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+  </nodes>
+<!--@Location 9,28-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true"/>
+<!--@Location 10,26-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode13">
+<!--@BendPoints 21,55-->
+    <nodeSuccessors name="next" next="JoinNode12"/>
+  </nodes>
+<!--@Location 10,24-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode18">
+    <nodeSuccessors name="next" next="JoinNode13"/>
+  </nodes>
+<!--@Location 10,23-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="JoinNode18"/>
+  </nodes>
+<!--@Location 10,22-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode15">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+  </nodes>
+<!--@Location 10,20-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="JoinNode15"/>
+  </nodes>
+<!--@Location 10,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+<!--@BendPoints 21,33-->
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 10,13-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode16">
+    <nodeSuccessors name="next" next="JoinNode11"/>
+  </nodes>
+<!--@Location 10,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="JoinNode16"/>
+  </nodes>
+<!--@Location 10,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode17">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 10,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+    <nodeSuccessors name="next" next="JoinNode17"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 23,8-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="error" strict="true"/>
+</pipeline:Pipeline>

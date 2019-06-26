@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+	<parameters>
+		<parameter name="OwnerUUID" type="java.lang.String" optional="false"/>
+		<parameter name="RepositoryDomainUUID" type="java.lang.String" optional="false"/>
+		<parameter name="CatalogID" type="java.lang.String" optional="false"/>
+	</parameters>
+	<return-mappings>
+		<return-mapping name="Product" type="orm" class="com.intershop.beehive.xcs.internal.product.ProductPO">
+			<return-attribute name="UUID" />
+		</return-mapping>
+	</return-mappings>
+	<processor name="OracleSQL" />
+	<template type="countedobjects">
+		<sql-dialect name="Microsoft">
+			DECLARE @queryValue VARCHAR(3000);
+			SET @queryValue = <template-variable value="CatalogID" />
+		</sql-dialect>
+		SELECT p.uuid AS UUID, COUNT(p.uuid) OVER() AS "ROWCOUNT"
+		FROM product p
+		WHERE p.domainid=<template-variable value="RepositoryDomainUUID"/>
+			<sql-dialect name="Oracle">
+				AND contains(p.attributes, <template-variable value="CatalogID" />||' INPATH (/attrs/attr[@name="BME_CATALOG_ID"]/string)')>0		
+			</sql-dialect>
+			<sql-dialect name="Microsoft">
+					  AND p.attributes.exist('//attrs/attr[@name="BME_CATALOG_ID"]/string [contains(., sql:variable("@queryValue"))]') = 1
+			</sql-dialect>
+			AND NOT EXISTS ( 
+				SELECT 1
+				FROM bmecatimportctr r
+				WHERE r.owneruuid=<template-variable value="OwnerUUID"/>
+					AND r.persistentobjectuuid=p.uuid
+					AND r.persistentobjectclassname='com.intershop.beehive.xcs.capi.product.Product'
+			)
+	</template>
+</query>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Contains the condititions by which one can check if a product or a product assignment is available in the product domain set to the product sharing helper. A product is abailable in the channel if it is a local product or if it is shared from another product repository. If the query is used to check if an assignment is available, the product that is part of the assignment has to be checked separately.">
+
+<parameters>
+  <parameter name = "TableAlias" type = "java.lang.String" optional = "false"/>
+  <parameter name = "ProductIdColumn" type = "java.lang.String" optional = "false"/>
+  <parameter name = "Sharing" type = "com.intershop.beehive.xcs.internal.productset.ProductSharingHelper" optional = "false"/>
+  <parameter name = "IgnoreInbound" type = "java.lang.Boolean" optional = "true"/>
+</parameters>
+
+<processor name="OracleSQL"/>
+
+<template>
+  <template-if condition="Sharing:Enabled">
+    (
+      (
+        <template-variable value="TableAlias" processing="text"/>.domainid IN 
+          (
+            <template-loop alias="Domain" iterator="Sharing:Domains">
+              <loop-statement>
+                <template-variable value="Domain:UUID"/>
+              </loop-statement>
+              <loop-separator>,</loop-separator>
+            </template-loop>
+          )
+        <template-if condition="hasElements(Sharing:ProductSets)">
+          OR EXISTS (
+             SELECT 1
+               FROM productsetassignment psa
+               JOIN productset ps ON (psa.productsetuuid=ps.uuid)
+              WHERE <template-variable value="TableAlias" processing="text"/>.<template-variable value="ProductIdColumn" processing="text"/> = psa.productUUID
+                AND <template-variable value="TableAlias" processing="text"/>.domainid = ps.domainid
+                AND psa.productsetuuid IN 
+                       (
+                         <template-loop alias="ProductSet" iterator="Sharing:ProductSets">
+                           <loop-statement>
+                             <template-variable value="ProductSet:UUID"/>
+                           </loop-statement>
+                           <loop-separator>,</loop-separator>
+                         </template-loop>
+                       )
+             )
+        </template-if>
+      )
+      <template-if condition="isDefined(Sharing:InboundProductSet) AND NOT (isDefined(IgnoreInbound) AND IgnoreInbound)">
+        AND (
+                 EXISTS (
+                   SELECT 1
+                     FROM productsetassignment psa
+                    WHERE <template-variable value="TableAlias" processing="text"/>.<template-variable value="ProductIdColumn" processing="text"/> = psa.productUUID
+                      AND psa.productsetuuid = <template-variable value="Sharing:InboundProductSet:UUID"/>
+                 )
+              OR <template-variable value="TableAlias" processing="text"/>.domainid = <template-variable value="Sharing:ProductDomain:UUID"/>
+            )
+      </template-if>
+    )
+  <if-else/>
+    <template-variable value="TableAlias" processing="text"/>.domainid = <template-variable value="Sharing:ProductDomain:UUID"/>
+  </template-if>
+    
+</template>
+</query>

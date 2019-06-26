@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Process Catalog Sharing in the partner-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessChannelCatalogSharing_32" type="process">
+<!--If the proxy catalog itself 
+is shared to partner channel
+\- do nothing, otherwise remove 
+proxy catalog object.
+@Location 4,6-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1"/>
+<!--Determine the proxy catalog 
+of partner organization. (The 
+catalog object to remove.)
+@Location 4,3-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" name="Remove" callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="SelectedPartners">
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <entry key="Selection">
+<!--@BendPoints 3,4-->
+      <nodeSuccessors name="loop_entry_next" next="GetOrganization0"/>
+    </entry>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganization0">
+    <configurationValues name="Source" value="PipelineDictionary"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganization.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery0"/>
+<!--@BendPoints 7,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="OrganizationUUID" objectPath="Selection"/>
+    <returnValueBindings name="Organization" objectPath="Partner"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery0">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="Catalog"/>
+    <configurationValues name="ParameterName_02" value="DomainID"/>
+    <configurationValues name="QueryName" value="catalog/GetProxyCatalog"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="GetFirstElementOfIterator0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Catalog"/>
+    <parameterBindings name="ParameterValue_02" objectPath="Partner:DomainID"/>
+    <returnValueBindings name="SearchResult" objectPath="ProxyCatalog"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFirstElementOfIterator0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFirstElementOfIterator.xml"/>
+    <nodeSuccessors name="next" next="ExecuteCountQuery0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode5"/>
+    <parameterBindings name="Iterator" objectPath="ProxyCatalog"/>
+    <returnValueBindings name="FirstElement" objectPath="ProxyCatalog"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteCountQuery0">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="Catalog"/>
+    <configurationValues name="ParameterName_02" value="Partner"/>
+    <configurationValues name="QueryName" value="catalog/GetProxyCatalogPartnerSharedCatalogsCount"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteCountQuery.xml"/>
+<!--@BendPoints 2,13-->
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="ParameterValue_01" objectPath="Catalog"/>
+    <parameterBindings name="ParameterValue_02" objectPath="Partner"/>
+    <returnValueBindings name="Count" objectPath="ProxyCatalogSharesCount"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="ProxyCatalogSharesCount"
+      operator="gt" conditionValue="0">
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue1"/>
+    <nodeSuccessors name="decision_no" next="UpdateCustomAttribute0"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="sharingCheck"/>
+    <configurationValues name="Value" value="error"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 7,23-->
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 1,23 1,3-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttribute0">
+    <configurationValues name="DefaultAttributeName" value="DeletionInProgress"/>
+    <configurationValues name="DefaultAttributeType" value="Boolean"/>
+    <configurationValues name="DefaultAttributeValue" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateCustomAttribute.xml"/>
+    <nodeSuccessors name="next" next="GetRepository0"/>
+    <parameterBindings name="ExtensibleObject" objectPath="ProxyCatalog"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepository0">
+    <configurationValues name="CustomRepositoryTypeCode" value="21"/>
+    <configurationValues name="Type" value="Custom Repository"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepository.xml"/>
+    <nodeSuccessors name="next" next="CallNode0" action="begin"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Partner:Domain"/>
+    <returnValueBindings name="Repository" objectPath="PartnerMasterRepository"/>
+  </nodes>
+<!--@displayNearNode@Remove the PEP\-s into the master repository
+of the partner. If the catalog is shared within the partner
+channel then the catalog unsharing is not allowed.
+@Location 1,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="RemoveCatalog0"/>
+    <parameterBindings name="CatalogDomain" objectPath="Catalog:Domain"/>
+    <parameterBindings name="PEPDomain" objectPath="PartnerMasterRepository:RepositoryDomain"/>
+    <startNode referencedName="ProcessCatalogChannel-RemovePEPs"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveCatalog0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/RemoveCatalog.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3" action="commit"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4" action="rollback"/>
+    <parameterBindings name="Catalog" objectPath="ProxyCatalog"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Partner:Domain"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0"/>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="RemoveByJob" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="JobConfigurationUUID">
+    <nodeSuccessors name="decision_yes" next="GetJobConfiguration0"/>
+<!--@BendPoints 17,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode7"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetJobConfiguration0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetJobConfiguration.xml"/>
+    <nodeSuccessors name="next" next="GetFormSelection0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+    <parameterBindings name="JobUUID" objectPath="JobConfigurationUUID"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFormSelection0">
+    <configurationValues name="DefaultParameterName" value="SelectedPartnerUUID"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFormSelection.xml"/>
+    <nodeSuccessors name="next" next="GetCatalogByUUID0"/>
+    <returnValueBindings name="Selection" objectPath="SelectedPartners"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCatalogByUUID0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCatalogByUUID.xml"/>
+    <nodeSuccessors name="next" next="CallNode2"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <startNode referencedName="ProcessChannelCatalogSharing_32-Remove"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="sharingCheck">
+    <nodeSuccessors name="decision_yes" next="CallNode3"/>
+    <nodeSuccessors name="decision_no" next="JoinNode9"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+<!--@BendPoints 16,15 16,17-->
+    <nodeSuccessors name="ERROR" next="JoinNode10"/>
+    <startNode referencedName="BatchProcessLog-PrepareLogger"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+    <nodeSuccessors name="next" next="CreateLogEntry0"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateLogEntry0">
+    <configurationValues name="LogLevel" value="Info"/>
+    <configurationValues name="MessageKey" value="bc_mvc.batch.PartnerSharingCheckError"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateLogEntry.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameterBindings name="Object0" objectPath="Catalog:Id"/>
+  </nodes>
+<!--@Location 7,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <startNode referencedName="BatchProcessLog-CleanLogger"/>
+  </nodes>
+<!--@Location 7,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 7,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+<!--@BendPoints 17,23-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+</pipeline:Pipeline>

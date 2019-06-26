@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Handles the user groups assigned to a promotion target group.
+@Group Replication-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessReplicatePromotions" type="process">
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="Init"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+<!--The objects to be syndicated.-->
+    <parameters name="Objects" type="java.util.Iterator" optional="true"/>
+<!--The job configuration of the batch process.-->
+    <parameters name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <startNode referencedName="ProcessReplicateObjects-Init"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+    <returnValues name="Objects" type="java.util.Iterator" optional="true"/>
+    <returnValues name="LogScope" type="com.intershop.beehive.core.capi.log.LogScope"
+        optional="true"/>
+    <returnValues name="ProcessLogAppender" type="com.intershop.beehive.core.capi.log.ProcessAppender"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Post"
+      callMode="Private">
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+<!--The log scope all registered target should be removed for.-->
+    <parameters name="LogScope" type="com.intershop.beehive.core.capi.log.LogScope"
+        optional="true"/>
+    <parameters name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration"
+        optional="true"/>
+    <parameters name="ProcessLogAppender" type="com.intershop.beehive.core.capi.log.ProcessAppender"
+        optional="true"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+<!--@BendPoints 3,12-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <startNode referencedName="ProcessReplicateObjects-Post"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="Process"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateObjectMapper0"/>
+    <parameters name="JobConfiguration" type="com.intershop.beehive.core.capi.domain.ExtensibleObject"
+        optional="true"/>
+    <parameters name="Objects" type="java.util.Iterator"/>
+<!--The UUID of target system.-->
+    <parameters name="TargetClusterID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateObjectMapper0">
+    <configurationValues name="ResultObjectType" value="com.intershop.sellside.channel.base.internal.promotion.PromotionAvailableInApplication"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateObjectMapper.xml"/>
+    <nodeSuccessors name="next" next="GetRepositoryByRepositoryDomain0"/>
+    <parameterBindings name="MappingConfiguration" nullBinding="true"/>
+    <returnValueBindings name="ObjectMapper" objectPath="Predicate"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameterBindings name="RepositoryDomain" objectPath="JobConfiguration:Domain"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="CreateCollectionFromIterator0"/>
+    <parameterBindings name="ChannelRepository" objectPath="Repository"/>
+    <startNode referencedName="ProcessApplication-GetApplications"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateCollectionFromIterator0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateCollectionFromIterator.xml"/>
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <parameterBindings name="ObjectIterator" objectPath="Applications"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="Objects">
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <entry key="Promotion">
+      <nodeSuccessors name="loop_entry_next" next="CreateSingleObjectIterator0"/>
+    </entry>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateSingleObjectIterator0">
+    <pipelet href="enfinity:/core/pipelets/CreateSingleObjectIterator.xml"/>
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <parameterBindings name="Object" objectPath="Promotion"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="FilterCollection0"/>
+    <parameterBindings name="Objects" objectPath="SingletonIterator"/>
+    <startNode referencedName="ProcessReplicateObjects-Process"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="FilterCollection0">
+    <pipelet href="enfinity:/core/pipelets/FilterCollection.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="Collection" objectPath="ObjectCollection"/>
+    <parameterBindings name="Predicate" objectPath="Predicate:get(Promotion)"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="FilteredCollection">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+    <entry key="PromotionApplication">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode0"/>
+    </entry>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="PromotionApplication:ManagementApplicationUUID">
+    <nodeSuccessors name="decision_yes" next="GetApplicationByUUID0"/>
+<!--@BendPoints 9,23-->
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationByUUID0">
+    <pipelet href="enfinity:/core/pipelets/GetApplicationByUUID.xml"/>
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="ApplicationUUID" objectPath="PromotionApplication:ManagementApplicationUUID"/>
+    <returnValueBindings name="Application" objectPath="StorefrontManagementApplication"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="AddMultipleEntriesToMap0"/>
+    <parameterBindings name="Application" objectPath="StorefrontManagementApplication"/>
+    <startNode referencedName="ProcessContentRepository-GetContentRepositoryByApplication"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddMultipleEntriesToMap0">
+    <configurationValues name="Mode" value="OverwriteValue"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddMultipleEntriesToMap.xml"/>
+    <nodeSuccessors name="next" next="CallPipeline0"/>
+    <parameterBindings name="InMap" nullBinding="true"/>
+    <parameterBindings name="IteratorOfKeys" nullBinding="true"/>
+    <parameterBindings name="Key1" constant="Objects"/>
+    <parameterBindings name="Key2" constant="TargetClusterID"/>
+    <parameterBindings name="Key3" constant="JobConfiguration"/>
+    <parameterBindings name="Key4" constant="DomainID"/>
+    <parameterBindings name="Key5" nullBinding="true"/>
+    <parameterBindings name="Value1" objectPath="SingletonIterator"/>
+    <parameterBindings name="Value2" objectPath="TargetClusterID"/>
+    <parameterBindings name="Value3" objectPath="JobConfiguration"/>
+    <parameterBindings name="Value4" objectPath="ContentRepository:RepositoryDomain:UUID"/>
+    <parameterBindings name="Value5" nullBinding="true"/>
+    <returnValueBindings name="OutMap" objectPath="Parameters"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CallPipeline0">
+    <pipelet href="enfinity:/core/pipelets/CallPipeline.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="Pipeline" constant="ProcessReplicateObjects"/>
+    <parameterBindings name="PipelineExecutor" objectPath="StorefrontManagementApplication:PipelineExecutor"/>
+    <parameterBindings name="StartNode" constant="Process"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 5,33 5,23-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 9,33-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 5,13-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+</pipeline:Pipeline>

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Obtains the promotions available for a user (but not if it participates in a target group) for a given date.">
+<parameters>
+	<parameter name="User" type="com.intershop.beehive.core.capi.user.User" optional="false" description="The user for which the promotions are going to be obtained"/>
+	<parameter name="Enabled" type="java.lang.String" optional="true" description="Enabled or Desabled promotions"/>
+	<parameter name="Date" type="java.util.Date" optional="true" description="If specified - returns the promotions for that day. If ommited the default is UTCTIMESTAMP()"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false" description="the domain to search the promotions"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Promotions" type="orm" class="com.intershop.component.marketing.internal.rebate.PromotionPO" description="the found promotions">
+		<return-attribute name="uuid"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+	    select p.uuid from promotion p, usergroupuserassignment ugua
+	    where p.TARGETGROUPDOMAINID = ugua.USERGROUPDOMAINID
+	    and p.TARGETGROUPID = ugua.USERGROUPID
+	<template-if condition="isDefined(Enabled) AND Enabled EQ &apos;true&apos;">
+		and p.enabledflag = 1
+		<if-else/>
+		and p.enabledflag = 0
+	</template-if>
+	<template-if condition="isDefined(Date)">
+		and p.startdate &lt; <template-variable value="Date"/> 
+		and <template-variable value="Date"/> &lt; p.enddate 
+		<if-else/>
+		<sql-dialect name="Microsoft">
+			and p.startdate &lt; GETUTCDATE() and GETUTCDATE() &lt; p.enddate 
+		</sql-dialect>
+		<sql-dialect name="Oracle">
+			and p.startdate &lt; UTCTIMESTAMP() and UTCTIMESTAMP() &lt; p.enddate 
+		</sql-dialect>
+	</template-if>
+	    and ugua.USERGROUPDOMAINID = <template-variable value="Domain:DomainID"/>
+	    and ugua.USERID = <template-variable value="User:ID"/>
+</template>
+</query>

@@ -1,0 +1,17 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/Modules", null, "2");} %><!-- start page navigator --><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("hide","true"),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue(context.getFormattedValue("ViewChannelCatalogOverview_",null) + context.getFormattedValue(getObject("CurrentChannel:TypeCode"),null) + context.getFormattedValue("-Show",null),null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ChannelID",null),context.getFormattedValue(getObject("CurrentChannel:UUID"),null))))),
+new TagParameter("start","true"),
+new TagParameter("text",localizeText(context.getFormattedValue("ChannelProductStatistics.ChannelCatalogs.text",null)))}, 6); %><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("listview","true"),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelProductStatistics-Start",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("ChannelID",null),context.getFormattedValue(getObject("ChannelID"),null))))),
+new TagParameter("text",localizeText(context.getFormattedValue("ChannelProductStatistics.ProductCompleteness.text",null)))}, 7); %><!-- end page navigator -->
+<table border="0" cellspacing="0" cellpadding="0" width="100%">
+<tr>
+<td colspan="5" class="table_title aldi"><% {out.write(localizeISText("product.validation.overview.heading","",null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"objectstatistics/inc/ChannelProductStatisticsInc.isml", null, "16");} %></table><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"objectstatistics/inc/ChannelProductStatisticsUpdateButtonInc.isml", null, "22");} %><div><img width="1" border="0" height="6" alt="" src="<%=context.getFormattedValue(context.webRoot(),null)%>/images/space.gif"></div><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"objectstatistics/inc/ChannelProductValidationInc.isml", null, "28");} %><% printFooter(out); %>

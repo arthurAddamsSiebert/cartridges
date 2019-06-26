@@ -1,0 +1,41 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%response.setHeader(TemplateConstants.PERSONALIZED_HEADER, "1");setEncodingType("text/html"); %><% {try{String currentCacheTime = (String)((com.intershop.beehive.core.capi.request.ServletResponse)response).getHeaderValue(TemplateConstants.PAGECACHE_HEADER);if (currentCacheTime!=null && "00".equals(currentCacheTime)) {Logger.debug(this, "ISCACHE declaration is ignored since a prior 'forbidden'.");}else {long time = System.currentTimeMillis()/1000;long minute=0;if (minute <0) minute=0;long hour=24;if (hour <0)  hour=0;time += 60*minute+3600*hour;String extCacheTime = (String)((com.intershop.beehive.core.capi.request.ServletResponse)response).getHeaderValue(TemplateConstants.EXT_PAGECACHE_HEADER);Long oldTime=(currentCacheTime!=null)?Long.valueOf(currentCacheTime):(extCacheTime!=null)?Long.valueOf(extCacheTime):null;if (oldTime!=null && oldTime<time) {Logger.debug(this, "ISCACHE declaration is ignored since a prior declaration with a smaller caching period.");response.setHeader(TemplateConstants.PAGECACHE_HEADER, String.valueOf(oldTime));}else if (oldTime!=null && oldTime>time) {Logger.debug(this, "ISCACHE declaration reduces a caching period set by a prior declaration.");}if (oldTime==null || oldTime>time){if (time > Integer.MAX_VALUE){  time = Integer.MAX_VALUE;} response.setHeader(TemplateConstants.PAGECACHE_HEADER, String.valueOf(time));}}}catch(Exception e){Logger.error(this,"ISCACHE failed. Line: {2}",e);}} %><% {Object key_obj = getObject("ProductBO"); NamingMgr.getManager(PageCacheMgr.class).registerObject(getObject("ProductBO"));} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"modules/Modules", null, "4");} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"modules/captcha/Modules", null, "5");} %><div class="row product-details-top-line">
+<div class="col-md-12 pull-right"><% processOpenTag(response, pageContext, "productrating", new TagParameter[] {
+new TagParameter("User",getObject("CurrentUser")),
+new TagParameter("RichSnippetsEnabled",getObject("RichSnippetsEnabled")),
+new TagParameter("ProductBO",getObject("ProductBO")),
+new TagParameter("SimpleRatingView","false")}, 9); %><ul class="share-tools pull-right"><% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (getObject("ProductBO:isEndOfLife"))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",16,e);}if (_boolean_result) { %><% {try{executePipeline("DetermineRepositories-Channel",java.util.Collections.emptyMap(),"RepositoriesDictionary");}catch(Exception e){Logger.error(this,"ISPIPELINE failed. Line: 17.",e);}} %><% {Object temp_obj = (getObject("RepositoriesDictionary:Repository:DisplayName")); getPipelineDictionary().put("ChannelName", temp_obj);} %><% {Object temp_obj = (replace(context.getFormattedValue(encodeString(context.getFormattedValue(localizeTextEx(context.getFormattedValue("email.recommended_product.heading",null),new ParameterList().addParameter(getObject("ChannelName"))),null),(String)("url")),null),(String)("\\+"),(String)("%20"))); getPipelineDictionary().put("EmailAFriendSubject", temp_obj);} %><% processOpenTag(response, pageContext, "setcanonicallink", new TagParameter[] {
+new TagParameter("scope","request"),
+new TagParameter("name","CurrentProductURL"),
+new TagParameter("action","ViewProduct-Start"),
+new TagParameter("parameters",new ParameterList().addParameter(context.getFormattedValue("SKU",null),context.getFormattedValue(getObject("ProductBO:SKU"),null)))}, 20); %><% {Object temp_obj = (replace(context.getFormattedValue(encodeString(context.getFormattedValue(localizeTextEx(context.getFormattedValue("email.recommended_product.text",null),new ParameterList().addParameter(getObject("ProductBO:DisplayName")).addParameter(getObject("CurrentProductURL"))),null),(String)("url")),null),(String)("\\+"),(String)("%20"))); getPipelineDictionary().put("EmailAFriendBody", temp_obj);} %><li>
+<a href="mailto:?subject=<%=context.getFormattedValue(getObject("EmailAFriendSubject"),null)%>&body=<%=context.getFormattedValue(getObject("EmailAFriendBody"),null)%>">
+<span class="glyphicon glyphicon-send"></span>
+<span class="share-label"><% {out.write(localizeISText("product.email_a_friend.link","",null,null,null,null,null,null,null,null,null,null,null));} %></span>
+</a>
+</li><% } %><li class="hidden-xs">
+<a class="link-print" href="javascript:window.print();" rel="nofollow">
+<span class="glyphicon glyphicon-print"></span>
+<span class="share-label"><% {out.write(localizeISText("product.print_page.link","",null,null,null,null,null,null,null,null,null,null,null));} %></span>
+</a>
+</li><% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (getObject("ProductBO:ProductMaster"))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",40,e);}if (_boolean_result) { %><li><% _boolean_result=false;try {_boolean_result=((Boolean)((((((Boolean) getObject("ProductBO:isRetailSet")).booleanValue() && ((Boolean) (hasLoopElements("ProductBO:BundleInformationBO:BundledProductBOs") ? Boolean.TRUE : Boolean.FALSE)).booleanValue()) ? Boolean.TRUE : Boolean.FALSE)))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",42,e);}if (_boolean_result) { %><% processOpenTag(response, pageContext, "addtowishlist", new TagParameter[] {
+new TagParameter("DisplayType","share-tool"),
+new TagParameter("DataAttributes",context.getFormattedValue("data-dialog-form=retailSetForm_",null) + context.getFormattedValue(getObject("ProductBO:SKU"),null)),
+new TagParameter("Currency",getObject("CurrentRequest:Currency")),
+new TagParameter("ProductBO",getObject("ProductBO")),
+new TagParameter("class","btn-link btn-tool")}, 43); %><% } else { %><% processOpenTag(response, pageContext, "addtowishlist", new TagParameter[] {
+new TagParameter("DisplayType","share-tool"),
+new TagParameter("DataAttributes",context.getFormattedValue("data-dialog-form=productDetailForm_",null) + context.getFormattedValue(getObject("ProductBO:SKU"),null)),
+new TagParameter("Currency",getObject("CurrentRequest:Currency")),
+new TagParameter("ProductBO",getObject("ProductBO")),
+new TagParameter("class","btn-link btn-tool")}, 50); %><% } %></li> 
+<li class="hidden-xs"><% processOpenTag(response, pageContext, "addtoproductcompare", new TagParameter[] {
+new TagParameter("DisplayType","share-tool"),
+new TagParameter("ProductBO",getObject("ProductBO"))}, 59); %></li><% } %> 
+</ul>
+</div>
+</div><% printFooter(out); %>

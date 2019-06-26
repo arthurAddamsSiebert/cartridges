@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="@Deprecated since 7.10. Currently unused and will be removed in a future release.">
+<parameters>
+	<parameter name="DomainID" type="java.lang.String" optional="false"/>
+	<parameter name="UserID" type="java.lang.String" optional="false"/>
+	<parameter name="SortingAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.internal.localization.LocaleInformationPO" optional="true"/>
+	<parameter name="SortingDirection" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="RecurringRequisition" type="orm" class="com.intershop.component.requisition.internal.requisition.RecurringRequisitionPO">
+		<return-attribute name="uuid"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	<sql-dialect name="Microsoft">
+		SELECT uuid, SORTING, "ROWCOUNT" FROM(
+	</sql-dialect>
+	    SELECT DISTINCT 
+	        rec.uuid, 
+	       <template-if condition="(isDefined(SortingAttribute))">
+		       <template-if condition="(lcase(SortingAttribute) EQ &apos;type&apos;)">    
+			               rec.Type as SORTING, 
+			            <if-elseif condition="(lcase(SortingAttribute) EQ &apos;lastsubmitted&apos;)"/>         
+			               rec.LastSubmitted as SORTING,              
+			            <if-elseif condition="(lcase(SortingAttribute) EQ &apos;grandtotalgrosspricepcvalue&apos;)"/>         
+			               b.GrandTotalGrossPricePCValue as SORTING,     
+			            <if-else/>
+                           b.DocumentNo as SORTING,               
+			    </template-if>
+		   <if-else/>
+		               b.DocumentNo as SORTING,     
+		   </template-if>   
+	           
+	        count(rec.uuid) over() as "ROWCOUNT" 
+	    FROM
+	        recurringrequisition rec
+	        
+	    JOIN basket b ON (rec.basketid = b.uuid)
+	    
+	        <template-if condition="(isDefined(SortingAttribute))">
+		        <template-if condition="(lcase(SortingAttribute) EQ &apos;displayname&apos;)"> 	    
+			         LEFT OUTER JOIN 
+			            basket_av b_av ON (b.uuid = b_av.ownerid)
+			            AND b_av.name = &apos;displayName&apos;
+			            AND b_av.localeid = <template-variable value="LocaleInformation:LocaleID"/>  
+			    </template-if> 
+		    </template-if>   
+		          
+	    WHERE 
+	      b.DOMAINID=<template-variable value="DomainID"/>
+	      AND b.USERID=<template-variable value="UserID"/> 
+	<sql-dialect name="Oracle">
+	   ORDER BY SORTING	    
+       <template-if condition="SortingDirection EQ 'Descending'">
+           desc    NULLS FIRST
+       <if-else/>
+           asc     NULLS LAST
+       </template-if>
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		)a
+		   ORDER BY CASE WHEN sorting IS NULL THEN 1 ELSE 0 END 
+			<template-if condition="SortingDirection EQ 'Descending'">
+			   ASC, sorting DESC  
+			<if-else/>
+			   DESC, sorting ASC 
+			</template-if>
+	</sql-dialect>
+</template>
+</query>

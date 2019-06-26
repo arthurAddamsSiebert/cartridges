@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Returns the domains from which the given catalog is shared up to the original non proxy catalog and including the given catalog&apos;s domain.">
+<parameters>
+	<parameter name="Catalog" type="com.intershop.component.mvc.capi.catalog.Catalog" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="objects" sqlDialect="Oracle">
+	SELECT domainID, level sharingLevel FROM
+	(
+		SELECT c.UUID catalogUUID, c.domainID,
+				<template-comment>
+					Escape situations leading to infinite loop (endless recursion) - like Operations
+					organization which is parent of itself: its Domain is the same as its OrganizationDomain:
+				</template-comment>				
+				CASE COALESCE(r.domainid, o.domainid)
+					WHEN c.domainid THEN null
+					ELSE COALESCE(r.domainid, o.domainid)
+				END parentDomainID
+		FROM catalog c
+		LEFT OUTER JOIN	repository r ON c.domainID = r.repositoryDomainID
+		LEFT OUTER JOIN	organization o ON c.domainID = o.organizationDomainID
+		WHERE c.catalogDomainID = <template-variable value="Catalog:Domain:UUID"/> 
+	)
+	START WITH catalogUUID = <template-variable value="Catalog:UUID"/>
+	CONNECT BY PRIOR parentDomainID = domainID
+</template>
+<template type="objects" sqlDialect="Microsoft">
+	<template-comment>
+		Escape situations leading to infinite loop (endless recursion) - like Operations
+		organization which is parent of itself: its Domain is the same as its OrganizationDomain:
+	</template-comment> 
+	SELECT domainID, sharingLevel FROM dbo.ufn_ReturnCatalogDetails(<template-variable value="Catalog:Domain:UUID"/>)
+</template>
+</query>

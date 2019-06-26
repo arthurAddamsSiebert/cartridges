@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@deprecated in 7.8. use pipelets instead
+Overwrittes ProcessAddress Pipeline. The pipeline is used to get, create, update and remove an user address.
+@Group Deprecated-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessAddress" overrideMode="Inherit" type="process">
+<!--Copies the provided collection of addresses into the target repository.
+@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="CopyAddresses"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+<!--The target address BO repository.-->
+    <parameters name="TargetAddressBORepository" type="com.intershop.component.address.capi.AddressBORepository"/>
+<!--A collection of addresses that need to be copied into the target repository.-->
+    <parameters name="SourceAddressBOs" type="java.util.Collection&lt;com.intershop.component.address.capi.AddressBO>"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="SourceAddressBOs">
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <entry key="SourceAddressBO">
+      <nodeSuccessors name="loop_entry_next" next="CreateAddressBO1" action="begin"/>
+    </entry>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateAddressBO1">
+    <pipelet href="enfinity:/bc_address/pipelets/CreateAddressBO.xml"/>
+    <nodeSuccessors name="next" next="CopyAddressBO0"/>
+    <parameterBindings name="AddressBORepository" objectPath="TargetAddressBORepository"/>
+    <parameterBindings name="AddressName" objectPath="SourceAddressBO:ID"/>
+    <returnValueBindings name="AddressBO" objectPath="NewAddressBO"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CopyAddressBO0">
+    <pipelet href="enfinity:/bc_address/pipelets/CopyAddressBO.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector0" action="commit"/>
+    <parameterBindings name="SourceAddressBO" objectPath="SourceAddressBO"/>
+    <parameterBindings name="TargetAddressBO" objectPath="NewAddressBO"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 11,11-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+    <parameterBindings name="InVector" objectPath="CopiedAddressesVector"/>
+    <parameterBindings name="Object" objectPath="NewAddressBO"/>
+    <returnValueBindings name="Iterator" objectPath="CopiedAddressesIterator"/>
+    <returnValueBindings name="OutVector" objectPath="CopiedAddressesVector"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+<!--Iterator of the copied addresses.-->
+    <returnValues name="CopiedAddressesIterator" type="java.util.Iterator" optional="true"/>
+<!--Vector of the copied addresses.-->
+    <returnValues name="CopiedAddressesVector" type="java.util.Vector" optional="true"/>
+  </nodes>
+<!--Creates an address in the provided repository.
+@Location 2,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CreateAddress"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+<!--The address repository.-->
+    <parameters name="AddressBORepository" type="com.intershop.component.address.capi.AddressBORepository"/>
+<!--The name of the address. If not specified then a UUID will be used as name.-->
+    <parameters name="AddressName" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="AddressName">
+    <nodeSuccessors name="decision_yes" next="JoinNode0"/>
+<!--@BendPoints 7,5-->
+    <nodeSuccessors name="decision_no" next="CreateUUID1"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="CreateAddressBO0"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateAddressBO0">
+    <pipelet href="enfinity:/bc_address/pipelets/CreateAddressBO.xml"/>
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <returnValueBindings name="AddressBO" objectPath="NewAddressBO"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true">
+<!--The newly created address.-->
+    <returnValues name="NewAddressBO" type="com.intershop.component.address.capi.AddressBO"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateUUID1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateUUID.xml"/>
+    <nodeSuccessors name="next" next="ConcatenateStrings1"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/ConcatenateStrings.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="String0" constant="customeraddr-"/>
+    <parameterBindings name="String1" objectPath="UUID"/>
+    <returnValueBindings name="Concatenated" objectPath="AddressName"/>
+  </nodes>
+<!--Deletes the specified address from the given repository.
+@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="DeleteAddress"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DeleteAddressBO0"/>
+<!--The address that needs to be deleted.-->
+    <parameters name="AddressBO" type="com.intershop.component.address.capi.AddressBO"/>
+<!--The address repository.-->
+    <parameters name="AddressBORepository" type="com.intershop.component.address.capi.AddressBORepository"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DeleteAddressBO0">
+    <pipelet href="enfinity:/bc_address/pipelets/DeleteAddressBO.xml"/>
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true"/>
+<!--Deletes all the addresses that belong to the given repository.
+@Location 8,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="DeleteAllAddresses"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LoopNode1"/>
+<!--The repository that contains all addresses that need to be deleted.-->
+    <parameters name="AddressBORepository" type="com.intershop.component.address.capi.AddressBORepository"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="AddressBORepository:AllAddressBOs">
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <entry key="AddressBO">
+      <nodeSuccessors name="loop_entry_next" next="CallNode0"/>
+    </entry>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <startNode referencedName="ProcessAddress-DeleteAddress"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--Updates the provided address.
+@Location 4,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="UpdateAddress"
+      callMode="Private">
+    <nodeSuccessors name="next" next="UpdateAddressBO0"/>
+<!--The address that needs an update-->
+    <parameters name="AddressBO" type="com.intershop.component.address.capi.AddressBO"/>
+<!--The city.-->
+    <parameters name="City" type="java.lang.String" optional="true"/>
+<!--The state.-->
+    <parameters name="State" type="java.lang.String" optional="true"/>
+<!--The first address line.-->
+    <parameters name="Address1" type="java.lang.String" optional="true"/>
+<!--The second address line.-->
+    <parameters name="Address2" type="java.lang.String" optional="true"/>
+<!--The third address line.-->
+    <parameters name="Address3" type="java.lang.String" optional="true"/>
+<!--The title.-->
+    <parameters name="Title" type="java.lang.String" optional="true"/>
+<!--The first name.-->
+    <parameters name="FirstName" type="java.lang.String" optional="true"/>
+<!--The second name.-->
+    <parameters name="SecondName" type="java.lang.String" optional="true"/>
+<!--The last name.-->
+    <parameters name="LastName" type="java.lang.String" optional="true"/>
+<!--The home phone.-->
+    <parameters name="PhoneHome" type="java.lang.String" optional="true"/>
+<!--The business phone of the address.-->
+    <parameters name="PhoneBusiness" type="java.lang.String" optional="true"/>
+<!--The postal code.-->
+    <parameters name="PostalCode" type="java.lang.String" optional="true"/>
+<!--The country code. Required.-->
+    <parameters name="CountryCode" type="java.lang.String"/>
+<!--The company.-->
+    <parameters name="CompanyName" type="java.lang.String" optional="true"/>
+<!--The alternative company name of the address.-->
+    <parameters name="CompanyName2" type="java.lang.String" optional="true"/>
+<!--The honorific of the address.-->
+    <parameters name="Honorific" type="java.lang.String" optional="true"/>
+<!--The EMail of the address.-->
+    <parameters name="EMail" type="java.lang.String" optional="true"/>
+<!--The mobile phone number of the address.-->
+    <parameters name="PhoneMobile" type="java.lang.String" optional="true"/>
+<!--The fax of the address-->
+    <parameters name="Fax" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateAddressBO0">
+    <configurationValues name="UpdateMissingProperties" value="true"/>
+    <pipelet href="enfinity:/bc_address/pipelets/UpdateAddressBO.xml"/>
+    <nodeSuccessors name="next" next="EndNode9"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" strict="true"/>
+</pipeline:Pipeline>

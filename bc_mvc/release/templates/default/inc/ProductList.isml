@@ -1,0 +1,108 @@
+<iscontent type = "text/xml" templatemarker="false" charset="utf-8" session="false">
+<%@page import="java.util.*, 
+	com.intershop.beehive.core.capi.impex.AttributeValueIterator,
+	com.intershop.beehive.core.capi.naming.*, 
+	com.intershop.beehive.core.capi.profile.*,
+	com.intershop.beehive.core.capi.domain.*,
+	com.intershop.component.foundation.capi.comment.*,
+	com.intershop.component.mvc.capi.product.*"%>
+
+<ismodule template="inc/ProductListEvent" name="ProductListEvent" attribute="event">
+<ismodule template="inc/ProductListComment" name="ProductListComment" attribute="comment">
+<ismodule template="inc/ProductListProductItem" name="ProductListProductItem" attribute="productItem">
+<ismodule template="inc/ProductListDependentProductItem" name="ProductListDependentProductItem" attribute="productItem">
+<ismodule template="inc/CustomAttributes" name="CUSTOMATTRIBUTES" attribute="attributes">
+<isinclude template="impex/Modules">
+
+<%!
+	ProductListMgr productListMgr = (ProductListMgr)NamingMgr.getInstance().lookupManager(ProductListMgr.REGISTRY_NAME);
+	ProfileMgr profileMgr = (ProfileMgr)NamingMgr.getInstance().lookupManager(ProfileMgr.REGISTRY_NAME);
+	CommentMgr commentMgr = (CommentMgr)NamingMgr.getInstance().lookupManager(CommentMgr.REGISTRY_NAME);
+	
+	public class AttributeFilterCondition extends FilterCondition
+	{
+		public boolean isValid(Object anObject)
+		{
+			AttributeValue attrib = (AttributeValue)anObject;
+			if (attrib.getName().equals("displayName") || attrib.getName().equals("description"))
+			{
+				return false;
+			}
+			return true;
+		}
+	}			
+%>
+
+<%
+	ProductList productList = (ProductList)getObject("productList");
+	
+	Profile profile = profileMgr.resolveProfileFromID(productList.getScopeUUID());
+	getPipelineDictionary().put("productListUser", profile);
+	
+	FilterCondition filterCondition = new AttributeFilterCondition();
+	FilterIterator filterIterator = new FilterIterator(productList.createAttributeValuesIterator(), filterCondition);	
+    getPipelineDictionary().put("productListCustomAttributes", new AttributeValueIterator(filterIterator, productList));
+
+	Iterator events = productList.createSortedProductListEventIterator();
+	getPipelineDictionary().put("events", events);
+
+	Iterator comments = commentMgr.getCommentsByObject(productList);	
+	getPipelineDictionary().put("comments", comments);
+
+	Iterator productItems = productList.createIndependentItemsIterator();
+	getPipelineDictionary().put("productItems", productItems);
+
+	Iterator dependentProductItems = productList.createDependentItemsIterator();
+	getPipelineDictionary().put("dependentProductItems", dependentProductItems);
+%>
+
+<product-list type="<isif condition="#productList:TypeCode == 1#">BOOKMARKS<iselsif condition="#productList:TypeCode == 2#">WISHLIST<iselsif condition="#productList:TypeCode == 3#">SHOPPINGLIST<iselsif condition="#productList:TypeCode == 4#">QUOTE</isif>" id="<isprint value="#productList:DocumentNo#">">	
+	<isloop iterator="productList:AttributeValues" alias="av">
+		<isif condition="#av:Name eq 'displayName'#">
+			<display-name xml:lang="<isprint value="#av:XMLLocaleID#">"><isprint value="#av:StringValue#"></display-name>
+		</isif>
+	</isloop>
+	<isloop iterator="productList:AttributeValues" alias="av">
+		<isif condition="#av:Name eq 'description'#">
+			<description xml:lang="<isprint value="#av:XMLLocaleID#">"><isprint value="#av:StringValue#"></description>
+		</isif>
+	</isloop>
+	<isif condition="#isDefined(productListUser)#"><user business-partner-no="<isprint value="#productListUser:DataSheet:BusinessPartnerNo#">" domain="<isprint value="#productListUser:Domain:DomainName#">"/></isif>	
+	<isif condition="#not(productList:CreationDateNull)#"><creation-date><ISDateTime date="#productList:CreationDate#"></creation-date></isif>
+	<isif condition="#not(productList:ValidFromNull)#"><valid-from><ISDateTime date="#productList:ValidFrom#"></valid-from></isif>
+	<isif condition="#not(productList:ValidToNull)#"><valid-to><ISDateTime date="#productList:ValidTo#"></valid-to></isif>
+	<isif condition="#productList:TypeCode == 4#"><status><isif condition="#productList:State == 0#"><!---isnoloc--->CREATED_BY_BUYER<!---/isnoloc---><iselsif condition="#productList:State == 1#"><!---isnoloc--->SUBMITTED_TO_APPROVER<!---/isnoloc---><iselsif condition="#productList:State == 2#"><!---isnoloc--->APPROVED_BY_APPROVER<!---/isnoloc---><iselsif condition="#productList:State == 3#"><!---isnoloc--->SUBMITTED_TO_SELLER<!---/isnoloc---><iselsif condition="#productList:State == 4#"><!---isnoloc--->RESPONDED_BY_SELLER<!---/isnoloc---><iselsif condition="#productList:State == 5#"><!---isnoloc--->RESPONDED_BY_APPROVER<!---/isnoloc---><iselsif condition="#productList:State == 6#"><!---isnoloc--->ACCEPTED_BY_SELLER<!---/isnoloc---><iselsif condition="#productList:State == 7#"><!---isnoloc--->ACCEPTED_BY_APPROVER<!---/isnoloc---><iselsif condition="#productList:State == 8#"><!---isnoloc--->AUTO_ACCEPTED<!---/isnoloc---><iselsif condition="#productList:State == 9#"><!---isnoloc--->REFUSED_BY_APPROVER<!---/isnoloc---><iselsif condition="#productList:State == 10#"><!---isnoloc--->CANCELLED_BY_SELLER<!---/isnoloc---><iselsif condition="#productList:State == 11#"><!---isnoloc--->CANCELLED_BY_APPROVER<!---/isnoloc---><iselsif condition="#productList:State == 12#"><!---isnoloc--->CLOSED_BY_BUYER<!---/isnoloc---></isif></status></isif>
+	<fixedflag><isif condition="#productList:isFixed#"><!---isnoloc--->true<!---/isnoloc---><iselse><!---isnoloc--->false<!---/isnoloc---></isif></fixedflag>
+	<isif condition="#not(productList:TotalNull)#"><totalprice currency="<isprint value="#productList:Total:CurrencyMnemonic#">"><isprint value="#productList:Total:Value#" formatter="#0.0#"></totalprice></isif>
+	<isif condition="#not(productList:OriginTotalNull)#"><origin-totalprice currency="<isprint value="#productList:OriginTotal:CurrencyMnemonic#">"><isprint value="#productList:OriginTotal:Value#" formatter="#0.0#"></origin-totalprice></isif>
+	<isif condition="#(isDefined(events)) and (hasLoopElements(events))#">
+		<events>
+			<isloop iterator="events" alias="event">
+				<ISProductListEvent event="#event#">
+			</isloop>
+		</events>
+	</isif>
+	<isif condition="#(isDefined(comments)) and (hasLoopElements(comments))#">
+		<comments>
+			<isloop iterator="comments" alias="comment">
+				<ISProductListComment comment="#comment#">
+			</isloop>
+		</comments>
+	</isif>
+	<isif condition="#(isDefined(productItems)) AND (hasLoopElements(productItems))#">
+		<product-items>
+			<isloop iterator="productItems" alias="productItem">
+				<ISProductListProductItem productItem="#productItem#">
+			</isloop>
+		</product-items>
+	</isif>
+	<isif condition="#(isDefined(dependentProductItems)) AND (hasLoopElements(dependentProductItems))#">
+		<dependent-product-items>
+			<isloop iterator="dependentProductItems" alias="productItem">
+				<ISProductListDependentProductItem productItem="#productItem#">
+			</isloop>
+		</dependent-product-items>
+	</isif>
+	<ISCUSTOMATTRIBUTES attributes="#productListCustomAttributes#">
+	
+</product-list>

@@ -1,0 +1,92 @@
+<iscontent type="text/xml" templatemarker="false" charset="UTF-8" compact="true">
+<isinclude template="htmleditor/Modules.isml">
+<%@page import="    
+    com.intershop.beehive.core.capi.domain.Domain,
+    com.intershop.beehive.core.capi.domain.DomainMgr,
+    com.intershop.beehive.core.capi.naming.NamingMgr"
+%><%
+    final DomainMgr domainManager = NamingMgr.getManager(DomainMgr.class);
+    final Domain unitDomain = domainManager.getDomainByUUID(String.valueOf(getObject("OrganizationDomainId")));
+    if (unitDomain != null) {
+        final Domain siteDomain = unitDomain.isMereUnit() ? unitDomain.getSite() : unitDomain;
+        getPipelineDictionary().put("SiteDomain", siteDomain);
+    }
+ %>
+<collection id = "foo">
+	<uri><isprint value="#URL(Action('HtmlEditor-GetProductImages'),Parameter('OrganizationDomainId',OrganizationDomainId),Parameter("LocaleId",LocaleId))#" encoding = "html"></uri>
+	<icon>#webroot()#/htmleditor/kupuimages/folder.png</icon>
+    <title><isprint value="#Directory:Name#" encoding="on"></title>
+	<src><isprint value="#URL(Action('HtmlEditor-GetProductImages'),Parameter('OrganizationDomainId',OrganizationDomainId),Parameter("LocaleId",LocaleId))#" encoding = "html"></src>
+	<items>
+		<isif condition = "#not Directory:Root#">
+			<collection id="<isprint value="#Directory:Parent:Name#" encoding="on">">
+				<uri><isprint value="#URL(Action('HtmlEditor-GetProductImages'),Parameter('OrganizationDomainId',OrganizationDomainId),Parameter('DirectoryPath', Directory:Parent:Path), Parameter("AsLink",AsLink),Parameter("LocaleId",LocaleId))#" encoding = "html"></uri>
+       			<isif condition="#SiteDomain:DomainName EQ Subdir:Object:SiteName#">
+       				<icon>#webroot()#/css/ServerBrowser/ic_folder.gif</icon>
+       			<iselse>
+       				<icon>#webroot()#/css/ServerBrowser/icon_shared_folder.gif</icon>
+       				<readonly>true</readonly>
+       			</isif>
+				<title>[..]</title>
+				<src><isprint value="#URL(Action('HtmlEditor-GetProductImages'),Parameter('OrganizationDomainId',OrganizationDomainId),Parameter('DirectoryPath', Directory:Parent:Path), Parameter("AsLink",AsLink),Parameter("LocaleId",LocaleId))#" encoding = "html"></src>
+				<items></items>
+			</collection>	
+		</isif>
+		<isloop iterator="Directory:Directories" alias = "SubDirectory">
+			<collection id="<isprint value="#SubDirectory:Name#" encoding="on">">
+				<uri><isprint value="#URL(Action('HtmlEditor-GetProductImages'),Parameter('OrganizationDomainId',OrganizationDomainId),Parameter('DirectoryPath', SubDirectory:Path), Parameter("AsLink",AsLink),Parameter("LocaleId",LocaleId))#" encoding = "html"></uri>
+       			<isif condition="#SiteDomain:DomainName EQ Subdir:Object:SiteName#">
+       				<icon>#webroot()#/css/ServerBrowser/ic_folder.gif</icon>
+       			<iselse>
+       				<icon>#webroot()#/css/ServerBrowser/icon_shared_folder.gif</icon>
+       				<readonly>true</readonly>
+       			</isif>
+				<icon>#webroot()#/css/ServerBrowser/ic_folder.gif</icon>
+				<title><isprint value ="#SubDirectory:Name#" encoding="on"></title>
+				<src><isprint value="#URL(Action('HtmlEditor-GetProductImages'),Parameter('OrganizationDomainId',OrganizationDomainId),Parameter('DirectoryPath', SubDirectory:Path), Parameter("AsLink",AsLink),Parameter("LocaleId",LocaleId))#" encoding = "html"></src>
+				<items></items>
+			</collection>	
+		</isloop>
+
+		<!---#ContentURL(File:ContentDescriptor)# --->
+		<isloop iterator="Files" alias = "File">
+	        <resource id="<isprint value="#File:Name.File:Extension#" encoding="on">">
+				<title><isprint value="#File:Name.'.'.File:Extension#" encoding="on"></title>
+	            <description></description>
+	            <size>#stringToXML(File:Size)#(byte)</size>
+	            <height></height>
+	            <width></width>
+       			<isif condition="#NOT (SiteDomain:DomainName EQ File:SiteDomainName)#">
+       				<readonly>true</readonly>
+                    <icon>#WebRoot()#/css/ServerBrowser/shared_content.gif</icon>
+       			</isif>
+	            <isif condition = "#AsLink EQ 'true'#">
+	            	<uri>https://./?[islink]isstatic://./?<isprint value="#File:ContentDescriptor#" encoding="on">[/islink]</uri>
+                <iselse>
+	            	<%
+	            		com.intershop.beehive.core.capi.pipeline.PipelineDictionary dict = 
+	            			getPipelineDictionary();
+	            		String descriptor = (String)getObject("File:ContentDescriptor");
+	            		descriptor = contentURL(descriptor, (String)dict.get("LoacaleID"));
+	            		String domain = (String)getObject("RepDomain:DomainName")+"-Site";
+	            		String currentDomain = (String) getObject("CurrentDomain:DomainName");
+	            		String start = descriptor.substring(0,descriptor.indexOf(currentDomain));
+	            		String end = descriptor.substring(descriptor.indexOf(currentDomain)+currentDomain.length(),descriptor.length());
+	            		dict.put("ImageUrl",start+domain+end);
+	            	%>
+	            
+		            <preview><isprint value="#ImageUrl#" encoding="on"></preview>
+					<uri><isprint value="#URL(Action("ServerBrowser-Thumbnail"),Parameter("URI", 'isstatic://./?' . File:ContentDescriptor))#"></uri>
+					<encodeduri>https://./?[ismediaobject]isstatic://./?<isprint value="#File:ContentDescriptor#">|<isprint value="#ContentURL(File:ContentDescriptor)#">[/ismediaobject]</encodeduri>
+				</isif>
+	        </resource>
+		</isloop>
+		<ISKupuResourcePaging
+			Pageable="#Files#"
+			ResourceIdPrefix="#Directory:Name#"
+			GetterPipeline="HtmlEditor-GetProductImages"
+			GetterParam0="DirectoryPath"
+			GetterValue0="#Directory:Path#"
+		>
+	</items>
+</collection>

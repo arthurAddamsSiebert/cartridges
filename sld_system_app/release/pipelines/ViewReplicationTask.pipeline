@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Pipeline to view replication task details, comments and status history.
+@Group Replication-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ViewReplicationTask" type="view">
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="AddComment">
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="Decision1"/>
+    <startNode referencedName="ViewReplicationTask-Prefix"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="CommentText"
+      operator="str_empty">
+    <nodeSuccessors name="decision_yes" next="SetDictionaryValue1"/>
+<!--@BendPoints 19,5-->
+    <nodeSuccessors name="decision_no" next="CreateComment1"/>
+  </nodes>
+<!--@Location 8,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="CommentTextMissing"/>
+    <configurationValues name="Value" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 17,9-->
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+<!--@BendPoints 19,11-->
+    <nodeSuccessors name="next" next="Join2"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join2">
+    <nodeSuccessors name="next" next="GetCommentsByObject1"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCommentsByObject1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCommentsByObject.xml"/>
+    <nodeSuccessors name="next" next="Pipelet6"/>
+    <parameterBindings name="Author" nullBinding="true"/>
+    <parameterBindings name="PersistentObject" objectPath="ReplicationTask"/>
+    <parameterBindings name="TypeCode" nullBinding="true"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <configurationValues name="SelectedMenuItem" value="ReplicationTasks"/>
+    <configurationValues name="WorkingTemplate" value="replication/ReplicationTaskComments"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode1"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode1">
+    <template referencedName="application/ApplicationFrame"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateComment1">
+    <configurationValues name="DefaultTypeCode" value="16"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateComment.xml"/>
+    <nodeSuccessors name="next" next="Join1"/>
+<!--@BendPoints 20,7 20,9-->
+    <nodeSuccessors name="pipelet_error" next="Join1"/>
+    <parameterBindings name="Author" objectPath="CurrentUser"/>
+    <parameterBindings name="PersistentObject" objectPath="ReplicationTask"/>
+    <parameterBindings name="TypeCode" nullBinding="true"/>
+  </nodes>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="Discard">
+    <nodeSuccessors name="next" next="CallNode4"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <startNode referencedName="ProcessClipboard-Update"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Clipboard:ObjectUUIDs">
+    <nodeSuccessors name="next" next="InvalidatePageLocatorPageable2"/>
+    <entry key="ReplicationTaskUUID">
+      <nodeSuccessors name="loop_entry_next" next="Pipelet1"/>
+    </entry>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetReplicationTaskByUUID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+<!--@BendPoints 13,7-->
+    <nodeSuccessors name="pipelet_error" next="Join4"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="ReplicationTask:State"
+      operator="str_eq" conditionValue="WAITING">
+    <nodeSuccessors name="decision_yes" next="Join3"/>
+<!--@BendPoints 11,9-->
+    <nodeSuccessors name="decision_no" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+    <nodeSuccessors name="next" next="Pipelet2"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationTask.xml"/>
+    <nodeSuccessors name="next" next="Join5"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="DueTime" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="Requester" nullBinding="true"/>
+    <parameterBindings name="StartTime" nullBinding="true"/>
+    <parameterBindings name="State" constant="CANCELED"/>
+  </nodes>
+<!--@Location 4,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join5">
+<!--@BendPoints 9,18 7,18 7,5-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ReplicationTask:State"
+      operator="str_eq" conditionValue="PENDING">
+<!--@BendPoints 11,13-->
+    <nodeSuccessors name="decision_yes" next="Join3"/>
+    <nodeSuccessors name="decision_no" next="Join4"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+<!--@BendPoints 13,17-->
+    <nodeSuccessors name="next" next="Join5"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="InvalidatePageLocatorPageable2">
+    <configurationValues name="DefaultPageLocatorName" value="TaskList"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/InvalidatePageLocatorPageable.xml"/>
+    <nodeSuccessors name="next" next="JumpNode2"/>
+    <parameterBindings name="PageLocatorName" nullBinding="true"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode2">
+    <startNode referencedName="ViewReplicationTaskList-List"/>
+  </nodes>
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode12" name="Dispatch">
+    <nodeSuccessors name="next" next="Pipelet18"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet18">
+    <configurationValues name="OutValue_0" value="ViewReplicationTaskList-Paging"/>
+    <configurationValues name="OutValue_1" value="ViewReplicationTask-AddComment"/>
+    <configurationValues name="PagingPipeline" value="ViewReplicationTask-Paging"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/DispatchFormAction.xml"/>
+    <nodeSuccessors name="next" next="JumpNode7"/>
+    <parameterBindings name="Key_0" objectPath="Cancel"/>
+    <parameterBindings name="Key_1" objectPath="AddComment"/>
+    <returnValueBindings name="SelectionKey" objectPath="JumpTarget"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode7">
+    <startNode referencedName="SecureJump-Start"/>
+  </nodes>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" name="Paging">
+<!--@BendPoints 21,2-->
+    <nodeSuccessors name="next" next="CallNode12"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode12">
+<!--@BendPoints 21,4-->
+    <nodeSuccessors name="next" next="GetPageLocator1"/>
+    <startNode referencedName="ViewReplicationTask-Prefix"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPageLocator1">
+    <configurationValues name="DefaultPageLocatorName" value="ReplicationTaskHistoryPageLocator"/>
+    <configurationValues name="RestorePageLocatorDictionary" value="True"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPageLocator.xml"/>
+    <nodeSuccessors name="next" next="GetPageable1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetPageable1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetPageable.xml"/>
+<!--@BendPoints 21,11-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="PageableID" objectPath="PageLocator:PageableID"/>
+    <returnValueBindings name="Pageable" objectPath="ReplicationTaskHistoryEntries"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 23,12-->
+    <nodeSuccessors name="next" next="Decision8"/>
+  </nodes>
+<!--@Location 11,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision8" conditionKey="PageNumber">
+    <nodeSuccessors name="decision_yes" next="VerifyInteger1"/>
+<!--@BendPoints 25,13-->
+    <nodeSuccessors name="decision_no" next="Decision7"/>
+  </nodes>
+<!--@Location 11,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyInteger1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyInteger.xml"/>
+    <nodeSuccessors name="next" next="SetPage2"/>
+<!--@BendPoints 24,15 24,19-->
+    <nodeSuccessors name="pipelet_error" next="Join10"/>
+    <parameterBindings name="LocalizedString" objectPath="PageNumber"/>
+    <returnValueBindings name="IntegerObject" objectPath="PageNumber"/>
+  </nodes>
+<!--@Location 11,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetPage2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetPage.xml"/>
+    <nodeSuccessors name="next" next="Join10"/>
+    <parameterBindings name="Pageable" objectPath="ReplicationTaskHistoryEntries"/>
+  </nodes>
+<!--@Location 11,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join10">
+    <nodeSuccessors name="next" next="Join9"/>
+  </nodes>
+<!--@Location 11,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join9">
+    <nodeSuccessors name="next" next="SetPageLocator1"/>
+  </nodes>
+<!--@Location 11,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetPageLocator1">
+    <configurationValues name="DefaultHandlerPipeline" value="ViewCatalogExportFiles_52-Paging"/>
+    <configurationValues name="DefaultPageLocatorName" value="CatalogExportFilesPageLocator"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetPageLocator.xml"/>
+<!--@BendPoints 23,24-->
+    <nodeSuccessors name="next" next="Pipelet10"/>
+    <parameterBindings name="Pageable" objectPath="ReplicationTaskHistoryEntries"/>
+  </nodes>
+<!--@Location 11,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet10">
+    <configurationValues name="SelectedMenuItem" value="ReplicationTasks"/>
+    <configurationValues name="WorkingTemplate" value="replication/ReplicationTaskHistory"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+<!--@BendPoints 23,26-->
+    <nodeSuccessors name="next" next="InteractionNode2"/>
+  </nodes>
+<!--@Location 11,13-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode2">
+    <template referencedName="application/ApplicationFrame"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision7" conditionKey="PageLocator">
+    <nodeSuccessors name="decision_yes" next="SetPage1"/>
+<!--@BendPoints 26,15 26,19-->
+    <nodeSuccessors name="decision_no" next="Join8"/>
+  </nodes>
+<!--@Location 12,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetPage1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetPage.xml"/>
+    <nodeSuccessors name="next" next="Join8"/>
+    <parameterBindings name="PageNumber" objectPath="PageLocator:PageNumber"/>
+    <parameterBindings name="Pageable" objectPath="ReplicationTaskHistoryEntries"/>
+  </nodes>
+<!--@Location 12,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join8">
+<!--@BendPoints 25,21-->
+    <nodeSuccessors name="next" next="Join9"/>
+  </nodes>
+<!--@Location 11,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 23,8-->
+    <nodeSuccessors name="next" next="Call1"/>
+  </nodes>
+<!--@Location 11,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <startNode referencedName="GetReplicationTaskHistory-ByReplicationTask"/>
+  </nodes>
+<!--@Location 11,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="Prefix" callMode="Private">
+    <nodeSuccessors name="next" next="Pipelet13"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet13">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetReplicationTaskByUUID.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JumpNode5"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode5">
+    <startNode referencedName="ViewReplicationTaskList-List"/>
+  </nodes>
+<!--@Location 14,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="Revive">
+    <nodeSuccessors name="next" next="CallNode5"/>
+  </nodes>
+<!--@Location 14,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <startNode referencedName="ProcessClipboard-Update"/>
+  </nodes>
+<!--@Location 14,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Clipboard:ObjectUUIDs">
+    <nodeSuccessors name="next" next="InvalidatePageLocatorPageable1"/>
+    <entry key="ReplicationTaskUUID">
+      <nodeSuccessors name="loop_entry_next" next="Pipelet4"/>
+    </entry>
+  </nodes>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetReplicationTaskByUUID.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+<!--@BendPoints 33,7-->
+    <nodeSuccessors name="pipelet_error" next="Join7"/>
+  </nodes>
+<!--@Location 14,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="ReplicationTask:State"
+      operator="str_eq" conditionValue="FAILED">
+<!--@BendPoints 29,10-->
+    <nodeSuccessors name="decision_yes" next="DecisionNode4"/>
+    <nodeSuccessors name="decision_no" next="Join7"/>
+  </nodes>
+<!--@Location 14,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="ReplicationTask:ReplicationProcess">
+<!--@BendPoints 29,12-->
+    <nodeSuccessors name="decision_yes" next="RemoveReplicationTaskFromReplicationProcess1"/>
+<!--@BendPoints 30,11 30,15-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 14,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveReplicationTaskFromReplicationProcess1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveReplicationTaskFromReplicationProcess.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="ReplicationProcess" objectPath="ReplicationTask:ReplicationProcess"/>
+  </nodes>
+<!--@Location 14,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 29,16-->
+    <nodeSuccessors name="next" next="Pipelet3"/>
+  </nodes>
+<!--@Location 14,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/UpdateReplicationTask.xml"/>
+    <nodeSuccessors name="next" next="Join6"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="DueTime" nullBinding="true"/>
+    <parameterBindings name="Locale" nullBinding="true"/>
+    <parameterBindings name="Requester" nullBinding="true"/>
+    <parameterBindings name="StartTime" nullBinding="true"/>
+    <parameterBindings name="State" constant="WAITING"/>
+  </nodes>
+<!--@Location 14,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join6">
+<!--@BendPoints 27,19 27,5-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join7">
+<!--@BendPoints 33,19-->
+    <nodeSuccessors name="next" next="Join6"/>
+  </nodes>
+<!--@Location 15,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="InvalidatePageLocatorPageable1">
+    <configurationValues name="DefaultPageLocatorName" value="TaskList"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/InvalidatePageLocatorPageable.xml"/>
+    <nodeSuccessors name="next" next="JumpNode1"/>
+    <parameterBindings name="PageLocatorName" nullBinding="true"/>
+  </nodes>
+<!--@Location 16,2-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="JumpNode1">
+    <startNode referencedName="ViewReplicationTaskList-List"/>
+  </nodes>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" name="ShowComments">
+    <nodeSuccessors name="next" next="CallNode3"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="Join2"/>
+    <startNode referencedName="ViewReplicationTask-Prefix"/>
+  </nodes>
+<!--@Location 11,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" name="ShowHistory">
+    <nodeSuccessors name="next" next="CallNode2"/>
+  </nodes>
+<!--@Location 11,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <startNode referencedName="ViewReplicationTask-Prefix"/>
+  </nodes>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode10" name="View">
+    <nodeSuccessors name="next" next="CallNode10"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+    <nodeSuccessors name="next" next="CallNode7"/>
+    <startNode referencedName="ViewReplicationTask-Prefix"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="GetReplicationGroupConfiguration1"/>
+    <startNode referencedName="ProcessClipboard-Delete"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetReplicationGroupConfiguration1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetReplicationGroupConfiguration.xml"/>
+    <nodeSuccessors name="next" next="Pipelet14"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet14">
+    <configurationValues name="SelectedMenuItem" value="ReplicationTasks"/>
+    <configurationValues name="WorkingTemplate" value="replication/ReplicationTask"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/PrepareApplicationView.xml"/>
+    <nodeSuccessors name="next" next="InteractionNode4"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:InteractionNode" nodeID="InteractionNode4">
+    <template referencedName="application/ApplicationFrame"/>
+  </nodes>
+</pipeline:Pipeline>

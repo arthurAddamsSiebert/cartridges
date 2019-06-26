@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="CustomerSegmentBORepository" type="com.intershop.component.customer.capi.CustomerSegmentBORepository" optional="false"/>
+	<parameter name="CustomerSegmentBO" type="com.intershop.component.customer.capi.CustomerSegmentBO" optional="false"/>
+	<parameter name="CustomerBORepository" type="com.intershop.component.customer.capi.CustomerBORepository" optional="false"/>
+  
+	<parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="CustomerNo" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+    <parameter name="CompanyName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="Login"  type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="FirstName"  type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="LastName"  type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="CustomerType"   type="java.lang.String" optional="true"/>
+	
+	<parameter name="CustomerCreationDateFrom" type="java.util.Date" optional="true"/>
+	<parameter name="CustomerCreationDateTo" type="java.util.Date" optional="true"/>
+	
+	<parameter name="EnabledCustomersOnly" type="java.lang.Boolean" optional="true"/>
+	<parameter name="DisabledCustomersOnly" type="java.lang.Boolean" optional="true"/>
+	
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+
+</parameters>
+<return-mappings>
+  <return-mapping name="CustomerBO" type="bo-orm" class="com.intershop.component.customer.orm.internal.orm.CustomerPO" mapperclass="CustomerPOToCustomerBOMapper">
+    <return-attribute name="uuid"/>
+  </return-mapping>
+</return-mappings>
+<processor name="OracleSQL" />
+<template type="countedobjects">
+
+  select uuid, count(uuid) over() as "rowcount" from
+	<template-if condition="isDefined(NameOrID) or isDefined(CustomerNo) or isDefined(CompanyName) or isDefined(Login) or isDefined(FirstName) or isDefined(LastName) or isDefined(CustomerType) or isDefined(CustomerCreationDateFrom) or isDefined(CustomerCreationDateTo) or isDefined(EnabledCustomersOnly) or isDefined(DisabledCustomersOnly)">
+		(
+			<template-call name="customer/GetCustomers">
+				<call-parameter name="CustomerBORepository" value="CustomerBORepository"/>
+				<call-parameter name="NameOrID" value="NameOrID"/>
+				<call-parameter name="CustomerNo" value="CustomerNo"/>
+				<call-parameter name="CompanyName" value="CompanyName"/>
+				<call-parameter name="Login" value="Login"/>
+				<call-parameter name="FirstName" value="FirstName"/>
+				<call-parameter name="LastName" value="LastName"/>
+				<call-parameter name="CustomerType" value="CustomerType"/>
+				<call-parameter name="CustomerCreationDateFrom" value="CustomerCreationDateFrom"/>
+				<call-parameter name="CustomerCreationDateTo" value="CustomerCreationDateTo"/>
+				<call-parameter name="EnabledCustomersOnly" value="EnabledCustomersOnly"/>
+				<call-parameter name="DisabledCustomersOnly" value="DisabledCustomersOnly"/>
+				<call-parameter name="SortBy" value="SortBy"/>
+				<call-parameter name="SortDirection" value="SortDirection"/>
+			</template-call>
+		)d
+	<if-else/>
+		(
+			<template-call name="customer/GetCustomers">
+				<call-parameter name="CustomerBORepository" value="CustomerBORepository"/>
+				<call-parameter name="SortBy" value="SortBy"/>
+				<call-parameter name="SortDirection" value="SortDirection"/>
+			</template-call>
+		)d
+		 where not exists (select 1 
+						 from usergroup ug,
+							  usergroupuserassignment ugua,
+							  customerprofileassignment cpa
+						where ug.domainid = <template-variable value="CustomerSegmentBORepository:RepositoryID"/>
+						  and ug.id = <template-variable value="CustomerSegmentBO:ID"/>
+						  and uuid = cpa.customerid
+						  and cpa.profileid = ugua.userid
+						  and ugua.usergroupid = ug.id
+						  and ugua.usergroupdomainid = ug.domainid)
+	</template-if>
+</template>
+</query>

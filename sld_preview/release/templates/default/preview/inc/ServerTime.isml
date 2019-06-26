@@ -1,0 +1,109 @@
+<%@page import="com.intershop.beehive.core.capi.localization.LocaleConstants"%>
+<%@page import="com.intershop.beehive.core.capi.localization.LocaleInformation"%>
+<%@page import="com.intershop.beehive.core.internal.localization.RegionalSettingsPO"%>
+<%@page import="java.util.Date"%>
+<%@page import="java.util.GregorianCalendar"%>
+<%@page import="java.util.Calendar"%>
+
+<iscontent type="text/html" charset="UTF-8" compact="true">		
+<%	
+	Calendar calendar = new GregorianCalendar();
+	int serverTimezoneOffset = (calendar.get(Calendar.ZONE_OFFSET) + calendar.get(Calendar.DST_OFFSET)) / (60*1000);
+	getPipelineDictionary().put("ServerTimezoneOffset", serverTimezoneOffset);
+
+	LocaleInformation locale = getPipelineDictionary().getOptional("locale");
+	
+	if (locale != null)
+	{
+		locale.getRegionalAttribute(LocaleConstants.LONGDATE_PATTERN);
+		String longDatePattern = locale.getRegionalAttribute(LocaleConstants.SHORTDATE_PATTERN);
+		
+		if ((longDatePattern != null) && !longDatePattern.isEmpty())
+		{
+			getPipelineDictionary().put("DatePattern", longDatePattern.replace('M', 'm'));
+		}
+		
+		String timePattern = locale.getRegionalAttribute(LocaleConstants.TIME_PATTERN);
+		
+		if ((timePattern != null) && !timePattern.isEmpty())
+		{
+			getPipelineDictionary().put("TimePattern", timePattern.replace('m', 'M'));
+		}
+	}
+ %>
+ 
+<span class="running-time"></span>
+ 
+<script language="JavaScript">
+	var pattern = 'mm/dd/yy hh:MM:ss a';
+</script>
+ 
+<isif condition="#isDefined(DatePattern) AND isDefined(TimePattern)#">
+	<script language="JavaScript">
+ 		pattern = '<isprint value="#DatePattern#" encoding="javascript"> <isprint value="#TimePattern#" encoding="javascript">';
+ 	</script>
+</isif>
+ 
+<script src="#WebRoot()#/js/date.format/date.format.js"></script>
+ 
+<script language="JavaScript">
+    var serverTimezoneOffset = parseInt(<isprint value="#ServerTimezoneOffset#">);
+	var clientTimezoneOffset = (new Date()).getTimezoneOffset();
+	var timeDiff = serverTimezoneOffset + clientTimezoneOffset;
+	
+	$(function() {
+		var el = $('.running-time');
+
+		var updateClock = function() {
+			var currentTime = new Date(new Date().getTime() + timeDiff*60*1000);
+			el.html(currentTime.format(pattern));
+			window.setTimeout(updateClock, 1000);
+		};
+		updateClock();
+
+		<isif condition="#(isDefined(EnablePastDateCheck)) AND (EnablePastDateCheck EQ 'true')#">
+		// fixed time isn't set
+		if (typeof fixedTimeValue === 'undefined') {
+			return;
+		}
+
+		var isFullsitePreview = $('#'#'#sfe-fullsite-preview-bar').length === 1;
+
+		// preview and current date time is checked
+		if (!isFullsitePreview && $('#'#'#current_date_time_radio').is(':checked') === true) {
+			return;
+		}
+
+		var $body = $('body');
+		
+		var checkFixedTime = function() {
+			// get current time
+			var currentTime = new Date(new Date().getTime() + timeDiff*60*1000);
+
+			// is fixed time in the past?
+			if (currentTime > fixedTimeValue) {
+				// normal preview
+				if (!isFullsitePreview) {
+					$('#'#'#current_date_time_radio').click();
+					delete window.fixedTimeValue;
+					var callback = function(html){
+						$('#'#'#design-preview').removeClass('active');
+					};
+					$body.trigger('submitPreviewForm', [ callback ]);
+				} else {
+					var url = document.getElementById('siteContent').contentWindow.location.href;
+					if (typeof url !== 'undefined') {
+						var href = window.location.href.replace(/([&\?]PreviewTargetUrl=)[^$&]*/i, '$1' + escape(url));
+						window.location.href = href;
+					}
+				}
+			} else {
+				// check again
+				window.setTimeout(checkFixedTime, 1000);
+			}
+		};
+		window.setTimeout(checkFixedTime, 2000);
+		</isif>
+	});
+</script>			
+		

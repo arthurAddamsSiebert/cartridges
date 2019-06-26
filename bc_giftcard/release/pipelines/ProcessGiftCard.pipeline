@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Process pipelines for GiftCard related operations.
+@Group GiftCard-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessGiftCard" type="process">
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="CancelOrder"
+      callMode="Private">
+<!--@BendPoints 3,12-->
+    <nodeSuccessors name="next" next="EndNode7"/>
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" strict="true"/>
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" strict="true" name="HasGiftCards"
+      callMode="Private">
+<!--@BendPoints 17,2-->
+    <nodeSuccessors name="next" next="EndNode9"/>
+    <parameters name="ProductLineItems" type="java.util.Iterator"/>
+    <parameters name="CheckDigitalOnly" type="java.lang.String" optional="true"/>
+    <parameters name="CheckPhysicalOnly" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 8,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" name="False" strict="true"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" name="IsDigitalCertificate"
+      callMode="Private">
+<!--@BendPoints 3,2-->
+    <nodeSuccessors name="next" next="GetProductBOBySKU3"/>
+    <parameters name="SKU" type="java.lang.String"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductBOBySKU3">
+    <pipelet href="enfinity:/bc_product/pipelets/GetProductBOBySKU.xml"/>
+<!--@BendPoints 3,4-->
+    <nodeSuccessors name="next" next="DecisionNode7"/>
+<!--@BendPoints 4,3-->
+    <nodeSuccessors name="pipelet_error" next="EndNode6"/>
+    <parameterBindings name="ProductBORepository" objectPath="ApplicationBO:Extension(&quot;Product&quot;):getProductBORepository(CurrentProductRepository:RepositoryDomain:UUID)"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode7" conditionKey="ProductBO:ServiceType:DigitalGiftCard"
+      operator="str_eq" conditionValue="true">
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="decision_yes" next="EndNode5"/>
+<!--@BendPoints 5,5 5,6-->
+    <nodeSuccessors name="decision_no" next="EndNode1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="DIGITAL CERTIFICATE"/>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="NOT DIGITAL CERTIFICATE"/>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="ERROR"/>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="OrderCanBeCanceled"
+      callMode="Private">
+<!--@BendPoints 11,14-->
+    <nodeSuccessors name="next" next="EndNode8"/>
+    <parameters name="OrderBO" type="com.intershop.component.order.capi.OrderBO"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" name="" strict="true">
+    <returnValues name="Result" type="java.lang.Boolean" optional="true"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" name="PrepareUpdateParameters"
+      callMode="Private">
+<!--@BendPoints 7,12-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3"/>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" name="Remove" callMode="Private">
+    <nodeSuccessors name="next" next="AddObjectToVector2"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="DeleteGiftCards1"/>
+    <parameterBindings name="Object" objectPath="GiftCardID"/>
+    <returnValueBindings name="OutVector" objectPath="GiftCardCollection"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DeleteGiftCards1">
+    <pipelet href="enfinity:/bc_giftcard/pipelets/DeleteGiftCards.xml"/>
+<!--@BendPoints 11,6-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <parameterBindings name="Errors" objectPath="DeleteErrors"/>
+    <parameterBindings name="GiftCards" objectPath="GiftCardCollection"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4"/>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="SendGiftCardEmails"
+      callMode="Private">
+<!--@BendPoints 21,2-->
+    <nodeSuccessors name="next" next="EndNode10"/>
+    <parameters name="GiftCardData" type="java.util.Vector"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" strict="true"/>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="Update" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="UpdateGiftCard1"/>
+    <startNode referencedName="ProcessGiftCard-PrepareUpdateParameters"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateGiftCard1">
+    <pipelet href="enfinity:/bc_giftcard/pipelets/UpdateGiftCard.xml"/>
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+</pipeline:Pipeline>

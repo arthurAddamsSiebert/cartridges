@@ -1,0 +1,262 @@
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<%@ page import = "java.util.*,
+	com.intershop.component.foundation.capi.syndication.*,
+	com.intershop.component.mvc.internal.syndication.mapping.*" %>
+<%
+	Map<String, SyndicationDataDeclaration> listPriceDeclarations = new HashMap<String, SyndicationDataDeclaration>();
+	Map<String, SyndicationDataDeclaration> costPriceDeclarations = new HashMap<String, SyndicationDataDeclaration>();
+	SyndicationDataDeclaration sourceDeclaration = (SyndicationDataDeclaration)getObject("SourceSyndicationDataDeclaration");
+	SyndicationRuleSet priceRuleSet = (SyndicationRuleSet)getObject("SyndicationRuleSet");
+
+	for (Iterator<SyndicationRule> rules = (Iterator<SyndicationRule>)priceRuleSet.createSyndicationRulesIterator();
+		rules.hasNext(); )
+	{
+		SyndicationRule rule = rules.next();
+		SyndicationDataDeclaration declaration = rule.getTargetSyndicationDataDeclaration();
+
+		if (declaration.getString("PriceType").equals("ListPrice"))
+		{
+			listPriceDeclarations.put(declaration.getString("CurrencyMnemonic"), declaration);
+		}
+		else if (declaration.getString("PriceType").equals("CostPrice"))
+		{
+			costPriceDeclarations.put(declaration.getString("CurrencyMnemonic"), declaration);
+		}
+	}
+
+	getPipelineDictionary().put("ListPrice", listPriceDeclarations);
+	getPipelineDictionary().put("CostPrice", costPriceDeclarations);
+%>
+
+<!-- Page Navigator -->
+<isif condition="#isDefined(SourceSyndicationDataDeclaration)#">
+	<ISBreadcrumbTrail id="#Syndication:UUID.'-New'#" link="#URL(Action('ViewChannelOutboundSyndicationPriceMapping-New'), Parameter('SyndicationUUID', SyndicationUUID), Parameter('SourceSyndicationDataDeclarationUUID', SourceSyndicationDataDeclaration:UUID))#" text="#localizeText('ChannelOutboundSyndicationPriceMappingNewRule.NewRule.text')#">
+<iselse>
+	<ISBreadcrumbTrail id="#Syndication:UUID.'-New'#" link="#URL(Action('ViewChannelOutboundSyndicationPriceMapping-New'), Parameter('SyndicationUUID', SyndicationUUID))#" text="#localizeText('ChannelOutboundSyndicationPriceMappingNewRule.NewRule.text')#">
+</isif>
+<!-- EO Page Navigator -->
+
+<!-- Main Content -->
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td width="100%" class="table_title w e n s"><isprint value="#SourceCurrencyMnemonic#"> - <istext key="ChannelOutboundSyndicationPriceMappingNewRule.NewMappingRule.table_title" encoding="off"/></td>
+	</tr>
+</table>
+
+<!--- errors --->
+<isif condition="#isDefined(ErrorInvalidSurcharge)#">
+	<table border="0" cellspacing="0" cellpadding="0" width="100%">
+		<tr>
+			<td>
+				<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box w e s">
+					<tr valign="top">
+						<td class="error_icon top e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+						<td class="error top" width="100%"><b><istext key="ChannelOutboundSyndicationPriceMappingNewRule.MappingRuleCouldNotBeCreated.error" encoding="off"/>:</b><br/>
+							<isif condition="#isDefined(ErrorInvalidSurcharge)#"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.PleaseProvideAValidSurchargeDiscount.error" encoding="off"/><br/></isif>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+</isif>
+<!--- eo errors --->
+
+<!--- confirmation if none is selected --->
+<isif condition="#CreatePriceMappingRule:MappingRule:isMissing AND isDefined(Create)#">
+	<table border="0" cellspacing="0" cellpadding="0" width="100%">
+		<tr>
+			<td>
+				<table border="0" cellspacing="0" cellpadding="4" width="100%" class="error_box w e s">
+					<tr>
+						<td class="error_icon e"><img src="#WebRoot()#/images/error.gif" width="16" height="15" alt="" border="0"/></td>
+						<td class="error top" width="100%">
+							<b><istext key="ChannelOutboundSyndicationPriceMappingNewRule.MappingRuleCouldNotBeCreated.error" encoding="off"/>:</b><br/>
+							<b><istext key="ChannelOutboundSyndicationPriceMappingNewRule.PleaseSelectARuleAndClickOKAgain.error" encoding="off"/></b><br/>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+</isif>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td class="table_title_description w e" colspan="4"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.UseTheRadioButtonsToSelectARule.table_title_description" encoding="off"/></td>
+	</tr>
+</table>
+
+<isform action="#URL(Action('ViewChannelOutboundSyndicationPriceMapping-Dispatch'))#" method="post" name="CreatePriceMappingRule">
+	<table width="100%" border="0" cellspacing="0" cellpadding="0">
+		<tr>
+			<td>
+				<table width="100%" border="0" cellspacing="0" cellpadding="0" class="aldi">
+					<!--- Copy list price --->
+					<tr>
+						<td class="table_detail">
+							<input type="radio" name="CreatePriceMappingRule_MappingRule" value="CopyPrice"
+								<isif condition="#(CreatePriceMappingRule:MappingRule:Value eq 'CopyPrice')#">checked="checked"</isif>
+								<isif condition="#isDefined(ListPrice:get(SourceCurrencyMnemonic))#">disabled="disabled"</isif>	
+							/>
+						</td>
+						<td class="table_detail" colspan="2"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.CopyListPriceListPriceIsCopied.table_detail" encoding="off"/></td>
+					</tr>
+					<tr>
+						<td class="table_detail">&nbsp;</td>
+						<isif condition="#isDefined(ErrorInvalidSurcharge) and (CreatePriceMappingRule:MappingRule:Value eq 'CopyPrice')#">
+							<td class="table_detail" nowrap="nowrap">
+								<label class="label label_error" for="CreatePriceMappingRule_CopyPriceSurcharge"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.SurchargeDiscount.label" encoding="off"/>:</label>
+							</td>
+						<iselse>
+							<td class="table_detail" nowrap="nowrap">
+								<label class="label" for="CreatePriceMappingRule_CopyPriceSurcharge"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.SurchargeDiscount.label" encoding="off"/>:</label>
+							</td>
+						</isif>
+						<td class="table_detail" width="100%">
+							<input type="text" class="inputfield_en" maxlength="30" size="30" id="CreatePriceMappingRule_CopyPriceSurcharge" name="CreatePriceMappingRule_CopyPriceSurcharge" 
+								value="<isif condition="#isDefined(CreatePriceMappingRule:CopyPriceSurcharge:Value)#"><isprint value="#CreatePriceMappingRule:CopyPriceSurcharge:Value#"><iselse>0%</isif>" 
+								<isif condition="#isDefined(ListPrice:get(SourceCurrencyMnemonic))#">disabled="disabled"</isif>
+							/>
+						</td>
+					</tr>
+
+					<!--- Convert list price to different currency --->
+					<isset name="ListPrice_hasValidElements" value="false" scope="request">
+					<isloop iterator="Currencies" alias="Currency">
+						<isif condition="#(not isDefined(ListPrice:get(Currency:Mnemonic))) and (Currency:Mnemonic ne SourceCurrencyMnemonic)#">
+							<isset name="ListPrice_hasValidElements" value="true" scope="request"><isbreak>
+						</isif>
+					</isloop>
+					<tr>
+						<td class="table_detail">
+							<input type="radio" name="CreatePriceMappingRule_MappingRule" value="ConvertPrice"
+								<isif condition="#(CreatePriceMappingRule:MappingRule:Value eq 'ConvertPrice')#">checked="checked"</isif>
+								<isif condition="#ListPrice_hasValidElements eq 'false'#">disabled="disabled"</isif>
+							/>
+						</td>
+						<td class="table_detail" colspan="2"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.ConvertPriceToDifferentCurrency.table_detail" encoding="off"/></td>
+					</tr>
+					<tr>
+						<td class="table_detail">&nbsp;</td>
+						<isif condition="#isDefined(ErrorInvalidSurcharge) and (CreatePriceMappingRule:MappingRule:Value eq 'ConvertPrice')#">
+							<td class="table_detail" nowrap="nowrap">
+								<label class="label label_error" for="CreatePriceMappingRule_ConvertPriceSurcharge"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.SurchargeDiscount.label" encoding="off"/>:</label>
+							</td>
+						<iselse>
+							<td class="table_detail" nowrap="nowrap">
+								<label class="label" for="CreatePriceMappingRule_ConvertPriceSurcharge"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.SurchargeDiscount.label" encoding="off"/>:</label>
+							</td>
+						</isif>
+						<td class="table_detail"><input type="text" class="inputfield_en" maxlength="30" size="30" id="CreatePriceMappingRule_ConvertPriceSurcharge" name="CreatePriceMappingRule_ConvertPriceSurcharge" value="<isif condition="#isDefined(CreatePriceMappingRule:ConvertPriceSurcharge:Value)#"><isprint value="#CreatePriceMappingRule:ConvertPriceSurcharge:Value#"><iselse>0%</isif>" <isif condition="#ListPrice_hasValidElements eq 'false'#">disabled="disabled"</isif>/></td>
+					</tr>
+					<tr>
+						<td class="table_detail">&nbsp;</td>
+						<td class="table_detail" nowrap="nowrap">
+							<label class="label" for="CreatePriceMappingRule_ConvertPriceCurrency"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.TargetCurrency.label" encoding="off"/>:</label>
+						</td>
+						<td class="table_detail"><select id="CreatePriceMappingRule_ConvertPriceCurrency" name="CreatePriceMappingRule_ConvertPriceCurrency" class="select" <isif condition="#ListPrice_hasValidElements eq 'false'#">disabled="disabled"</isif>><isif condition="#ListPrice_hasValidElements eq 'true'#"><isloop iterator="Currencies" alias="Currency"><isif condition="#(not isDefined(ListPrice:get(Currency:Mnemonic))) and (Currency:Mnemonic ne SourceCurrencyMnemonic)#"><option value="<isprint value="#Currency:Mnemonic#">" <isif condition="#isDefined(CreatePriceMappingRule:ConvertPriceCurrency:Value) and (CreatePriceMappingRule:ConvertPriceCurrency:Value eq Currency:Mnemonic)#">selected="selected"</isif>><isprint value="#Currency:CurrencyName#"></option></isif></isloop><iselse><option value="" name=""><istext key="ChannelOutboundSyndicationPriceMappingNewRule.None.option" encoding="off"/></option></isif></select></td>
+					</tr>
+
+					<!--- Calculate list price from cost price  --->
+					<tr>
+						<td class="table_detail">
+							<input type="radio" name="CreatePriceMappingRule_MappingRule" value="CalculateListPriceFromCostPrice"
+								<isif condition="#(CreatePriceMappingRule:MappingRule:Value eq 'CalculateListPriceFromCostPrice')#">checked="checked"</isif>
+								<isif condition="#isDefined(ListPrice:get(SourceCurrencyMnemonic))#">disabled="disabled"</isif>
+							/>
+						</td>
+						<td class="table_detail" colspan="2"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.CalculateListPriceFromCostPrice.table_detail" encoding="off"/></td>
+					</tr>
+					<tr>
+						<td class="table_detail">&nbsp;</td>
+						<isif condition="#isDefined(ErrorInvalidSurcharge) and (CreatePriceMappingRule:MappingRule:Value eq 'CalculateListPriceFromCostPrice')#">
+							<td class="table_detail" nowrap="nowrap">
+								<label class="label label_error" for="CreatePriceMappingRule_CalculateListPriceFromCostPriceSurcharge"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.SurchargeDiscount.label" encoding="off"/>:</label>
+							</td>
+						<iselse>
+							<td class="table_detail" nowrap="nowrap">
+								<label class="label" for="CreatePriceMappingRule_CalculateListPriceFromCostPriceSurcharge"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.SurchargeDiscount.label" encoding="off"/>:</label>
+							</td>
+						</isif>
+						<td class="table_detail" width="100%"><input type="text" class="inputfield_en" maxlength="30" size="30" name="CreatePriceMappingRule_CalculateListPriceFromCostPriceSurcharge" id="CreatePriceMappingRule_CalculateListPriceFromCostPriceSurcharge" value="<isif condition="#isDefined(CreatePriceMappingRule:CalculateListPriceFromCostPriceSurcharge:Value)#"><isprint value="#CreatePriceMappingRule:CalculateListPriceFromCostPriceSurcharge:Value#"><iselse>0%</isif>" <isif condition="#isDefined(ListPrice:get(SourceCurrencyMnemonic))#">disabled="disabled"</isif>/></td>
+					</tr>
+
+					<!--- Calculate list price from cost price and convert  --->
+					<tr>
+						<td class="table_detail">
+							<input type="radio" name="CreatePriceMappingRule_MappingRule" value="CalculateListPriceFromCostPriceAndConvert"
+								<isif condition="#(CreatePriceMappingRule:MappingRule:Value eq 'CalculateListPriceFromCostPriceAndConvert')#">checked="checked"</isif>
+								<isif condition="#ListPrice_hasValidElements eq 'false'#">disabled="disabled"</isif>
+							/>
+						</td>
+						<td class="table_detail" colspan="2"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.CalculateListPriceFromCostPriceAndConvert.table_detail" encoding="off"/></td>
+					</tr>
+					<tr>
+						<td class="table_detail">&nbsp;</td>
+						<isif condition="#isDefined(ErrorInvalidSurcharge) and (CreatePriceMappingRule:MappingRule:Value eq 'CalculateListPriceFromCostPriceAndConvert')#">
+							<td class="table_detail" nowrap="nowrap">
+								<label class="label label_error" for="CreatePriceMappingRule_CalculateListPriceFromCostPriceAndConvertSurcharge"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.SurchargeDiscount.label" encoding="off"/>:</label>
+							</td>
+						<iselse>
+							<td class="table_detail" nowrap="nowrap">
+								<label class="label" for="CreatePriceMappingRule_CalculateListPriceFromCostPriceAndConvertSurcharge"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.SurchargeDiscount.label" encoding="off"/>:</label>
+							</td>
+						</isif>
+						<td class="table_detail"><input type="text" class="inputfield_en" maxlength="30" size="30" name="CreatePriceMappingRule_CalculateListPriceFromCostPriceAndConvertSurcharge" id="CreatePriceMappingRule_CalculateListPriceFromCostPriceAndConvertSurcharge" value="<isif condition="#isDefined(CreatePriceMappingRule:CalculateListPriceFromCostPriceAndConvertSurcharge:Value)#"><isprint value="#CreatePriceMappingRule:CalculateListPriceFromCostPriceAndConvertSurcharge:Value#"><iselse>0%</isif>" <isif condition="#ListPrice_hasValidElements eq 'false'#">disabled="disabled"</isif>/></td>
+					</tr>
+					<tr>
+						<td class="table_detail">&nbsp;</td>
+						<td class="table_detail" nowrap="nowrap">
+							<label class="label" for="CreatePriceMappingRule_CalculateListPriceFromCostPriceAndConvertCurrency"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.TargetCurrency.label" encoding="off"/>:</label> 
+						</td>
+						<td class="table_detail"><select id="CreatePriceMappingRule_CalculateListPriceFromCostPriceAndConvertCurrency" name="CreatePriceMappingRule_CalculateListPriceFromCostPriceAndConvertCurrency" class="select" <isif condition="#ListPrice_hasValidElements eq 'false'#">disabled="disabled"</isif>><isif condition="#ListPrice_hasValidElements eq 'true'#"><isloop iterator="Currencies" alias="Currency"><isif condition="#(not isDefined(ListPrice:get(Currency:Mnemonic))) and (Currency:Mnemonic ne SourceCurrencyMnemonic)#"><option value="<isprint value="#Currency:Mnemonic#">" <isif condition="#isDefined(CreatePriceMappingRule:ConvertPriceCurrency:Value) and (CreatePriceMappingRule:ConvertPriceCurrency:Value eq Currency:Mnemonic)#">selected="selected"</isif>><isprint value="#Currency:CurrencyName#"></option></isif></isloop><iselse><option value="" name=""><istext key="ChannelOutboundSyndicationPriceMappingNewRule.None.option" encoding="off"/></option></isif></select></td>
+					</tr>
+
+					<!--- Copy cost price  --->
+					<tr>
+						<td class="table_detail"><input type="radio" name="CreatePriceMappingRule_MappingRule" value="CopyCostPrice" <isif condition="#isDefined(CostPrice:get(SourceCurrencyMnemonic))#">disabled="disabled"</isif> /></td>
+						<td class="table_detail" colspan="2"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.CopyCostPrice.table_detail" encoding="off"/></td>
+					</tr>
+
+					<!--- Convert cost price to different currency  --->
+					<isset name="CostPrice_hasValidElements" value="false" scope="request">
+					<isloop iterator="Currencies" alias="Currency">
+						<isif condition="#(not isDefined(CostPrice:get(Currency:Mnemonic))) and (Currency:Mnemonic ne SourceCurrencyMnemonic)#">
+							<isset name="CostPrice_hasValidElements" value="true" scope="request"><isbreak>
+						</isif>
+					</isloop>
+					<tr>
+						<td class="table_detail"><input type="radio" name="CreatePriceMappingRule_MappingRule" value="ConvertCostPrice" <isif condition="#CostPrice_hasValidElements eq 'false'#">disabled="disabled"</isif>/></td>
+						<td class="table_detail" colspan="2"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.ConvertCostPriceToDifferentCurrency.table_detail" encoding="off"/></td>
+					</tr>
+					<tr>
+						<td class="table_detail">&nbsp;</td>
+						<td class="table_detail" nowrap="nowrap">
+							<label class="label" for="CreatePriceMappingRule_ConvertCostPriceCurrency"><istext key="ChannelOutboundSyndicationPriceMappingNewRule.TargetCurrency.label" encoding="off"/>:</label>	
+						</td>
+						<td class="table_detail"><select id="CreatePriceMappingRule_ConvertCostPriceCurrency" name="CreatePriceMappingRule_ConvertCostPriceCurrency" class="select" <isif condition="#CostPrice_hasValidElements eq 'false'#">disabled="disabled"</isif>><isif condition="#CostPrice_hasValidElements eq 'true'#"><isloop iterator="Currencies" alias="Currency"><isif condition="#(not isDefined(CostPrice:get(Currency:Mnemonic))) and (Currency:Mnemonic ne SourceCurrencyMnemonic)#"><option value="<isprint value="#Currency:Mnemonic#">" <isif condition="#isDefined(CreatePriceMappingRule:ConvertPriceCurrency:Value) and (CreatePriceMappingRule:ConvertPriceCurrency:Value eq Currency:Mnemonic)#">selected="selected"</isif>><isprint value="#Currency:CurrencyName#"></option></isif></isloop><iselse><option value="" name=""><istext key="ChannelOutboundSyndicationPriceMappingNewRule.None.option" encoding="off"/></option></isif></select></td>
+					</tr>
+				</table>
+
+				<table class="w e s" width="100%" border="0" cellspacing="0" cellpadding="0">
+					<tr>
+						<td align="right">
+							<table border="0" cellspacing="4" cellpadding="0">
+								<tr>
+									<td class="button"><input type="hidden" name="SyndicationUUID" value="<isprint value="#Syndication:UUID#">"
+										/><input type="hidden" name="SourceCurrencyMnemonic" value="<isprint value="#SourceCurrencyMnemonic#">"
+										/><isif condition="#isDefined(SourceSyndicationDataDeclaration)#"><input type="hidden" name="SourceSyndicationDataDeclarationUUID" value="<isprint value="#SourceSyndicationDataDeclaration:UUID#">"
+										/></isif><input type="submit" name="Create" value="#localizeText('ChannelOutboundSyndicationPriceMappingNewRule.OK.button')#" class="button"></td>
+									<td class="button"><input type="submit" name="MappingRules" value="#localizeText('ChannelOutboundSyndicationPriceMappingNewRule.Cancel.button')#" class="button"/></td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+</isform>
+<!-- EO Main Content -->
+<!-- EO Working Area -->

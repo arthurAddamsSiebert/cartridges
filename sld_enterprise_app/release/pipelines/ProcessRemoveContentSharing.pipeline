@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Job-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessRemoveContentSharing" type="process">
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="Init" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="GetRepositoryByUUID3"/>
+    <startNode referencedName="BatchProcessLog-PrepareLogger"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByUUID3">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByUUID.xml"/>
+<!--@BendPoints 1,6-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <parameterBindings name="UUID" objectPath="SharedMasterRepositoryUUID"/>
+    <returnValueBindings name="Repository" objectPath="SharedMasterRepository"/>
+  </nodes>
+<!--@displayNearNode@
+@Location 0,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="Post" callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <startNode referencedName="BatchProcessLog-CleanLogger"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" strict="true" name="Process"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <parameters name="SharedMasterRepository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="Objects" type="java.util.Iterator&lt;java.lang.String>"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+    <parameterBindings name="InValue_1" objectPath="SharedMasterRepository"/>
+    <returnValueBindings name="OutValue_1" objectPath="Parent"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="Objects">
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <entry key="RepositoryUUID">
+<!--@BendPoints 7,6-->
+      <nodeSuccessors name="loop_entry_next" next="GetRepositoryByUUID2"/>
+    </entry>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByUUID2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByUUID.xml"/>
+    <nodeSuccessors name="next" next="GetRepositoriesContainingSharedRepository2"/>
+    <parameterBindings name="UUID" objectPath="RepositoryUUID"/>
+    <returnValueBindings name="Repository" objectPath="OwningRepository"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoriesContainingSharedRepository2">
+    <pipelet href="enfinity:/sld_enterprise_app/pipelets/GetRepositoriesContainingSharedRepository.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="SharedRepository" objectPath="SharedMasterRepository"/>
+    <parameterBindings name="SharingRepository" objectPath="OwningRepository"/>
+    <returnValueBindings name="Repositories" objectPath="DependingSharingRepositories"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="DependingSharingRepositories">
+<!--@BendPoints 9,11 9,19 5,19 5,5-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+    <entry key="Child">
+      <nodeSuccessors name="loop_entry_next" next="GetContentSharingProvider0"/>
+    </entry>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetContentSharingProvider0">
+    <pipelet href="enfinity:/bc_pmc/pipelets/GetContentSharingProvider.xml"/>
+    <nodeSuccessors name="next" next="ExecutePipeline0"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline0">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelineName" value="ProcessRemoveContentSharing"/>
+    <configurationValues name="PipelineStartNode" value="RemoveContentSharingRelation"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 8,15 8,17-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="App" nullBinding="true"/>
+    <parameterBindings name="Application" objectPath="ContentSharingProvider:ManagementApplicationByContentRepositoryDomain(Child:RepositoryDomain)"/>
+    <parameterBindings name="CurrentDomain" nullBinding="true"/>
+    <parameterBindings name="PipelineDomain" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainID" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainName" nullBinding="true"/>
+    <parameterBindings name="PipelineName" nullBinding="true"/>
+    <parameterBindings name="PipelineStartNode" nullBinding="true"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 6,17 6,11-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="RefreshCache1"/>
+    <parameterBindings name="ClassNames" constant="com.intershop.component.pmc.capi.sharing.ContentSharingHelper"/>
+    <startNode referencedName="ProcessInstantCacheClear-ClearCachesForClasses"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RefreshCache1">
+    <configurationValues name="PersistentClassName_0" value="com.intershop.component.pmc.internal.pagelet.PageletLabelAssignmentPO"/>
+    <configurationValues name="PersistentClassName_1" value="com.intershop.component.search.internal.searchaction.RedirectActionPO"/>
+    <configurationValues name="PersistentClassName_2" value="com.intershop.component.pmc.internal.pagelet.ConfigurationParameterPO"/>
+    <configurationValues name="PersistentClassName_3" value="com.intershop.component.pmc.internal.pagelet.overloading.DerivedPageletPO"/>
+    <configurationValues name="PersistentClassName_4" value="com.intershop.component.pmc.internal.pagelet.template.overriding.OverridingPageletPlaceholderPO"/>
+    <configurationValues name="PersistentClassName_5" value="com.intershop.component.pmc.internal.pagelet.template.overriding.OverrideDefinitionPO"/>
+    <configurationValues name="PersistentClassName_6" value="com.intershop.component.pmc.internal.pagelet.template.assignment.PageletPlaceholderAssignmentPO"/>
+    <pipelet href="enfinity:/core/pipelets/RefreshCache.xml"/>
+    <nodeSuccessors name="next" next="End5"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5" strict="true"/>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="RemoveContentSharingRelation"
+      callMode="Private">
+    <nodeSuccessors name="next" next="LogMessage0"/>
+    <parameters name="Parent" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="Child" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage0">
+    <configurationValues name="Level" value="Info"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="ExtensionPointNode0"/>
+    <parameterBindings name="MessageParam0" objectPath="Parent:RepositoryDomain:DomainName"/>
+    <parameterBindings name="MessageParam1" objectPath="Child:RepositoryDomain:DomainName"/>
+    <parameterBindings name="MessageText" constant="Start remove sharing from '{}' to '{}'"/>
+  </nodes>
+<!--Anything that is assigned to shared content objects (Pages, Page Variants, 
+Components etc.) must be cleaned up when removing a content sharing relation. Such a relation is always between two (bc_mvc) Repository objects. Both repositories of that sharing relation will be passed on to the extension.
+@Location 7,2-->
+  <nodes xsi:type="pipeline:ExtensionPointNode" nodeID="ExtensionPointNode0" name="RemoveReferencesToSharedContentObjects"
+      strict="true">
+    <nodeSuccessors name="next" next="CallNode2" action="begin"/>
+<!--The repository that owns the former shared content objects.-->
+    <parameters name="Parent" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+<!--The repository that receives shared content objects.-->
+    <parameters name="Child" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="EndNode0" action="commit"/>
+    <startNode referencedName="ProcessContentRepository-RemoveContentSharing"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+<!--@Location 9,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="RemoveReferencesToSharedContentObjects"
+      callMode="Private">
+    <nodeSuccessors name="next" next="UpdateDictionary1"/>
+    <parameters name="Parent" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="Child" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary1">
+    <configurationValues name="Name_01" value="OwningRepository"/>
+    <configurationValues name="Name_02" value="SharedMasterRepository"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="RemoveAssignments0"/>
+    <parameterBindings name="Value_01" objectPath="Child"/>
+    <parameterBindings name="Value_02" objectPath="Parent"/>
+    <returnValueBindings name="OutDictionary" objectPath="QueryParameters"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAssignments0">
+    <configurationValues name="FromClass" value="com.intershop.component.pmc.capi.pagelet.PageletEntryPoint"/>
+    <configurationValues name="ToClass" value="com.intershop.beehive.xcs.capi.product.Product"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAssignments.xml"/>
+    <nodeSuccessors name="next" next="RemoveAssignments1"/>
+    <parameterBindings name="AssignmentDomain" objectPath="Child:RepositoryDomain"/>
+    <parameterBindings name="FromClass" nullBinding="true"/>
+    <parameterBindings name="FromDomain" objectPath="Parent:RepositoryDomain"/>
+    <parameterBindings name="ToClass" nullBinding="true"/>
+    <parameterBindings name="ToDomain" nullBinding="true"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAssignments1">
+    <configurationValues name="FromClass" value="com.intershop.component.pmc.capi.pagelet.PageletEntryPoint"/>
+    <configurationValues name="ToClass" value="com.intershop.beehive.xcs.capi.catalog.CatalogCategory"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAssignments.xml"/>
+    <nodeSuccessors name="next" next="RemoveAssignments2"/>
+    <parameterBindings name="AssignmentDomain" objectPath="Child:RepositoryDomain"/>
+    <parameterBindings name="FromClass" nullBinding="true"/>
+    <parameterBindings name="FromDomain" objectPath="Parent:RepositoryDomain"/>
+    <parameterBindings name="ToClass" nullBinding="true"/>
+    <parameterBindings name="ToDomain" nullBinding="true"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAssignments2">
+    <configurationValues name="FromClass" value="com.intershop.component.pmc.capi.pagelet.PageletEntryPoint"/>
+    <configurationValues name="ToClass" value="com.intershop.component.pmc.capi.pagelet.PageletEntryPoint"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAssignments.xml"/>
+    <nodeSuccessors name="next" next="RemoveAssignments10"/>
+    <parameterBindings name="AssignmentDomain" objectPath="Child:RepositoryDomain"/>
+    <parameterBindings name="FromClass" nullBinding="true"/>
+    <parameterBindings name="FromDomain" objectPath="Parent:RepositoryDomain"/>
+    <parameterBindings name="ToClass" nullBinding="true"/>
+    <parameterBindings name="ToDomain" nullBinding="true"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAssignments10">
+    <configurationValues name="FromClass" value="com.intershop.component.pmc.capi.pagelet.PageletEntryPoint"/>
+    <configurationValues name="ToClass" value="com.intershop.component.pmc.capi.pagelet.PageletEntryPoint"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAssignments.xml"/>
+    <nodeSuccessors name="next" next="RemoveAssignments3"/>
+    <parameterBindings name="AssignmentDomain" objectPath="Child:RepositoryDomain"/>
+    <parameterBindings name="FromClass" nullBinding="true"/>
+    <parameterBindings name="FromDomain" nullBinding="true"/>
+    <parameterBindings name="ToClass" nullBinding="true"/>
+    <parameterBindings name="ToDomain" objectPath="Parent:RepositoryDomain"/>
+  </nodes>
+<!--@Location 9,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAssignments3">
+    <configurationValues name="FromClass" value="com.intershop.component.pmc.capi.pagelet.Pagelet"/>
+    <configurationValues name="ToClass" value="com.intershop.component.pmc.capi.pagelet.PageletEntryPoint"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAssignments.xml"/>
+    <nodeSuccessors name="next" next="RemoveAssignments9"/>
+    <parameterBindings name="AssignmentDomain" objectPath="Child:RepositoryDomain"/>
+    <parameterBindings name="FromClass" nullBinding="true"/>
+    <parameterBindings name="FromDomain" objectPath="Parent:RepositoryDomain"/>
+    <parameterBindings name="ToClass" nullBinding="true"/>
+    <parameterBindings name="ToDomain" nullBinding="true"/>
+  </nodes>
+<!--@Location 9,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAssignments9">
+    <configurationValues name="FromClass" value="com.intershop.component.pmc.capi.pagelet.Pagelet"/>
+    <configurationValues name="ToClass" value="com.intershop.component.pmc.capi.pagelet.PageletEntryPoint"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAssignments.xml"/>
+    <nodeSuccessors name="next" next="RemoveAssignments4"/>
+    <parameterBindings name="AssignmentDomain" objectPath="Child:RepositoryDomain"/>
+    <parameterBindings name="FromClass" nullBinding="true"/>
+    <parameterBindings name="FromDomain" nullBinding="true"/>
+    <parameterBindings name="ToClass" nullBinding="true"/>
+    <parameterBindings name="ToDomain" objectPath="Parent:RepositoryDomain"/>
+  </nodes>
+<!--@Location 9,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAssignments4">
+    <configurationValues name="FromClass" value="com.intershop.component.pmc.capi.pagelet.Pagelet"/>
+    <configurationValues name="ToClass" value="com.intershop.component.pmc.capi.pagelet.Slot"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAssignments.xml"/>
+    <nodeSuccessors name="next" next="RemoveAssignments8"/>
+    <parameterBindings name="AssignmentDomain" objectPath="Child:RepositoryDomain"/>
+    <parameterBindings name="FromClass" nullBinding="true"/>
+    <parameterBindings name="FromDomain" objectPath="Parent:RepositoryDomain"/>
+    <parameterBindings name="ToClass" nullBinding="true"/>
+    <parameterBindings name="ToDomain" nullBinding="true"/>
+  </nodes>
+<!--@Location 9,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAssignments8">
+    <configurationValues name="FromClass" value="com.intershop.component.pmc.capi.pagelet.Pagelet"/>
+    <configurationValues name="ToClass" value="com.intershop.component.pmc.capi.pagelet.Slot"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAssignments.xml"/>
+    <nodeSuccessors name="next" next="RemoveAssignments5"/>
+    <parameterBindings name="AssignmentDomain" objectPath="Child:RepositoryDomain"/>
+    <parameterBindings name="FromClass" nullBinding="true"/>
+    <parameterBindings name="FromDomain" nullBinding="true"/>
+    <parameterBindings name="ToClass" nullBinding="true"/>
+    <parameterBindings name="ToDomain" objectPath="Parent:RepositoryDomain"/>
+  </nodes>
+<!--@Location 9,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAssignments5">
+    <configurationValues name="FromClass" value="com.intershop.component.pmc.capi.pagelet.Pagelet"/>
+    <configurationValues name="ToClass" value="com.intershop.component.pmc.capi.pagelet.Placeholder"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAssignments.xml"/>
+    <nodeSuccessors name="next" next="RemoveAssignments11"/>
+    <parameterBindings name="AssignmentDomain" objectPath="Child:RepositoryDomain"/>
+    <parameterBindings name="FromClass" nullBinding="true"/>
+    <parameterBindings name="FromDomain" objectPath="Parent:RepositoryDomain"/>
+    <parameterBindings name="ToClass" nullBinding="true"/>
+    <parameterBindings name="ToDomain" nullBinding="true"/>
+  </nodes>
+<!--@Location 9,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAssignments11">
+    <configurationValues name="FromClass" value="com.intershop.component.pmc.capi.pagelet.Pagelet"/>
+    <configurationValues name="ToClass" value="com.intershop.component.pmc.capi.pagelet.Placeholder"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAssignments.xml"/>
+    <nodeSuccessors name="next" next="RemoveAssignments6"/>
+    <parameterBindings name="AssignmentDomain" objectPath="Child:RepositoryDomain"/>
+    <parameterBindings name="FromClass" nullBinding="true"/>
+    <parameterBindings name="FromDomain" nullBinding="true"/>
+    <parameterBindings name="ToClass" nullBinding="true"/>
+    <parameterBindings name="ToDomain" objectPath="Parent:RepositoryDomain"/>
+  </nodes>
+<!--@Location 9,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAssignments6">
+    <configurationValues name="FromClass" value="com.intershop.component.pmc.capi.pagelet.PageletEntryPoint"/>
+    <configurationValues name="ToClass" value="com.intershop.component.pmc.capi.viewcontext.ViewContext"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAssignments.xml"/>
+    <nodeSuccessors name="next" next="RemoveAssignments7"/>
+    <parameterBindings name="AssignmentDomain" objectPath="Child:RepositoryDomain"/>
+    <parameterBindings name="FromClass" nullBinding="true"/>
+    <parameterBindings name="FromDomain" objectPath="Parent:RepositoryDomain"/>
+    <parameterBindings name="ToClass" nullBinding="true"/>
+    <parameterBindings name="ToDomain" nullBinding="true"/>
+  </nodes>
+<!--@Location 9,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveAssignments7">
+    <configurationValues name="FromClass" value="com.intershop.component.pmc.capi.constraint.PageletConstraintCtnr"/>
+    <configurationValues name="ToClass" value="com.intershop.component.pmc.capi.pagelet.PlaceholderDefinition"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveAssignments.xml"/>
+    <nodeSuccessors name="next" next="ExecuteUpdateQuery1"/>
+    <parameterBindings name="AssignmentDomain" objectPath="Child:RepositoryDomain"/>
+    <parameterBindings name="FromClass" nullBinding="true"/>
+    <parameterBindings name="FromDomain" objectPath="Parent:RepositoryDomain"/>
+    <parameterBindings name="ToClass" nullBinding="true"/>
+    <parameterBindings name="ToDomain" nullBinding="true"/>
+  </nodes>
+<!--@Location 9,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteUpdateQuery1">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="QueryName" value="content/RemovePageletLabelAssignments"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteUpdateQuery.xml"/>
+    <nodeSuccessors name="next" next="ExecuteUpdateQuery4"/>
+    <parameterBindings name="Parameters" objectPath="QueryParameters"/>
+  </nodes>
+<!--@Location 9,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteUpdateQuery4">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="QueryName" value="content/RemovePageletEntryPointRedirectAction"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteUpdateQuery.xml"/>
+    <nodeSuccessors name="next" next="ExecuteUpdateQuery0"/>
+    <parameterBindings name="Parameters" objectPath="QueryParameters"/>
+  </nodes>
+<!--@Location 9,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteUpdateQuery0">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="QueryName" value="content/RemoveDerivedPagelets"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteUpdateQuery.xml"/>
+    <nodeSuccessors name="next" next="ExecuteUpdateQuery2"/>
+    <parameterBindings name="Parameters" objectPath="QueryParameters"/>
+  </nodes>
+<!--@Location 9,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteUpdateQuery2">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="QueryName" value="content/RemovePlaceholderOverrides"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteUpdateQuery.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <parameterBindings name="Parameters" objectPath="QueryParameters"/>
+  </nodes>
+<!--@Location 9,18-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+</pipeline:Pipeline>

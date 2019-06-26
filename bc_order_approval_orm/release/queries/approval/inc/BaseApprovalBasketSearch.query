@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+  <parameters>
+    <parameter name="BasketDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="BasketCurrency" type="com.intershop.beehive.core.capi.currency.Currency" optional="true"/>
+    <parameter name="Customer" type="com.intershop.component.customer.capi.CustomerBO" optional="true"/>
+    <parameter name="Approver" type="com.intershop.component.user.capi.UserBO" optional="true" description="The approver of the basket"/>
+    <parameter name="Buyer" type="com.intershop.component.user.capi.UserBO" optional="true" description="The buyer of the basket"/>
+    <parameter name="BasketStatus" type="java.lang.Integer" optional="true"/>
+    <parameter name="BasketStatuses" type="java.util.Collection" optional="true"/>
+    <parameter name="BasketType" type="java.lang.Integer" optional="true"/>
+    <parameter name="BasketTypes" type="java.util.Collection" optional="true"/>
+    <parameter name="Limit" type="java.lang.Integer" optional="true"/>
+  </parameters>
+
+  <processor name="OracleSQL"/>
+
+  <template>
+	<sql-dialect name="Microsoft">
+		SELECT * FROM (
+	</sql-dialect>
+			SELECT b.*
+			<sql-dialect name="Microsoft">
+				, ROW_NUMBER() OVER(ORDER BY DomainID ASC) AS ROWNUM
+			</sql-dialect>
+			  FROM basket b
+				 <template-if condition="isDefined(Approver)">
+				   , basket_av bav
+				 </template-if>
+			 WHERE b.DomainID = <template-variable value="BasketDomain:UUID" />
+			 <template-if condition="isDefined(BasketCurrency)">
+			   AND b.grandtotalgrosspricepccode = <template-variable value="BasketCurrency:Mnemonic"/>
+			 </template-if>
+			 <template-if condition="isDefined(Approver)">
+			   AND b.uuid = bav.ownerid
+			   AND bav.name = 'BusinessObjectAttributes#OrderApproval_ApproverID'
+			   AND bav.stringvalue = <template-variable value="Approver:ID" />
+			 </template-if>
+			 <template-if condition="isDefined(Buyer)">
+			   AND b.userid = <template-variable value="Buyer:ID"/>
+			 <if-elseif condition="isDefined(Customer)"/>
+			   AND b.userid in (SELECT cpa.profileid 
+								  FROM customerprofileassignment cpa
+								 WHERE cpa.customerid = <template-variable value="Customer:ID"/>)
+			 </template-if>
+			 <template-if condition="isDefined(BasketStatus)">
+			   AND status = <template-variable value="BasketStatus"/>
+			 </template-if>
+			 <template-if condition="isDefined(BasketStatuses)">
+			   AND status IN (<template-loop alias="aBasketStatus" iterator="BasketStatuses">
+								<loop-statement><template-variable value="aBasketStatus" /></loop-statement>
+								<loop-separator>,</loop-separator>
+							  </template-loop>)
+			 </template-if>
+			 <template-if condition="isDefined(BasketType)">
+			   AND b.type = <template-variable value="BasketType"/>
+			 <if-elseif condition="hasElements(BasketTypes)"/>
+			   AND b.type IN (<template-loop alias="BasketType" iterator="BasketTypes">
+								<loop-statement><template-variable value="BasketType"/></loop-statement>
+								  <loop-separator>,</loop-separator>
+							  </template-loop>
+							 )
+			 <if-else/>
+			   AND b.type NOT IN (42, 73)
+		 </template-if>
+	<sql-dialect name="Microsoft">
+		) a
+	</sql-dialect>
+		 <template-if condition="isDefined(Limit)">
+			<sql-dialect name="Oracle">
+				AND 
+			 </sql-dialect>
+			<sql-dialect name="Microsoft">
+				WHERE 
+			 </sql-dialect>
+			   ROWNUM &lt;= <template-variable value="Limit"/>
+		 </template-if>
+	  </template>
+</query>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Query used during replication of APPLICATIONPREFERENCE entries.">
+<parameters>
+	<parameter name="DomainIDs" type="java.util.Collection" optional="false" description="The involved DomainIDs."/>
+</parameters>
+<processor name="OracleSQL">
+	<processor-preprocessing output="APPLICATIONPREFERENCE_EditingName" input="&apos;APPLICATIONPREFERENCE&apos;" processing="StagingNamingHelper"/>
+	<processor-preprocessing output="PREFERENCEDEFINITION_EditingName" input="&apos;PREFERENCEDEFINITION&apos;" processing="StagingNamingHelper"/>
+    <processor-preprocessing output="APPLICATIONDOMAINRELATION_EditingName" input="&apos;APPLICATIONDOMAINRELATION&apos;" processing="StagingNamingHelper"/>
+</processor>
+<template>
+	MERGE INTO applicationpreference dst
+	USING (
+	  SELECT p2.* from (
+	SELECT DISTINCT p.applicationuuid, p.preferencename  
+	    FROM <template-variable value="APPLICATIONPREFERENCE_EditingName:EditTableName" processing="text"/> p 
+	    JOIN <template-variable value="PREFERENCEDEFINITION_EditingName:EditTableName" processing="text"/> pd ON (pd.uuid = p.PREFERENCEDEFINITIONID)
+	    JOIN <template-variable value="APPLICATIONDOMAINRELATION_EditingName:EditTableName" processing="text"/> r ON (p.applicationuuid = r.applicationuuid) 
+	   WHERE pd.replicatableflag = 1
+	     AND r.domainid IN
+	     (
+	        <template-loop iterator="DomainIDs" alias="DomainID"><loop-statement>
+			    <template-variable value="DomainID"/>
+			  </loop-statement>
+			  <loop-separator>,</loop-separator>
+		    </template-loop>
+		   )
+		) p1
+   join APPLICATIONPREFERENCE p2 on p1.applicationuuid = p2.applicationuuid and p1.preferencename = p2.preferencename
+	) src
+	   ON (dst.applicationuuid = src.applicationuuid AND dst.PREFERENCENAME = src.PREFERENCENAME)
+	 WHEN MATCHED     THEN UPDATE SET dst.intvalue = src.intvalue, 
+	                                  dst.doublevalue = src.doublevalue,
+	                                  dst.stringvalue = src.stringvalue,
+	                                  dst.textvalue = src.textvalue,
+	                                  dst.preferencedefinitionid = src.preferencedefinitionid,
+	                                  dst.oca = src.oca+1,
+	                                  dst.lastmodified = src.lastmodified
+	 WHEN NOT MATCHED THEN INSERT (applicationuuid, PREFERENCENAME,
+	                               intvalue, doublevalue,
+	                               stringvalue, 
+	                               textvalue, 
+	                               preferencedefinitionid,
+	                               oca, lastmodified)
+	                       VALUES (src.applicationuuid, src.PREFERENCENAME,
+	                               src.intvalue, src.doublevalue,
+	                               src.stringvalue,
+	                               src.textvalue,
+	                               src.preferencedefinitionid,
+	                               src.oca+1, src.lastmodified)
+	                               <sql-dialect name="Microsoft">;</sql-dialect>
+</template>
+</query>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="targetRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+	<parameter name="sourceRoot" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+</parameters>
+
+<processor name="JDBC">
+</processor>
+<template sqlDialect="Oracle">
+insert into catalogcategory_av (ownerid, name, localeid, localizedflag, type, intvalue, doublevalue, stringvalue, objectvalue, objecttype, lastmodified, oca)
+            select tc.uuid, scav.name, scav.localeid, scav.localizedflag, scav.type, scav.intvalue, scav.doublevalue, scav.stringvalue, scav.objectvalue, scav.objecttype, UTCTIMESTAMP(), 1  
+            from CatalogCategory tc, CatalogCategory sc, catalogcategory_av scav 
+            where   tc.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+                and sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/>
+                and scav.ownerid = sc.uuid
+                and sc.name = substr(tc.name, 0, instr(tc.name,'@',-1)-1)
+                and instr(tc.name,'@',-1) &gt; 0
+                and tc.uuid in (select i.uuid from CatalogCategory i 
+                                 where  i.domainid = <template-variable value="targetRoot:Domain:UUID"/>
+                                    and not i.PARENTCATEGORYID is null 
+                                 start with i.uuid in (<template-variable value="targetRoot:UUID"/>) 
+                                 connect by i.PARENTCATEGORYID = prior i.uuid )
+                and not exists (select * from catalogcategory_av tcav 
+                                where   tcav.ownerid = tc.uuid
+                                    and tcav.name = scav.name
+                                    and tcav.localeid = scav.localeid)
+</template>
+<template sqlDialect="Microsoft">
+WITH n(uuid,parentcategoryid) AS ( 
+                        SELECT i.uuid, i.parentcategoryid
+                        	FROM CatalogCategory i 
+                        	WHERE i.domainid = <template-variable value="targetRoot:Domain:UUID"/> 
+                        		AND i.parentcategoryid IS NOT NULL 
+                        	AND i.uuid IN (<template-variable value="targetRoot:UUID"/>)
+                    UNION ALL 
+                        SELECT ii.uuid, ii.parentcategoryid 
+                        	FROM CatalogCategory ii, n   
+                        	WHERE ii.domainid = <template-variable value="targetRoot:Domain:UUID"/> 
+                        		AND ii.parentcategoryid IS NOT NULL 
+                        		AND ii.parentcategoryid = n.uuid 
+                        ) 
+                        INSERT INTO catalogcategory_av(ownerid, name, localeid, localizedflag, type, intvalue, doublevalue, stringvalue, objectvalue, objecttype, lastmodified, oca) 
+                        SELECT tc.uuid, scav.name, scav.localeid, scav.localizedflag, scav.type, scav.intvalue, scav.doublevalue, scav.stringvalue, scav.objectvalue, scav.objecttype, GETUTCDATE(), 1  
+                        FROM CatalogCategory tc, CatalogCategory sc, catalogcategory_av scav  
+                        WHERE tc.domainid = <template-variable value="targetRoot:Domain:UUID"/> 
+	                        AND sc.domainid = <template-variable value="sourceRoot:Domain:UUID"/> 
+	                        AND scav.ownerid = sc.uuid 
+	                        AND sc.name = SUBSTRING(tc.name, 0, CHARINDEX('@',tc.name,-1)) 
+	                        AND CHARINDEX('@',tc.name, -1) &gt; 0 
+	                        AND tc.uuid IN (select uuid from n) 
+	                        AND NOT EXISTS (SELECT * FROM catalogcategory_av tcav WHERE tcav.ownerid = tc.uuid AND tcav.name = scav.name AND tcav.localeid = scav.localeid)
+</template>
+</query>

@@ -1,0 +1,15 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("wishlistBO"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",1,e);}if (_boolean_result) { %>
+	<% _boolean_result=false;try {_boolean_result=((Boolean)(((((Boolean) (disableErrorMessages().isDefined(getObject("wishlistBO:UserBO:FirstName")))).booleanValue() || ((Boolean) (disableErrorMessages().isDefined(getObject("wishlistBO:UserBO:LastName")))).booleanValue()) ? Boolean.TRUE : Boolean.FALSE))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",2,e);}if (_boolean_result) { %>
+		<% {Object temp_obj = (context.getFormattedValue(getObject("wishlistBO:UserBO:FirstName"),null) + context.getFormattedValue(" ",null) + context.getFormattedValue(getObject("wishlistBO:UserBO:LastName"),null)); getPipelineDictionary().put("wishlistOwnerName", temp_obj);} %>
+	<% } else { %>
+		<% {Object temp_obj = (getObject("wishlistBO:UserBO:Login")); getPipelineDictionary().put("wishlistOwnerName", temp_obj);} %>
+	<% } %>
+	<% {Object temp_obj = (localizeTextEx(context.getFormattedValue("account.wishlist.public.title",null),new ParameterList().addParameter(getObject("wishlistOwnerName")).addParameter(getObject("wishlistBO:Name")))); getPipelineDictionary().put("title", temp_obj);} %>
+<% } else { %>
+	<% {Object temp_obj = (localizeText(context.getFormattedValue("account.wishlists.unavailable_wishlist_breadcrumb",null))); getPipelineDictionary().put("title", temp_obj);} %>
+<% } %><% printFooter(out); %>

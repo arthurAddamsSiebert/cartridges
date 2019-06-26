@@ -1,0 +1,112 @@
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/payment/PaymentTransaction.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/fulfillment/OrderPO.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/payment/PaymentHistoryPO.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/payment/PaymentInstrumentInfoPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObjectPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+external User type "com.intershop.beehive.core.capi.user.User";
+
+namespace com.intershop.beehive.bts.internal.payment
+{
+    /*
+     * Payment Transaction to be processed. <P>
+     * 
+     * A PaymentTransaction is created for an Order by the PaymentMgr - the PaymentTransaction is created from the Order in pipelet
+     * CreatePayment during the order process.  <P>
+     * 
+     * A PaymentTransaction has to-one relationships to the following:  <br>
+     * - The PaymentMethod for which it was created <br>
+     * - A PaymentInstrumentInfo holding the data items to be used for processing the PaymentTransaction  <br>
+     * - The  Order  for which the PaymentTransaction was created <br>
+     * - The PayingUser (a User) <br>
+     * - The PaymentPayee (a Domain) <P>
+     * 
+     * The PaymentTransaction may go through a series of stati as it is processed by
+     * multiple "visits" to the Payment service implementation. The PaymentTransaction attribute 'Status' can have values which are dependent upon the payment service implementation, in other words the payment service implementation is responsible for setting and interpreting this status setting. The payment service may change the Order payment status (whether the order can be considered as paid, part or not paid) by triggering the appropriate OrderEvent<P>
+     * 
+     * For example, my implementation of IPaymentService sets the PaymentTransaction 'Status' to value Captured when the PaymentTransaction has been processed. The payment service implementation is satisfied that when this status is reached the Order can be marked as paid so triggers the order event responsible for setting the order to a status paid<P>
+     */
+    partitionable orm class PaymentTransactionPO extends ExtensibleObjectPO implements PaymentTransaction table "PaymentTransaction"
+    {
+        index(orderID);
+
+        index(paymentPayeeID);
+
+        index(paymentInstrumentInfoID);
+
+        /*
+         * Status of PaymentTransaction, the value of this can be freely set and interpreted by the payment service implementation (suggested constants are provided in PaymentTransactionConstants).
+         */
+        attribute status : int;
+
+		/*
+		 * Flag for representing if the status change has already went through successfully (<code>false</code>) or if the system is still waiting for a reply from the payment provider (<code>true</code>).
+		 */
+		attribute statusPending : boolean = false;
+
+        /*
+         * holds the transaction identifier defined by the payment server.
+         */
+        attribute ServiceTransactionID : string<256>;
+
+        /*
+         * The full amount to be paid.
+         */
+        attribute amount : Money;
+        
+        /*
+         * The amount which has been authorized.
+         */
+        attribute amountAuthorized : Money;
+
+        /*
+         * The amount which has been paid.
+         */
+        attribute amountCaptured : Money;
+
+        /*
+         * The amount which has been refunded.
+         */
+        attribute amountRefunded : Money;
+
+        /*
+         * Description of  PaymentTransaction, probably produced
+         * automatically on creation of PaymentTransaction by the PaymentMgr.
+         * 
+         * <br>For example if PaymentTransaction was created for an Order the description will be the Order's documentNo.
+         */
+        attribute description : string<256>;
+
+        /*
+         * Used as a foriegn key to specify the Order for which the PaymentTransaction was created
+         */
+        attribute orderID : uuid searchable;
+
+        /*
+         * The primary key of the Seller.
+         */
+        attribute paymentPayeeID : uuid searchable;
+
+        /*
+         * UUID of PaymentInstrumentInfo assigned to this PaymentTransaction
+         */
+        attribute paymentInstrumentInfoID : uuid;
+
+        attribute payingUser : User;
+
+        attribute amountPaid : Money;
+
+        relation paymentInstrumentInfoPO : PaymentInstrumentInfoPO[1..1] inverse paymentTransactionPO
+        {
+            foreign key(paymentInstrumentInfoID) -> (UUID);
+        }
+
+        relation paymentHistoryPO : PaymentHistoryPO[0..n] inverse paymentTransactionPO;
+
+        dependency orderPO : OrderPO
+        {
+            foreign key(orderID);
+        }
+    }
+}

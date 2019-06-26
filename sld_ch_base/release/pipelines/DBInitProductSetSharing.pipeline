@@ -1,0 +1,504 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@Group Sharing-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="DBInitProductSetSharing" type="process">
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="AssignProducts"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode10"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+    <parameters name="LeadLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+    <parameters name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode10">
+<!--@BendPoints 11,4-->
+    <nodeSuccessors name="next" next="DetermineUnit1"/>
+    <startNode referencedName="DBInitProductSetSharing-Master"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUnit1">
+    <pipelet href="enfinity:/core/pipelets/DetermineUnit.xml"/>
+    <nodeSuccessors name="next" next="GetFileContent1"/>
+<!--@BendPoints 13,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="UnitName" objectPath="Configuration:ProductSet.ProductAssign.SourceFile.DomainName"/>
+    <returnValueBindings name="Unit" objectPath="UnitDomain"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetFileContent1">
+    <configurationValues name="UnitDirectory" value="IMPEX_SRC_DIR"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetFileContent.xml"/>
+<!--@BendPoints 11,8-->
+    <nodeSuccessors name="next" next="GetStringSubstitution4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="FileName" objectPath="Configuration:ProductSet.ProductAssign.SourceFile"/>
+  </nodes>
+<!--@displayNearNode@Remove line breaks.
+@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetStringSubstitution4">
+    <configurationValues name="DefaultPattern" value="\n|\r"/>
+    <configurationValues name="DefaultSubstitutionPattern" value=" "/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetStringSubstitution.xml"/>
+    <nodeSuccessors name="next" next="GetStringSubstitution2"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="InputString" objectPath="FileContent"/>
+  </nodes>
+<!--@displayNearNode@Parse SKUs.
+@Location 5,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetStringSubstitution2">
+    <configurationValues name="DefaultPattern" value="^(.+?)&lt;sku\s*>|&lt;/sku\s*>(.+?)&lt;sku\s*>|&lt;/sku\s*>(.+?)$"/>
+    <configurationValues name="DefaultSubstitutionPattern" value="&lt;/sku>"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetStringSubstitution.xml"/>
+    <nodeSuccessors name="next" next="GetStringSubstitution3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="InputString" objectPath="OutputString"/>
+  </nodes>
+<!--@displayNearNode@Remove enclosing delimiters.
+@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetStringSubstitution3">
+    <configurationValues name="DefaultPattern" value="^&lt;/sku>|&lt;/sku>$"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetStringSubstitution.xml"/>
+    <nodeSuccessors name="next" next="SplitString1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="InputString" objectPath="OutputString"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SplitString1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SplitString.xml"/>
+<!--@BendPoints 11,16-->
+    <nodeSuccessors name="next" next="GetProductsBySKUs2"/>
+    <parameterBindings name="Delimeter" constant="&lt;/sku>"/>
+    <parameterBindings name="ValuesString" objectPath="OutputString"/>
+    <returnValueBindings name="ValuesIterator" objectPath="SKUs"/>
+  </nodes>
+<!--@Location 5,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductsBySKUs2">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductsBySKUs.xml"/>
+    <nodeSuccessors name="next" next="LoopNode2" action="begin"/>
+    <parameterBindings name="Domain" objectPath="Repository:RepositoryDomain"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="Products">
+    <nodeSuccessors name="next" next="JoinNode8" action="commit"/>
+    <entry key="Product">
+<!--@BendPoints 11,20-->
+      <nodeSuccessors name="loop_entry_next" next="AssignProductToProductSet1"/>
+    </entry>
+  </nodes>
+<!--@Location 5,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignProductToProductSet1">
+    <pipelet href="enfinity:/xcs/pipelets/AssignProductToProductSet.xml"/>
+<!--@BendPoints 11,22 10,22 10,19-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 13,20-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+<!--@Location 13,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="AssignTargetDomain"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode9"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+    <parameters name="LeadLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+    <parameters name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet"/>
+    <parameters name="Organization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+    <parameters name="OrganizationDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+  </nodes>
+<!--@Location 13,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="CallNode0"/>
+<!--@BendPoints 29,3-->
+    <nodeSuccessors name="ERROR" next="JoinNode10"/>
+    <startNode referencedName="DBInitProductSetSharing-Master"/>
+  </nodes>
+<!--@Location 13,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <parameterBindings name="MasterRepository" objectPath="Repository"/>
+    <startNode referencedName="ProcessProductSharing-DetermineDependentOrganizations"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="Organizations">
+    <nodeSuccessors name="next" next="JoinNode10"/>
+    <entry key="Organization">
+      <nodeSuccessors name="loop_entry_next" next="GetRepositoryByID0"/>
+    </entry>
+  </nodes>
+<!--@Location 13,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByID0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByID.xml"/>
+    <nodeSuccessors name="next" next="AssignProductSetToDomain2" action="begin"/>
+<!--@BendPoints 26,9 26,7-->
+    <nodeSuccessors name="pipelet_error" next="LoopNode0_Entry"/>
+    <parameterBindings name="Domain" objectPath="Organization:OrganizationDomain"/>
+    <parameterBindings name="RepositoryID" objectPath="Configuration:ProductSet.TargetRepositoryID"/>
+    <returnValueBindings name="Repository" objectPath="Channel"/>
+  </nodes>
+<!--@Location 13,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignProductSetToDomain2">
+    <pipelet href="enfinity:/xcs/pipelets/AssignProductSetToDomain.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9" action="commit"/>
+    <parameterBindings name="Domain" objectPath="Channel:RepositoryDomain"/>
+  </nodes>
+<!--@Location 13,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+<!--@BendPoints 27,14-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 13,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+<!--@Location 14,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode10">
+<!--@BendPoints 29,13-->
+    <nodeSuccessors name="next" next="JoinNode9"/>
+  </nodes>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="CreateCategoryUUIDsIteratorFromConfigValues"
+      callMode="Private">
+<!--@BendPoints 21,2-->
+    <nodeSuccessors name="next" next="Pipelet5"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+  </nodes>
+<!--@displayNearNode@Get Iterator of Strings formed <br> 'category\-name@category\-domain\-name'
+@Location 10,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <configurationValues name="CaseSensitiveAndSort" value="true"/>
+    <configurationValues name="Delimiters" value="|"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromConfigValues.xml"/>
+    <nodeSuccessors name="next" next="Pipelet3"/>
+    <parameterBindings name="ValuesString" objectPath="Configuration:ProductSet.AssignedCategories"/>
+    <returnValueBindings name="ValuesIterator" objectPath="CategoryNames"/>
+  </nodes>
+<!--@displayNearNode@Needed for splitting the above Category Strings
+@Location 10,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="Mode" value="Last Occurrence"/>
+    <configurationValues name="Separator" value="@"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStringSplitter.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <returnValueBindings name="Splitter" objectPath="CategorySplitter"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="CategoryNames">
+    <nodeSuccessors name="next" next="EndNode6"/>
+    <entry key="CategoryNameAndCategoryDomainName">
+      <nodeSuccessors name="loop_entry_next" next="GetCategoryByName1"/>
+    </entry>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCategoryByName1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetCategoryByName.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+<!--@BendPoints 23,9-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet1"/>
+    <parameterBindings name="CategoryDomainName" objectPath="CategorySplitter:End(CategoryNameAndCategoryDomainName)"/>
+    <parameterBindings name="CategoryName" objectPath="CategorySplitter:Begin(CategoryNameAndCategoryDomainName)"/>
+  </nodes>
+<!--@displayNearNode@Add category UUID
+@Location 10,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="InVector" objectPath="AssignedCategories"/>
+    <parameterBindings name="Object" objectPath="Category:UUID"/>
+    <returnValueBindings name="OutVector" objectPath="AssignedCategories"/>
+  </nodes>
+<!--@Location 10,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+<!--@BendPoints 20,13 20,7-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="Level" value="Debug"/>
+    <configurationValues name="Marker" value="dbinit"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 23,13-->
+    <nodeSuccessors name="next" next="JoinNode11"/>
+    <parameterBindings name="MessageParam0" objectPath="CategorySplitter:Begin(CategoryNameAndCategoryDomainName)"/>
+    <parameterBindings name="MessageParam1" objectPath="CategorySplitter:End(CategoryNameAndCategoryDomainName)"/>
+    <parameterBindings name="MessageText" constant="A Category with NAME {} and DOMAINNAME {} does not seem to exist."/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true">
+    <returnValues name="AssignedCategories" type="java.util.Vector" optional="true"/>
+  </nodes>
+<!--@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="CreateProductSet"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+    <parameters name="LeadLocale" type="com.intershop.beehive.core.capi.localization.LocaleInformation"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+<!--@BendPoints 7,4-->
+    <nodeSuccessors name="next" next="CreateProductSet1" action="begin"/>
+    <startNode referencedName="DBInitProductSetSharing-Master"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateProductSet1">
+    <pipelet href="enfinity:/xcs/pipelets/CreateProductSet.xml"/>
+    <nodeSuccessors name="next" next="UpdateProductSet2"/>
+    <parameterBindings name="Domain" objectPath="Repository:RepositoryDomain"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductSet2">
+    <pipelet href="enfinity:/xcs/pipelets/UpdateProductSet.xml"/>
+<!--@BendPoints 7,8-->
+    <nodeSuccessors name="next" next="EndNode2" action="commit"/>
+    <parameterBindings name="Description" objectPath="Configuration:ProductSet.Description"/>
+    <parameterBindings name="IsActive" objectPath="Configuration:ProductSet.IsActive"/>
+    <parameterBindings name="IsAll" objectPath="Configuration:ProductSet.IsAll"/>
+    <parameterBindings name="Name" objectPath="Configuration:ProductSet.Name"/>
+    <parameterBindings name="ProductSelectionType" objectPath="Configuration:ProductSet.ProductSelectionType"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet"/>
+<!--
+		
+        -->
+    <returnValues name="OrganizationDomain" type="com.intershop.beehive.core.capi.domain.Domain"
+        optional="true"/>
+<!--The repository of the organizational domain.-->
+    <returnValues name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 7,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="InitializeProductSetRuleConfiguration"
+      callMode="Private">
+<!--@BendPoints 15,2-->
+    <nodeSuccessors name="next" next="CreateIteratorFromConfigValues1"/>
+    <parameters name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet"/>
+    <parameters name="Configuration" type="java.util.Map"/>
+  </nodes>
+<!--@displayNearNode@Get Manufacturers Iterator
+@Location 7,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromConfigValues1">
+    <configurationValues name="CaseSensitiveAndSort" value="true"/>
+    <configurationValues name="Delimiters" value="|"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromConfigValues.xml"/>
+    <nodeSuccessors name="next" next="JoinString1"/>
+    <parameterBindings name="ValuesString" objectPath="Configuration:ProductSet.AssignedManufacturers"/>
+    <returnValueBindings name="ValuesIterator" objectPath="Manufacturers"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="JoinString1">
+    <configurationValues name="Separator" value="TAB"/>
+    <pipelet href="enfinity:/core/pipelets/JoinString.xml"/>
+    <nodeSuccessors name="next" next="CreateIteratorFromConfigValues2"/>
+    <parameterBindings name="StringIterator" objectPath="Manufacturers"/>
+    <returnValueBindings name="JoinedString" objectPath="Manufacturers"/>
+  </nodes>
+<!--@displayNearNode@Get ManufacturerAliases Iterator
+@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateIteratorFromConfigValues2">
+    <configurationValues name="CaseSensitiveAndSort" value="true"/>
+    <configurationValues name="Delimiters" value="|"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateIteratorFromConfigValues.xml"/>
+    <nodeSuccessors name="next" next="JoinString0"/>
+    <parameterBindings name="ValuesString" objectPath="Configuration:ProductSet.AssignedManufacturerAliases"/>
+    <returnValueBindings name="ValuesIterator" objectPath="ManufacturerAliases"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="JoinString0">
+    <configurationValues name="Separator" value="TAB"/>
+    <pipelet href="enfinity:/core/pipelets/JoinString.xml"/>
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameterBindings name="StringIterator" objectPath="ManufacturerAliases"/>
+    <returnValueBindings name="JoinedString" objectPath="ManufacturerAliases"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="UpdateCustomAttributes1" action="begin"/>
+    <startNode referencedName="DBInitProductSetSharing-CreateCategoryUUIDsIteratorFromConfigValues"/>
+  </nodes>
+<!--@displayNearNode@Store product set rule configuration in database
+@Location 7,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes1">
+    <configurationValues name="Attribute_1_Name" value="AssignedManufacturers"/>
+    <configurationValues name="Attribute_1_Type" value="Text"/>
+    <configurationValues name="Attribute_2_Name" value="AssignedManufacturerAliases"/>
+    <configurationValues name="Attribute_2_Type" value="Text"/>
+    <configurationValues name="Attribute_3_Name" value="IncludeSubCategories"/>
+    <configurationValues name="Attribute_3_Type" value="String"/>
+    <configurationValues name="Attribute_4_Name" value="AssignedCategories"/>
+    <configurationValues name="Attribute_4_Type" value="MultipleString"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+<!--@BendPoints 15,14-->
+    <nodeSuccessors name="next" next="EndNode5" action="commit"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="Manufacturers"/>
+    <parameterBindings name="Attribute_2_Value" objectPath="ManufacturerAliases"/>
+    <parameterBindings name="Attribute_3_Value" objectPath="Configuration:ProductSet.IncludeSubCategories"/>
+    <parameterBindings name="Attribute_4_Value" objectPath="AssignedCategories"/>
+    <parameterBindings name="ExtensibleObject" objectPath="ProductSet"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true">
+    <returnValues name="ProductSet" type="com.intershop.beehive.xcs.capi.productset.ProductSet"/>
+  </nodes>
+<!--@Location 16,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="Master" callMode="Private">
+<!--@BendPoints 33,2-->
+    <nodeSuccessors name="next" next="Decision1"/>
+  </nodes>
+<!--@Location 16,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="Organization">
+    <nodeSuccessors name="decision_yes" next="JoinNode7"/>
+<!--@BendPoints 35,3-->
+    <nodeSuccessors name="decision_no" next="GetStringSubstitution1"/>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 33,10-->
+    <nodeSuccessors name="next" next="GetRepository3"/>
+  </nodes>
+<!--@Location 16,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepository3">
+    <configurationValues name="CustomRepositoryTypeCode" value="21"/>
+    <configurationValues name="Type" value="Custom Repository"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepository.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector3"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+  </nodes>
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector3">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 33,14-->
+    <nodeSuccessors name="next" next="End4"/>
+    <parameterBindings name="InVector" nullBinding="true"/>
+    <parameterBindings name="Object" objectPath="Repository"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="Repositories"/>
+    <returnValueBindings name="OutVector" nullBinding="true"/>
+  </nodes>
+<!--@Location 16,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4"/>
+<!--@Location 17,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 35,14-->
+    <nodeSuccessors name="next" next="End2"/>
+  </nodes>
+<!--@Location 17,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2" name="ERROR"/>
+<!--@Location 17,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetStringSubstitution1">
+    <configurationValues name="DefaultPattern" value="(-Site)$"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetStringSubstitution.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByName1"/>
+    <parameterBindings name="InputString" objectPath="CurrentDomain:DomainName"/>
+    <parameterBindings name="Pattern" nullBinding="true"/>
+    <parameterBindings name="SubstitutionPattern" nullBinding="true"/>
+    <returnValueBindings name="OutputString" objectPath="OrganizationID"/>
+  </nodes>
+<!--@Location 17,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByName1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByName.xml"/>
+<!--@BendPoints 35,9-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+<!--@BendPoints 36,7 36,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode6"/>
+    <parameterBindings name="Name" objectPath="OrganizationID"/>
+  </nodes>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="Start"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetLocale1"/>
+    <parameters name="ProductSetConfiguration" type="java.lang.String"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale1">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetLocale.xml"/>
+    <nodeSuccessors name="next" next="GetLocalizedResources1"/>
+    <parameterBindings name="LocaleId" nullBinding="true"/>
+    <returnValueBindings name="Locale" objectPath="LeadLocale"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocalizedResources1">
+    <pipelet href="enfinity:/core/pipelets/GetLocalizedResources.xml"/>
+<!--@BendPoints 3,6-->
+    <nodeSuccessors name="next" next="CallNode5"/>
+    <parameterBindings name="Locale" objectPath="LeadLocale"/>
+    <parameterBindings name="ResourceBundleName" objectPath="ProductSetConfiguration"/>
+    <returnValueBindings name="Resources" objectPath="Configuration"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <startNode referencedName="This:CreateProductSet"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="ProductSet:RuleBased"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode2"/>
+<!--@BendPoints 5,9 5,10-->
+    <nodeSuccessors name="decision_no" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <startNode referencedName="DBInitProductSetSharing-InitializeProductSetRuleConfiguration"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <startNode referencedName="ProcessProductSet-UpdateRuleBasedAssignments"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+<!--@BendPoints 3,16-->
+    <nodeSuccessors name="next" next="CallNode7"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+<!--@BendPoints 3,18-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <startNode referencedName="This:AssignTargetDomain"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true"/>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="ProductSet:All"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="JoinNode12"/>
+<!--@BendPoints 7,11 7,12-->
+    <nodeSuccessors name="decision_no" next="CallNode6"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode12">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+<!--@BendPoints 7,15-->
+    <nodeSuccessors name="next" next="JoinNode12"/>
+    <startNode referencedName="This:AssignProducts"/>
+  </nodes>
+</pipeline:Pipeline>

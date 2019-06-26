@@ -1,0 +1,160 @@
+<%@page import = "com.intershop.beehive.core.capi.pipeline.PipelineDictionary"%>
+<%@page import="com.intershop.adapter.payment_demo.internal.creditcard.CreditCardInformation"%>
+<%@page import="com.intershop.component.payment.capi.PaymentInstrumentInfoBO"%>
+<%@page import="com.intershop.beehive.bts.capi.payment.PaymentInstrumentInfo"%>
+<isset name="PIIBO" value="#PII#" scope="request"/>
+<%
+	int nowMonth = new GregorianCalendar().get(GregorianCalendar.MONTH)+1;
+	PipelineDictionary dict = getPipelineDictionary();
+	
+	PaymentInstrumentInfoBO pii = (PaymentInstrumentInfoBO) dict.get("PIIBO");
+	if (pii == null)
+	{
+	    pii = (PaymentInstrumentInfoBO) getObject("PIIBO");
+	}
+	if (pii != null)
+	{
+		CreditCardInformation info = pii.getConfiguration(pii.getPaymentService().getPaymentParameterDefinitions());
+		dict.put("piiDefinition", info);
+		String sMonth = info.getCreditCardExpiryMonth();
+		String sYear = info.getCreditCardExpiryYear();
+
+	    if ((sMonth != null) && (sYear != null)) {
+			int ccMonth = new Integer((String) sMonth).intValue();
+			int ccYear = new Integer((String) sYear).intValue();
+		
+			int startYear = new GregorianCalendar().get(GregorianCalendar.YEAR);
+		
+			if(ccYear<100)
+			{
+				ccYear = ccYear+2000;
+			}
+		
+			if((ccYear<startYear)||((ccYear==startYear)&&(ccMonth<nowMonth))){
+				getPipelineDictionary().put("ccExpired", (String) getObject("PIIBO:ID"));
+			}
+	    }
+	}
+%>
+<iscontent type="text/html" charset="UTF-8">
+<isif condition="#PaymentDisplayMode EQ 'short'#">
+	<!---<isinclude template="payment_demo/simple_cc/DisplayName">--->
+	<isif condition="#isDefined(piiDefinition:CreditCardNumber)#">
+		<ISGarbleString text="#piiDefinition:CreditCardNumber#" direction="begin" length="4" character="*" output="truncatedCreditCardNumber">
+		<span class="ws-card-type"><istext key="#'payment.checkout.cc_type.'.piiDefinition:CreditCardType#">:</span>
+		<span class="ws-card-ending-value"><isprint value="#truncatedCreditCardNumber#"></span>
+	</isif>
+<iselse>
+	<isif condition="#myaccount NE 'true'#">
+		<div class="ish-paymentMethods-item-links">
+			<a class="kor-edit-credit-card-link <isif condition="#NOT(PIIDataVerificationResult:Valid) AND (PIIDataVerificationResult:PaymentService:ID EQ 'BPS_CREDITCARD') AND isDefined(edit) AND (edit EQ PIIBO:ID)#"> errorCCEditLink</isif>" href=""><istext key="checkout.payment.method.edit.link" /></a>
+			<br />
+			<a class="kor-csrf-guarded-link" href="#URL(Action('ViewCheckoutPayment-Dispatch'), Parameter('PaymentInstrumentInfoUUID', PIIBO:ID), Parameter('deletePayment', ''))#"><istext key="checkout.payment.method.delete.link" /></a>
+		</div>
+	</isif>
+</isif>
+
+<isif condition="#not(isdefined(PaymentDisplayMode)) or (PaymentDisplayMode EQ 'long')#">
+	<isset name="ccNumberString" scope="request" value="#PIIBO:CustomAttributes:CreditCardNumber#" />
+<%
+	String ccNumber = (String) dict.get("ccNumberString");
+	
+	if (pii != null)
+	{
+		CreditCardInformation info = pii.getConfiguration(pii.getPaymentService().getPaymentParameterDefinitions());
+		if (info != null)
+		{
+			ccNumber= info.getCreditCardNumber();
+		}
+	
+		if ( null != ccNumber && ccNumber.length()>4){
+			dict.put("ccEndString", ccNumber.substring(ccNumber.length()-4));
+		}
+	}
+%>
+	<div class="ish-paymentMethods-creditCard">
+			<span class="ish-paymentMethods-creditCard-type"><istext key="#'payment.checkout.cc_type.'.PIIBO:CustomAttributes:CreditCardType#"></span>
+			<span class="ish-paymentMethods-creditCard-number">***********<isprint value="#ccEndString#"></span>
+			
+			<span class="ish-paymentMethods-creditCard-availableCards kor-paymentMethods-creditCard-<isprint value="#PIIBO:CustomAttributes:CreditCardType#"> ish-paymentMethods-creditCard-<isprint value="#PIIBO:CustomAttributes:CreditCardType#">">
+				&nbsp;
+			</span>
+	</div>
+
+	<isif condition="#isDefined(walletView) AND (walletView EQ 'true')#">
+
+		<div class="ish-paymentMethods-newPaymentForm kor-edit-credit-card-section
+			<isif condition="#isDefined(PIIEditError) AND (PIIEditError EQ PII:UUID)#">
+				kor-toggleable-active
+			</isif>
+			">
+			<div class="ish-field kor-field-error">
+
+				<!--- Expiry Month --->
+				<label class="ish-label-s" for="card-expires-on-month"><istext key="checkout.credit_card.expiration_date.label" /></label>
+				<input type="text" data-editfields="true" class="ish-paymentMethods-creditCard-expireMonth kor-expiration-date-month<isif condition="#NOT(PIIDataVerificationResult:Valid) AND (PIIDataVerificationResult:PaymentService:ID EQ 'BPS_CREDITCARD') AND isDefined(edit) AND (edit EQ PII:UUID)#">kor-error</isif>" id="card-expires-on-month" name="<isprint value="#PII:ID#">_CreditCardExpiryMonth"
+					value="#getValue(PII:CustomAttributes:CreditCardExpiryMonth,'##')#"
+					maxlength="2"
+				/>
+				
+				<span class="ish-paymentMethods-creditCard-expirationSlash">/</span>
+				
+				<!--- Expiry Year --->
+				<input type="text" data-editfields="true" class="ish-paymentMethods-creditCard-expireYear kor-expiration-date-year<isif condition="#NOT(PIIDataVerificationResult:Valid) AND (PIIDataVerificationResult:PaymentService:ID EQ 'BPS_CREDITCARD') AND isDefined(edit) AND (edit EQ PII:UUID)#">kor-error</isif>" id="card-expires-on-year" name="<isprint value="#PII:ID#">_CreditCardExpiryYear"
+					value="#getValue(PII:CustomAttributes:CreditCardExpiryYear,'####')#"
+					maxlength="2"
+				/>
+				<span class="ish-note ish-note-field"><istext key="ShowPIIMini.MmYy.ish"/></span>
+
+				<isif condition="#NOT(PIIDataVerificationResult:Valid) AND (PIIDataVerificationResult:PaymentService:ID EQ 'BPS_CREDITCARD') AND isDefined(edit) AND (edit EQ PII:UUID)#">
+				   <div class="kor-field-error-message-placeholder kor-field-error-right" name="<isprint value="#PaymentService:Configuration:UUID#">_CreditCardExpiryDateError">
+						<div role="alert" class="kor-field-error-message">
+							<div class="kor-field-error-message-contents">
+								<ul class="kor-field-error-list">
+									<li class="kor-field-error-list-item"><istext key="checkout.credit_card.expiry_date.invalid.error"/></li>
+								</ul>
+							</div>
+						</div>
+					</div>
+				</isif>
+
+			</div>
+
+			<div class="ish-field-buttonGroup">
+				<button name="edit" value="<isprint value="#PII:ID#">" class="editCC" type="submit"><istext key="checkout.credit_card.save" /></button>
+			</div>
+		</div>
+		<div class="kor-edit-credit-card-section
+			<isif condition="#isDefined(PIIEditError) AND (PIIEditError EQ PII:ID)#">
+				kor-toggleable-active
+			</isif>
+			">
+	        <isif condition="#(PaymentService:Delegate:CardSecurityCodeCheckEnabled EQ 'true')#">
+	            <isif condition="#NOT(PaymentService:CardSecurityCodeAvailable(PII))#">
+	                <div class="kor-field-error">
+	                    <isFieldErrorMessagePlaceholder ext_string_prefix="checkout.credit_card.security_code" name_override="#PII:ID."_CreditCardSecurityCode"#">
+	                    <label for="security-code"><istext key="checkout.credit_card.security_code.label" /></label>
+	                    <input maxlength="4" type="text" class="kor-error" name="<isprint value="#PII:ID#">_CreditCardSecurityCode" id="security-code"
+	                        data-validate="<isif condition="#ccvalidationgroup NE ''#">dependsOn('<isprint value="#ccvalidationgroup#">','<isprint value="#ccvalidationgroupvalue#">') </isif>required"
+	                        value="">
+	                    <isTooltip linktextkey="checkout.detail.text" headlinekey="checkout.payment.creditcard.securitycode.tooltip.headline" contentkey="checkout.payment.creditcard.securitycode.tooltip">
+	                    <div class="kor-field-error-message-placeholder kor-field-error-right" name="<isprint value="#PII:PaymentService:ID#">_<isprint value="#SimpleCCInputFieldUUID#">_CreditCardSecurityCodeError">
+	                        <div role="alert" class="kor-field-error-message">
+	                            <div class="kor-field-error-message-contents">
+	                                <ul class="kor-field-error-list">
+	                                    <li class="kor-field-error-list-item"><istext key="checkout.credit_card.security_code.error.required"/></li>
+	                                </ul>
+	                            </div>
+	                        </div>
+	                    </div>
+	                </div>
+	            </isif>
+	        </isif>
+	
+			<isif condition="#isDefined(ccExpired) AND (ccExpired EQ PIIBO:ID)#">
+				<p class="kor-error-text"><istext key="checkout.payment.cc_expired" /></p>
+			</isif>
+		</div
+
+	</isif>
+</isif>

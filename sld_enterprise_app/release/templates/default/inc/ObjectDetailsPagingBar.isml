@@ -1,0 +1,162 @@
+<iscontent type="text/html" charset="UTF-8" compact="true">
+<%@page import="com.intershop.beehive.core.capi.paging.PageableIterator,
+    com.intershop.beehive.core.capi.pipeline.PipelineDictionary,
+    com.intershop.beehive.core.capi.request.Request"%>
+
+<ISCreateMap mapname="ObjectPagingBarParams" 
+					key0="PageLocatorName" value0="#pagelocatorname#"
+					key1="DetailsPageNumber" value1="#pagenumber#">					
+<ispipeline pipeline="ProcessObjectDetailsPaging-GetPageableFromSession" params="#ObjectPagingBarParams#" alias="ObjectPagingBarDictionary" />
+<%
+	PipelineDictionary my_dict = (PipelineDictionary) getObject("ObjectPagingBarDictionary");
+	
+		PageableIterator my_pageable = (PageableIterator)my_dict.get("DetailsPagingBarPageable");
+		getPipelineDictionary().put("TmpPageable", my_pageable);
+		PageableIterator pageable = (PageableIterator)getObject("TmpPageable");
+		//String pageableName = (String)getObject("pageable");
+		//getPipelineDictionary().put("TmpPageable", getObject(pageableName));
+		//PageableIterator pageable = (PageableIterator)getObject("TmpPageable");
+	
+	Object currentObject = getObject("currentobject");
+	Object previousObject = null;
+	Object nextObject = null;
+	
+	if ( null != currentObject && null != pageable ) {
+		getPipelineDictionary().put("TmpNextObjectPage", pageable.getPage());
+		getPipelineDictionary().put("TmpPreviousObjectPage", pageable.getPage());
+	
+		int counter = 0;
+		boolean found = false;
+		int currentPage = pageable.getPage();
+		pageable.reset();
+		while(pageable.hasNext()) {
+			previousObject = nextObject;
+			nextObject = pageable.next();
+			counter++;
+			if (nextObject.equals(currentObject)) {
+				found = true;
+				nextObject = (pageable.hasNext()) ? pageable.next() : null;
+				break;
+			}
+		}
+		//if object found on current page (if not - hide paging bar)
+		if(found) {
+			//determine previous and next objects 
+			if (null == previousObject && !pageable.isFirstPage()) {
+				pageable.setPage(currentPage - 1);
+				pageable.reset();
+				getPipelineDictionary().put("TmpPreviousObjectPage", currentPage - 1);
+				while(pageable.hasNext()) {
+					previousObject = pageable.next();
+				}
+			}
+		
+			pageable.setPage(currentPage);
+		
+			if (null == nextObject && !pageable.isLastPage()) {
+				pageable.setPage(currentPage + 1);
+				pageable.reset();
+				getPipelineDictionary().put("TmpNextObjectPage", currentPage + 1);
+				if (pageable.hasNext()) 
+					nextObject = pageable.next();
+			}
+		
+			pageable.setPage(currentPage);
+		
+			getPipelineDictionary().put("TmpCurrentCounter", pageable.getPage() * pageable.getPageSize() + counter);
+			getPipelineDictionary().put("TmpNextObject", nextObject);
+			getPipelineDictionary().put("TmpPreviousObject", previousObject);
+			getPipelineDictionary().put("TmpCurrentObject", currentObject);
+		}
+	}
+%>
+
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+	<tr>
+		<!---<isif condition="#isDefined(formname)#">
+			<td>
+				<isif condition="#isDefined(parametername)#"><input type="hidden" name="<isprint value="#parametername#">" value="<isprint value="#parametervalue#">"/></isif>
+				<isif condition="#isDefined(parametername1)#"><input type="hidden" name="<isprint value="#parametername1#">" value="<isprint value="#parametervalue1#">"/></isif>
+				<isif condition="#isDefined(parametername2)#"><input type="hidden" name="<isprint value="#parametername2#">" value="<isprint value="#parametervalue2#">"/></isif>
+				<isif condition="#isDefined(parametername3)#"><input type="hidden" name="<isprint value="#parametername3#">" value="<isprint value="#parametervalue3#">"/></isif>
+				<isif condition="#isDefined(parametername4)#"><input type="hidden" name="<isprint value="#parametername4#">" value="<isprint value="#parametervalue4#">"/></isif>
+				<isif condition="#isDefined(parametername5)#"><input type="hidden" name="<isprint value="#parametername5#">" value="<isprint value="#parametervalue5#">"/></isif>
+				<isif condition="#isDefined(parametername6)#"><input type="hidden" name="<isprint value="#parametername6#">" value="<isprint value="#parametervalue6#">"/></isif>
+				<isif condition="#isDefined(parametername7)#"><input type="hidden" name="<isprint value="#parametername7#">" value="<isprint value="#parametervalue7#">"/></isif>
+				<isif condition="#isDefined(parametername8)#"><input type="hidden" name="<isprint value="#parametername8#">" value="<isprint value="#parametervalue8#">"/></isif>
+				<isif condition="#isDefined(parametername9)#"><input type="hidden" name="<isprint value="#parametername9#">" value="<isprint value="#parametervalue9#">"/></isif>
+				<isif condition="#isDefined(parametername10)#"><input type="hidden" name="<isprint value="#parametername10#">" value="<isprint value="#parametervalue10#">"/></isif>
+				<isif condition="#isDefined(parametername11)#"><input type="hidden" name="<isprint value="#parametername11#">" value="<isprint value="#parametervalue11#">"/></isif>
+				<isif condition="#isDefined(parametername12)#"><input type="hidden" name="<isprint value="#parametername12#">" value="<isprint value="#parametervalue12#">"/></isif>
+				<input type="hidden" name="DetailsPageNumber" value="<isprint value="#TmpPageable:Page#">"/>
+			</td>
+		</isif>--->
+        <%
+            getPipelineDictionary().put("ApplicationState", Request.getCurrent().getSession().getObject("ApplicationState"));
+        %>
+		<td width="20%">
+			<isinclude template="inc/BackToList">
+		</td>
+		<td nowrap="nowrap" align="center">
+			<isif condition="#(TmpPageable:ElementCount > 0) AND ( isDefined(TmpNextObject) OR isDefined(TmpPreviousObject) )#">
+				<div style="margin-bottom: 2px;"><!--- display paging bar with back to list bar on one line --->
+					<isif condition="#isDefined(TmpPreviousObject)#">
+						<!---<isif condition="#isDefined(formname)#">
+							<a href="javascript:document.<isprint value="#formname#">.action='#URL(Action(pipeline))#';javascript:document.<isprint value="#formname#">.PageNumber.value='<isprint value="#TmpPreviousObjectPage#" formatter="#">';javascript:document.<isprint value="#formname#">.submit();" class="button">Previous</a>
+						<iselse>--->
+								&nbsp;<a href="#URL(Action(pipeline),
+								Parameter(nameforobjectuuid, TmpPreviousObject:UUID),
+								Parameter('removeid',TmpCurrentObject:UUID),
+								Parameter(parametername,parametervalue),
+								Parameter(parametername1,parametervalue1),
+								Parameter(parametername2,parametervalue2),
+								Parameter(parametername3,parametervalue3),
+								Parameter(parametername4,parametervalue4),
+								Parameter(parametername5,parametervalue5),
+								Parameter(parametername6,parametervalue6),
+								Parameter(parametername7,parametervalue7),
+								Parameter(parametername8,parametervalue8),
+								Parameter(parametername9,parametervalue9),
+								Parameter(parametername10,parametervalue10),
+								Parameter(parametername11,parametervalue11),
+								Parameter(parametername12,parametervalue12),
+								Parameter('DetailsPageNumber',TmpPreviousObjectPage))#" class="pagecursortxt button">&lt;&lt;</a>
+						<!---</isif>--->
+					</isif> 
+					
+					<istext key="ObjectDetailsByIdPagingBar.Item0Of1.link" parameter0="#getValue(TmpCurrentCounter)#" parameter1="#getValue(TmpPageable:ElementCount)#" parameter2="pagecursortxt" parameter3="pagecursoritem bold" encoding="off"/>
+					
+					<isif condition="#isDefined(TmpNextObject)#">
+						<!---<isif condition="#isDefined(formname)#">
+							<a href="javascript:document.<isprint value="#formname#">.action='#URL(Action(pipeline))#';javascript:document.<isprint value="#formname#">.PageNumber.value='<isprint value="#TmpNextObjectPage#" formatter="#">';javascript:document.<isprint value="#formname#">.submit();" class="pagecursortxt">Next</a>&nbsp;&gt;&gt;&nbsp;
+						<iselse>--->
+							<a href="#URL(Action(pipeline),
+								Parameter(nameforobjectuuid, TmpNextObject:UUID),
+								Parameter('removeid',TmpCurrentObject:UUID),
+								Parameter(parametername,parametervalue),
+								Parameter(parametername1,parametervalue1),
+								Parameter(parametername2,parametervalue2),
+								Parameter(parametername3,parametervalue3),
+								Parameter(parametername4,parametervalue4),
+								Parameter(parametername5,parametervalue5),
+								Parameter(parametername6,parametervalue6),
+								Parameter(parametername7,parametervalue7),
+								Parameter(parametername8,parametervalue8),
+								Parameter(parametername9,parametervalue9),
+								Parameter(parametername10,parametervalue10),
+								Parameter(parametername11,parametervalue11),
+								Parameter(parametername12,parametervalue12),
+								Parameter('DetailsPageNumber',TmpNextObjectPage))#" class="pagecursortxt button">&gt;&gt;</a>
+						<!---</isif>--->
+					</isif>
+				</div>
+			<iselse>&nbsp;
+			</isif>
+		</td>
+		<td width="20%">
+			&nbsp;
+		</td>
+	</tr>
+</table>
+

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Returns baskets that need to be approved">
+<parameters>
+	<parameter name="CustomerBO" type="com.intershop.component.customer.capi.CustomerBO" optional="false" />
+	<parameter name="Buyer" type="com.intershop.component.user.capi.UserBO" optional="true" />
+	<parameter name="ApprovalStatus" type="com.intershop.adapter.order.approval.capi.business.ApprovalStatus" optional="true" />
+</parameters>
+<return-mappings>
+	<return-mapping name="Basket" type="orm" class="com.intershop.beehive.bts.internal.orderprocess.basket.BasketPO">
+        <return-attribute name="basketUUID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+	SELECT b.uuid as basketUUID, COUNT(*) over() AS "rowcount"
+	FROM Basket b
+	WHERE
+	<template-if condition="isDefined(ApprovalStatus)">
+		b.status = <template-variable value="ApprovalStatus:Value"/>
+	<if-else/>
+		b.status IN (11, 12, 13)
+	</template-if>
+    <template-if condition="isDefined(Buyer)">
+    AND b.userID = <template-variable value="Buyer:ID"/>
+    </template-if>
+    AND b.userID IN (
+		SELECT cpa.profileID
+		FROM CustomerProfileAssignment cpa
+		WHERE cpa.customerID = <template-variable value="CustomerBO:ID"/>
+	)
+</template>
+</query>

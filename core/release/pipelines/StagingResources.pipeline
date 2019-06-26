@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline is used to handle staging resources.
+@Group Staging-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="StagingResources">
+  <registry xsi:type="pipeline:PipelineRegistry" href="enfinity:/core/pipelines"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="Acquire" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="StagingProcessID">
+    <nodeSuccessors name="decision_yes" next="Pipelet2"/>
+    <nodeSuccessors name="decision_no" next="EndNode5"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <pipelet href="enfinity:/core/pipelets/GetStagingProcess.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="StagingProcess">
+<!--@BendPoints 3,8-->
+    <nodeSuccessors name="decision_yes" next="GetProperties1"/>
+    <nodeSuccessors name="decision_no" next="EndNode4"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProperties1">
+    <configurationValues name="DefaultValue1" value="1200"/>
+    <configurationValues name="DictionaryKey1" value="AcquisitionTimeoutString"/>
+    <configurationValues name="PropertyName1" value="staging.locking.acquisition.timeout"/>
+    <pipelet href="enfinity:/core/pipelets/GetProperties.xml"/>
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="Convert1"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Convert1">
+    <configurationValues name="ResultClass" value="java.lang.Integer"/>
+    <pipelet href="enfinity:/core/pipelets/Convert.xml"/>
+<!--@BendPoints 3,12-->
+    <nodeSuccessors name="next" next="Pipelet3"/>
+    <parameterBindings name="Object1" objectPath="AcquisitionTimeoutString"/>
+    <returnValueBindings name="ResultObject" objectPath="AcquisitionTimeout"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <pipelet href="enfinity:/core/pipelets/GetResourcesOfStagingProcess.xml"/>
+<!--@BendPoints 3,14-->
+    <nodeSuccessors name="next" next="DecisionNode5"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode5" conditionKey="Resources"
+      operator="has_elements">
+<!--@BendPoints 3,16-->
+    <nodeSuccessors name="decision_yes" next="Pipelet1"/>
+<!--@BendPoints 4,15 4,19-->
+    <nodeSuccessors name="decision_no" next="JoinNode3"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <pipelet href="enfinity:/core/pipelets/AcquireResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="JoinNode3"/>
+<!--@BendPoints 5,17 5,22-->
+    <nodeSuccessors name="pipelet_error" next="Pipelet7"/>
+  </nodes>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+<!--@BendPoints 3,20-->
+    <nodeSuccessors name="next" next="StartStagingResourceWorker1"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="StartStagingResourceWorker1">
+    <pipelet href="enfinity:/core/pipelets/StartStagingResourceWorker.xml"/>
+<!--@BendPoints 3,22-->
+    <nodeSuccessors name="next" next="PutValuesIntoPipelineDictionary1"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PutValuesIntoPipelineDictionary1">
+    <configurationValues name="UseStaticValues" value="true"/>
+    <configurationValues name="key.1" value="AcquisitionResult"/>
+    <configurationValues name="value.1" value="Succeed"/>
+    <pipelet href="enfinity:/core/pipelets/PutValuesIntoPipelineDictionary.xml"/>
+<!--@BendPoints 3,24-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="next"/>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet7">
+    <configurationValues name="UseStaticValues" value="true"/>
+    <configurationValues name="key.1" value="AcquisitionResult"/>
+    <configurationValues name="value.1" value="Failed"/>
+    <pipelet href="enfinity:/core/pipelets/PutValuesIntoPipelineDictionary.xml"/>
+<!--@BendPoints 5,24-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="error"/>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" name="next"/>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="next"/>
+<!--@Location 4,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" name="Release" callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+  </nodes>
+<!--@Location 4,1-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="StagingProcessID">
+    <nodeSuccessors name="decision_yes" next="Pipelet4"/>
+<!--@BendPoints 11,3-->
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <pipelet href="enfinity:/core/pipelets/GetStagingProcess.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="StagingProcess">
+    <nodeSuccessors name="decision_yes" next="Pipelet6"/>
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <pipelet href="enfinity:/core/pipelets/GetResourcesOfStagingProcess.xml"/>
+    <nodeSuccessors name="next" next="Pipelet5"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <pipelet href="enfinity:/core/pipelets/ReleaseResourcesForProcess.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="next"/>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 11,13-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+</pipeline:Pipeline>

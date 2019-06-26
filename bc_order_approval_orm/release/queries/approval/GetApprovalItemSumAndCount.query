@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query is introduced here because the real one is in another component set and is not yet visible.">
+  <parameters>
+    <parameter name="Approver" type="com.intershop.component.user.capi.UserBO" optional="true"/>
+    <parameter name="Buyer" type="com.intershop.component.user.capi.UserBO" optional="true"/>
+    <parameter name="Status" type="java.lang.Integer" optional="true"/>
+    <parameter name="BasketTypes" type="java.util.Collection" optional="true"/>
+  </parameters>
+
+  <return-mappings>
+    <return-mapping name="Total" type="rename">
+      <return-attribute name="total"/>
+    </return-mapping>
+    <return-mapping name="Count" type="rename">
+      <return-attribute name="count"/>
+    </return-mapping>
+  </return-mappings>
+
+  <processor name="OracleSQL"/>
+
+  <template type="objects">
+    SELECT CASE
+             WHEN SUM(grandtotalgrosspricepcvalue) IS NULL THEN 0
+             ELSE SUM(grandtotalgrosspricepcvalue)
+           END as total,
+           COUNT(*) as count
+      FROM Basket basket,
+           (<template-call name="approval/inc/BaseGetApprovalItemData">
+              <call-parameter name="Approver" value="Approver"/>
+              <call-parameter name="Status" value="Status"/>
+            </template-call>
+           ) approvalItem
+     WHERE approvalItem.approvalItemID = basket.uuid
+     <template-if condition="isDefined(Buyer)">
+       AND userid = <template-variable value="Buyer:ID"/>
+     </template-if>
+     <template-if condition="hasElements(BasketTypes)">
+       AND basket.type in 
+           (<template-loop alias="BasketType" iterator="BasketTypes">
+              <loop-statement>
+                <template-variable value="BasketType"/>
+              </loop-statement>
+              <loop-separator>,</loop-separator>
+            </template-loop>
+           )
+     </template-if>
+  </template>
+</query>

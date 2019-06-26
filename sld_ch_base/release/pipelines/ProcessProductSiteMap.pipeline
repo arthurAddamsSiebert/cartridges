@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--generates a product data feed (Sitemap XMLs and the Sitemap XML index file in the according site context-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessProductSiteMap" type="process">
+<!--determine the syndication,
+the current job nelongs to
+@Location 2,3-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="DeterminePageable"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetJobConfiguration1"/>
+    <parameters name="JobConfigurationUUID" type="java.lang.String" optional="true"/>
+    <parameters name="Syndication" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetJobConfiguration1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetJobConfiguration.xml"/>
+    <nodeSuccessors name="next" next="GetDomainByUUID1"/>
+<!--@BendPoints 11,3-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="JobUUID" objectPath="JobConfigurationUUID"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetDomainByUUID1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetDomainByUUID.xml"/>
+    <nodeSuccessors name="next" next="GetSyndications1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="DomainUUID" objectPath="JobConfiguration:DomainID"/>
+    <returnValueBindings name="Domain" objectPath="SearchDomain"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSyndications1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetSyndications.xml"/>
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <parameterBindings name="Domain" objectPath="JobConfiguration:Domain"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Syndications">
+<!--@BendPoints 7,11 7,12-->
+    <nodeSuccessors name="next" next="AddObjectToVector1"/>
+    <entry key="aSyndication">
+<!--@BendPoints 3,12-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode1"/>
+    </entry>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="JobConfigurationUUID"
+      operator="str_eq" conditionItem="aSyndication:JobConfigurationID">
+<!--@BendPoints 3,14-->
+    <nodeSuccessors name="decision_yes" next="KeyMapper2"/>
+<!--@BendPoints 4,13 4,17-->
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+    <parameterBindings name="InValue_1" objectPath="aSyndication"/>
+    <returnValueBindings name="OutValue_1" objectPath="Syndication"/>
+  </nodes>
+<!--@Location 1,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 2,17 2,11-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode2"/>
+    <returnValueBindings name="Iterator" objectPath="SitemapObjectsIterator"/>
+    <returnValueBindings name="OutVector" objectPath="SitemapObjects"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode2" conditionKey="Syndication:IncludeProducts"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode2"/>
+<!--@BendPoints 8,15 8,19-->
+    <nodeSuccessors name="decision_no" next="JoinNode5"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="JoinNode5"/>
+    <parameterBindings name="ProductDomain" objectPath="SearchDomain"/>
+    <parameterBindings name="SitemapObjects" objectPath="SitemapObjects"/>
+    <startNode referencedName="ProcessProductSiteMap-FindOnlineProducts"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode5">
+    <nodeSuccessors name="next" next="DecisionNode3"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="Syndication:IncludeCategories"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode_Ce3O8BvpEeiruZQCqD6C7Q"/>
+<!--@BendPoints 8,21 8,25-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode_Ce3O8BvpEeiruZQCqD6C7Q">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="CatalogDomain" objectPath="SearchDomain"/>
+    <parameterBindings name="IncludeCategoriesWithoutProducts" objectPath="Syndication:IncludeCategoriesWithoutProducts"/>
+    <parameterBindings name="SitemapObjects" objectPath="SitemapObjects"/>
+    <startNode referencedName="ProcessProductSiteMap-FindOnlineCatalogs"/>
+  </nodes>
+<!--@Location 3,12-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+    <nodeSuccessors name="next" next="DecisionNode6"/>
+  </nodes>
+<!--@Location 3,13-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode6" conditionKey="Syndication:IncludeStaticPages"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode5"/>
+<!--@BendPoints 8,27 8,31-->
+    <nodeSuccessors name="decision_no" next="JoinNode7"/>
+  </nodes>
+<!--@Location 3,14-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <startNode referencedName="ProcessProductSiteMap-FindPageletEntryPoints"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 7,32-->
+    <nodeSuccessors name="next" next="CreatePageableFromCollection1"/>
+  </nodes>
+<!--@Location 3,16-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePageableFromCollection1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreatePageableFromCollection.xml"/>
+    <nodeSuccessors name="next" next="EndNode5"/>
+    <parameterBindings name="Collection" objectPath="SitemapObjects"/>
+    <returnValueBindings name="Pageable" objectPath="Objects"/>
+  </nodes>
+<!--@Location 3,17-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true">
+    <returnValues name="Objects" type="com.intershop.beehive.core.capi.paging.PageableIterator"
+        optional="true"/>
+    <returnValues name="Syndication" type="java.lang.Object" optional="true"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode3"/>
+  </nodes>
+<!--@Location 5,9-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 5,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR" strict="true">
+    <returnValues name="ErrorCode" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 8,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode_ab9I8BvjEeiruZQCqD6C7Q" strict="true"
+      name="FindOnlineCatalogs" callMode="Private">
+    <nodeSuccessors name="next" next="UpdateDictionary2"/>
+    <parameters name="CatalogDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="SitemapObjects" type="java.util.Vector"/>
+    <parameters name="IncludeCategoriesWithoutProducts" type="java.lang.Boolean" optional="true"/>
+  </nodes>
+<!--@Location 8,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary2">
+    <configurationValues name="Name_01" value="Online"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+<!--@BendPoints 17,18-->
+    <nodeSuccessors name="next" next="GetCurrentDate2"/>
+    <parameterBindings name="Value_01" constant="(Integer)1"/>
+    <returnValueBindings name="OutDictionary" objectPath="ProductSearchParameters"/>
+  </nodes>
+<!--@Location 8,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="Pipelet5"/>
+  </nodes>
+<!--@Location 8,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <configurationValues name="Name_01" value="CurrentDate"/>
+    <configurationValues name="Name_02" value="ProductDomain"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+<!--@BendPoints 17,22-->
+    <nodeSuccessors name="next" next="Pipelet6"/>
+    <parameterBindings name="InDictionary" objectPath="ProductSearchParameters"/>
+    <parameterBindings name="Value_01" objectPath="CurrentDate"/>
+    <parameterBindings name="Value_02" objectPath="CatalogDomain"/>
+    <returnValueBindings name="OutDictionary" objectPath="ProductSearchParameters"/>
+  </nodes>
+<!--@Location 8,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet6">
+    <configurationValues name="Name_01" value="LocaleInformation"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+<!--@BendPoints 17,24-->
+    <nodeSuccessors name="next" next="Pipelet4"/>
+    <parameterBindings name="InDictionary" objectPath="ProductSearchParameters"/>
+    <parameterBindings name="Value_01" objectPath="CurrentSession:Locale"/>
+    <returnValueBindings name="OutDictionary" objectPath="ProductSearchParameters"/>
+  </nodes>
+<!--@Location 8,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="Name_01" value="Currency"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery_N1Rf0BvkEeiruZQCqD6C7Q"/>
+    <parameterBindings name="InDictionary" objectPath="ProductSearchParameters"/>
+    <parameterBindings name="Value_01" objectPath="CurrentSession:CurrencyCode"/>
+    <returnValueBindings name="OutDictionary" objectPath="ProductSearchParameters"/>
+  </nodes>
+<!--@Location 8,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery_N1Rf0BvkEeiruZQCqD6C7Q">
+    <configurationValues name="ParameterName_01" value="AdvancedProductSearchParameters"/>
+    <configurationValues name="ParameterName_02" value="CatalogOwningDomain"/>
+    <configurationValues name="ParameterName_03" value="ProductDomain"/>
+    <configurationValues name="ParameterName_04" value="FilterProductAndServiceTypes"/>
+    <configurationValues name="ParameterName_05" value="IncludeCategoriesWithoutProducts"/>
+    <configurationValues name="QueryName" value="sitemap/GetCategoriesForSitemap"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector3"/>
+<!--@BendPoints 19,27-->
+    <nodeSuccessors name="pipelet_error" next="EndNode6"/>
+    <parameterBindings name="ParameterValue_01" objectPath="ProductSearchParameters"/>
+    <parameterBindings name="ParameterValue_02" objectPath="CatalogDomain"/>
+    <parameterBindings name="ParameterValue_03" objectPath="CatalogDomain"/>
+    <parameterBindings name="ParameterValue_04" constant="true"/>
+    <parameterBindings name="ParameterValue_05" objectPath="IncludeCategoriesWithoutProducts"/>
+    <returnValueBindings name="SearchResult" objectPath="Catalogs"/>
+  </nodes>
+<!--@Location 8,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector3">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 17,30-->
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <parameterBindings name="InVector" objectPath="SitemapObjects"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" objectPath="Catalogs"/>
+    <returnValueBindings name="OutVector" objectPath="SitemapObjects"/>
+  </nodes>
+<!--@Location 8,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true">
+    <returnValues name="SitemapObjects" type="java.util.Vector"/>
+  </nodes>
+<!--@Location 9,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" name="ERROR" strict="true">
+    <returnValues name="ErrorCode" type="java.lang.String"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode6" strict="true" name="FindOnlineProducts"
+      callMode="Private">
+    <nodeSuccessors name="next" next="UpdateDictionary1"/>
+    <parameters name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="SitemapObjects" type="java.util.Vector"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary1">
+    <configurationValues name="Name_01" value="Online"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+<!--@BendPoints 13,18-->
+    <nodeSuccessors name="next" next="GetCurrentDate1"/>
+    <parameterBindings name="Value_01" constant="(Integer)1"/>
+    <returnValueBindings name="OutDictionary" objectPath="ProductSearchParameters"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="Pipelet1"/>
+  </nodes>
+<!--@Location 6,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="Name_01" value="CurrentDate"/>
+    <configurationValues name="Name_02" value="ProductDomain"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+<!--@BendPoints 13,22-->
+    <nodeSuccessors name="next" next="Pipelet2"/>
+    <parameterBindings name="InDictionary" objectPath="ProductSearchParameters"/>
+    <parameterBindings name="Value_01" objectPath="CurrentDate"/>
+    <parameterBindings name="Value_02" objectPath="ProductDomain"/>
+    <returnValueBindings name="OutDictionary" objectPath="ProductSearchParameters"/>
+  </nodes>
+<!--@Location 6,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="Name_01" value="LocaleInformation"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+<!--@BendPoints 13,24-->
+    <nodeSuccessors name="next" next="Pipelet3"/>
+    <parameterBindings name="InDictionary" objectPath="ProductSearchParameters"/>
+    <parameterBindings name="Value_01" objectPath="CurrentSession:Locale"/>
+    <returnValueBindings name="OutDictionary" objectPath="ProductSearchParameters"/>
+  </nodes>
+<!--@Location 6,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="Name_01" value="Currency"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+    <parameterBindings name="InDictionary" objectPath="ProductSearchParameters"/>
+    <parameterBindings name="Value_01" objectPath="CurrentSession:CurrencyCode"/>
+    <returnValueBindings name="OutDictionary" objectPath="ProductSearchParameters"/>
+  </nodes>
+<!--@Location 6,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="ParameterName_01" value="AdvancedProductSearchParameters"/>
+    <configurationValues name="ParameterName_02" value="ProductDomain"/>
+    <configurationValues name="QueryName" value="sitemap/GetProductsForSitemap"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 13,28-->
+    <nodeSuccessors name="next" next="AddObjectToVector2"/>
+<!--@BendPoints 15,27 15,30-->
+    <nodeSuccessors name="pipelet_error" next="EndNode7"/>
+    <parameterBindings name="ParameterValue_01" objectPath="ProductSearchParameters"/>
+    <parameterBindings name="ParameterValue_02" objectPath="ProductDomain"/>
+    <returnValueBindings name="SearchResult" objectPath="Products"/>
+  </nodes>
+<!--@Location 6,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector2">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 13,30-->
+    <nodeSuccessors name="next" next="EndNode8"/>
+    <parameterBindings name="InVector" objectPath="SitemapObjects"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" objectPath="Products"/>
+    <returnValueBindings name="OutVector" objectPath="SitemapObjects"/>
+  </nodes>
+<!--@Location 6,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode8" strict="true">
+    <returnValues name="SitemapObjects" type="java.util.Vector"/>
+  </nodes>
+<!--@Location 7,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode7" name="ERROR" strict="true">
+    <returnValues name="ErrorCode" type="java.lang.String"/>
+  </nodes>
+<!--@Location 10,7-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="FindPageletEntryPoints"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetSitemapPageletEntryPointContainers1"/>
+    <parameters name="Syndication" type="com.intershop.component.foundation.capi.syndication.Syndication"/>
+    <parameters name="SitemapObjects" type="java.util.Vector"/>
+  </nodes>
+<!--@Location 10,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetSitemapPageletEntryPointContainers1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetSitemapPageletEntryPointContainers.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector4"/>
+  </nodes>
+<!--@Location 10,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector4">
+    <configurationValues name="Mode" value="Allow Duplicates"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 21,20-->
+    <nodeSuccessors name="next" next="EndNode9"/>
+    <parameterBindings name="InVector" objectPath="SitemapObjects"/>
+    <parameterBindings name="Object" nullBinding="true"/>
+    <parameterBindings name="Objects" objectPath="PageletEntryPointContainers"/>
+    <returnValueBindings name="OutVector" objectPath="SitemapObjects"/>
+  </nodes>
+<!--@Location 10,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode9" strict="true">
+    <returnValues name="SitemapObjects" type="java.util.Vector"/>
+  </nodes>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="Init"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameters name="Syndication" type="com.intershop.component.foundation.capi.syndication.Syndication"/>
+    <parameters name="Objects" type="java.util.Iterator" optional="true"/>
+    <parameters name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration"
+        optional="true"/>
+  </nodes>
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="SetSessionLocale1"/>
+    <startNode referencedName="ProcessProductOutboundSyndication-Init"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetSessionLocale1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetSessionLocale.xml"/>
+    <nodeSuccessors name="next" next="JoinNode8"/>
+<!--@BendPoints 14,5 14,7-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="LocaleID" objectPath="Syndication:LocaleID"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 13,8-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="Objects" type="java.util.Iterator" optional="true"/>
+    <returnValues name="ProcessLogAppender" type="com.intershop.beehive.core.capi.log.ProcessAppender"
+        optional="true"/>
+  </nodes>
+<!--@Location 10,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode5" strict="true" name="Post"
+      callMode="Private">
+<!--@BendPoints 21,2-->
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <parameters name="JobConfiguration" type="com.intershop.beehive.core.capi.job.JobConfiguration"
+        optional="true"/>
+    <parameters name="ProcessLogAppender" type="com.intershop.beehive.core.capi.log.ProcessAppender"
+        optional="true"/>
+    <parameters name="Syndication" type="com.intershop.component.foundation.capi.syndication.Syndication"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <startNode referencedName="ProcessProductOutboundSyndication-Post"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="Syndication:PingSearchEngines"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="PingSearchEngines1"/>
+<!--@BendPoints 22,5 22,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode6"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="PingSearchEngines1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/PingSearchEngines.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+<!--@BendPoints 21,10-->
+    <nodeSuccessors name="next" next="EndNode11"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" strict="true"/>
+<!--@Location 8,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="Process"
+      callMode="Private">
+<!--@BendPoints 17,4-->
+    <nodeSuccessors name="next" next="MarshalObjects1"/>
+    <parameters name="Syndication" type="com.intershop.component.foundation.capi.syndication.Syndication"
+        optional="true"/>
+    <parameters name="Objects" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="MarshalObjects1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/MarshalObjects.xml"/>
+<!--@BendPoints 17,8-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 8,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true"/>
+</pipeline:Pipeline>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="Promotion" type="com.intershop.component.marketing.capi.rebate.Promotion" optional="true"/>
+    <parameter name="Pagelet" type="com.intershop.component.pmc.capi.pagelet.Pagelet" optional="true"/>
+	<parameter name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository" optional="false"/>
+    <parameter name="PageletModelRepository" type="com.intershop.component.pmc.capi.model.PageletModelRepository" optional="false"/>
+	<parameter name="IsPage" type="java.lang.Boolean" optional="true"/>
+    <parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true" description="Search in context of the given locale."/>
+</parameters>
+<return-mappings>
+	<return-mapping name="PageletPromotionAssignment" type="orm" class="com.intershop.component.marketing.internal.promotion.assignment.PageletPromotionAssignmentPO">
+		<return-attribute name="uuid"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+    <processor-preprocessing output="SharingHelper" input="Repository:RepositoryDomain" processing="ContentSharingHelper"/>
+</processor>
+<template type="countedobjects">
+	    SELECT
+	        ppa.UUID AS uuid, COUNT (*) over() AS "rowcount"
+	    FROM
+	        promotion_pa ppa
+        JOIN
+            pagelet pgt ON (ppa.pageletid=pgt.uuid)
+        <template-if condition="isDefined(Locale)">
+	        LEFT OUTER JOIN
+	            pagelet_av pav ON (    pgt.uuid = pav.ownerid
+	                               AND pav.name = &apos;displayName&apos;
+	                               AND pav.localeid = <template-variable value="Locale:LocaleID"/>)
+        </template-if>
+	    WHERE
+	        <template-if condition="SharingHelper:SharingEnabled">
+		        ppa.DOMAINID in 
+		        (
+		          <template-loop alias="DomainUUID" iterator="SharingHelper:DomainUUIDsAsSet"><loop-statement><template-variable value="DomainUUID"/></loop-statement><loop-separator>,</loop-separator>
+		          </template-loop>
+		        )
+            <if-else/>
+                ppa.DOMAINID = <template-variable value="Repository:RepositoryDomain:UUID"/>
+            </template-if>
+            and 
+                resourceSetId IN 
+                (
+                    <template-loop iterator="PageletModelRepository:ResourceSetIds" alias="SetId">
+                        <loop-statement><template-variable value="SetId"/></loop-statement>
+                        <loop-separator>,</loop-separator>
+                    </template-loop>
+                )
+            and
+           <template-if condition="isDefined(IsPage)">
+               pgt.pageflag=<template-if condition="IsPage">1<if-else/>0</template-if>
+           <if-else/>
+               1 = 1
+           </template-if>
+           <template-if condition="isDefined(Promotion)">
+               AND ppa.promotionuuid=<template-variable value="Promotion:UUID"/>
+           </template-if>
+	       <template-if condition="isDefined(Pagelet)">
+	           AND ppa.pageletid=<template-variable value="Pagelet:UUID"/>
+	       </template-if>
+        <template-if condition="isDefined(Locale)">
+        <sql-dialect name="Oracle">
+	        ORDER BY
+	            pav.stringvalue ASC NULLS LAST
+	    </sql-dialect>
+	    <sql-dialect name="Microsoft">
+	    	ORDER BY
+	    		CASE
+	    			WHEN pav.stringvalue is null then 1
+	    			ELSE 0
+	    		END, pav.stringvalue ASC
+	    </sql-dialect>
+        </template-if>
+</template>
+</query>

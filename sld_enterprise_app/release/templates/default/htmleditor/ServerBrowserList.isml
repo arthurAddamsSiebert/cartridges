@@ -1,0 +1,172 @@
+<iscontent charset="UTF-8" type="text/xml" templatemarker="false"/>
+<?is-template class="<%=getClass().getName()%>" credits="Copyright (C) 2008 Intershop Communications AG, all rights reserved."?>
+<%@page import="
+    java.io.PrintWriter,
+    java.util.ArrayList,
+    java.util.Comparator,
+    java.util.Collections,
+    java.util.regex.Pattern,
+
+    javax.naming.Binding,
+    javax.naming.InitialContext,
+    javax.naming.LinkRef,
+    javax.naming.NamingEnumeration,
+    javax.naming.Context,
+    
+    org.slf4j.LoggerFactory,
+    
+    com.intershop.beehive.core.capi.domain.Domain,
+    com.intershop.beehive.core.capi.domain.DomainMgr,
+    com.intershop.beehive.core.capi.localization.LocaleMgr,
+    com.intershop.beehive.core.capi.naming.NamingMgr,
+    com.intershop.beehive.core.capi.paging.PageableIterator,
+    com.intershop.beehive.core.capi.user.User,
+    
+    com.intershop.component.foundation.capi.paging.PageablePositionableIterator,    
+    com.intershop.component.foundation.capi.security.UserAuthorization,
+    com.intershop.component.foundation.capi.security.Authorization
+    "
+%><%!
+    public static class BindingOrder implements Comparator<Binding> {
+        public static final BindingOrder INSTANCE = new BindingOrder();
+        public int compare(final Binding a, final Binding b) {
+            return a.getName().compareTo(b.getName());
+        }
+    }
+    private static String stripSlash(final String name) {    
+        if (name == null || !name.endsWith("/")) {
+            return name;
+        } else {
+            return name.substring(0, name.length() - 1);
+        }
+    }
+    private static final Pattern BUNDLE_PATTERN = Pattern.compile("^isfile://(?:[^/]+/){3}branding[-/].*");
+%><isinclude template="htmleditor/Modules.isml"/>
+<%
+    final DomainMgr domainManager = NamingMgr.getManager(DomainMgr.class);
+    final Domain unitDomain = domainManager.getDomainByUUID(String.valueOf(getObject("OrganizationDomainId")));
+    if (unitDomain != null) {
+        final Domain siteDomain = unitDomain.isMereUnit() ? unitDomain.getSite() : unitDomain;
+        getPipelineDictionary().put("SiteDomain", siteDomain);
+    }
+    final String startURI;
+    try {
+        startURI = String.valueOf(getObject("ContextURI"));
+
+        // List bindings at startURI.
+        final InitialContext initial = new InitialContext();
+        initial.addToEnvironment(Authorization.AUTHORIZATION_ENVIRONMENT_KEY, new UserAuthorization((User)getObject("CurrentUser")));
+        final NamingEnumeration<Binding> result = initial.listBindings(startURI);
+
+        // Since directories and files are intermixed without any order, we have no choice but to separate them
+        // here. While we're at it, we can sort them as well.
+        final ArrayList<Binding> fileList = new ArrayList<Binding>();
+        final ArrayList<Binding> subdirList = null == getObject("PageNumber") ? new ArrayList<Binding>(): null;
+        while (result.hasMore()) {
+            final Binding item = result.next();
+            Object o = item.getObject();
+            if (o instanceof LinkRef) {
+                // Resolve links so that they appear as objects.
+                o = initial.lookupLink(startURI + item.getName());
+                item.setObject(o);
+            } 
+            if (o instanceof Context) {
+                if (subdirList != null) {
+                    subdirList.add(item);
+                }
+            } else {
+                fileList.add(item);
+            }
+        }
+        if (subdirList != null) {
+            Collections.sort(subdirList, BindingOrder.INSTANCE);
+            getPipelineDictionary().put("Subdirs", PageablePositionableIterator.attach(subdirList));
+        } else {
+            getPipelineDictionary().remove("Subdirs");
+        }
+        Collections.sort(fileList, BindingOrder.INSTANCE);
+        PageableIterator pageable = PageablePositionableIterator.attach(fileList);
+        pageable.setPageSize(val((String)getObject("PageSize")).intValue());
+        pageable.setPage(val((String)getObject("PageNumber")).intValue());
+        getPipelineDictionary().put("Files", pageable);
+    } catch (Exception e1) {
+        LoggerFactory.getLogger(getClass()).error("List '" + getObject("ContextURI") + "' failed:", e1);
+        %><error><message><%=e1.getMessage()%></message></error><%
+        return;
+    }
+%>
+<collection id="<isprint value="#ContextURI#"/><isif condition="#isDefined(PageNumber)#"><isprint value="#'#'.PageNumber#"/><isif condition="#isDefined(PageSize)#"><isprint value="#'.'.PageSize#"/></isif></isif>">
+    <uri><isprint value="#URL(Action('ServerBrowser-List'),Parameter('ContextURI',ContextURI))#"></uri>
+    <items>
+        <collection>
+            <!--- Trigger parent detection --->
+            <title>[..]</title>
+        </collection>
+        <isif condition="#hasLoopElements(Subdirs)#">
+            <isloop iterator="Subdirs" alias="Subdir">
+                <%
+                    final String name = (String)getObject("Subdir:Name");
+                    final String folderUri = startURI + name;
+                    if (BUNDLE_PATTERN.matcher(folderUri).matches()) {
+                        continue;
+                    }
+                    getPipelineDictionary().put("SubdirName", stripSlash(name));
+                    getPipelineDictionary().put("SubdirURI", folderUri);
+                %>
+        		<collection id="isfile://<isprint value="#Subdir:Object:SiteName#">/<isprint value="#Subdir:NameInNamespace#">">
+        			<uri><isprint value="#URL(Action('ServerBrowser-List'),Parameter('ContextURI',SubdirURI),Parameter('AsLink',AsLink),Parameter('LocaleId',LocaleId),Parameter('OrganizationDomainId',OrganizationDomainId))#"></uri>
+        			<isif condition="#(SiteDomain:DomainName EQ Subdir:Object:SiteName)#">
+        				<icon>#webroot()#/css/ServerBrowser/ic_folder.gif</icon>
+        				<isif condition="#(isDefined(Subdir:Object:WritePermission)) AND (NOT Subdir:Object:WritePermission)#">
+	        				<readonly>true</readonly>
+        				</isif>
+        			<iselse>
+        				<icon>#webroot()#/css/ServerBrowser/icon_shared_folder.gif</icon>
+        				<readonly>true</readonly>
+        			</isif>
+        			<title><isprint value ="#SubdirName#"></title>
+        			<src><isprint value="#URL(Action('ServerBrowser-List'),Parameter('ContextURI',SubdirURI),Parameter('AsLink',AsLink),Parameter('LocaleId',LocaleId),Parameter('OrganizationDomainId',OrganizationDomainId))#"></src>
+        		</collection>
+            </isloop>
+        </isif>
+        <isif condition="#hasLoopElements(Files)#">
+            <isloop iterator="Files" alias="FileBinding">
+                <isset name="File" value="#FileBinding:Object#" scope="request"/>
+                <%
+                    final String fileUri = String.valueOf(getObject("File:ContextURL"));
+                    if (BUNDLE_PATTERN.matcher(fileUri).matches()) {
+                        continue;
+                    }
+                %>
+                <resource id="<isprint value="#File:ContextURL#"/>">
+                    <title><isprint value="#File:FileName#"/></title>
+                    <description><isprint value="#File:ContentDescriptor#"></description>
+                    <description2>Image</description2>
+                    <size><isprint value="#File:FileSize#"/> (byte)</size>
+                    <height></height>
+                    <width></width>
+        			<isif condition="#NOT (SiteDomain:DomainName EQ File:SiteDomainName)#">
+        				<readonly>true</readonly>
+	                    <icon>#WebRoot()#/images/shared_content.gif</icon>
+        			</isif>
+                    <preview><isprint value="#URL(Action('ServerBrowser-Thumbnail'),Parameter('URI',File:ContextURL))#"></preview>
+                    <isif condition = "#AsLink EQ 'true'#">
+                        <src><isprint value="#contentURL(File:ContentDescriptor, LocaleId)#"/></src>
+                        <encodeduri>https://./?[ismediaobject]isstatic://./?<isprint value="#File:ContentDescriptor#">|<isprint value="#File:StaticURL#"/>[/ismediaobject]</encodeduri>
+                    <iselse>
+                        <uri><isprint value="#contentURL(File:ContentDescriptor, LocaleId)#"/></uri>
+                    </isif>
+                </resource>
+            </isloop>
+        </isif>
+        <ISKupuResourcePaging
+            Pageable="#Files#"
+            ResourceIdPrefix="#CollectionID#"
+            GetterPipeline="ServerBrowser-SearchStaticContent"
+            GetterParam0="Query"
+            GetterValue0="#Query#"
+            GetterParam1="PageSize"
+            GetterValue1="#Files:PageSize#"
+        >
+    </items>
+</collection>

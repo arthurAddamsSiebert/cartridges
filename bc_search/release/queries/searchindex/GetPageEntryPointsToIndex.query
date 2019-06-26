@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="gets page entry points that are configured to be indexed in the search index.">
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false" description="the domain of the objects to be indexed."/>
+	<parameter name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex" optional="false" description="the searchindex currently to be build or updated."/>
+	<parameter name="LastIndexStartTime" type="java.util.Date" optional="true" description="the time the index was last build or updated. If present only the changed objects are indexed (not used here)"/>
+	<parameter name="CurrentDate" type="java.util.Date" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+	<processor-preprocessing output="SharingHelper" input="Domain" processing="ContentSharingHelper"/>
+</processor>
+<template type="countedobjects">
+<template-comment>All configured page entry points that are leafs (no childs) + parents itself</template-comment>
+	<sql-dialect name="Microsoft">
+		WITH abc(uuid)
+		AS
+		(
+			SELECT entrypointid AS uuid FROM pageletentrypointrelation
+			WHERE parententrypointid 
+			  IN 
+			  (
+				SELECT uuid FROM pageletentrypoint p WHERE
+					p.dynamicflag = 0 AND  
+					p.DomainId = <template-variable value="Domain:UUID"/>
+					AND p.id IN 
+						(	
+						<template-if condition="hasLoopElements(SearchIndex:Configuration:PageIDs)">
+							<template-loop iterator="SearchIndex:Configuration:PageIDs" alias="PageID">
+								<loop-statement>
+									<template-variable value="PageID"/>
+								</loop-statement>
+								<loop-separator>,</loop-separator>
+							</template-loop>
+						<if-else/>
+							<template-variable value="SearchIndex:Configuration:PageIDs"/>
+						</template-if>
+						)
+				UNION ALL
+				SELECT uuid FROM pageletentrypoint p WHERE
+					p.dynamicflag = 1 
+					AND p.DomainId IN (<template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain"><loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+									   <loop-separator>,</loop-separator>
+								   </template-loop>)
+					AND p.id IN 
+						(	
+						<template-if condition="hasLoopElements(SearchIndex:Configuration:PageIDs)">
+							<template-loop iterator="SearchIndex:Configuration:PageIDs" alias="PageID">
+								<loop-statement>
+									<template-variable value="PageID"/>
+								</loop-statement>
+								<loop-separator>,</loop-separator>
+							</template-loop>
+						<if-else/>
+							<template-variable value="SearchIndex:Configuration:PageIDs"/>
+						</template-if>
+						)
+			  )
+			UNION ALL 
+			SELECT pep.entrypointid AS uuid FROM pageletentrypointrelation pep
+			INNER JOIN abc a ON  a.uuid = pep.PARENTENTRYPOINTID
+		)
+	</sql-dialect>
+	SELECT distinct uuid, count(uuid) over() as "ROWCOUNT"
+	FROM
+	(
+		SELECT uuid FROM pageletentrypoint p WHERE
+			p.dynamicflag = 0 AND  
+			p.DomainId = <template-variable value="Domain:UUID"/>
+			AND p.id IN 
+				(	
+				<template-if condition="hasLoopElements(SearchIndex:Configuration:PageIDs)">
+					<template-loop iterator="SearchIndex:Configuration:PageIDs" alias="PageID">
+						<loop-statement>
+							<template-variable value="PageID"/>
+						</loop-statement>
+						<loop-separator>,</loop-separator>
+					</template-loop>
+				<if-else/>
+					<template-variable value="SearchIndex:Configuration:PageIDs"/>
+				</template-if>
+				)
+		UNION ALL
+		SELECT uuid FROM pageletentrypoint p WHERE
+			p.dynamicflag = 1 
+			AND p.DomainId IN (<template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain"><loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+							   <loop-separator>,</loop-separator>
+						   </template-loop>)
+			AND p.id IN 
+				(	
+				<template-if condition="hasLoopElements(SearchIndex:Configuration:PageIDs)">
+					<template-loop iterator="SearchIndex:Configuration:PageIDs" alias="PageID">
+						<loop-statement>
+							<template-variable value="PageID"/>
+						</loop-statement>
+						<loop-separator>,</loop-separator>
+					</template-loop>
+				<if-else/>
+					<template-variable value="SearchIndex:Configuration:PageIDs"/>
+				</template-if>
+				)
+		UNION ALL
+		<sql-dialect name="Oracle">
+			<template-comment>plus configured page entry points that have childs</template-comment>
+			SELECT entrypointid AS uuid FROM pageletentrypointrelation
+			START WITH parententrypointid 
+			  IN 
+			  (
+				SELECT uuid FROM pageletentrypoint p WHERE
+					p.dynamicflag = 0 AND  
+					p.DomainId = <template-variable value="Domain:UUID"/>
+					AND p.id IN 
+						(	
+						<template-if condition="hasLoopElements(SearchIndex:Configuration:PageIDs)">
+							<template-loop iterator="SearchIndex:Configuration:PageIDs" alias="PageID">
+								<loop-statement>
+									<template-variable value="PageID"/>
+								</loop-statement>
+								<loop-separator>,</loop-separator>
+							</template-loop>
+						<if-else/>
+							<template-variable value="SearchIndex:Configuration:PageIDs"/>
+						</template-if>
+						)
+				UNION ALL
+				SELECT uuid FROM pageletentrypoint p WHERE
+					p.dynamicflag = 1 
+					AND p.DomainId IN (<template-loop iterator="SharingHelper:DomainsAsSet" alias="Domain"><loop-statement><template-variable value="Domain:UUID"/></loop-statement>
+									   <loop-separator>,</loop-separator>
+								   </template-loop>)
+					AND p.id IN 
+						(	
+						<template-if condition="hasLoopElements(SearchIndex:Configuration:PageIDs)">
+							<template-loop iterator="SearchIndex:Configuration:PageIDs" alias="PageID">
+								<loop-statement>
+									<template-variable value="PageID"/>
+								</loop-statement>
+								<loop-separator>,</loop-separator>
+							</template-loop>
+						<if-else/>
+							<template-variable value="SearchIndex:Configuration:PageIDs"/>
+						</template-if>
+						)
+			  )
+			  CONNECT BY PRIOR entrypointid = parententrypointid  
+		</sql-dialect>
+		<sql-dialect name="Microsoft">
+			<template-comment>plus configured page entry points that have childs</template-comment>
+			SELECT uuid FROM abc
+		</sql-dialect>
+	) a
+</template>
+</query>

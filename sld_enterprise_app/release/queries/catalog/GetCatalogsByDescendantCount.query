@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Returns for given domain catalogs which have descendants less than givne count.">
+<parameters>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false" description="The domain that contains searched catalogs."/>
+	<parameter name="Limit" type="java.lang.Integer" optional="false" description="The maximun allowed number of descendants."/>
+</parameters>
+<return-mappings>
+	<return-mapping name="UUID" type="rename">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects" sqlDialect="Oracle">
+	SELECT uuid, COUNT(*) OVER() AS "ROWCOUNT"
+	FROM catalogcategory cc
+	WHERE 
+		cc.rootcategoryflag=1 AND 
+		domainid IN (SELECT catalogdomainid FROM catalog WHERE domainid=<template-variable value="Domain:DomainID"/>) AND
+		(SELECT COUNT(uuid) FROM catalogcategory
+		START WITH uuid=cc.uuid
+		CONNECT BY PRIOR uuid=parentcategoryid) &gt; <template-variable value="Limit"/>
+</template>
+<template type="countedobjects" sqlDialect="Microsoft">
+	SELECT uuid, COUNT(*) OVER() AS "ROWCOUNT"
+	FROM catalogcategory cc
+	WHERE 
+		cc.rootcategoryflag=1 AND 
+		domainid IN (SELECT catalogdomainid FROM catalog WHERE domainid=<template-variable value="Domain:DomainID"/>) AND
+		dbo.ufn_ReturnCatalogCategoryCount(cc.UUID) &gt; <template-variable value="Limit"/>
+</template>
+</query>

@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>	
+	<parameter name="ClassificationAttributeMap" type="java.util.Map" optional="true"/>
+	<parameter name="ClassificationAttributeDefinedMap" type="java.util.Map" optional="true"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="Currency" type="java.lang.String" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+	<template-if condition="Sharing:Enabled">
+	    <template-call name="product/GetSharedProductsByClassificationSearch">
+	        <call-parameter name="ProductDomain" value="ProductDomain"/>
+	        <call-parameter name="ClassificationAttributeMap" value="ClassificationAttributeMap"/>
+	        <call-parameter name="ClassificationAttributeDefinedMap" value="ClassificationAttributeDefinedMap"/>
+	        <call-parameter name="SortAttribute" value="SortAttribute"/>
+	        <call-parameter name="SortDirection" value="SortDirection"/>
+	        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+	        <call-parameter name="Currency" value="Currency"/>
+	    </template-call>
+	<if-else/>
+	
+	<template-if condition="not isdefined(ClassificationAttributeMap)">
+		SELECT
+	        p.UUID,
+	        p.DOMAINID,
+	        p.SKU,
+	        p.LASTMODIFIED,
+	        <template-if condition="SortAttribute EQ 'value'">
+	        pl.value AS SORTING
+	        <if-else/>
+	        <template-call name="product/inc/ProductSorting">
+	            <call-parameter name="ProductAlias" value="'p'"/>
+	            <call-parameter name="SortAttribute" value="SortAttribute"/>
+	            <call-parameter name="SortAttributeType" value="SortAttributeType"/>
+	            <call-parameter name="SortAttributeLocalizedFlag" value="SortAttributeLocalizedFlag"/>
+	            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+	        </template-call> AS SORTING
+	        </template-if>
+	    FROM 
+	        product p
+	    <template-if condition="SortAttribute EQ 'value'">
+	    LEFT OUTER JOIN (
+	      <template-call name="price/GetListPricesByDomain">
+                <call-parameter name="ProductDomain" value="ProductDomain"/>
+            </template-call>
+	    ) pl ON (pl.productid = p.uuid AND pl.currency=<template-variable value="Currency"/>)
+	    </template-if>
+	    WHERE
+	        p.domainid = <template-variable value="ProductDomain:UUID"/>
+	<if-else/>
+		<template-loop alias="Category" iterator="ClassificationAttributeMap:KeySet">
+		<loop-statement>
+			(SELECT
+		        p.UUID,
+		        p.DOMAINID,
+		        p.SKU,
+		        p.LASTMODIFIED,
+		        <template-if condition="SortAttribute EQ 'value'">
+		        pl.value AS SORTING
+		        <if-else/>
+		        <template-call name="product/inc/ProductSorting">
+		            <call-parameter name="ProductAlias" value="'p'"/>
+		            <call-parameter name="SortAttribute" value="SortAttribute"/>
+		            <call-parameter name="SortAttributeType" value="SortAttributeType"/>
+		            <call-parameter name="SortAttributeLocalizedFlag" value="SortAttributeLocalizedFlag"/>
+		            <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+		        </template-call> AS SORTING
+		        </template-if>
+		  FROM 
+		        product p
+				<template-if condition="Category NE 'None'">
+			        inner join
+			        productcategoryassignment a on (a.productid = p.uuid)
+			    </template-if>
+		    <template-if condition="SortAttribute EQ 'value'">
+		    LEFT OUTER JOIN (
+		        <template-call name="product/price/GetListPricesByDomain">
+		            <call-parameter name="ProductDomain" value="ProductDomain"/>
+		        </template-call>
+		    ) pl ON (pl.productid = p.uuid AND pl.currency=<template-variable value="Currency"/>)
+		    </template-if>
+		 WHERE  p.domainid = <template-variable value="ProductDomain:UUID"/>
+				 <template-loop alias="ClassificationAttribute" iterator="ClassificationAttributeMap:get(Category)">
+			        <loop-statement>
+					<template-if condition="(not isDefined(ClassificationAttributeDefinedMap)) OR (ClassificationAttributeDefinedMap:get(ClassificationAttribute:UUID) EQ 'true')">
+						<sql-dialect name="Oracle">
+							<template-if condition="(isdefined(LocaleInformation) AND ClassificationAttribute:Localized)">
+								AND (contains(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>,  'HASPATH (//attrs/attr[@name="' || <template-variable value="ClassificationAttribute:Name"/> || '"])')>0
+									AND extractvalue(sys.xmltype.createxml(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>), '//attrs/attr[@name="' || <template-variable value="ClassificationAttribute:Name"/> || '"]/*/text()') IS NOT NULL)
+							<if-else/>
+								AND (contains(p.attributes,  'HASPATH (//attrs/attr[@name="' || <template-variable value="ClassificationAttribute:Name"/> || '"])')>0
+									AND extractvalue(sys.xmltype.createxml(p.attributes), '//attrs/attr[@name="' || <template-variable value="ClassificationAttribute:Name"/> || '"]/*/text()') IS NOT NULL)
+							</template-if>
+						</sql-dialect>
+						<sql-dialect name="Microsoft">
+							<template-if condition="(isdefined(LocaleInformation) AND ClassificationAttribute:Localized)">
+								AND (p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>.exist('//attrs/attr[@name="<template-variable value="ClassificationAttribute:Name" processing="text"/>"]'))>0
+							<if-else/>
+								AND (p.attributes.exist('//attrs/attr[@name="<template-variable value="ClassificationAttribute:Name" processing="text"/>"]'))>0
+							</template-if>
+						</sql-dialect>
+					<if-else/>
+						<sql-dialect name="Oracle">
+							<template-if condition="(isdefined(LocaleInformation) AND ClassificationAttribute:Localized)">
+							AND (contains(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>,  'HASPATH (//attrs/attr[@name="' || <template-variable value="ClassificationAttribute:Name" processing="text"/> || '"])')=0
+								AND extractvalue(sys.xmltype.createxml(p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>), '//attrs/attr[@name="' || <template-variable value="ClassificationAttribute:Name"/> || '"]/*/text()') IS NULL)
+							<if-else/>
+							AND (contains(p.attributes,  'HASPATH (//attrs/attr[@name="' || <template-variable value="ClassificationAttribute:Name"/> || '"])')=0
+								AND extractvalue(sys.xmltype.createxml(p.attributes), '//attrs/attr[@name="' || <template-variable value="ClassificationAttribute:Name"/> || '"]/*/text()') IS NULL)
+							</template-if>
+						</sql-dialect>
+						<sql-dialect name="Microsoft">
+							<template-if condition="(isdefined(LocaleInformation) AND ClassificationAttribute:Localized)">
+							AND (p.attributes_<template-variable value="LocaleInformation:LocaleID" processing="text"/>.exist('//attrs/attr[@name="<template-variable value="ClassificationAttribute:Name" processing="text"/>"]'))=0
+							<if-else/>
+							AND (p.attributes.exist('//attrs/attr[@name="<template-variable value="ClassificationAttribute:Name" processing="text"/>/>"]'))=0
+							</template-if>
+						</sql-dialect>
+					</template-if>
+			        </loop-statement>
+		        </template-loop>
+				<template-if condition="Category NE 'None'">
+					AND a.catalogcategoryID = <template-variable value="Category:UUID" />
+				</template-if>
+		    ) <!-- -->
+		</loop-statement>
+		<loop-separator> UNION ALL </loop-separator>
+		</template-loop>		
+	</template-if>
+
+	 </template-if>
+</template>
+</query>

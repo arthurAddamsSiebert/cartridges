@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="EnabledFlag" type="java.lang.Integer" optional="true"/>
+	<parameter name="StartDateFrom" type="java.util.Date" optional="true"/>
+	<parameter name="StartDateTo" type="java.util.Date" optional="true"/>
+	<parameter name="EndDateFrom" type="java.util.Date" optional="true"/>
+	<parameter name="EndDateTo" type="java.util.Date" optional="true"/>
+	<parameter name="PromotionName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="Id" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="Description" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="DiscountType" type="java.lang.Integer" optional="true"/>
+	<parameter name="DiscountCondition" type="java.lang.Integer" optional="true"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true"/>
+	<parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+	<parameter name="ConsumerGroup" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="ConsumerFirstName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="ConsumerLastName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="AffiliatePartnerName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="PromotionCode" type="java.lang.Integer" optional="true"/>
+	<parameter name="PromotionCodeGroup" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="SinglePromotionCode" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="ConditionTypes" type="java.util.Iterator" optional="true"/>
+	<parameter name="ActionTypes" type="java.util.Iterator" optional="true"/>
+	<parameter name="Currency" type="java.lang.Integer" optional="true"/>
+	<parameter name="PriceCurrencyMnemonic" type="java.lang.String" optional="true"/>
+	<parameter name="BudgetSource" type="java.lang.String" optional="true"/>
+	<parameter name="BudgetExceeded" type="java.lang.Integer" optional="true"/>
+	<parameter name="CreatorLogin" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="CreatorFirstName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="CreatorLastName" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+	<parameter name="ProductUUIDIterator" type="java.util.Iterator" optional="true"/>
+	<parameter name="WithoutCampaignAssignment" type="java.lang.Boolean" optional="true"/>
+	<parameter name="WithCampaignAssignment" type="java.lang.Boolean" optional="true"/>
+	<parameter name="CampaignUUID" type="java.lang.String" optional="true"/>
+	<parameter name="Rank" type="java.lang.Integer" optional="true"/>
+	<parameter name="RankOperator" type="java.lang.String" optional="true"/>
+	<parameter name="WordSearchMode" type="java.lang.String" optional="true"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Promotion" type="orm" class="com.intershop.component.marketing.internal.rebate.PromotionPO">
+		<return-attribute name="PROMOTIONUUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	<template-if condition="SortBy EQ &apos;Published&apos;">
+		<!-- In sorting by 'Published' column take part two fields REPLICATIONTARGETID and LASTREPLICATIONTIME from promotion_rt.
+			 However, they must not be part of the result set because can produce some promotions to appeare more than one time. 
+			 DISTINCT cannot overcome this problem. Also it is not possible to use DISTINCT and sort by column NOT in result set.
+			 To implement this 
+			 1. DISTINCT is removed from SELECT clasue;
+			 2. GROUP BY clause is added;
+			 2. MIN and MAX functions are used over REPLICATIONTARGETID and LASTREPLICATIONTIME in ORDER BY clause. 
+		-->
+		<sql-dialect name="Microsoft">
+			SELECT TOP 2147483647 p.uuid as PROMOTIONUUID, COUNT(p.uuid) over() AS "ROWCOUNT"
+		</sql-dialect>
+		<sql-dialect name="Oracle">
+		SELECT p.uuid as PROMOTIONUUID, COUNT(p.uuid) over() AS "ROWCOUNT"
+		</sql-dialect>
+		
+		
+	<if-else/>
+		<sql-dialect name="Microsoft">
+			SELECT TOP 2147483647 p.uuid as PROMOTIONUUID, COUNT(p.uuid) over() AS "ROWCOUNT"
+		</sql-dialect>
+		<sql-dialect name="Oracle">
+		SELECT p.uuid as PROMOTIONUUID, COUNT(p.uuid) over() AS "ROWCOUNT"
+		</sql-dialect>
+		
+		<template-if condition="NOT isDefined(SortBy) OR SortBy EQ &apos;PromotionName&apos;">
+			,pav1.stringvalue 
+		</template-if>	
+		<template-if condition="SortBy EQ &apos;StartDate&apos;">
+			,p.StartDate 
+		</template-if>
+		<template-if condition="SortBy EQ &apos;EndDate&apos;">
+			,p.EndDate 
+		</template-if>
+		<template-if condition="SortBy EQ &apos;Status&apos;">
+			,p.EnabledFlag 
+		</template-if>
+		<template-if condition="SortBy EQ &apos;Type&apos;">
+			,(SELECT ract.actiondescriptorid
+			  FROM rebate reb
+			  LEFT OUTER JOIN rebateaction ract ON (ract.rebateid = reb.uuid)
+			  WHERE reb.promotionuuid = p.uuid AND reb.position = 0
+			 )
+		</template-if>
+		<template-if condition="SortBy EQ &apos;Rank&apos;">
+			,p.rank
+		</template-if> 
+		<template-if condition="SortBy EQ &apos;Edited&apos;">
+			,case when pav3.datevalue is null then p.lastmodified else pav3.datevalue end
+		</template-if> 
+		 as SORTING
+	</template-if>
+	    FROM promotion p 
+	    <template-if condition="isDefined(Description)">INNER JOIN promotion_av pav2  ON (pav2.ownerid = p.uuid)</template-if>
+	    <template-if condition="SortBy EQ &apos;Edited&apos;">
+		    LEFT OUTER JOIN promotion_av pav3  ON (pav3.ownerid = p.uuid and pav3.name=&apos;EditedDate&apos;)
+		    </template-if>
+	    <template-if condition="SortBy EQ &apos;Published&apos;">
+		    LEFT OUTER JOIN promotion_rt prt ON (prt.rt_uuid = p.uuid)
+		</template-if>
+	    LEFT OUTER JOIN promotion_av pav1 ON (pav1.ownerid = p.uuid
+	and pav1.name = &apos;displayName&apos; and pav1.localeid =  <template-variable value="Locale:LocaleID"/>)
+	    WHERE    
+	        p.domainid=<template-variable value="Domain:UUID"/>
+	    <template-if condition="isDefined(Description)">
+		    AND pav2.name=&apos;description&apos;
+		    AND <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="Description"/><call-parameter name="ColumnNames" value="&apos;pav2.stringvalue&apos;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/><call-parameter name="WordSearchMode" value="WordSearchMode"/></template-call>
+		</template-if>
+		<template-if condition="isDefined(PromotionName)">
+			AND <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="PromotionName"/><call-parameter name="ColumnNames" value="&apos;pav1.stringvalue&apos;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/><call-parameter name="WordSearchMode" value="WordSearchMode"/></template-call>
+		</template-if>
+	    <template-if condition="isDefined(Id)">
+		        AND <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="Id"/><call-parameter name="ColumnNames" value="&apos;p.id&apos;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/><call-parameter name="WordSearchMode" value="WordSearchMode"/></template-call>
+		</template-if>
+	    <template-if condition="isDefined(ConsumerGroup)">
+		AND p.uuid in ( 
+		select p.uuid 
+		from Promotion p, usergroupassignment uga, usergroupinformation ui, usergroupinformation_av ui_av
+		where p.targetgroupid = uga.parentusergroupid
+		and p.targetgroupdomainid= uga.parentusergroupdomainid
+		and ui.usergroupid = uga.childusergroupid
+		and ui.uuid = ui_av.ownerid
+		and ui_av.name=&apos;name&apos;
+		and <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="ConsumerGroup"/><call-parameter name="ColumnNames" value="&apos;ui_av.stringvalue&apos;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/><call-parameter name="WordSearchMode" value="WordSearchMode"/></template-call>) 
+	</template-if>
+	    <template-if condition="isDefined(ConsumerFirstName)">
+		   AND p.uuid in ( select p.uuid from Promotion p, BasicProfile bp,usergroupuserassignment uua
+		where p.targetgroupid = uua.usergroupid
+		and uua.userid = bp.uuid
+		and (bp.typeCode = 0 OR bp.typeCode IS NULL)
+		and p.targetgroupdomainid = uua.usergroupdomainid
+		and <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="ConsumerFirstName"/><call-parameter name="ColumnNames" value="&apos;bp.firstname&apos;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/><call-parameter name="WordSearchMode" value="WordSearchMode"/></template-call>) 
+	</template-if>
+	<template-if condition="isDefined(ConsumerLastName)">
+		   AND p.uuid in ( select p.uuid from promotion p, basicProfile bp,usergroupuserassignment uua
+		where p.targetgroupid = uua.usergroupid
+		and uua.userid = bp.uuid
+		and (bp.typeCode = 0 OR bp.typeCode IS NULL)	
+		and p.targetgroupdomainid = uua.usergroupdomainid
+		and <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="ConsumerLastName"/><call-parameter name="ColumnNames" value="&apos;bp.lastname&apos;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/><call-parameter name="WordSearchMode" value="WordSearchMode"/></template-call>) 
+	</template-if>
+	<template-if condition="isDefined(AffiliatePartnerName)">
+		   AND p.uuid in ( select p.uuid from promotion p, affiliatepartner ap, affiliatepartner_av ap_av,usergroupassignment uga
+		where p.targetgroupid = uga.parentusergroupid
+		and uga.childusergroupid = ap.PARTNERUSERGROUPID
+		and ap.uuid = ap_av.ownerid
+		and ap_av.name=&apos;displayName&apos;
+		and <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="AffiliatePartnerName"/><call-parameter name="ColumnNames" value="&apos;ap_av.stringvalue&apos;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/><call-parameter name="WordSearchMode" value="WordSearchMode"/></template-call>) 
+	</template-if>
+	<template-if condition="isDefined(CreatorLogin)">
+		   	AND p.creatorid IN ( SELECT p.creatorid FROM PROMOTION p, BASICPROFILE bp
+		WHERE p.creatorid = bp.uuid 
+		AND (bp.typeCode = 0 OR bp.typeCode IS NULL) 
+		AND p.creatorid IN (SELECT bc.basicprofileid FROM BASICCREDENTIALS bc WHERE 
+		<template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="CreatorLogin"/><call-parameter name="WordSearchMode" value="WordSearchMode"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="ColumnNames" value="&apos;bc.login&apos;"/></template-call>)) 
+	</template-if>
+	<template-if condition="isDefined(CreatorFirstName)">
+		   	AND p.creatorid IN ( SELECT p.creatorid FROM PROMOTION p, BASICPROFILE bp
+		WHERE p.creatorid = bp.uuid 
+		AND (bp.typeCode = 0 OR bp.typeCode IS NULL) 
+		and (
+		<template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="CreatorFirstName"/><call-parameter name="WordSearchMode" value="WordSearchMode"/><call-parameter name="ColumnNames" value="&apos;bp.firstname&apos;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/></template-call>			
+		))
+	</template-if>
+	<template-if condition="isDefined(CreatorLastName)">
+		   	AND p.creatorid IN ( SELECT p.creatorid FROM PROMOTION p, BASICPROFILE bp
+		WHERE p.creatorid = bp.uuid 
+		AND (bp.typeCode = 0 OR bp.typeCode IS NULL) 
+		and (<template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="CreatorLastName"/><call-parameter name="WordSearchMode" value="WordSearchMode"/><call-parameter name="ColumnNames" value="&apos;bp.lastname&apos;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/></template-call>)) 
+	</template-if>
+	 <template-if condition="isDefined(ProductUUIDIterator) AND hasElements(ProductUUIDIterator)">
+		        AND p.uuid IN
+		        (
+		            SELECT DISTINCT (p.uuid) FROM PROMOTION p,REBATE r,REBATEFILTERGROUPASSIGNMENT rfga,REBATEFILTEROBJECTASSIGNMENT rfoa WHERE
+		p.uuid = r.promotionuuid
+		AND r.uuid = rfga.REBATEID
+		AND rfga.REBATEFILTERGROUPID = rfoa.REBATEFILTERGROUPID
+		AND  rfoa.OBJECTID IN
+		            (
+		                <template-loop iterator="ProductUUIDIterator" alias="ProductUUID"><loop-statement>
+				                         <template-variable value="ProductUUID"/>
+				                    </loop-statement>
+			<loop-separator> , </loop-separator>
+		</template-loop> 
+		            )
+		        )
+		    </template-if>
+	<template-if condition="isDefined(DiscountType)">
+		  AND p.TypeCode = <template-variable value="DiscountType"/>
+	</template-if>
+	<template-if condition="isDefined(EnabledFlag)">
+		  AND p.EnabledFlag = <template-variable value="EnabledFlag"/>
+	</template-if>
+    <template-if condition="isDefined(DiscountCondition)">
+		  AND p.uuid in (select r.PROMOTIONUUID from Rebate r where r.typecode=<template-variable value="DiscountCondition"/>)
+	</template-if>
+	<template-if condition="isDefined(StartDateFrom)">
+		  AND p.StartDate &gt;= <template-variable value="StartDateFrom"/>
+	</template-if>
+	<template-if condition="isDefined(StartDateTo)">
+		  AND p.StartDate &lt; <template-variable value="StartDateTo"/>
+	</template-if>
+	<template-if condition="isDefined(EndDateFrom)">
+		  AND p.EndDate &gt;= <template-variable value="EndDateFrom"/>
+	</template-if>
+	<template-if condition="isDefined(EndDateTo)">
+		  AND p.EndDate &lt; <template-variable value="EndDateTo"/>
+	</template-if>
+	<template-if condition="isDefined(Rank) and isDefined(RankOperator)">
+		  AND p.rank <template-variable value="RankOperator" processing="text"/> <template-variable value="Rank"/>
+	</template-if>
+	    <template-if condition="isDefined(PromotionCode)">
+		        <template-if condition="PromotionCode EQ &apos;0&apos;">
+			            AND p.CouponCodeRequiredFlag = 1 AND p.UseSingleCodeFlag = 0
+			            <template-if condition="isDefined(PromotionCodeGroup)">
+				                AND EXISTS
+				                (
+				                    SELECT 1
+				                    FROM promocodegrouppromoassignment pcg_pa
+				                    INNER JOIN promotioncodegroup pcg ON (pcg_pa.promocodegroupuuid = pcg.uuid)
+				                    LEFT OUTER JOIN promotioncodegroup_av pcg_av ON
+				                    (
+				                            pcg_av.ownerid = pcg.uuid
+				                        AND pcg_av.name = &apos;name&apos;
+				                        AND pcg_av.localeid = <template-variable value="Locale:LocaleID"/>
+				                    )
+				                    WHERE pcg_pa.promotionuuid = p.uuid
+				                      AND <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="PromotionCodeGroup"/><call-parameter name="ColumnNames" value="&apos;pcg_av.stringvalue&apos;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/><call-parameter name="WordSearchMode" value="WordSearchMode"/></template-call>
+				                )
+				            <if-else/>
+				                AND NOT EXISTS
+				            (
+				               SELECT 1
+				               FROM promocodegrouppromoassignment pcg_pa
+				               WHERE pcg_pa.promotionuuid = p.uuid
+				                )
+				            </template-if>
+			        <if-elseif condition="PromotionCode EQ &apos;1&apos;"/>
+			            AND p.CouponCodeRequiredFlag = 1 AND p.UseSingleCodeFlag = 1
+			            <template-if condition="isDefined(SinglePromotionCode)">
+				                AND <template-call name="inc/SearchExpression2Like"><call-parameter name="SearchExpression" value="SinglePromotionCode"/><call-parameter name="ColumnNames" value="&apos;p.SingleCode&apos;"/><call-parameter name="CaseInsensitive" value="true()"/><call-parameter name="FuzzyPhraseMode" value="FuzzyPhraseMode"/><call-parameter name="WordSearchMode" value="WordSearchMode"/></template-call>
+				            <if-else/>
+				                AND p.SingleCode IS NULL
+				            </template-if>
+			        <if-elseif condition="PromotionCode EQ &apos;2&apos;"/>
+			            AND
+			            (
+			                   p.CouponCodeRequiredFlag = 0
+			                OR (p.UseSingleCodeFlag = 1 AND p.SingleCode IS NULL)
+			                OR
+			                (
+			                        p.UseSingleCodeFlag = 0
+			                    AND NOT EXISTS
+			                    (
+			                        SELECT 1
+			                        FROM promocodegrouppromoassignment pcg_pa
+			                        WHERE pcg_pa.promotionuuid = p.uuid
+			                    )
+			                )
+			            )
+			        </template-if>
+		    </template-if>
+	    <template-if condition="isDefined(ConditionTypes) AND hasElements(ConditionTypes)">
+		        AND p.uuid IN
+		        (
+		            SELECT r.promotionuuid
+		            FROM rebate r
+		            LEFT OUTER JOIN rebatecondition rc ON (rc.rebateid = r.uuid)
+		            WHERE
+		            (
+		                <template-loop iterator="ConditionTypes" alias="ConditionType"><loop-statement>
+				                        rc.conditiondescriptorid = <template-variable value="ConditionType"/>
+				                    </loop-statement>
+			<loop-separator> OR </loop-separator>
+		</template-loop> 
+		            )
+		        )
+		    </template-if>
+	    <template-if condition="isDefined(ActionTypes) AND hasElements(ActionTypes)">
+		        AND p.uuid IN
+		        (
+		            SELECT r.promotionuuid
+		            FROM rebate r
+		            LEFT OUTER JOIN rebateaction ra ON (ra.rebateid = r.uuid)
+		            WHERE
+		            (
+		                <template-loop iterator="ActionTypes" alias="ActionType"><loop-statement>
+				                        ra.actiondescriptorid = <template-variable value="ActionType"/>
+				                    </loop-statement>
+			<loop-separator> OR </loop-separator>
+		</template-loop> 
+		            )
+		        )
+		    </template-if>
+	    <template-if condition="isDefined(Currency)">
+		    <template-if condition="Currency EQ &apos;0&apos;">
+			        AND p.CurrencyCode IS NULL
+			    <if-elseif condition="Currency EQ &apos;1&apos;"/>
+			        <template-if condition="isDefined(PriceCurrencyMnemonic) AND (PriceCurrencyMnemonic NE &apos;&apos;)">
+				            AND p.CurrencyCode = <template-variable value="PriceCurrencyMnemonic"/>
+				        <if-else/>
+				            AND p.CurrencyCode IS NOT NULL
+				        </template-if>
+			    </template-if>
+		    </template-if>
+	    <template-if condition="isDefined(BudgetSource) AND BudgetSource NE &apos;&apos;">
+		        AND p.BudgetId IN
+		        (
+		            SELECT b.uuid
+		            FROM budget b
+		            INNER JOIN budget_av bav ON
+		            (
+		                    bav.ownerid = b.uuid
+		                AND bav.name = &apos;BudgetSource&apos;
+		                AND bav.localeid = <template-variable value="Locale:LocaleID"/>
+		            )
+		            WHERE bav.stringvalue = <template-variable value="BudgetSource"/>
+		        )
+		    </template-if>
+	    <template-if condition="isDefined(WithoutCampaignAssignment) AND WithoutCampaignAssignment">
+		          AND NOT EXISTS 
+		          (
+		SELECT 1 
+		FROM campaign c 
+		WHERE c.uuid = p.campaignid 
+		          )
+		    <if-else/>
+		<template-if condition="isDefined(WithCampaignAssignment) AND WithCampaignAssignment">
+			AND EXISTS 
+			(
+			SELECT 1 
+			FROM campaign c 
+			WHERE c.uuid = p.campaignid 
+			)
+		</template-if>
+		<template-if condition="isDefined(CampaignUUID) AND CampaignUUID NE &apos;&apos;">
+			AND p.campaignid = <template-variable value="CampaignUUID"/> 
+		</template-if>		
+		    </template-if>
+	    <template-if condition="(SortBy EQ &apos;Type&apos;) OR (SortBy EQ &apos;Published&apos;)">
+		     GROUP BY p.uuid
+		</template-if>
+		<template-if condition="SortBy EQ &apos;Published&apos;">
+			ORDER BY	
+					<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;"> 
+						<sql-dialect name="Oracle">MIN(prt.replicationtargetid) DESC NULLS LAST</sql-dialect>
+						<sql-dialect name="Microsoft">
+							CASE '<template-if condition="isDefined(SortBy)"><template-variable value="SortBy" processing="text"/></template-if>'
+								WHEN 'PromotionName' THEN CASE WHEN pav1.stringvalue IS NULL THEN 1 ELSE 0 END
+								WHEN 'StartDate' THEN CASE WHEN p.StartDate  IS NULL THEN 1 ELSE 0 END
+								WHEN 'EndDate' THEN CASE WHEN p.EndDate IS NULL THEN 1 ELSE 0 END
+								WHEN 'Status' THEN CASE WHEN p.EnabledFlag IS NULL THEN 1 ELSE 0 END
+								WHEN 'Type' THEN CASE WHEN (SELECT ract.actiondescriptorid
+															  FROM rebate reb
+															  LEFT OUTER JOIN rebateaction ract ON (ract.rebateid = reb.uuid)
+															  WHERE reb.promotionuuid = p.uuid AND reb.position = 0
+															 ) IS NULL THEN 1 ELSE 0 END
+								WHEN 'Rank' THEN CASE WHEN p.rank IS NULL THEN 1 ELSE 0 END
+								<template-if condition="SortBy EQ &apos;Edited&apos;">WHEN 'Edited' THEN CASE WHEN pav3.datevalue IS NULL THEN 1 ELSE 0 END</template-if>
+								ELSE CASE WHEN pav1.stringvalue IS NULL THEN 1 ELSE 0 END
+							END, MIN(prt.replicationtargetid) DESC
+						</sql-dialect>
+					<if-else/>
+						<sql-dialect name="Oracle">MIN(prt.replicationtargetid) ASC NULLS FIRST</sql-dialect>
+						<sql-dialect name="Microsoft">
+							CASE '<template-if condition="isDefined(SortBy)"><template-variable value="SortBy" processing="text"/></template-if>'
+								WHEN 'PromotionName' THEN CASE WHEN pav1.stringvalue IS NULL THEN 0 ELSE 1 END
+								WHEN 'StartDate' THEN CASE WHEN p.StartDate  IS NULL THEN 0 ELSE 1 END
+								WHEN 'EndDate' THEN CASE WHEN p.EndDate IS NULL THEN 0 ELSE 1 END
+								WHEN 'Status' THEN CASE WHEN p.EnabledFlag IS NULL THEN 0 ELSE 1 END
+								WHEN 'Type' THEN CASE WHEN (SELECT ract.actiondescriptorid
+															  FROM rebate reb
+															  LEFT OUTER JOIN rebateaction ract ON (ract.rebateid = reb.uuid)
+															  WHERE reb.promotionuuid = p.uuid AND reb.position = 0
+															 ) IS NULL THEN 0 ELSE 1 END
+								WHEN 'Rank' THEN CASE WHEN p.rank IS NULL THEN 0 ELSE 1 END
+								<template-if condition="SortBy EQ &apos;Edited&apos;">WHEN 'Edited' THEN CASE WHEN pav3.datevalue IS NULL THEN 0 ELSE 1 END</template-if>
+								ELSE CASE WHEN pav1.stringvalue IS NULL THEN 0 ELSE 1 END
+							END, MIN(prt.replicationtargetid) ASC
+						</sql-dialect>
+					</template-if>, 				
+					<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;"> 
+						<sql-dialect name="Oracle">MAX(prt.LASTREPLICATIONTIME) DESC NULLS LAST</sql-dialect>
+						<sql-dialect name="Microsoft">
+							CASE '<template-if condition="isDefined(SortBy)"><template-variable value="SortBy" processing="text"/></template-if>'
+								WHEN 'PromotionName' THEN CASE WHEN pav1.stringvalue IS NULL THEN 1 ELSE 0 END
+								WHEN 'StartDate' THEN CASE WHEN p.StartDate  IS NULL THEN 1 ELSE 0 END
+								WHEN 'EndDate' THEN CASE WHEN p.EndDate IS NULL THEN 1 ELSE 0 END
+								WHEN 'Status' THEN CASE WHEN p.EnabledFlag IS NULL THEN 1 ELSE 0 END
+								WHEN 'Type' THEN CASE WHEN (SELECT ract.actiondescriptorid
+															  FROM rebate reb
+															  LEFT OUTER JOIN rebateaction ract ON (ract.rebateid = reb.uuid)
+															  WHERE reb.promotionuuid = p.uuid AND reb.position = 0
+															 ) IS NULL THEN 1 ELSE 0 END
+								WHEN 'Rank' THEN CASE WHEN p.rank IS NULL THEN 1 ELSE 0 END
+								<template-if condition="SortBy EQ &apos;Edited&apos;">WHEN 'Edited' THEN CASE WHEN pav3.datevalue IS NULL THEN 1 ELSE 0 END</template-if>
+								ELSE CASE WHEN pav1.stringvalue IS NULL THEN 1 ELSE 0 END
+							END, MAX(prt.LASTREPLICATIONTIME) DESC
+						</sql-dialect>
+					<if-else/>
+						<sql-dialect name="Oracle">MAX(prt.LASTREPLICATIONTIME) ASC NULLS FIRST</sql-dialect>
+						<sql-dialect name="Microsoft">
+							CASE '<template-if condition="isDefined(SortBy)"><template-variable value="SortBy" processing="text"/></template-if>'
+								WHEN 'PromotionName' THEN CASE WHEN pav1.stringvalue IS NULL THEN 0 ELSE 1 END
+								WHEN 'StartDate' THEN CASE WHEN p.StartDate  IS NULL THEN 0 ELSE 1 END
+								WHEN 'EndDate' THEN CASE WHEN p.EndDate IS NULL THEN 0 ELSE 1 END
+								WHEN 'Status' THEN CASE WHEN p.EnabledFlag IS NULL THEN 0 ELSE 1 END
+								WHEN 'Type' THEN CASE WHEN (SELECT ract.actiondescriptorid
+															  FROM rebate reb
+															  LEFT OUTER JOIN rebateaction ract ON (ract.rebateid = reb.uuid)
+															  WHERE reb.promotionuuid = p.uuid AND reb.position = 0
+															 ) IS NULL THEN 0 ELSE 1 END
+								WHEN 'Rank' THEN CASE WHEN p.rank IS NULL THEN 0 ELSE 1 END
+								<template-if condition="SortBy EQ &apos;Edited&apos;">WHEN 'Edited' THEN CASE WHEN pav3.datevalue IS NULL THEN 0 ELSE 1 END</template-if>
+								ELSE CASE WHEN pav1.stringvalue IS NULL THEN 0 ELSE 1 END
+							END, MAX(prt.LASTREPLICATIONTIME) ASC
+						</sql-dialect>
+					</template-if>				
+		<if-else/>
+			ORDER BY  
+				<template-if condition="isDefined(SortDirection) AND SortDirection EQ &apos;descending&apos;"> 
+						<sql-dialect name="Oracle">SORTING DESC NULLS LAST</sql-dialect>
+						<sql-dialect name="Microsoft">
+							CASE '<template-if condition="isDefined(SortBy)"><template-variable value="SortBy" processing="text"/></template-if>'
+								WHEN 'PromotionName' THEN CASE WHEN pav1.stringvalue IS NULL THEN 1 ELSE 0 END
+								WHEN 'StartDate' THEN CASE WHEN p.StartDate  IS NULL THEN 1 ELSE 0 END
+								WHEN 'EndDate' THEN CASE WHEN p.EndDate IS NULL THEN 1 ELSE 0 END
+								WHEN 'Status' THEN CASE WHEN p.EnabledFlag IS NULL THEN 1 ELSE 0 END
+								WHEN 'Type' THEN CASE WHEN (SELECT ract.actiondescriptorid
+															  FROM rebate reb
+															  LEFT OUTER JOIN rebateaction ract ON (ract.rebateid = reb.uuid)
+															  WHERE reb.promotionuuid = p.uuid AND reb.position = 0
+															 ) IS NULL THEN 1 ELSE 0 END
+								WHEN 'Rank' THEN CASE WHEN p.rank IS NULL THEN 1 ELSE 0 END
+								<template-if condition="SortBy EQ &apos;Edited&apos;">WHEN 'Edited' THEN CASE WHEN pav3.datevalue IS NULL THEN 1 ELSE 0 END</template-if>
+								ELSE CASE WHEN pav1.stringvalue IS NULL THEN 1 ELSE 0 END
+							END, SORTING DESC
+						</sql-dialect>
+					<if-else/>
+						<sql-dialect name="Oracle">SORTING ASC NULLS FIRST</sql-dialect>
+						<sql-dialect name="Microsoft">
+							CASE '<template-if condition="isDefined(SortBy)"><template-variable value="SortBy" processing="text"/></template-if>'
+								WHEN 'PromotionName' THEN CASE WHEN pav1.stringvalue IS NULL THEN 0 ELSE 1 END
+								WHEN 'StartDate' THEN CASE WHEN p.StartDate  IS NULL THEN 0 ELSE 1 END
+								WHEN 'EndDate' THEN CASE WHEN p.EndDate IS NULL THEN 0 ELSE 1 END
+								WHEN 'Status' THEN CASE WHEN p.EnabledFlag IS NULL THEN 0 ELSE 1 END
+								WHEN 'Type' THEN CASE WHEN (SELECT ract.actiondescriptorid
+															  FROM rebate reb
+															  LEFT OUTER JOIN rebateaction ract ON (ract.rebateid = reb.uuid)
+															  WHERE reb.promotionuuid = p.uuid AND reb.position = 0
+															 ) IS NULL THEN 0 ELSE 1 END
+								WHEN 'Rank' THEN CASE WHEN p.rank IS NULL THEN 0 ELSE 1 END
+								<template-if condition="SortBy EQ &apos;Edited&apos;">WHEN 'Edited' THEN CASE WHEN pav3.datevalue IS NULL THEN 0 ELSE 1 END</template-if>
+								ELSE CASE WHEN pav1.stringvalue IS NULL THEN 0 ELSE 1 END
+							END, SORTING ASC
+						</sql-dialect>
+				</template-if>
+		</template-if>
+</template>
+</query>

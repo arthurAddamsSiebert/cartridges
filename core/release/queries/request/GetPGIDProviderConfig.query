@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="If a Site needs a dynamic PGID calculation (e.g. due to active ABTests), this Query returns the Domainname (should be a Site) and its Pipeline to calculate the dynamic PGID.
+If a domain, that requires a dynamic PGID, has no PGID-Pipeline defined, null is returned for attribute 'pgidPipeline'.">
+<parameters>
+    <parameter name="currentTime" type="java.sql.Timestamp" optional="false" description="This represents the current time."/>
+    <parameter name="timeToCheck" type="java.sql.Timestamp" optional="false" description="This represents the current time + the webadapter poll interval (cs.poll.interval) used for the lookahead."/>
+</parameters>
+<return-mappings>
+    <return-mapping name="domainname" type="rename">
+        <return-attribute name="domainname"/>
+    </return-mapping>
+    <return-mapping name="pgidPipeline" type="rename">
+        <return-attribute name="pgidPipeline"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="objects" description="retrieves configurations of the personalization group ID provider for existing sites">
+    SELECT
+        di.domainname as domainname, 
+        dav.stringvalue as pgidPipeline
+    FROM 
+    (
+        SELECT  distinct domainid
+            FROM    dynamicpgid pgid
+            WHERE
+                <!-- Lookahead for when content gets activated in the meantime till the next poll. -->
+                <template-variable value="timeToCheck"/> &gt;= pgid.startdate
+              AND
+                <!-- No lookahead, because the dynamicPGID has to be active until the content is really deactivated. -->
+                <template-variable value="currentTime"/> &lt;  pgid.enddate
+    )   dra
+    <!-- Even if there is no PGIDPipeline defined, return null for this domain to provide further error handling. -->
+    LEFT OUTER JOIN 
+        domain_av dav ON 
+        (
+            dra.domainid = dav.ownerid 
+          AND 
+            dav.name = &apos;PGIDPipeline&apos;
+        )
+    <!-- Only keep domains, which are not system domains (root site). Others than Sites can not be in there per definition. -->
+    JOIN 
+        Domain d1 ON 
+        (
+            dra.domainid = d1.uuid 
+          AND 
+            d1.status &lt;&gt; 4
+        )
+    <!-- get the names -->
+    LEFT OUTER JOIN 
+        domaininformation di ON 
+        (
+            dra.domainid = di.domainid
+        )
+</template>
+</query>

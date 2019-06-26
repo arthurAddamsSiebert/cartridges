@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="false"/>
+    <parameter name="Online" type="java.lang.Integer" optional="true"/>
+    <parameter name="CatalogCategory" type="com.intershop.beehive.xcs.capi.catalog.CatalogCategory" optional="false"/>
+    <parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+    <parameter name="SortDirection" type="java.lang.String" optional="true"/>
+    <parameter name="SortAttributeType" type="java.lang.String" optional="true"/>
+    <parameter name="Currency" type="java.lang.String" optional="true"/>
+    <parameter name="Filters" type="java.util.Iterator" optional="true"/>
+    <parameter name="NameOrID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="Product" type="provider" class="ProductViewProvider">
+        <return-attribute name="UUID"/>
+        <return-attribute name="DOMAINID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL"/>
+<template type="countedobjects">
+	<sql-dialect name="Microsoft">
+		WITH CTE(catalogcategoryid,PARENTCATEGORYID) AS 
+		(
+		SELECT cc1.uuid,cc1.PARENTCATEGORYID       FROM catalogcategory cc1 INNER JOIN catalogcategory cc ON  cc1.uuid = cc.uuid
+		UNION ALL 
+		SELECT cc1.uuid,cc1.PARENTCATEGORYID     FROM catalogcategory cc1 INNER JOIN CTE cc ON  cc1.uuid = cc.PARENTCATEGORYID
+
+		)
+		SELECT * FROM (
+	</sql-dialect>
+    SELECT
+        p.uuid AS UUID, 
+        <template-variable value="ProductDomain:UUID"/> as DOMAINID, 
+        count(*) over() as "ROWCOUNT",
+        pca.position,
+    <template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'value')">
+        plp.value AS SORTING
+    <if-else/>
+        p.sorting AS SORTING
+    </template-if>
+    FROM 
+    (
+    <template-call name="product/GetProductsByAdvancedSearch">
+        <call-parameter name="ProductDomain" value="ProductDomain"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+        <call-parameter name="NameOrID"  value="NameOrID"/>
+        <call-parameter name="Online" value="Online"/>
+        <call-parameter name="SortAttribute" value="SortAttribute"/>
+        <call-parameter name="SortAttributeType" value="SortAttributeType"/>
+        <call-parameter name="Filters" value="Filters"/>
+    </template-call>
+    ) p
+	<sql-dialect name="Microsoft">
+		INNER JOIN productcategoryassignment pca ON  pca.productid = p.uuid
+		INNER JOIN CTE CT ON CT.catalogcategoryid=pca.catalogcategoryid
+	</sql-dialect>
+	 	<sql-dialect name="Oracle">
+		, productcategoryassignment pca, catalogcategory cc
+		</sql-dialect>
+    
+  <template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'value')">
+         RIGHT OUTER JOIN 
+        (
+            <template-call name="price/GetListPricesByDomain">
+                <call-parameter name="ProductDomain" value="ProductDomain"/>
+            </template-call>
+        ) plp  ON   plp.productid = p.uuid
+    </template-if>
+    WHERE 
+	<sql-dialect name="Oracle">
+			
+			pca.catalogcategoryid IN (
+				 SELECT cc1.uuid
+				 FROM catalogcategory cc1
+				 CONNECT BY PRIOR cc1.uuid = cc1.parentcategoryid
+				 START WITH cc1.uuid = cc.uuid
+			 )
+	</sql-dialect>	
+ <sql-dialect name="Microsoft">
+CT.catalogcategoryid = <template-variable value="CatalogCategory:UUID"/>
+	</sql-dialect>
+		<sql-dialect name="Oracle">
+		AND pca.productid = p.uuid
+		 AND cc.uuid = <template-variable value="CatalogCategory:UUID"/>
+		</sql-dialect>	
+    
+   
+    <template-if condition="isDefined(SortAttribute) AND (SortAttribute EQ 'value')">
+       
+        AND (plp.currency = <template-variable value="Currency"/> OR plp.currency IS NULL)
+    </template-if>
+  
+   <sql-dialect name="Microsoft">) A</sql-dialect>   
+   <template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ &apos;D&apos;">
+		ORDER BY pca.position asc, SORTING DESC <sql-dialect name="Oracle">NULLS LAST</sql-dialect>
+	<if-else/>
+		<sql-dialect name="Oracle">ORDER BY pca.position asc, SORTING ASC NULLS LAST</sql-dialect>
+		<sql-dialect name="Microsoft">
+	   	    ORDER BY position asc, CASE
+	    	WHEN SORTING is null THEN 1
+	    	ELSE 0 END ASC,
+	    	SORTING ASC
+		</sql-dialect>
+	</template-if>
+</template>
+</query>

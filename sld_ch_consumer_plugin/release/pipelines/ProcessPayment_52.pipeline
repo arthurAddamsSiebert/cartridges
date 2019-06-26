@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline contains processing pipelines for payment methods.
+@Group Payment-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessPayment_52" type="process">
+<!--Gets the payment method assignments, 
+and determines whether a payment method 
+is assigned to "no one", "all consumer" or to 
+a selection of consumer groups.
+For "all consumer", the 'Everyone' group must be 
+assigned to the payment method. There 
+must be no assignment for "no one".
+
+@Location 3,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="TextNode1"/>
+<!--Removes all assignments for a payment method.
+@Location 7,0-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text1" height="1" width="1"/>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="AssignPaymentServiceToEveryone"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameters name="ChannelRepository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="CurrentChannel" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+    <parameters name="PaymentConfiguration" type="com.intershop.beehive.bts.capi.payment.PaymentConfiguration"/>
+  </nodes>
+<!--@Location 10,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="Loop4"/>
+    <startNode referencedName="ProcessOrganization_52-GetConsumerOrg"/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop4" loop="PaymentConfiguration:AssignedUserGroups">
+<!--@BendPoints 24,7-->
+    <nodeSuccessors name="next" next="DecisionNode4"/>
+    <entry key="AssignedUserGroup">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode3"/>
+    </entry>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode3" conditionKey="AssignedUserGroup:ID"
+      operator="str_eq" conditionValue="Everyone">
+<!--@BendPoints 21,10-->
+    <nodeSuccessors name="decision_yes" next="Pipelet1"/>
+<!--@BendPoints 23,9-->
+    <nodeSuccessors name="decision_no" next="RemovePaymentConfigurationUserGroupAssignment1"/>
+  </nodes>
+<!--@Location 10,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet1">
+    <configurationValues name="Name" value="Assigned"/>
+    <configurationValues name="Value" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 10,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+<!--@BendPoints 20,13 20,7-->
+    <nodeSuccessors name="next" next="Loop4_Entry"/>
+  </nodes>
+<!--@Location 11,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemovePaymentConfigurationUserGroupAssignment1">
+    <pipelet href="enfinity:/bts/pipelets/RemovePaymentConfigurationUserGroupAssignment.xml"/>
+<!--@BendPoints 23,13-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="UserGroup" objectPath="AssignedUserGroup"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode4" conditionKey="Assigned">
+<!--@BendPoints 26,7 26,13-->
+    <nodeSuccessors name="decision_yes" next="JoinNode8"/>
+<!--@BendPoints 25,8-->
+    <nodeSuccessors name="decision_no" next="DetermineUserGroup1"/>
+  </nodes>
+<!--@Location 12,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 25,14-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUserGroup1">
+    <configurationValues name="Config_UserGroupID" value="Everyone"/>
+    <pipelet href="enfinity:/core/pipelets/DetermineUserGroup.xml"/>
+<!--@BendPoints 25,10-->
+    <nodeSuccessors name="next" next="CreatePaymentConfigurationUserGroupAssignment1"/>
+    <parameterBindings name="CurrentDomain" objectPath="Organization:OrganizationDomain"/>
+    <parameterBindings name="UserGroupID" nullBinding="true"/>
+  </nodes>
+<!--@Location 12,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreatePaymentConfigurationUserGroupAssignment1">
+    <pipelet href="enfinity:/bts/pipelets/CreatePaymentConfigurationUserGroupAssignment.xml"/>
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 3,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="GetPaymentMethodAssignmentType"
+      callMode="Private">
+<!--@BendPoints 7,4-->
+    <nodeSuccessors name="next" next="Decision2"/>
+    <parameters name="PaymentConfiguration" type="com.intershop.beehive.bts.capi.payment.PaymentConfiguration"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision2" conditionKey="PaymentConfiguration:AssignedUserGroups"
+      operator="has_elements">
+<!--@BendPoints 7,6-->
+    <nodeSuccessors name="decision_yes" next="Loop3"/>
+<!--@BendPoints 11,5 11,10-->
+    <nodeSuccessors name="decision_no" next="Pipelet3"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop3" loop="PaymentConfiguration:AssignedUserGroups">
+<!--@BendPoints 9,7 9,10-->
+    <nodeSuccessors name="next" next="Pipelet2"/>
+    <entry key="UserGroup">
+<!--@BendPoints 7,8-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode1"/>
+    </entry>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="UserGroup:ID"
+      operator="str_eq" conditionValue="Everyone">
+<!--@BendPoints 7,10-->
+    <nodeSuccessors name="decision_yes" next="Pipelet4"/>
+<!--@BendPoints 8,9 8,12 6,12 6,7-->
+    <nodeSuccessors name="decision_no" next="Loop3_Entry"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet4">
+    <configurationValues name="Name" value="AssignmentType"/>
+    <configurationValues name="Value" value="AssignmentToAll"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 7,13-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 4,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 9,14-->
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" strict="true">
+<!--(OUT) 'AssignmentToNoOne', 'AssignmentToAll' or 'AssignmentToSelected'-->
+    <returnValues name="AssignmentType" type="java.lang.String"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet2">
+    <configurationValues name="Name" value="AssignmentType"/>
+    <configurationValues name="Value" value="AssignmentToSelected"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet3">
+    <configurationValues name="Name" value="AssignmentType"/>
+    <configurationValues name="Value" value="AssignmentToNoOne"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+<!--@BendPoints 11,13-->
+    <nodeSuccessors name="next" next="JoinNode4"/>
+  </nodes>
+<!--@Location 7,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" strict="true" name="RemoveAllPaymentMethodAssignments"
+      callMode="Private">
+    <nodeSuccessors name="next" next="Loop1"/>
+<!--The payment configuration.-->
+    <parameters name="PaymentConfiguration" type="com.intershop.beehive.bts.capi.payment.PaymentConfiguration"/>
+  </nodes>
+<!--@Location 7,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="PaymentConfiguration:AssignedUserGroups">
+<!--@BendPoints 16,5-->
+    <nodeSuccessors name="next" next="End2"/>
+    <entry key="AssignedUserGroup">
+      <nodeSuccessors name="loop_entry_next" next="RemovePaymentConfigurationUserGroupAssignment2"/>
+    </entry>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemovePaymentConfigurationUserGroupAssignment2">
+    <pipelet href="enfinity:/bts/pipelets/RemovePaymentConfigurationUserGroupAssignment.xml"/>
+<!--@BendPoints 15,8 14,8 14,5-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+    <parameterBindings name="UserGroup" objectPath="AssignedUserGroup"/>
+  </nodes>
+<!--@Location 8,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2" strict="true"/>
+</pipeline:Pipeline>

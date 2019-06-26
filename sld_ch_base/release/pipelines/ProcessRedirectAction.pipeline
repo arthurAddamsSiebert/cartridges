@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Process search\-item to product redirect actions.
+@Group SearchIndex-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessRedirectAction" overrideMode="Inherit" type="process">
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="CleanupProductRedirects"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+<!--The UUID of the product to cleanup redirects for.-->
+    <parameters name="ProductID" type="java.lang.String"/>
+    <parameters name="Domain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <startNode referencedName="ProcessSearchIndex-GetIndexes"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="SearchIndexes">
+<!--@BendPoints 5,5-->
+    <nodeSuccessors name="next" next="EndNode0"/>
+    <entry key="SearchIndex">
+      <nodeSuccessors name="loop_entry_next" next="ExecuteObjectsQuery0"/>
+    </entry>
+  </nodes>
+<!--@Location 0,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery0">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="SearchIndex"/>
+    <configurationValues name="QueryName" value="searchaction/SearchRedirectActions"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 3,7-->
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="ParameterValue_01" objectPath="SearchIndex"/>
+    <returnValueBindings name="SearchResult" objectPath="RedirectActions"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="RedirectActions">
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <entry key="RedirectAction">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode0"/>
+    </entry>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="RedirectAction:RedirectType"
+      operator="str_eq" conditionValue="product">
+    <nodeSuccessors name="decision_yes" next="DecisionNode1"/>
+    <nodeSuccessors name="decision_no" next="JoinNode0"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="RedirectAction:RedirectTarget"
+      operator="str_eq" conditionItem="ProductID">
+    <nodeSuccessors name="decision_yes" next="RemoveSearchAction0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode2"/>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveSearchAction0">
+    <pipelet href="enfinity:/bc_search/pipelets/RemoveSearchAction.xml"/>
+<!--@BendPoints 1,15-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="SearchAction" objectPath="RedirectAction"/>
+  </nodes>
+<!--@Location 0,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode0"/>
+  </nodes>
+<!--@Location 0,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 0,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 0,9 0,6-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true"/>
+</pipeline:Pipeline>

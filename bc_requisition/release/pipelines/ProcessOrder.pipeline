@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Creates new Orders from a requisition.
+@deprecated @since 7.6.0
+@Group Order-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessOrder" type="process">
+<!--Removes custom attributes of order items which confuse users viewing the order and its items.
+
+@deprecated
+Deprecated since 7.9.0.0, will be removed in one of the next releases. Use HandlerChain\-based order creation instead.
+@Location 9,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" name="CleanUpAVs" callMode="Private">
+<!--@BendPoints 19,2-->
+    <nodeSuccessors name="next" next="LoopNode1"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="SupplierOrder:ProductLineItems">
+<!--@BendPoints 20,3-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <entry key="PLI">
+<!--@BendPoints 19,4-->
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode1"/>
+    </entry>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="PLI:CostCenterUUID">
+<!--@BendPoints 19,6-->
+    <nodeSuccessors name="decision_yes" next="RemoveCustomAttribute1"/>
+<!--@BendPoints 20,5 20,9-->
+    <nodeSuccessors name="decision_no" next="JoinNode1"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="RemoveCustomAttribute1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/RemoveCustomAttribute.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="AttributeName" objectPath="PLI:CostCenterUUID"/>
+    <parameterBindings name="ExtensibleObject" objectPath="PLI"/>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 18,9 18,3-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 10,1-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1"/>
+<!--@deprecated
+Deprecated since 7.9.0.0, will be removed in one of the next releases. Use HandlerChain\-based order creation instead.
+@Location 0,8-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start4" name="CreateConsolidateOrders"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DetermineUnit1"/>
+  </nodes>
+<!--@Location 0,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="DetermineUnit1">
+    <pipelet href="enfinity:/core/pipelets/DetermineUnit.xml"/>
+    <nodeSuccessors name="next" next="Call4"/>
+    <returnValueBindings name="Unit" objectPath="RequisitionDomain"/>
+  </nodes>
+<!--@Location 0,10-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call4">
+<!--@BendPoints 1,22 3,22-->
+    <nodeSuccessors name="next" next="Loop3"/>
+    <startNode referencedName="QueryRequisition-Search"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop3" loop="Requisitions">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <entry key="Requisition">
+      <nodeSuccessors name="loop_entry_next" next="SelectLineItemsByStatus2"/>
+    </entry>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SelectLineItemsByStatus2">
+    <configurationValues name="LineItemStatus" value="3"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/SelectLineItemsByStatus.xml"/>
+<!--@BendPoints 3,28 1,28 1,25-->
+    <nodeSuccessors name="next" next="Loop3_Entry"/>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="Decision1"/>
+    <startNode referencedName="ProcessOrderCustomized-CreateConsolidateOrders"/>
+  </nodes>
+<!--@Location 4,12-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="SupplierOrders">
+    <nodeSuccessors name="decision_yes" next="Jump2"/>
+<!--@BendPoints 9,26-->
+    <nodeSuccessors name="decision_no" next="End5"/>
+  </nodes>
+<!--@Location 5,12-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump2">
+    <startNode referencedName="ProcessOrder-InitSupplierOrders"/>
+  </nodes>
+<!--@Location 4,13-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End5"/>
+<!--@deprecated
+Deprecated since 7.9.0.0, will be removed in one of the next releases. Use HandlerChain\-based order creation instead.
+@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="CreateOrderCopyForBuyer"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CreateOrdersFromOrder1"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateOrdersFromOrder1">
+    <configurationValues name="OrderType" value="SellerOrder"/>
+    <configurationValues name="SelectionMode" value="IgnoreSelected"/>
+    <configurationValues name="SplitMode" value="NoSplit"/>
+    <pipelet href="enfinity:/bts/pipelets/CreateOrdersFromOrder.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+    <parameterBindings name="Order" objectPath="SupplierOrder"/>
+    <parameterBindings name="OrderDomain" objectPath="RequisitionDomain"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="ChildOrders">
+<!--@BendPoints 13,5-->
+    <nodeSuccessors name="next" next="AssignOrderDocumentNos1"/>
+    <entry key="PurchaseOrder">
+      <nodeSuccessors name="loop_entry_next" next="CreateOrderRef1"/>
+    </entry>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateOrderRef1">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CreateOrderRef.xml"/>
+    <nodeSuccessors name="next" next="UpdateCustomAttributes2"/>
+    <parameterBindings name="Order" objectPath="SupplierOrder"/>
+    <returnValueBindings name="OrderRefID" objectPath="SupplierOrderRefID"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes2">
+    <configurationValues name="Attribute_1_Name" value="SupplierOrderUUID"/>
+    <configurationValues name="Attribute_1_Type" value="String"/>
+    <configurationValues name="Attribute_2_Name" value="SupplierOrderDocumentNo"/>
+    <configurationValues name="Attribute_2_Type" value="String"/>
+    <configurationValues name="Attribute_3_Name" value="SupplierOrderRefID"/>
+    <configurationValues name="Attribute_3_Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="UpdateCustomAttributes4"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="SupplierOrder:UUID"/>
+    <parameterBindings name="Attribute_2_Value" objectPath="SupplierOrder:DocumentNo"/>
+    <parameterBindings name="Attribute_3_Value" objectPath="SupplierOrderRefID"/>
+    <parameterBindings name="ExtensibleObject" objectPath="PurchaseOrder"/>
+  </nodes>
+<!--@Location 5,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes4">
+    <configurationValues name="Attribute_1_Name" value="SourceOrganisationName"/>
+    <configurationValues name="Attribute_1_Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="UpdateLineItemStatus1"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="RequisitionDomain:DomainName"/>
+    <parameterBindings name="ExtensibleObject" objectPath="PurchaseOrder"/>
+  </nodes>
+<!--@Location 5,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus1">
+    <configurationValues name="StatusGroup" value="Order"/>
+    <configurationValues name="StatusID" value="10"/>
+    <configurationValues name="StatusType" value="Status"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="UpdateLineItemStatus5"/>
+    <parameterBindings name="LineItemID" objectPath="NotAvailable"/>
+    <parameterBindings name="LineItemIDs" objectPath="NotAvailable"/>
+    <parameterBindings name="Order" objectPath="PurchaseOrder"/>
+    <parameterBindings name="Requisition" objectPath="NotAvailable"/>
+  </nodes>
+<!--@Location 5,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus5">
+    <configurationValues name="StatusGroup" value="Order"/>
+    <configurationValues name="StatusID" value="10"/>
+    <configurationValues name="StatusType" value="Status2"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+<!--@BendPoints 11,16 10,16 10,5-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+    <parameterBindings name="LineItemID" objectPath="NotAvailable"/>
+    <parameterBindings name="LineItemIDs" objectPath="NotAvailable"/>
+    <parameterBindings name="Order" objectPath="PurchaseOrder"/>
+    <parameterBindings name="Requisition" objectPath="NotAvailable"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignOrderDocumentNos1">
+    <configurationValues name="DomainSpecific" value="true"/>
+    <configurationValues name="NumberPattern" value="00000000"/>
+    <configurationValues name="SeriesIdentifier" value="PurchaseOrder"/>
+    <pipelet href="enfinity:/bts/pipelets/AssignOrderDocumentNos.xml"/>
+    <nodeSuccessors name="next" next="CreateOrderRef2"/>
+    <parameterBindings name="Orders" objectPath="ChildOrders"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateOrderRef2">
+    <pipelet href="enfinity:/bc_requisition/pipelets/CreateOrderRef.xml"/>
+    <nodeSuccessors name="next" next="UpdateCustomAttributes1"/>
+    <parameterBindings name="Order" objectPath="PurchaseOrder"/>
+    <returnValueBindings name="OrderRefID" objectPath="PurchaseOrderRefID"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes1">
+    <configurationValues name="Attribute_1_Name" value="SellerOrderUUID"/>
+    <configurationValues name="Attribute_1_Type" value="String"/>
+    <configurationValues name="Attribute_2_Name" value="SellerOrderDocumentNo"/>
+    <configurationValues name="Attribute_2_Type" value="String"/>
+    <configurationValues name="Attribute_3_Name" value="PurchaseOrderRefID"/>
+    <configurationValues name="Attribute_3_Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="SetupCalculationTarget1"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="PurchaseOrder:UUID"/>
+    <parameterBindings name="Attribute_2_Value" objectPath="PurchaseOrder:DocumentNo"/>
+    <parameterBindings name="Attribute_3_Value" objectPath="PurchaseOrderRefID"/>
+    <parameterBindings name="ExtensibleObject" objectPath="SupplierOrder"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetupCalculationTarget1">
+    <configurationValues name="Name" value="ChildOrders"/>
+    <configurationValues name="Type" value="Iterator"/>
+    <pipelet href="enfinity:/bts/pipelets/SetupCalculationTarget.xml"/>
+    <nodeSuccessors name="next" next="Call1"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="End2"/>
+    <startNode referencedName="RequisitionProcessCalculation-Start"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End2"/>
+<!--@deprecated
+Deprecated since 7.9.0.0, will be removed in one of the next releases. Use HandlerChain\-based order creation instead.
+@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start2" name="CreateOrders" callMode="Private">
+    <nodeSuccessors name="next" next="SelectLineItemsByStatus1"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SelectLineItemsByStatus1">
+    <configurationValues name="LineItemStatus" value="3"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/SelectLineItemsByStatus.xml"/>
+    <nodeSuccessors name="next" next="Call5"/>
+<!--@BendPoints 5,3-->
+    <nodeSuccessors name="pipelet_error" next="Join3"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call5">
+    <nodeSuccessors name="next" next="KeyMapper1"/>
+<!--@BendPoints 4,6-->
+    <nodeSuccessors name="ERROR" next="Join3"/>
+    <startNode referencedName="ProcessOrderCustomized-CreateOrders"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="Jump1"/>
+    <parameterBindings name="InValue_1" objectPath="Requisition:Domain"/>
+    <returnValueBindings name="OutValue_1" objectPath="RequisitionDomain"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:JumpNode" nodeID="Jump1">
+    <startNode referencedName="ProcessOrder-InitSupplierOrders"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+    <nodeSuccessors name="next" next="End4"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End4" name="ERROR"/>
+<!--@deprecated
+Deprecated since 7.9.0.0, will be removed in one of the next releases. Use HandlerChain\-based order creation instead.
+@Location 3,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start3" name="InitSupplierOrders" callMode="Private">
+    <nodeSuccessors name="next" next="AssignOrderDocumentNos2"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignOrderDocumentNos2">
+    <configurationValues name="DomainSpecific" value="true"/>
+    <configurationValues name="NumberPattern" value="00000000"/>
+    <configurationValues name="SeriesIdentifier" value="SupplierOrder"/>
+    <pipelet href="enfinity:/bts/pipelets/AssignOrderDocumentNos.xml"/>
+    <nodeSuccessors name="next" next="SetupCalculationTarget2"/>
+    <parameterBindings name="Orders" objectPath="SupplierOrders"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetupCalculationTarget2">
+    <configurationValues name="Name" value="SupplierOrders"/>
+    <configurationValues name="Type" value="Iterator"/>
+    <pipelet href="enfinity:/bts/pipelets/SetupCalculationTarget.xml"/>
+    <nodeSuccessors name="next" next="Call2"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call2">
+    <nodeSuccessors name="next" next="Loop4"/>
+    <startNode referencedName="RequisitionProcessCalculation-Start"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop4" loop="SupplierOrders">
+    <nodeSuccessors name="next" next="End1"/>
+    <entry key="SupplierOrder">
+      <nodeSuccessors name="loop_entry_next" next="UpdateLineItemStatus2"/>
+    </entry>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus2">
+    <configurationValues name="StatusGroup" value="Order"/>
+    <configurationValues name="StatusID" value="10"/>
+    <configurationValues name="StatusType" value="Status2"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="UpdateLineItemStatus4"/>
+    <parameterBindings name="LineItemID" objectPath="NotAvailable"/>
+    <parameterBindings name="LineItemIDs" objectPath="NotAvailable"/>
+    <parameterBindings name="Order" objectPath="SupplierOrder"/>
+    <parameterBindings name="Requisition" objectPath="NotAvailable"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus4">
+    <configurationValues name="StatusGroup" value="Order"/>
+    <configurationValues name="StatusID" value="10"/>
+    <configurationValues name="StatusType" value="Status"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+    <nodeSuccessors name="next" next="CallNode2"/>
+    <parameterBindings name="LineItemID" objectPath="NotAvailable"/>
+    <parameterBindings name="LineItemIDs" objectPath="NotAvailable"/>
+    <parameterBindings name="Order" objectPath="SupplierOrder"/>
+    <parameterBindings name="Requisition" objectPath="NotAvailable"/>
+  </nodes>
+<!--@Location 3,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="Call3"/>
+    <startNode referencedName="ProcessOrder-CleanUpAVs"/>
+  </nodes>
+<!--@Location 3,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call3">
+    <nodeSuccessors name="next" next="UpdateCustomAttributes3"/>
+    <startNode referencedName="ProcessOrder-CreateOrderCopyForBuyer"/>
+  </nodes>
+<!--@Location 3,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes3">
+    <configurationValues name="Attribute_1_Name" value="SourceOrganisationName"/>
+    <configurationValues name="Attribute_1_Type" value="String"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="UpdateLineItemStatus3"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="RequisitionDomain:DomainName"/>
+    <parameterBindings name="ExtensibleObject" objectPath="SupplierOrder"/>
+  </nodes>
+<!--@Location 3,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateLineItemStatus3">
+    <configurationValues name="StatusGroup" value="Requisition"/>
+    <configurationValues name="StatusID" value="5"/>
+    <pipelet href="enfinity:/bc_requisition/pipelets/UpdateLineItemStatus.xml"/>
+<!--@BendPoints 7,24 5,24 5,22 5,11-->
+    <nodeSuccessors name="next" next="Loop4_Entry"/>
+    <parameterBindings name="InputStatusGroup" objectPath="NotAvailable"/>
+    <parameterBindings name="InputStatusID" objectPath="NotAvailable"/>
+    <parameterBindings name="LineItemID" objectPath="NotAvailable"/>
+    <parameterBindings name="LineItemIDs" objectPath="NotAvailable"/>
+    <parameterBindings name="Order" objectPath="SupplierOrder"/>
+    <parameterBindings name="Requisition" objectPath="NotAvailable"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+</pipeline:Pipeline>

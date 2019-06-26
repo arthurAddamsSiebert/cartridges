@@ -1,0 +1,42 @@
+<%@  page buffer="none" import="java.util.*,java.io.*,com.intershop.beehive.core.internal.template.*,com.intershop.beehive.core.internal.template.isml.*,com.intershop.beehive.core.capi.log.*,com.intershop.beehive.core.capi.resource.*,com.intershop.beehive.core.capi.util.UUIDMgr,com.intershop.beehive.core.capi.util.XMLHelper,com.intershop.beehive.foundation.util.*,com.intershop.beehive.core.internal.url.*,com.intershop.beehive.core.internal.resource.*,com.intershop.beehive.core.internal.wsrp.*,com.intershop.beehive.core.capi.pipeline.PipelineDictionary,com.intershop.beehive.core.capi.naming.NamingMgr,com.intershop.beehive.core.capi.pagecache.PageCacheMgr,com.intershop.beehive.core.capi.request.SessionMgr,com.intershop.beehive.core.internal.request.SessionMgrImpl,com.intershop.beehive.core.pipelet.PipelineConstants" extends="com.intershop.beehive.core.internal.template.AbstractTemplate" %><% 
+boolean _boolean_result=false;
+TemplateExecutionConfig context = getTemplateExecutionConfig();
+createTemplatePageConfig(context.getServletRequest());
+printHeader(out);
+ %><% %><%@ page contentType="text/html;charset=utf-8" %><%setEncodingType("text/html"); %><!-- Page Navigator --><% processOpenTag(response, pageContext, "breadcrumbtrail", new TagParameter[] {
+new TagParameter("text1",context.getFormattedValue(" - ",null) + context.getFormattedValue(localizeText(context.getFormattedValue("ChannelOutboundSyndicationLinkMapping.MappingRulesLinks.text1",null)),null)),
+new TagParameter("link",url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelOutboundSyndicationLinkMapping-Start",null))),(new URLParameterSet().addURLParameter(context.getFormattedValue("SyndicationUUID",null),context.getFormattedValue(getObject("SyndicationUUID"),null))))),
+new TagParameter("id",getObject("Syndication:UUID")),
+new TagParameter("text",getObject("Syndication:DisplayName"))}, 4); %><!-- EO Page Navigator -->
+<!-- Tabs --><% {Object temp_obj = ("Links"); getPipelineDictionary().put("SelectedTab", temp_obj);} %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"syndication/ChannelOutboundSyndicationMappingTabs", null, "9");} %><!-- EO Tabs -->
+<!-- Main Content -->
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td width="100%" class="table_title w e s"><% {String value = null;try{value=context.getFormattedValue(getObject("Syndication:DisplayName"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {15}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %> - <% {out.write(localizeISText("ChannelOutboundSyndicationLinkMapping.MappingRulesLinks.table_title",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_SYNDICATE_CATALOGS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",19,e);}if (_boolean_result) { %><table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+<td class="table_title_description w e s" colspan="4"><% {out.write(localizeISText("ChannelOutboundSyndicationLinkMapping.ActivateTheCheckboxToPreserveProductLinks.table_title_description",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr>
+</table><% } %><% while (loop("SyndicationRuleSet:SyndicationRules","Rule",null)) { %><% {Object temp_obj = (getObject("Rule")); getPipelineDictionary().put("SyndicationRule", temp_obj);} %><% if (getLoopStack().isEmpty()) {Logger.error(this,"ISBREAK occured outside ISLOOP. Line: {}",31);}else{getLoopStack().pop();break;} %><% } %><% URLPipelineAction action138 = new URLPipelineAction(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelOutboundSyndicationLinkMapping-Dispatch",null)))),null));String site138 = null;String serverGroup138 = null;String actionValue138 = context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelOutboundSyndicationLinkMapping-Dispatch",null)))),null);if (site138 == null){  site138 = action138.getDomain();  if (site138 == null)  {      site138 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getDomainName();  }}if (serverGroup138 == null){  serverGroup138 = action138.getServerGroup();  if (serverGroup138 == null)  {      serverGroup138 = com.intershop.beehive.core.capi.request.Request.getCurrent().getRequestSite().getServerGroup();  }}out.print("<form");out.print(" method=\"");out.print("post");out.print("\"");out.print(" action=\"");out.print(context.getFormattedValue(url(true,(new URLPipelineAction(context.getFormattedValue("ViewChannelOutboundSyndicationLinkMapping-Dispatch",null)))),null));out.print("\"");out.print(" name=\"");out.print("OutboundSyndicationLinkMapping");out.print("\"");out.print(">");out.print(context.prepareWACSRFTag(actionValue138, site138, serverGroup138,true)); %><table width="100%" border="0" cellspacing="0" cellpadding="0" class="w e s">
+<tr>
+<td class="table_detail left" width="100%">
+<input type="checkbox" name="LinkMappingEnabled"
+<% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("SyndicationRule"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",39,e);}if (_boolean_result) { %>
+checked="checked"
+<% } %><% _boolean_result=false;try {_boolean_result=((Boolean)((((Boolean) (disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_SYNDICATE_CATALOGS")))).booleanValue() ? Boolean.FALSE : Boolean.TRUE) )).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",42,e);}if (_boolean_result) { %>
+disabled="disabled"
+<% } %>
+/>&nbsp;&nbsp;<% {out.write(localizeISText("ChannelOutboundSyndicationLinkMapping.PreserveProductLinks.input",null,null,null,null,null,null,null,null,null,null,null,null));} %></td>
+</tr><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("CurrentChannelPermissionMap:SLD_SYNDICATE_CATALOGS"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",48,e);}if (_boolean_result) { %><tr>
+<td nowrap="nowrap" align="right" class="n">
+<table border="0" cellspacing="4" cellpadding="0">
+<tr>
+<td class="button"><% _boolean_result=false;try {_boolean_result=((Boolean)((disableErrorMessages().isDefined(getObject("SyndicationRule"))))).booleanValue();} catch (Exception e) {Logger.debug(this,"Boolean expression in line {} could not be evaluated. False returned. Consider using the 'isDefined' ISML function.",54,e);}if (_boolean_result) { %><input type="hidden" name="SyndicationRuleUUID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("SyndicationRule:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {55}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/><% } %><input type="hidden" name="SyndicationUUID" value="<% {String value = null;try{value=context.getFormattedValue(getObject("Syndication:UUID"),null,null);}catch(Exception e){value=null;Logger.error(this,"ISPRINT has an invalid expression. Returning empty string. Line: {57}",e);}if (value==null) value="";value = encodeString(value);out.write(value);} %>"/>
+<input type="submit" name="Update" value="<%=context.getFormattedValue(localizeText(context.getFormattedValue("ChannelOutboundSyndicationLinkMapping.Apply.button",null)),null)%>" class="button"/>
+</td>
+</tr>
+</table>
+</td>
+</tr><% } %></table><% out.print("</form>"); %><% {out.flush();processLocalIncludeByServer((com.intershop.beehive.core.capi.request.ServletResponse)response,"inc/BackToList", null, "67");} %><!-- EO Main Content -->
+<!-- EO Working Area --><% printFooter(out); %>

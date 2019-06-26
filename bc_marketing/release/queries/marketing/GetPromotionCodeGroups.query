@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Gets promotion code groups">
+<parameters>
+    <parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="true" description="the domain to search the promotions"/>
+    <parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+</parameters>
+<return-mappings>
+    <return-mapping name="PromotionCodeGroups" type="provider" provider="PromotionCodeGroupProvider">
+        <return-attribute name="ID"/>
+        <return-attribute name="DOMAINID"/>
+    </return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects" sqlDialect="Oracle">
+    select pcg.id as ID, pcg.domainid as DOMAINID, COUNT(*) over() AS "rowcount", pav2.stringvalue as SORTING 
+    from promotioncodegroup pcg, promotioncodegroup_av pav2
+    where pcg.uuid = pav2.ownerid(+)
+    <template-if condition="isDefined(Domain)">
+        and pcg.domainid = <template-variable value="Domain:DomainID"/>
+    </template-if>
+    and not exists (select 1 from promotioncodegroup_av pcgav where pcgav.ownerid=pcg.uuid and pcgav.name=&apos;MarkedForDeletion&apos; and pcgav.stringvalue=&apos;true&apos; ) 
+    and pav2.name(+) = &apos;name&apos;
+    <template-if condition="isDefined(Locale)">
+        and pav2.localeId(+) = <template-variable value="Locale:LocaleID"/>
+    </template-if>
+    ORDER BY SORTING 
+      ASC NULLS FIRST   
+</template>
+<template type="countedobjects" sqlDialect="Microsoft">
+    select pcg.id as ID, pcg.domainid as DOMAINID, COUNT(*) over() AS "rowcount", pav2.stringvalue as SORTING 
+    from promotioncodegroup pcg
+    left outer join promotioncodegroup_av pav2
+    on 
+        pav2.ownerid = pcg.uuid and pav2.name = &apos;name&apos; 
+        <template-if condition="isDefined(Locale)">
+            and pav2.localeId = <template-variable value="Locale:LocaleID"/>
+        </template-if>   
+    where
+    <template-if condition="isDefined(Domain)">
+        pcg.domainid = <template-variable value="Domain:DomainID"/> and
+    </template-if>
+    not exists (select 1 from promotioncodegroup_av pcgav where pcgav.ownerid=pcg.uuid and pcgav.name=&apos;MarkedForDeletion&apos; and pcgav.stringvalue=&apos;true&apos; )    
+    ORDER BY CASE WHEN pav2.stringvalue IS NULL THEN 1 ELSE 0 END DESC, pav2.stringvalue ASC 
+</template>
+</query>

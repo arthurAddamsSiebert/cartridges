@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Iterates on all channels of the systems and tries to notify users to their alerts.
+@Group Product-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProductNotificationAgentJob" type="process">
+<!--TODO Rework:
+This introduces a hidden dependency between
+sld_system_app & sld_ch_b2c_app
+(or SMC\- & B2CWebshop\-Application).
+
+Only channels with storefront applications should be
+notified. If there is a "\-Anonymous" organization
+then it is possible to get a storefront application
+(which on doesn't matter).
+@Location 3,12-->
+  <nodes xsi:type="pipeline:Text" nodeID="Text0"/>
+<!--@Location 5,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" visibility="Private"
+      name="GetConsumerOrg" callMode="Private">
+    <nodeSuccessors name="next" next="GetOrganizations2"/>
+    <parameters name="ChannelRepository" type="com.intershop.component.mvc.capi.catalog.Repository"/>
+  </nodes>
+<!--@Location 5,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizations2">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizations.xml"/>
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <parameterBindings name="OrganizationType" nullBinding="true"/>
+    <parameterBindings name="Owner" objectPath="ChannelRepository:RepositoryDomain"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="Organizations">
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <entry key="Organization">
+      <nodeSuccessors name="loop_entry_next" next="DecisionNode0"/>
+    </entry>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="Organization:TypeCode"
+      operator="str_eq" conditionValue="50">
+    <nodeSuccessors name="decision_yes" next="VerifyStringByRegularExpression0"/>
+    <nodeSuccessors name="decision_no" next="JoinNode4"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyStringByRegularExpression0">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyStringByRegularExpression.xml"/>
+    <nodeSuccessors name="next" next="EndNode0"/>
+<!--@BendPoints 9,9-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="Pattern" constant="^.*-Anonymous$"/>
+    <parameterBindings name="String" objectPath="Organization:ID"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" strict="true">
+    <returnValues name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 4,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+<!--@BendPoints 9,5-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="ERROR" strict="true"/>
+<!--@Location 1,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="Start" callMode="Private">
+    <nodeSuccessors name="next" next="GetCurrentDate3"/>
+  </nodes>
+<!--@Location 1,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate3">
+    <configurationValues name="ForceApplicationServerTimeZone" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByName1"/>
+    <returnValueBindings name="CurrentDate" objectPath="JobStartTime"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByName1">
+    <configurationValues name="DefaultName" value="Operations"/>
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByName.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizations1"/>
+<!--@BendPoints 4,5-->
+    <nodeSuccessors name="pipelet_error" next="EndNode5"/>
+    <parameterBindings name="Name" nullBinding="true"/>
+    <returnValueBindings name="Organization" objectPath="Operations"/>
+    <returnValueBindings name="OrganizationDomain" objectPath="OperationsDomain"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizations1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizations.xml"/>
+<!--@BendPoints 3,8-->
+    <nodeSuccessors name="next" next="CreateStack2"/>
+    <parameterBindings name="Owner" objectPath="OperationsDomain"/>
+    <returnValueBindings name="Organizations" objectPath="Enterprises"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStack2">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStack.xml"/>
+<!--@BendPoints 3,10-->
+    <nodeSuccessors name="next" next="CreateStack1"/>
+    <returnValueBindings name="Stack" objectPath="OrganizationStack"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CreateStack1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/CreateStack.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+    <returnValueBindings name="Stack" objectPath="ChannelStack"/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="Enterprises">
+<!--@BendPoints 6,13 6,17 3,17-->
+    <nodeSuccessors name="next" next="Call10"/>
+    <entry key="Enterprise">
+      <nodeSuccessors name="loop_entry_next" next="ManipulateStack4"/>
+    </entry>
+  </nodes>
+<!--@Location 1,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack4">
+    <configurationValues name="ProcessMethod" value="PUSH"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+<!--@BendPoints 3,16 2,16 2,13-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+<!--@BendPoints 4,15-->
+    <nodeSuccessors name="pipelet_error" next="EndNode4"/>
+    <parameterBindings name="AddElement" objectPath="Enterprise"/>
+    <parameterBindings name="Stack" objectPath="OrganizationStack"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4"/>
+<!--@Location 1,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call10">
+    <nodeSuccessors name="next" next="Join1"/>
+    <startNode referencedName="GetRepositories-ChannelsReverse"/>
+  </nodes>
+<!--@Location 1,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join1">
+    <nodeSuccessors name="next" next="ManipulateStack1"/>
+  </nodes>
+<!--@Location 1,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ManipulateStack1">
+    <configurationValues name="ProcessMethod" value="POP"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/ManipulateStack.xml"/>
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode2"/>
+    <parameterBindings name="Stack" objectPath="ChannelStack"/>
+    <returnValueBindings name="GetElement" objectPath="ChannelRepository"/>
+  </nodes>
+<!--@Location 1,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+<!--@BendPoints 5,25-->
+    <nodeSuccessors name="ERROR" next="JoinNode0"/>
+    <startNode referencedName="ProductNotificationAgentJob-GetConsumerOrg"/>
+    <returnValueBindings name="Organization" objectPath="ChannelOrganization"/>
+  </nodes>
+<!--@Location 1,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationBOByID0"/>
+    <returnValueBindings name="ApplicationBO" objectPath="CurrentApplicationBO"/>
+  </nodes>
+<!--@Location 1,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBOByID0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBOByID.xml"/>
+    <nodeSuccessors name="next" next="ExecutePipeline1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="ApplicationBORepository" objectPath="CurrentApplicationBO:Repository(&quot;ApplicationBORepository&quot;)"/>
+    <parameterBindings name="ApplicationID" objectPath="ChannelOrganization:Domain:Site:DefaultApplication:UUID"/>
+  </nodes>
+<!--@Location 1,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline1">
+    <configurationValues name="PipelineName" value="ProcessProductNotification"/>
+    <configurationValues name="PipelineStartNode" value="TriggerNotificationFromJob"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 5,31-->
+    <nodeSuccessors name="pipelet_error" next="EndNode1"/>
+    <parameterBindings name="App" nullBinding="true"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <parameterBindings name="CurrentDomain" objectPath="ApplicationBO:Site:Domain"/>
+    <parameterBindings name="CurrentUser" nullBinding="true"/>
+    <parameterBindings name="PipelineDomain" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainID" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainName" nullBinding="true"/>
+    <parameterBindings name="PipelineName" nullBinding="true"/>
+    <parameterBindings name="PipelineStartNode" nullBinding="true"/>
+  </nodes>
+<!--@Location 1,16-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 2,33 2,21-->
+    <nodeSuccessors name="next" next="Join1"/>
+  </nodes>
+<!--@Location 3,15-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="ERROR"/>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+<!--@BendPoints 5,33-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2"/>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" name="ERROR" strict="true"/>
+</pipeline:Pipeline>

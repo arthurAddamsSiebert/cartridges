@@ -1,0 +1,559 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This pipeline sends emails for contracts which soon will expire.
+@Group Contract-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessContractNotificationJob" type="process">
+<!--@Location 6,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode4" strict="true" name="ContractNotifications"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+    <parameters name="ChannelDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="DaysBeforeNotification" type="java.lang.Integer"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="ParameterName_01" value="Domain"/>
+    <configurationValues name="ParameterName_02" value="DaysBeforeContractExpires"/>
+    <configurationValues name="QueryName" value="contract/GetNotificationContractsByDomain"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="CheckForEmptyIterator2"/>
+<!--@BendPoints 17,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="ParameterValue_01" objectPath="ChannelDomain"/>
+    <parameterBindings name="ParameterValue_02" objectPath="DaysBeforeNotification"/>
+    <returnValueBindings name="SearchResult" objectPath="ContractsAndAccountManagerIter"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyIterator2">
+    <pipelet href="enfinity:/core/pipelets/CheckForEmptyIterator.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+<!--@BendPoints 15,7-->
+    <nodeSuccessors name="pipelet_error" next="LogMessage8"/>
+    <parameterBindings name="FilledIterator" objectPath="ContractsAndAccountManagerIter"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationBOByID1"/>
+    <returnValueBindings name="ApplicationBO" objectPath="CurrentApplicationBO"/>
+  </nodes>
+<!--@Location 6,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBOByID1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBOByID.xml"/>
+    <nodeSuccessors name="next" next="CallNode8"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode4"/>
+    <parameterBindings name="ApplicationBORepository" objectPath="CurrentApplicationBO:Repository(&quot;ApplicationBORepository&quot;)"/>
+    <parameterBindings name="ApplicationID" objectPath="ChannelDomain:Site:DefaultApplication:UUID"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode8">
+    <nodeSuccessors name="next" next="LoopNode1"/>
+<!--@BendPoints 16,13-->
+    <nodeSuccessors name="Error" next="JoinNode4"/>
+    <startNode referencedName="ProcessContractNotificationJob-GetOrganizationByChannelDomain"/>
+    <returnValueBindings name="Organization" objectPath="CurrentOrganization"/>
+    <returnValueBindings name="Repository" objectPath="CurrentChannel"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="ContractsAndAccountManagerIter">
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <entry key="ContractsAndAccountManager">
+      <nodeSuccessors name="loop_entry_next" next="KeyMapper0"/>
+    </entry>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="CallNode4"/>
+    <parameterBindings name="InValue_1" objectPath="ContractsAndAccountManager:get(&quot;profileids&quot;)"/>
+    <parameterBindings name="InValue_2" objectPath="ContractsAndAccountManager:get(&quot;contractid&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="UserIDs"/>
+    <returnValueBindings name="OutValue_2" objectPath="ContractID"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode4">
+<!--@BendPoints 13,21 11,21 11,15-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+    <startNode referencedName="ProcessContractNotificationJob-ProcessEmailLoop"/>
+  </nodes>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode9">
+    <nodeSuccessors name="next" next="EndNode6"/>
+  </nodes>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode6" strict="true"/>
+<!--@Location 8,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode4">
+    <nodeSuccessors name="next" next="EndNode15"/>
+  </nodes>
+<!--@Location 8,6-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode15" name="Error" strict="true"/>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage8">
+    <configurationValues name="Level" value="Debug"/>
+    <configurationValues name="Marker" value="ContractNotificationEmail"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode9"/>
+    <parameterBindings name="MessageParam0" objectPath="ChannelDomain:DomainName"/>
+    <parameterBindings name="MessageText" constant="Contract Notification Email Job - Query did not retrieve any contract notification for channel '{}'. Nothing to do!"/>
+  </nodes>
+<!--@Location 19,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode7" strict="true" name="GetAccountManagerProfiles"
+      callMode="Private">
+    <nodeSuccessors name="next" next="KeyMapper2"/>
+    <parameters name="UserIDs" type="java.lang.String"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+  </nodes>
+<!--@Location 19,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper2">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="SplitString0"/>
+    <parameterBindings name="InValue_1" objectPath="ApplicationBO:Repository(&quot;UserBORepository&quot;)"/>
+    <returnValueBindings name="OutValue_1" objectPath="UserBORepository"/>
+  </nodes>
+<!--@Location 19,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SplitString0">
+    <pipelet href="enfinity:/core/pipelets/SplitString.xml"/>
+    <nodeSuccessors name="next" next="LoopNode3"/>
+    <parameterBindings name="Delimeter" constant=","/>
+    <parameterBindings name="Limit" nullBinding="true"/>
+    <parameterBindings name="Trim" constant="(java.lang.Boolean)true"/>
+    <parameterBindings name="ValuesString" objectPath="UserIDs"/>
+    <returnValueBindings name="ValuesIterator" objectPath="UserIDsIter"/>
+  </nodes>
+<!--@Location 19,9-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode3" loop="UserIDsIter">
+<!--@BendPoints 41,19-->
+    <nodeSuccessors name="next" next="EndNode14"/>
+    <entry key="UserID">
+      <nodeSuccessors name="loop_entry_next" next="GetUserBO0"/>
+    </entry>
+  </nodes>
+<!--@Location 19,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetUserBO0">
+    <pipelet href="enfinity:/bc_user/pipelets/GetUserBO.xml"/>
+    <nodeSuccessors name="next" next="AddObjectToVector0"/>
+  </nodes>
+<!--@Location 19,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AddObjectToVector0">
+    <configurationValues name="Mode" value="Forbid Duplicates"/>
+    <pipelet href="enfinity:/core/pipelets/AddObjectToVector.xml"/>
+<!--@BendPoints 39,24 37,24 37,19-->
+    <nodeSuccessors name="next" next="LoopNode3_Entry"/>
+    <parameterBindings name="InVector" objectPath="UserBOs"/>
+    <parameterBindings name="Object" objectPath="UserBO"/>
+    <parameterBindings name="Objects" nullBinding="true"/>
+    <returnValueBindings name="Iterator" objectPath="UserBOsIter"/>
+    <returnValueBindings name="OutVector" objectPath="UserBOs"/>
+  </nodes>
+<!--@Location 20,10-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode14" strict="true">
+    <returnValues name="UserBOsIter" type="java.util.Iterator&lt;E>" optional="true"/>
+  </nodes>
+<!--@Location 16,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetContractChannelDomains"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery0"/>
+  </nodes>
+<!--@Location 16,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery0">
+    <configurationValues name="Datasource" value="default"/>
+    <configurationValues name="QueryName" value="contract/GetRepositoriesByContracts"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="CheckForEmptyIterator0"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode2"/>
+    <returnValueBindings name="SearchResult" objectPath="RepositoryDomains"/>
+  </nodes>
+<!--@Location 16,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CheckForEmptyIterator0">
+    <pipelet href="enfinity:/core/pipelets/CheckForEmptyIterator.xml"/>
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode0"/>
+    <parameterBindings name="FilledIterator" objectPath="RepositoryDomains"/>
+  </nodes>
+<!--@Location 16,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true">
+    <returnValues name="RepositoryDomains" type="java.util.Iterator" optional="true"/>
+  </nodes>
+<!--@Location 17,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="NothingFound" strict="true"/>
+<!--@Location 17,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" name="Error" strict="true"/>
+<!--@Location 16,6-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode9" strict="true" name="GetOrganizationByChannelDomain"
+      callMode="Private">
+    <nodeSuccessors name="next" next="GetRepositoryByRepositoryDomain0"/>
+    <parameters name="ChannelDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 16,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetRepositoryByRepositoryDomain0">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetRepositoryByRepositoryDomain.xml"/>
+    <nodeSuccessors name="next" next="GetOrganizationByDomain0"/>
+<!--@BendPoints 35,15-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="RepositoryDomain" objectPath="ChannelDomain"/>
+  </nodes>
+<!--@Location 16,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByDomain0">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByDomain.xml"/>
+    <nodeSuccessors name="next" next="EndNode16"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode3"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Repository:OwningDomain"/>
+  </nodes>
+<!--@Location 16,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode16" strict="true">
+    <returnValues name="Repository" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+    <returnValues name="Organization" type="com.intershop.component.organization.capi.Organization"/>
+  </nodes>
+<!--@Location 17,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode3">
+    <nodeSuccessors name="next" next="EndNode17"/>
+  </nodes>
+<!--@Location 17,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode17" name="Error" strict="true"/>
+<!--@Location 19,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="GetPreferences"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <parameters name="PreferenceDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+  </nodes>
+<!--@Location 19,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <startNode referencedName="ProcessContract-NotificationEmailPreferences"/>
+  </nodes>
+<!--@Location 19,3-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <startNode referencedName="ProcessContract-StaticNotificationEmailPreferences"/>
+  </nodes>
+<!--@Location 19,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true">
+    <returnValues name="NotificationEnabled" type="java.lang.String" optional="true"/>
+    <returnValues name="DaysBeforeNotification" type="java.lang.Integer" optional="true"/>
+    <returnValues name="NotificationEmailTemplate" type="java.lang.String" optional="true"/>
+    <returnValues name="NotificationEmailFrom" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 9,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode3" strict="true" name="ProcessEmailLoop"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode9"/>
+    <parameters name="ChannelDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="ApplicationBO" type="com.intershop.component.application.capi.ApplicationBO"/>
+    <parameters name="ContractID" type="java.lang.String"/>
+    <parameters name="UserIDs" type="java.lang.String"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+    <parameters name="CurrentChannel" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 9,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode9">
+    <nodeSuccessors name="next" next="LoopNode2"/>
+    <startNode referencedName="ProcessContractNotificationJob-GetAccountManagerProfiles"/>
+  </nodes>
+<!--@Location 9,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode2" loop="UserBOsIter">
+    <nodeSuccessors name="next" next="EndNode10"/>
+    <entry key="UserBO">
+      <nodeSuccessors name="loop_entry_next" next="ExecutePipeline0"/>
+    </entry>
+  </nodes>
+<!--@Location 9,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline0">
+    <configurationValues name="PipelineName" value="ProcessContractNotificationJob"/>
+    <configurationValues name="PipelineStartNode" value="SendEmail"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <nodeSuccessors name="pipelet_error" next="LogMessage1"/>
+    <parameterBindings name="App" nullBinding="true"/>
+    <parameterBindings name="Application" objectPath="ApplicationBO:Extension(&quot;PersistentObjectBOExtension&quot;):PersistentObject"/>
+    <parameterBindings name="CurrentDomain" objectPath="ApplicationBO:Site:Domain"/>
+    <parameterBindings name="CurrentUser" nullBinding="true"/>
+    <parameterBindings name="PipelineDomain" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainID" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainName" nullBinding="true"/>
+    <parameterBindings name="PipelineName" nullBinding="true"/>
+    <parameterBindings name="PipelineStartNode" nullBinding="true"/>
+  </nodes>
+<!--@Location 9,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+<!--@BendPoints 18,11 18,7-->
+    <nodeSuccessors name="next" next="LoopNode2_Entry"/>
+  </nodes>
+<!--@Location 10,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage1">
+    <configurationValues name="Level" value="Error"/>
+    <configurationValues name="Marker" value="ContractNotificationEmail"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 21,11-->
+    <nodeSuccessors name="next" next="JoinNode2"/>
+    <parameterBindings name="MessageParam0" objectPath="ChannelDomain:DomainName"/>
+    <parameterBindings name="MessageParam1" objectPath="ContractBO:ContractID"/>
+    <parameterBindings name="MessageParam2" objectPath="AccountManagerProfile:FirstName"/>
+    <parameterBindings name="MessageParam3" objectPath="AccountManagerProfile:LastName"/>
+    <parameterBindings name="MessageParam4" objectPath="MailResult"/>
+    <parameterBindings name="MessageText" constant="SendMail-Error: Contract Notification Email for Channel '{}' and Contract '{}' could not be send to account manager '{}' '{}'. ExecutePipeline failed."/>
+  </nodes>
+<!--@Location 10,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode10" strict="true"/>
+<!--@Location 12,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode8" strict="true" name="SendEmail"
+      callMode="Private">
+    <nodeSuccessors name="next" next="DecisionNode1"/>
+    <parameters name="ChannelDomain" type="com.intershop.beehive.core.capi.domain.Domain"/>
+    <parameters name="ContractID" type="java.lang.String"/>
+    <parameters name="UserBO" type="com.intershop.component.user.capi.UserBO"/>
+    <parameters name="CurrentOrganization" type="com.intershop.component.organization.capi.Organization"
+        optional="true"/>
+    <parameters name="CurrentChannel" type="com.intershop.component.mvc.capi.catalog.Repository"
+        optional="true"/>
+  </nodes>
+<!--@Location 12,2-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode1" conditionKey="UserBO:Extension(&quot;UserBOPreferencesExtension&quot;):PreferredLocale">
+    <nodeSuccessors name="decision_yes" next="KeyMapper1"/>
+<!--@BendPoints 27,5-->
+    <nodeSuccessors name="decision_no" next="GetLocale0"/>
+  </nodes>
+<!--@Location 12,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="InValue_1" objectPath="UserBO:Extension(&quot;UserBOPreferencesExtension&quot;):PreferredLocale"/>
+    <returnValueBindings name="OutValue_1" objectPath="Locale"/>
+  </nodes>
+<!--@Location 12,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode6">
+    <nodeSuccessors name="next" next="GetCurrentDate1"/>
+  </nodes>
+<!--@Location 12,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetCurrentDate1">
+    <configurationValues name="ForceApplicationServerTimeZone" value="true"/>
+    <pipelet href="enfinity:/core/pipelets/GetCurrentDate.xml"/>
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+  </nodes>
+<!--@Location 12,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="VerifyEMailAddress1"/>
+  </nodes>
+<!--@Location 12,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyEMailAddress1">
+    <pipelet href="enfinity:/core/pipelets/VerifyEMailAddress.xml"/>
+    <nodeSuccessors name="next" next="CallNode6"/>
+    <nodeSuccessors name="pipelet_error" next="ConcatenateStrings1"/>
+    <parameterBindings name="EMailAddress" objectPath="UserBO:Email"/>
+  </nodes>
+<!--@Location 12,8-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode6">
+    <nodeSuccessors name="next" next="CallNode3"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelDomain"/>
+    <startNode referencedName="ProcessContract-StaticNotificationEmailPreferences"/>
+  </nodes>
+<!--@Location 12,9-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode3">
+    <nodeSuccessors name="next" next="ProcessMail1"/>
+    <nodeSuccessors name="ERROR" next="SetDictionaryValue0"/>
+    <parameterBindings name="ContractBaseBORepository" objectPath="ApplicationBO:Repository(&quot;ContractBaseBORepository&quot;)"/>
+    <startNode referencedName="ProcessContract-GetContract"/>
+    <returnValueBindings name="Contract" objectPath="ContractBO"/>
+  </nodes>
+<!--@Location 12,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ProcessMail1">
+    <configurationValues name="UseErrorConnector" value="true"/>
+    <configurationValues name="WaitForResult" value="true"/>
+    <pipelet href="enfinity:/bc_mail/pipelets/ProcessMail.xml"/>
+    <nodeSuccessors name="next" next="CompareValues1"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+    <parameterBindings name="LocaleID" objectPath="Locale:LocaleID"/>
+    <parameterBindings name="MailFrom" objectPath="NotificationEmailFrom"/>
+    <parameterBindings name="MailTemplate" objectPath="NotificationEmailTemplate"/>
+    <parameterBindings name="MailTo" objectPath="UserBO:Email"/>
+  </nodes>
+<!--@Location 12,11-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="CompareValues1">
+    <pipelet href="enfinity:/core/pipelets/CompareValues.xml"/>
+    <nodeSuccessors name="next" next="LogMessage5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+    <parameterBindings name="FirstValue" objectPath="MailResult"/>
+    <parameterBindings name="SecondValue" constant="ok"/>
+  </nodes>
+<!--@Location 12,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage5">
+    <configurationValues name="Level" value="Debug"/>
+    <configurationValues name="Marker" value="ContractNotificationEmail"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="UpdateContract1"/>
+    <parameterBindings name="MessageParam0" objectPath="ChannelDomain:DomainName"/>
+    <parameterBindings name="MessageParam1" objectPath="ContractBO:ContractID"/>
+    <parameterBindings name="MessageParam2" objectPath="UserBO:FirstName"/>
+    <parameterBindings name="MessageParam3" objectPath="UserBO:LastName"/>
+    <parameterBindings name="MessageParam4" objectPath="MailResult"/>
+    <parameterBindings name="MessageText" constant="SendMail-Info: Contract Notification Email for Channel '{}' and Contract '{}' could was sent to account manager '{}' '{}'."/>
+  </nodes>
+<!--@Location 12,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateContract1">
+    <pipelet href="enfinity:/bc_contract/pipelets/UpdateContract.xml"/>
+    <nodeSuccessors name="next" next="EndNode12"/>
+    <parameterBindings name="DaysBeforeContractExpires" nullBinding="true"/>
+    <parameterBindings name="Description" nullBinding="true"/>
+    <parameterBindings name="EndDate" nullBinding="true"/>
+    <parameterBindings name="Name" nullBinding="true"/>
+    <parameterBindings name="NotificationSent" constant="(java.lang.Boolean)true"/>
+    <parameterBindings name="NotificationSentDate" objectPath="CurrentDate"/>
+    <parameterBindings name="StartDate" nullBinding="true"/>
+    <parameterBindings name="TypeCode" nullBinding="true"/>
+  </nodes>
+<!--@Location 12,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode12" strict="true"/>
+<!--@Location 14,10-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="LogMessage2"/>
+  </nodes>
+<!--@Location 14,12-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage2">
+    <configurationValues name="Level" value="Error"/>
+    <configurationValues name="Marker" value="ContractNotificationEmail"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="EndNode11"/>
+    <parameterBindings name="MessageParam0" objectPath="ChannelDomain:DomainName"/>
+    <parameterBindings name="MessageParam1" objectPath="ContractBO:ContractID"/>
+    <parameterBindings name="MessageParam2" objectPath="UserBO:FirstName"/>
+    <parameterBindings name="MessageParam3" objectPath="UserBO:LastName"/>
+    <parameterBindings name="MessageParam4" objectPath="MailResult"/>
+    <parameterBindings name="MessageText" constant="SendMail-Error: Contract Notification Email for Channel '{}' and Contract '{}' could not be send to account manager '{}' '{}'. Message: '{}'"/>
+  </nodes>
+<!--@Location 14,14-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode11" name="Error" strict="true"/>
+<!--@Location 13,9-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue0">
+    <configurationValues name="Name" value="MailResult"/>
+    <configurationValues name="Value" value="Contract missing"/>
+    <configurationValues name="ValueType" value="Dictionary Value"/>
+    <pipelet href="enfinity:/core/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 13,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ConcatenateStrings1">
+    <configurationValues name="DefaultString0" value="Email adress '"/>
+    <configurationValues name="DefaultString2" value="'is invalid."/>
+    <pipelet href="enfinity:/core/pipelets/ConcatenateStrings.xml"/>
+<!--@BendPoints 29,15-->
+    <nodeSuccessors name="next" next="JoinNode7"/>
+    <parameterBindings name="String0" objectPath="UserBO:Email"/>
+    <returnValueBindings name="Concatenated" objectPath="MailResult"/>
+  </nodes>
+<!--@Location 13,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLocale0">
+    <configurationValues name="LocaleFallback" value="Lead Locale"/>
+    <pipelet href="enfinity:/core/pipelets/GetLocale.xml"/>
+<!--@BendPoints 27,9-->
+    <nodeSuccessors name="next" next="JoinNode6"/>
+    <parameterBindings name="LocaleId" nullBinding="true"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="SendNotificationEmails"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode2"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="LoopNode0"/>
+    <nodeSuccessors name="Error" next="LogMessage3"/>
+    <nodeSuccessors name="NothingFound" next="LogMessage4"/>
+    <startNode referencedName="ProcessContractNotificationJob-GetContractChannelDomains"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode0" loop="RepositoryDomains">
+    <nodeSuccessors name="next" next="LogMessage6"/>
+    <entry key="ChannelDomain">
+      <nodeSuccessors name="loop_entry_next" next="CallNode7"/>
+    </entry>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode7">
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <parameterBindings name="PreferenceDomain" objectPath="ChannelDomain"/>
+    <startNode referencedName="ProcessContract-NotificationEmailPreferences"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="NotificationEnabled"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="CallNode5"/>
+    <nodeSuccessors name="decision_no" next="LogMessage7"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode5">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <nodeSuccessors name="Error" next="LogMessage0"/>
+    <startNode referencedName="ProcessContractNotificationJob-ContractNotifications"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+<!--@BendPoints 1,9-->
+    <nodeSuccessors name="next" next="JoinNode1"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 4,9-->
+    <nodeSuccessors name="next" next="LoopNode0_Entry"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage0">
+    <configurationValues name="Level" value="Error"/>
+    <configurationValues name="Marker" value="ContractNotificationEmail"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 1,17-->
+    <nodeSuccessors name="next" next="JoinNode8"/>
+    <parameterBindings name="MessageParam0" objectPath="ChannelDomain:DomainName"/>
+    <parameterBindings name="MessageParam1" objectPath="Contract:ContractID"/>
+    <parameterBindings name="MessageText" constant="Contract Notification Email for Channel '{}' and Contract '{}' could not be delivered to account manager."/>
+  </nodes>
+<!--@Location 1,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage7">
+    <configurationValues name="Level" value="Debug"/>
+    <configurationValues name="Marker" value="ContractNotificationEmail"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+    <parameterBindings name="MessageParam0" objectPath="ChannelDomain:DomainName"/>
+    <parameterBindings name="MessageText" constant="Contract Notification Email Job - Sending Notification Emails not enabled for Channel '{}'."/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage6">
+    <configurationValues name="Level" value="Debug"/>
+    <configurationValues name="Marker" value="ContractNotificationEmail"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="MessageText" constant="Contract Notification Email Job - Checking contracts and sending emails - done!"/>
+  </nodes>
+<!--@Location 4,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode5"/>
+  </nodes>
+<!--@Location 4,5-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage3">
+    <configurationValues name="Level" value="Error"/>
+    <configurationValues name="Marker" value="ContractNotificationEmail"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+    <nodeSuccessors name="next" next="EndNode3"/>
+    <parameterBindings name="MessageText" constant="Contract Notification Email Job - Query to retreive the channel domains for active contracts failed!"/>
+  </nodes>
+<!--@Location 4,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="Error" strict="true"/>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="LogMessage4">
+    <configurationValues name="Level" value="Debug"/>
+    <configurationValues name="Marker" value="ContractNotificationEmail"/>
+    <pipelet href="enfinity:/core/pipelets/LogMessage.xml"/>
+<!--@BendPoints 9,7-->
+    <nodeSuccessors name="next" next="JoinNode0"/>
+    <parameterBindings name="MessageText" constant="Contract Notification Email Job - Query did not retreive any channel domains for contract notification. Nothing to do!"/>
+  </nodes>
+</pipeline:Pipeline>

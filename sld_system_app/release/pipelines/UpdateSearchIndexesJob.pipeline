@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--@deprecated: use new pipeline MaintainSearchIndexes\-Rebuild or MaintainSearchIndexes\-Update
+This job updates SearchIndexes
+@Group SearchIndex-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="UpdateSearchIndexesJob" type="job">
+<!--@Location 0,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="GetSearchIndexChannels"
+      callMode="Private">
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery1"/>
+  </nodes>
+<!--@Location 0,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery1">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="ParameterName_01" value="TypeCodes"/>
+    <configurationValues name="QueryName" value="channel/GetChannelsByTypeCode"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+<!--@BendPoints 1,4-->
+    <nodeSuccessors name="next" next="EndNode2"/>
+    <parameterBindings name="Connection" nullBinding="true"/>
+    <parameterBindings name="ParameterValue_01" constant="52 42"/>
+    <parameterBindings name="Parameters" nullBinding="true"/>
+    <parameterBindings name="Query" nullBinding="true"/>
+    <returnValueBindings name="SearchResult" objectPath="Channels"/>
+  </nodes>
+<!--@Location 0,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+    <returnValues name="Channels" type="java.util.Iterator&lt;com.intershop.component.mvc.internal.catalog.RepositoryPO>"
+        optional="true"/>
+  </nodes>
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="Start"
+      callMode="Private">
+<!--@BendPoints 5,2-->
+    <nodeSuccessors name="next" next="CallNode1"/>
+    <parameters name="SearchIndexProcessAction" type="java.lang.String" optional="true"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="LoopNode1"/>
+    <startNode referencedName="This:GetSearchIndexChannels"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="LoopNode1" loop="Channels">
+<!--@BendPoints 6,5-->
+    <nodeSuccessors name="next" next="EndNode1"/>
+    <entry key="CurrentChannel">
+      <nodeSuccessors name="loop_entry_next" next="KeyMapper1"/>
+    </entry>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="ExecutePipeline1"/>
+    <parameterBindings name="InValue_1" objectPath="CurrentChannel:Domain"/>
+    <returnValueBindings name="OutValue_1" objectPath="Domain"/>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecutePipeline1">
+    <configurationValues name="Asynchronous" value="false"/>
+    <configurationValues name="PipelineName" value="ProcessSearchIndex"/>
+    <configurationValues name="PipelineStartNode" value="UpdateAllSearchIndexesOfDomain"/>
+    <pipelet href="enfinity:/core/pipelets/ExecutePipeline.xml"/>
+    <nodeSuccessors name="next" next="JoinNode1"/>
+<!--@BendPoints 6,9 6,11-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode1"/>
+    <parameterBindings name="PipelineDomain" objectPath="CurrentChannel:OwningDomain:Site"/>
+    <parameterBindings name="PipelineDomainID" nullBinding="true"/>
+    <parameterBindings name="PipelineDomainName" nullBinding="true"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode1">
+<!--@BendPoints 4,11 4,9 4,5-->
+    <nodeSuccessors name="next" next="LoopNode1_Entry"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" strict="true"/>
+</pipeline:Pipeline>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="gets the pagelet uuids that are gone offline or are outdated since the last index build.">
+<parameters>
+	<parameter name="SearchIndex" type="com.intershop.component.search.capi.SearchIndex" optional="false" description="The search index"/>
+    <parameter name="Domain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>    
+    <parameter name="LastIndexStartTime" type="java.util.Date" optional="true"/>
+    <parameter name="CurrentDate" type="java.util.Date" optional="true" />    
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template type="objects">
+SELECT uuid 
+FROM pagelet p
+WHERE 
+(p.domainid=<template-variable value="Domain:UUID"/>
+	OR p.domainid=
+	(
+	  SELECT repositorydomainid
+	  FROM repository 
+	  WHERE domainid=<template-variable value="Domain:UUID"/> AND proxyflag=1 AND typecode=27)
+	)
+<template-comment>it has changed and maybe it has gone just offline</template-comment>
+AND (p.onlineflag = 0 AND p.lastmodified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>)
+OR 
+<template-comment>it was valid the time we have indexed the last time</template-comment>
+(p.onlineflag = 1 AND p.validto IS NOT NULL
+AND p.validto &gt; <template-variable value="LastIndexStartTime" />  )
+
+UNION ALL
+SELECT subpageletid 
+FROM slotpageletassignment spa 
+WHERE 
+(spa.domainid=<template-variable value="Domain:UUID"/>
+	OR spa.domainid=
+	(
+	  SELECT repositorydomainid
+	  FROM repository 
+	  WHERE domainid=<template-variable value="Domain:UUID"/> AND proxyflag=1 AND typecode=27)
+	)
+<template-comment>it has changed and maybe it has gone just offline</template-comment>
+AND (spa.onlineflag = 0 AND spa.lastmodified &gt; <template-variable value="LastIndexStartTime" processing="LastModifiedDate"/>)
+OR 
+<template-comment>it was valid the time we have indexed the last time</template-comment>
+(spa.onlineflag = 1 AND spa.validto IS NOT NULL
+AND spa.validto &gt; <template-variable value="LastIndexStartTime" />  )
+
+</template>
+</query>

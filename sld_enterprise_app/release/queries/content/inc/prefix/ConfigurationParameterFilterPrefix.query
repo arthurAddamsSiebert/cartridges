@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+    <parameter name="AllLocales" type="java.util.Iterator" optional="true" description="All available locales."/>
+    <parameter name="ConfigParamType" type="java.lang.String" optional="true"/>    
+    <parameter name="ConfigParamValueExpression" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true"/>
+  </parameters>
+<processor name="OracleSQL">
+	<processor-preprocessing output="ConfigParamValue" input="ConfigParamValueExpression" processing="SearchExpression2Contains"/>
+</processor>
+<template>
+	<template-if condition="isDefined(ConfigParamValueExpression) and ConfigParamValueExpression:NotEmpty and hasElements(AllLocales)">
+  		WITH
+	  	<template-loop iterator="AllLocales" alias="Locale">
+		    <loop-statement>
+			  	innerConfigurationFilter_<template-variable value="Locale:LocaleID" processing="text"/>(RootName, name, attributes_<template-variable value="Locale:LocaleID" processing="text"/>, attributes, uuid, parentuuid) 
+			  	AS (
+				    SELECT conf_param.name RootName, conf_param.name, conf_param.attributes_en_US, 
+				    conf_param.attributes, p.uuid, p.parentuuid FROM pagelet p 
+				    JOIN 
+				    configurationparameter conf_param ON (conf_param.configurationparameterctnrid = p.uuid)
+				    WHERE conf_param.uuid IN 
+				    (
+				        <sql-dialect name="Oracle">
+		                    SELECT uuid FROM configurationparameter WHERE 
+		                    contains(attributes_<template-variable value="Locale:LocaleID" processing="text"/>, 
+		                        <template-variable value="ConfigParamValue"/> || ' INPATH (//attrs/attr/string)') &gt; 0
+		                    UNION
+		                    SELECT uuid FROM configurationparameter WHERE 
+		                    contains(attributes, 
+		                        <template-variable value="ConfigParamValue"/> || ' INPATH (//attrs/attr/string)') &gt; 0
+		                </sql-dialect>
+		                <sql-dialect name="Microsoft">                    
+		                    SELECT uuid FROM configurationparameter WHERE 
+		                    attributes_<template-variable value="Locale:LocaleID" processing="text"/>.exist('//attrs/attr/string[<template-variable value="ConfigParamValueExpression:XPathSnippet" processing="text"/>]') = 1	                        
+		                    UNION
+		                    SELECT uuid FROM configurationparameter WHERE 
+		                    attributes.exist('//attrs/attr/string[<template-variable value="ConfigParamValueExpression:XPathSnippet" processing="text"/>]') = 1
+						</sql-dialect>
+				    ) 
+				    <template-if condition="isDefined(ConfigParamType) and ConfigParamType ne 'all'">
+		            	AND conf_param.definitionqualifiedname = <template-variable value="ConfigParamType"/>
+		            </template-if> 
+				    UNION ALL
+				    SELECT b_conf_param.name RootName, b_conf_param.name, b_conf_param.attributes_en_US, 
+				    b_conf_param.attributes, b_p.uuid, b_p.parentuuid FROM innerConfigurationFilter_<template-variable value="Locale:LocaleID" processing="text"/>, pagelet b_p 
+				    JOIN 
+				    configurationparameter b_conf_param ON (b_conf_param.configurationparameterctnrid = b_p.uuid)
+				    WHERE b_p.uuid = innerConfigurationFilter_<template-variable value="Locale:LocaleID" processing="text"/>.parentuuid
+				)
+				, outerConfigurationFilter_<template-variable value="Locale:LocaleID" processing="text"/>(uuid, parentuuid, rootname) AS (
+				    SELECT a.uuid, a.parentuuid, a.rootname FROM innerConfigurationFilter_<template-variable value="Locale:LocaleID" processing="text"/> a WHERE a.parentuuid IS NULL
+				    UNION ALL
+				    SELECT b.uuid, b.parentuuid, b.rootname FROM innerConfigurationFilter_<template-variable value="Locale:LocaleID" processing="text"/> b, outerConfigurationFilter_<template-variable value="Locale:LocaleID" processing="text"/>
+				    WHERE  outerConfigurationFilter_<template-variable value="Locale:LocaleID" processing="text"/>.uuid = b.parentuuid 
+				    AND outerConfigurationFilter_<template-variable value="Locale:LocaleID" processing="text"/>.rootname = b.rootname
+				    AND NOT EXISTS (
+				                    SELECT uuid FROM configurationparameter conf_param 
+				                      WHERE conf_param.configurationparameterctnrid = b.uuid
+				                      AND   conf_param.name = b.rootname
+				                      AND  (conf_param.attributes IS NOT NULL OR  conf_param.attributes_en_US IS NOT NULL)
+				                   )
+				)
+			</loop-statement>
+			<loop-separator>, </loop-separator>
+		</template-loop>
+	</template-if>
+</template>
+</query>

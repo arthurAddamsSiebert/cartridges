@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Retrieves the Outgoing or Incoming Product links. The sharing of the products is taken into account.">
+  <parameters>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="SourceProductID" type="java.lang.String" optional="true"/>
+    <parameter name="TargetProductID" type="java.lang.String" optional="true"/>
+    <parameter name="TypeCode" type="java.lang.Integer" optional="false"/>
+  </parameters>
+
+  <return-mappings>
+    <return-mapping name="SourceProductId" type="rename">
+      <return-attribute name="sourceproductid"/>
+    </return-mapping>
+    <return-mapping name="TargetProductId" type="rename">
+      <return-attribute name="targetproductid"/>
+    </return-mapping>
+    <return-mapping name="Local" type="rename">
+      <return-attribute name="local"/>
+    </return-mapping>
+    <return-mapping name="Shared" type="rename">
+      <return-attribute name="shared"/>
+    </return-mapping>
+  </return-mappings>
+
+  <processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+  </processor>
+
+  <template type="objects">
+    <template-comment>
+      Notes for the "inline" hint:
+          The "inline" SQL query hint was added to avoid materializing the inline data within the "with _alias_ as" clause. The usage
+          of hidden (alter session/system) underline parameter "_with_subquery" (values: optimizer (default), materialize, inline) is
+          not a good practice.
+      Solved problems:
+          Possible "ora-1652: unable to extend temp segment..." errors are avoided with the "inline" hint. Previously, the error occurred
+          if the optimizer chooses execution plans with "temp table transformation" and "load as select from sys_temp..." and the temp
+          data were not subsequently deleted.
+    </template-comment>
+    with available_links as
+       (select /*+ inline - to avoid massive not released temporary tablespace data */ pl.uuid as linkid, pl.sourceid, pl.targetid, pl.typecode, pl.domainid, pl.lastmodified
+          from productlink pl
+         where
+         pl.domainid in
+         (
+         	<template-loop alias="Domain" iterator="Sharing:Domains">
+         	<loop-statement>
+         		<template-variable value="Domain:UUID"/>
+         	</loop-statement>
+         	<loop-separator>,</loop-separator>
+         	</template-loop>
+         	<template-if condition="hasLoopElements(Sharing:ProductSets)">
+         		,<template-loop alias="ProductSet" iterator="Sharing:ProductSets">
+         			<loop-statement>
+         				<template-variable value="ProductSet:DomainID"/>
+         			</loop-statement>
+         			<loop-separator>,</loop-separator>
+         		</template-loop>
+         	</template-if>
+         )
+           and exists (
+               select 1 from product p
+               where p.uuid = pl.sourceid
+               and <template-call name="product/inc/AvailableProductsCondition">
+                     <call-parameter name = "TableAlias" value = "&quot;p&quot;"/>
+                     <call-parameter name = "ProductIdColumn" value="&quot;uuid&quot;"/>
+                     <call-parameter name = "Sharing" value = "Sharing" />
+                   </template-call>
+           )
+           and exists (
+               select 1 from product p
+               where p.uuid = pl.targetid
+               and <template-call name="product/inc/AvailableProductsCondition">
+                     <call-parameter name = "TableAlias" value = "&quot;p&quot;"/>
+                     <call-parameter name = "ProductIdColumn" value="&quot;uuid&quot;"/>
+                     <call-parameter name = "Sharing" value = "Sharing" />
+                   </template-call>
+           )
+         <template-if condition="isDefined(SourceProductID)">
+           and pl.sourceid = <template-variable value="SourceProductID"/>
+         </template-if>
+         <template-if condition="isDefined(TargetProductID)">
+           and pl.targetid = <template-variable value="TargetProductID"/>
+         </template-if>
+           and pl.typecode = <template-variable value="TypeCode"/>
+       )
+	   <sql-dialect name="Microsoft">
+		SELECT * FROM (
+	   </sql-dialect>
+       select sourceid as sourceproductid, targetid as targetproductid,
+              (select case count(*) when 0 then '0' else '1' end from available_links where domainid = <template-variable value="ProductDomain:UUID" /> and available_links.sourceid = distinct_links.sourceid and available_links.targetid = distinct_links.targetid) as local,
+              (select case count(*) when 0 then '0' else '1' end from available_links where domainid != <template-variable value="ProductDomain:UUID" /> and available_links.sourceid = distinct_links.sourceid and available_links.targetid = distinct_links.targetid) as shared,
+              COALESCE(
+              	  (select <sql-dialect name="Microsoft"> TOP 1 </sql-dialect> position from available_links inner join productlinkposition plp on available_links.linkid = plp.linkid and plp.domainid = <template-variable value="ProductDomain:UUID" /> where available_links.sourceid = distinct_links.sourceid and available_links.targetid = distinct_links.targetid)
+                 ,
+	              (select max(position) from available_links inner join productlinkposition plp on available_links.linkid = plp.linkid 
+	              	and 
+	              		plp.domainid in
+				         (
+				         	<template-loop alias="Domain" iterator="Sharing:Domains">
+				         	<loop-statement>
+				         		<template-variable value="Domain:UUID"/>
+				         	</loop-statement>
+				         	<loop-separator>,</loop-separator>
+				         	</template-loop>
+				         	<template-if condition="hasLoopElements(Sharing:ProductSets)">
+				         		,<template-loop alias="ProductSet" iterator="Sharing:ProductSets">
+				         			<loop-statement>
+				         				<template-variable value="ProductSet:DomainID"/>
+				         			</loop-statement>
+				         			<loop-separator>,</loop-separator>
+				         		</template-loop>
+				         	</template-if>
+				         )
+	              		where available_links.sourceid = distinct_links.sourceid and available_links.targetid = distinct_links.targetid)
+                
+                ) as position,
+              COALESCE(
+	              	(select <sql-dialect name="Microsoft"> TOP 1 </sql-dialect> lastmodified from available_links where domainid = <template-variable value="ProductDomain:UUID" /> and available_links.sourceid = distinct_links.sourceid and available_links.targetid = distinct_links.targetid)
+	                  ,
+            		(select max(lastmodified) from available_links 
+            			where 
+            				domainid in
+					         (
+					         	<template-loop alias="Domain" iterator="Sharing:Domains">
+					         	<loop-statement>
+					         		<template-variable value="Domain:UUID"/>
+					         	</loop-statement>
+					         	<loop-separator>,</loop-separator>
+					         	</template-loop>
+					         	<template-if condition="hasLoopElements(Sharing:ProductSets)">
+					         		,<template-loop alias="ProductSet" iterator="Sharing:ProductSets">
+					         			<loop-statement>
+					         				<template-variable value="ProductSet:DomainID"/>
+					         			</loop-statement>
+					         			<loop-separator>,</loop-separator>
+					         		</template-loop>
+					         	</template-if>
+					         ) 
+				            and available_links.sourceid = distinct_links.sourceid and available_links.targetid = distinct_links.targetid) 
+	            	) as lastmodified
+       from 
+         (select distinct sourceid, targetid from available_links) distinct_links
+	   <sql-dialect name="Microsoft">
+		 ) a
+	   </sql-dialect>
+       order by case when position is null then lastmodified end,
+ 	 	 	 	case when position is not null then position end
+  </template>
+</query>

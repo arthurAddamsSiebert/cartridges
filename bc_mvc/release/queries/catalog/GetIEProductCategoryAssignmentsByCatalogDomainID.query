@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="Returns all product category assignments of given catalog category and product domain. It performs fallback to master repository assignments in case of non existing assignments the channel.">
+<parameters>
+    <parameter name="ProductDomain" type="com.intershop.beehive.core.capi.domain.Domain" optional="false"/>
+    <parameter name="CatalogDomainID" type="java.lang.String" optional="true"/>
+	<parameter name="LocaleInformation" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true"/>
+	<parameter name="SortAttribute" type="java.lang.String" optional="true"/>
+	<parameter name="SortAttributeType" type="java.lang.String" optional="true"/>
+</parameters>
+<processor name="OracleSQL">
+    <processor-preprocessing output="Sharing" input="ProductDomain" processing="ProductSharingHelper"/>
+</processor>
+<template type="objects">
+SELECT
+	DISTINCT iepca.categoryid as categoryid,
+	iepca.productid as productid,
+	p.sorting AS SORTING
+FROM
+    ieproductcategoryassignment iepca
+JOIN
+    catalogcategory cc ON (cc.uuid = iepca.categoryid)
+INNER JOIN 
+	(
+    <template-call name="product/GetProductsByAdvancedSearch">
+        <call-parameter name="ProductDomain" value="ProductDomain"/>
+        <call-parameter name="LocaleInformation" value="LocaleInformation"/>
+        <call-parameter name="SortAttribute" value="SortAttribute"/>
+        <call-parameter name="SortAttributeType" value="SortAttributeType"/>
+    </template-call>
+	) p ON (p.uuid = iepca.productid)
+WHERE 1=1
+	<template-if condition="isDefined(CatalogDomainID)">
+	AND cc.domainid = <template-variable value="CatalogDomainID"/>
+	</template-if>
+	AND
+	<template-if condition="Sharing:Enabled">
+	    iepca.productdomainid IN (<template-loop alias="Domain" iterator="Sharing:Domains"><loop-statement><template-variable value="Domain:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+	    OR
+	    iepca.productdomainid IN (<template-loop alias="SharingDomain" iterator="Sharing:SharingDomains"><loop-statement><template-variable value="SharingDomain:UUID"/></loop-statement><loop-separator>,</loop-separator></template-loop>)
+	<if-else/>
+	    iepca.productdomainid = <template-variable value="ProductDomain:UUID"/>
+	</template-if>
+</template>
+</query>

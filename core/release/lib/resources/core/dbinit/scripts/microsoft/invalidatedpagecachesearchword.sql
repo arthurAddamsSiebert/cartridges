@@ -1,0 +1,15 @@
+exec ddl$drop_table 'INVALIDATEDPAGECACHESEARCHWORD'
+/
+
+CREATE TABLE INVALIDATEDPAGECACHESEARCHWORD
+(
+    "INVALIDATIONTIME" DATETIME2,
+    "SEARCHWORD" NVARCHAR(256),
+    "DOMAINID" NVARCHAR(28),
+    "UUID" NVARCHAR(28),
+    PRIMARY KEY ("INVALIDATIONTIME", "DOMAINID","SEARCHWORD", "UUID")
+) /* todo ORGANIZATION INDEX */
+/
+
+EXEC sp_addextendedproperty @name = N'Comment', @value = 'core', @level0type = N'Schema', @level0name = 'dbo', @level1type = N'Table', @level1name = 'INVALIDATEDPAGECACHESEARCHWORD'
+/

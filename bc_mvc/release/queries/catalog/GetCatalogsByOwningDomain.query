@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query retrieves all catalogs owned by the domain specified by its uuid as parameter. The result can be further refined by specifying type codes the catalogs must have or/and by specifying if proxy catalogs should be included or excluded.">
+<parameters>
+	<parameter name="OwningDomainUUID" type="java.lang.String" optional="false"/>
+	<parameter name="TypeCodes" type="java.util.Iterator" optional="true" description="An iterator containing type codes (Integer or String). Only catalogs with a type code matching a value in thi iterator are included in the result."/>
+	<parameter name="ProxyFlag" type="java.lang.Integer" optional="true" description="The value of &apos;ProxyFlag&apos; (0 or 1) determines if proxy catalogs should be included in the result. By default, i.e. no value for this parameter is provided, proxy catalogs will be included."/>
+	<parameter name="SortBy" type="java.lang.String" optional="true" description="Specifies the sorting attribute (catalog id = &apos;id&apos; or catalog display name = &apos;name&apos;)."/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true" description="Determines the sort direction (&apos;asc&apos; or &apos;desc&apos;)."/>
+	<parameter name="Locale" type="com.intershop.beehive.core.capi.localization.LocaleInformation" optional="true" description="This parameter is only needed for sorting by catalog display name (&apos;name&apos;)."/>
+</parameters>
+<return-mappings>
+	<return-mapping name="Catalog" type="orm" class="com.intershop.component.mvc.internal.catalog.CatalogPO">
+		<return-attribute name="UUID"/>
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL">
+</processor>
+<template type="countedobjects">
+	SELECT c.uuid AS UUID, count(*) over() AS "rowcount"
+	FROM catalog c
+	<template-if condition="isDefined(SortBy)">
+		<template-if condition="(lcase(SortBy) eq &apos;name&apos;)">
+			LEFT OUTER JOIN catalog_av cav ON (c.uuid=cav.ownerid AND cav.name=&apos;displayName&apos; AND cav.localeid=<template-variable value="Locale:LocaleID"/>)
+		</template-if>
+	</template-if>
+	WHERE c.domainid=<template-variable value="OwningDomainUUID"/>
+	<template-if condition="hasElements(TypeCodes)">
+		AND c.typecode IN (
+		<template-loop iterator="TypeCodes" alias="TypeCode"><loop-statement><template-variable value="TypeCode"/></loop-statement>
+			<loop-separator>,</loop-separator>
+		</template-loop>)
+	</template-if>
+	<template-if condition="isDefined(ProxyFlag)">
+		AND c.proxyflag=<template-variable value="ProxyFlag"/>
+	</template-if>
+	<template-if condition="isDefined(SortBy)">
+		<sql-dialect name="Oracle">
+			ORDER BY
+			<template-if condition="NOT isDefined(ProxyFlag)">
+				c.proxyflag,
+		    </template-if>
+			<template-if condition="(lcase(SortBy) eq &apos;id&apos;)">
+				c.id
+			</template-if>
+			<template-if condition="(lcase(SortBy) eq &apos;name&apos;)">
+				cav.stringvalue
+			</template-if>
+			<template-if condition="isDefined(SortDirection)">
+				<template-if condition="(lcase(SortDirection) eq &apos;desc&apos;)">
+					DESC NULLS FIRST
+					<if-else/>
+					ASC NULLS LAST
+				</template-if>
+			</template-if>
+		</sql-dialect>
+		<sql-dialect name="Microsoft">
+			ORDER BY
+			<template-if condition="NOT isDefined(ProxyFlag)">
+				c.proxyflag,
+		    </template-if>
+			<template-if condition="isDefined(SortDirection)">
+				<template-if condition="(lcase(SortDirection) eq &apos;desc&apos;)">
+					CASE WHEN 
+					<template-if condition="(lcase(SortBy) eq &apos;id&apos;)">
+						c.id
+					</template-if>
+					<template-if condition="(lcase(SortBy) eq &apos;name&apos;)">
+						cav.stringvalue
+					</template-if>
+					IS NULL THEN 0 ELSE 1 END, 
+					<template-if condition="(lcase(SortBy) eq &apos;id&apos;)">
+						c.id
+					</template-if>
+					<template-if condition="(lcase(SortBy) eq &apos;name&apos;)">
+						cav.stringvalue
+					</template-if> DESC
+				<if-else/>
+					CASE WHEN 
+					<template-if condition="(lcase(SortBy) eq &apos;id&apos;)">
+						c.id
+					</template-if>
+					<template-if condition="(lcase(SortBy) eq &apos;name&apos;)">
+						cav.stringvalue
+					</template-if>
+					IS NULL THEN 1 ELSE 0 END, 
+					<template-if condition="(lcase(SortBy) eq &apos;id&apos;)">
+						c.id
+					</template-if>
+					<template-if condition="(lcase(SortBy) eq &apos;name&apos;)">
+						cav.stringvalue
+					</template-if> ASC
+				</template-if>
+			<if-else/>
+				<template-if condition="(lcase(SortBy) eq &apos;id&apos;)">
+					c.id
+				</template-if>
+				<template-if condition="(lcase(SortBy) eq &apos;name&apos;)">
+					cav.stringvalue
+				</template-if>
+			</template-if>
+		</sql-dialect>		
+	</template-if>
+</template>
+</query>

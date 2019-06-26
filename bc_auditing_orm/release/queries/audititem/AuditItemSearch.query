@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query>
+<parameters>
+	<parameter name="ApplicationRefs" type="java.util.Collection" optional="true" description="The referenced application filter (list of com.intershop.component.auditing.capi.ref.objects.AuditApplicationRef)"/>
+	<parameter name="Domains" type="java.util.Collection" optional="true" description="The referenced domain filter (list of com.intershop.beehive.core.capi.domain.Domain)"/>
+	<parameter name="UserRefs" type="java.util.Collection" optional="true" description="The referenced user filter (list of com.intershop.component.auditing.capi.ref.objects.AuditUserRef)"/>
+	<parameter name="AuditObjectTypes" type="java.util.Collection" optional="true" description="The audit item type filter (list of java.util.String)"/>
+	<parameter name="DeclaredObjectTypes" type="java.util.Collection" optional="true" description="Pass the list of known audit item types (list of java.util.String) to search for all other."/>
+	<parameter name="AuditActionTypes" type="java.util.Collection" optional="true" description="The audit item action type filter (java.util.String)"/>
+	<parameter name="CreateDateRangeStart" type="java.util.Date" optional="true" description="The start for creation date filter"/>
+	<parameter name="CreateDateRangeEnd" type="java.util.Date" optional="true" description="The end for creation date filter"/>
+	<parameter name="SortBy" type="java.lang.String" optional="true" description="The field to sort search result"/>
+	<parameter name="SortDirection" type="java.lang.String" optional="true" description="The sorting direction of search result"/>
+	<parameter name="ObjectID" type="com.intershop.component.foundation.capi.search.SearchExpression" optional="true" description="The ID of the object or related objects"/>
+</parameters>
+<return-mappings>
+	<return-mapping name="AuditItemBO" type="bo-orm" class="com.intershop.component.auditing.orm.internal.AuditItemPO" mapperclass="AuditItemPOToAuditItemBOMapper">
+		<return-attribute name="eventDate"/>
+		<return-attribute name="transactionID"/>
+		<return-attribute name="eventID"/>
+		<return-attribute name="itemID"/>
+		
+	</return-mapping>
+</return-mappings>
+<processor name="OracleSQL" description="Gets audit items filtered by applications, domains, users, date range, audit type and item type">
+	<processor-configuration name="readType.eventDate" value="Timestamp.GMT"/>
+</processor>
+
+<template type="countedobjects">
+	SELECT eventDate, transactionID, eventID, itemID,
+	<template-if condition="isDefined(SortBy)">
+		<template-variable value="SortBy" processing="text"/> AS sorting,
+	</template-if>
+	count(*) over() as "ROWCOUNT" FROM audititem 
+	WHERE actionType IS NOT NULL
+		<template-if condition="isDefined(ApplicationRefs) and hasElements(ApplicationRefs)">
+			AND applicationref IN (
+			<template-loop iterator="ApplicationRefs" alias="AR">
+				<loop-statement><template-variable value="AR:RefString" /></loop-statement>
+				<loop-separator>,</loop-separator>
+			</template-loop> )
+		</template-if>
+		<template-if condition="isDefined(Domains) and hasElements(Domains)">
+			AND domainref IN (
+			<template-loop iterator="Domains" alias="DR">
+				<loop-statement><template-variable value="DR:DomainName" /></loop-statement>
+				<loop-separator>,</loop-separator>
+			</template-loop> )
+		</template-if>
+		<template-if condition="isDefined(UserRefs) and hasElements(UserRefs)">
+			AND userref IN (
+			<template-loop iterator="UserRefs" alias="UR">
+				<loop-statement><template-variable value="UR:RefString" /></loop-statement>
+				<loop-separator>,</loop-separator>
+			</template-loop> )
+		</template-if>
+		<template-if condition="isDefined(AuditObjectTypes) and hasElements(AuditObjectTypes)">
+			AND ( objectType IN (
+			<template-loop iterator="AuditObjectTypes" alias="AIT">
+				<loop-statement><template-if condition="replace(AIT,'.*\\*$','*') EQ '*'"><template-variable value="pad(AIT,len(AIT)-1)"/><if-else/><template-variable value="AIT"/></template-if></loop-statement>
+				<loop-separator>,</loop-separator>
+			</template-loop> )
+			<template-loop iterator="AuditObjectTypes" alias="AIT">
+				<loop-statement><template-if condition="replace(AIT,'.*\\*$','*') EQ '*'"> OR objectType like <template-variable value="replace(AIT,'\\*','%')"/></template-if></loop-statement>
+				<loop-separator></loop-separator>
+			</template-loop>
+			<template-if condition="isDefined(DeclaredObjectTypes) and hasElements(DeclaredObjectTypes)">
+				OR
+			<if-else/>
+				)
+			</template-if>
+		<if-elseif condition="isDefined(DeclaredObjectTypes) and hasElements(DeclaredObjectTypes)"/>
+			AND (
+		</template-if>		
+		<template-if condition="isDefined(DeclaredObjectTypes) and hasElements(DeclaredObjectTypes)">
+				NOT ( objectType IN (
+				<template-loop iterator="DeclaredObjectTypes" alias="AIT">
+					<loop-statement><template-if condition="replace(AIT,'.*\\*$','*') EQ '*'"><template-variable value="pad(AIT,len(AIT)-1)"/><if-else/><template-variable value="AIT"/></template-if></loop-statement>
+					<loop-separator>,</loop-separator>
+				</template-loop> )
+				<template-loop iterator="DeclaredObjectTypes" alias="AIT">
+					<loop-statement><template-if condition="replace(AIT,'.*\\*$','*') EQ '*'"> OR objectType like <template-variable value="replace(AIT,'\\*','%')"/></template-if></loop-statement>
+					<loop-separator></loop-separator>
+				</template-loop>  )
+			)
+		</template-if>
+		<template-if condition="isDefined(AuditActionTypes) and hasElements(AuditActionTypes)">
+			AND actionType IN (
+			<template-loop iterator="AuditActionTypes" alias="ATT">
+				<loop-statement><template-variable value="ATT"/></loop-statement>
+				<loop-separator>,</loop-separator>
+			</template-loop> )
+		</template-if>
+		<template-if condition="isDefined(CreateDateRangeStart)">
+			AND <template-variable value="CreateDateRangeStart"/> &lt;= eventDate
+		</template-if>
+		<template-if condition="isDefined(CreateDateRangeEnd)">
+			AND <template-variable value="CreateDateRangeEnd"/> &gt; eventDate
+		</template-if>
+		<template-if condition="isDefined(ObjectID) and ObjectID:NotEmpty">
+			<template-call name="inc/SearchExpression2Like">
+				<call-parameter name="SearchExpression" value="ObjectID"/>
+				<call-parameter name="ColumnNames" value="&quot;objectref&quot;"/>
+				<call-parameter name="CaseInsensitive" value="true()"/>
+				<call-parameter name="ConcatenationOperator" value="&quot; AND &quot;"/>
+			</template-call>
+		</template-if>	
+
+	<template-if condition="isDefined(SortBy)">
+		<template-if condition="isDefined(SortDirection) AND ucase(pad(SortDirection,1)) EQ 'D'">
+			ORDER BY sorting DESC
+		<if-else />
+			ORDER BY <sql-dialect name="Microsoft">CASE WHEN <template-variable value="SortBy" processing="text"/> IS null THEN 1 ELSE 0 END, </sql-dialect> 
+			         sorting ASC <sql-dialect name="Oracle">NULLS LAST</sql-dialect>
+		</template-if>
+	</template-if>
+</template>
+
+</query>

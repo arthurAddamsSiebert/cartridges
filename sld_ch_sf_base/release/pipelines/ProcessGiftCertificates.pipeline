@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--The pipeline contains common processing logic that helps the dispay of gift card and gift certificate related data.-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="ProcessGiftCertificates" overrideMode="Inherit" type="process">
+<!--Looks up objects which backup the gift certificate. These objects may be used to manipulate the certificate properties.
+@Location 3,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode0" strict="true" name="GetGCDataByPLIID"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode0"/>
+    <parameters name="PLIID" type="java.lang.String"/>
+  </nodes>
+<!--@Location 3,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode0">
+    <nodeSuccessors name="next" next="GetApplicationBO1"/>
+    <startNode referencedName="DetermineOrganizations-Current"/>
+  </nodes>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO1">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="CallNode1"/>
+  </nodes>
+<!--@Location 3,4-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode1">
+    <nodeSuccessors name="next" next="GetBasketProductLineItemBO0"/>
+    <parameterBindings name="BasketBORepository" objectPath="ApplicationBO:Extension(&quot;Basket&quot;):getBasketBORepository(CurrentOrganization)"/>
+    <parameterBindings name="Organization" objectPath="CurrentOrganization"/>
+    <parameterBindings name="User" objectPath="CurrentUser"/>
+    <startNode referencedName="ProcessCart-GetCurrentCart"/>
+  </nodes>
+<!--@Location 3,5-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetBasketProductLineItemBO0">
+    <pipelet href="enfinity:/sld_ch_b2c_base/pipelets/GetBasketProductLineItemBO.xml"/>
+    <nodeSuccessors name="next" next="KeyMapper0"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="BasketBO" objectPath="CurrentCartBO"/>
+  </nodes>
+<!--@Location 3,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="KeyMapper0">
+    <pipelet href="enfinity:/core/pipelets/KeyMapper.xml"/>
+    <nodeSuccessors name="next" next="GetLineItemByUUID0"/>
+    <parameterBindings name="InValue_1" objectPath="BasketProductLineItemBO:Product"/>
+    <returnValueBindings name="OutValue_1" objectPath="ProductBO"/>
+  </nodes>
+<!--@Location 3,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetLineItemByUUID0">
+    <pipelet href="enfinity:/bc_requisition/pipelets/GetLineItemByUUID.xml"/>
+    <nodeSuccessors name="next" next="EndNode4"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode0"/>
+    <parameterBindings name="LineItemUUID" objectPath="PLIID"/>
+    <returnValueBindings name="LineItem" objectPath="ProductLineItem"/>
+  </nodes>
+<!--Returns various data useful for gift card/certificate rendering.
+@Location 3,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode4" strict="true">
+<!--The product associated with this PLI if still available.-->
+    <returnValues name="ProductBO" type="com.intershop.component.product.capi.ProductBO"
+        optional="true"/>
+<!--@deprecated The static address associated with this certificate.-->
+    <returnValues name="StaticAddress" type="com.intershop.beehive.bts.capi.orderprocess.StaticAddress"
+        optional="true"/>
+<!--@deprecated represent the line item. The preferred option is to use the BO layer.-->
+    <returnValues name="ProductLineItem" type="com.intershop.beehive.bts.capi.orderprocess.LineItem"/>
+<!--The BO representaion of the PLI-->
+    <returnValues name="BasketProductLineItemBO" type="com.intershop.component.basket.capi.BasketProductLineItemBO"/>
+  </nodes>
+<!--@Location 4,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode0">
+    <nodeSuccessors name="next" next="EndNode3"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode3" name="NOT_FOUND" strict="true"/>
+<!--Returns the product BO by the provided SKU. If the product has not been found the NOT_FOUND exit is used. If it is not visible the NOT_VISIBLE exit is used.
+@Location 1,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode1" strict="true" name="GetGCProductDataBySKU"
+      callMode="Private">
+    <nodeSuccessors name="next" next="CallNode2"/>
+<!--The SKU of the product.-->
+    <parameters name="SKU" type="java.lang.String"/>
+  </nodes>
+<!--@Location 1,2-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="CallNode2">
+    <nodeSuccessors name="next" next="GetApplicationBO0"/>
+    <startNode referencedName="DetermineOrganizations-Current"/>
+  </nodes>
+<!--@Location 1,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetApplicationBO0">
+    <pipelet href="enfinity:/bc_application/pipelets/GetApplicationBO.xml"/>
+    <nodeSuccessors name="next" next="GetProductBOBySKU1"/>
+  </nodes>
+<!--@Location 1,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductBOBySKU1">
+    <pipelet href="enfinity:/bc_product/pipelets/GetProductBOBySKU.xml"/>
+    <nodeSuccessors name="next" next="DecisionNode0"/>
+    <nodeSuccessors name="pipelet_error" next="EndNode0"/>
+    <parameterBindings name="ProductBORepository" objectPath="ApplicationBO:Extension(&quot;Product&quot;):getProductBORepository(CurrentOrganization:OwningDomain:UUID)"/>
+  </nodes>
+<!--@Location 1,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="DecisionNode0" conditionKey="ProductBO:Accessible"
+      operator="str_eq" conditionValue="true">
+    <nodeSuccessors name="decision_yes" next="EndNode2"/>
+    <nodeSuccessors name="decision_no" next="EndNode1"/>
+  </nodes>
+<!--@Location 0,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode2" strict="true">
+<!--The product for the provided SKU.-->
+    <returnValues name="ProductBO" type="com.intershop.component.product.capi.ProductBO"
+        optional="true"/>
+  </nodes>
+<!--@Location 2,7-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode1" name="NOT_VISIBLE" strict="true"/>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode0" name="NOT_FOUND" strict="true"/>
+<!--Updates the data which is contained within a gift certificate.
+@Location 5,1-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="StartNode2" strict="true" name="UpdateGCData"
+      callMode="Private">
+    <nodeSuccessors name="next" next="UpdateCustomAttributes0" action="begin"/>
+<!--@deprecated the PLI that is associated with the certificate-->
+    <parameters name="ProductLineItem" type="com.intershop.beehive.bts.capi.orderprocess.ProductLineItem"/>
+<!--@deprecated The static address associated with the gift card-->
+    <parameters name="StaticAddress" type="com.intershop.beehive.bts.capi.orderprocess.StaticAddress"
+        optional="true"/>
+<!--The name of the user.-->
+    <parameters name="UserName" type="java.lang.String"/>
+<!--The email of the user.-->
+    <parameters name="UserEmail" type="java.lang.String"/>
+<!--The greeting attached to the certificate-->
+    <parameters name="Greeting" type="java.lang.String"/>
+<!--The name of the recipient-->
+    <parameters name="RecipientName" type="java.lang.String"/>
+<!--The email of the recipient.-->
+    <parameters name="RecipientEmail" type="java.lang.String"/>
+    <parameters name="AddressBO" type="com.intershop.component.address.capi.AddressBO"/>
+  </nodes>
+<!--@Location 5,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateCustomAttributes0">
+    <configurationValues name="Attribute_1_Name" value="GIFTCARD_SenderName"/>
+    <configurationValues name="Attribute_1_Type" value="String"/>
+    <configurationValues name="Attribute_2_Name" value="GIFTCARD_SenderEmail"/>
+    <configurationValues name="Attribute_2_Type" value="String"/>
+    <configurationValues name="Attribute_3_Name" value="GIFTCARD_GreetingMessage"/>
+    <configurationValues name="Attribute_3_Type" value="Text"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateCustomAttributes.xml"/>
+    <nodeSuccessors name="next" next="UpdateAddressBO0"/>
+    <parameterBindings name="Attribute_1_Value" objectPath="UserName"/>
+    <parameterBindings name="Attribute_2_Value" objectPath="UserEmail"/>
+    <parameterBindings name="Attribute_3_Value" objectPath="Greeting"/>
+    <parameterBindings name="ExtensibleObject" objectPath="ProductLineItem"/>
+  </nodes>
+<!--@Location 5,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateAddressBO0">
+    <pipelet href="enfinity:/bc_address/pipelets/UpdateAddressBO.xml"/>
+    <nodeSuccessors name="next" next="EndNode5" action="commit"/>
+    <parameterBindings name="EMail" objectPath="RecipientEmail"/>
+    <parameterBindings name="FirstName" objectPath="RecipientName"/>
+  </nodes>
+<!--@Location 5,4-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="EndNode5" strict="true"/>
+</pipeline:Pipeline>

@@ -1,0 +1,247 @@
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/XMLExtensibleObjectPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/capi/product/Product.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/internal/catalog/CatalogCategoryPO.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/internal/catalog/ProductCategoryAssignmentPO.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/internal/productcompleteness/ProductCompletenessPO.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/internal/productapproval/ProductApprovalPO.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/internal/price/ProductCostPricePO.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/internal/price/ProductListPricePO.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/internal/producttype/ProductTypePO.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/internal/productvariation/ProductVariationPO.edl";
+import "enfinity:/xcs/edl/com/intershop/beehive/xcs/internal/productvariation/VariableVariationAttributePO.edl";
+
+external ProductConstants type "com.intershop.beehive.xcs.capi.product.ProductConstants";
+
+namespace com.intershop.beehive.xcs.internal.product
+{
+    /*
+     * A Product represents the sell-able entity that is offered to a Buyer. A Product can be distinguished from other Products by a SKU and can be described by a set of fixed as well as dynamically added attributes.
+     * <p>
+     * A Product refers to a ProductType. This makes it possible to compare the Product with other Products based on the ProductAttributes defined by the referred ProductType.
+     * <p>
+     * The Product by itself defines some more attributes which are merged with the ProductType attributes to build the whole attribute set of this Product. The attributes may have different types such as Integer, Double or String.
+     * <p>
+     * A set of Products can be collected and sold together using a ProductBundle. In this case the ProductBundle acts like a container to sell all contained Product together.
+     * <p>
+     * To present the Buyer a set of Products together where the Products only vary in some attributes, a ProductMaster can be created. The ProductMaster refers first to a variation model which provides the variable attributes and second the ProductMaster hosts  the set of real, sell-able Products. These sell-able, so called mastered Products, providing different variations of the variable attributes.
+     * <p>
+     * ProductItems, ProductBundles, ProductMasters and Offers are distinguished using a typeCode.
+     * <p>
+     * To build a relation to other Products a Product can have ProductLinks. Using ProductLinks a Product can point to other Products recommend Products as an enhancement or replacement.
+     * <p>
+     * Through a ProductCategoryAssignment a Product can be bound into a CatalogCategory.
+     * <p>
+     * A Product is unique assigned to a domain.
+     * <p>
+     * The relations to BundleAssignmentEJB, ProductListPriceEJB, ProductCategoryAssignmentEJB and (outgoing) ProductLinkEJB instances are pinned.
+     */
+    partitionable orm class ProductPO extends XMLExtensibleObjectPO implements Product, ProductConstants table "Product"
+    {
+        index(taxClassID);
+
+        index(productTypeID);
+
+        index(defaultProductVariationID);
+
+        index(defaultCatalogCategoryID);
+
+        index(offeredProductID);
+
+        index(typeCode);
+
+        index(SKU);
+
+        index(manufacturerName);
+
+        /*
+         * The typeCode is used to distinguish different types of Products (e.g. plain Product, ProductBundle, ProductMaster, bundled Product or mastered Product).
+         */
+        attribute typeCode : int = 0 observable;
+
+        /*
+         * The SKU for this Product.
+         */
+        attribute SKU : string<256> replicated observable;
+
+        /*
+         * The name of the manufacturer of the Product.
+         */
+        attribute manufacturerName : string<256> replicated;
+
+        /*
+         * The manufacturer SKU of the Product.
+         */
+        attribute manufacturerSKU : string<256> replicated;
+        
+        /*
+         * The name of the supplier of the Product.
+         */
+        attribute supplierName : string<256>;
+
+        /*
+         * The supplier SKU of the Product.
+         */
+        attribute supplierSKU : string<256>;
+
+        /*
+         * The online flag is used to determine if a Product should be available at store front.
+         */
+        attribute online : boolean = true observable;
+
+        /*
+         * The localizable name of the Product.
+         */
+        attribute name : string localized;
+
+        /*
+         * The localizable short description of the Product.
+         */
+        attribute shortDescription : string localized;
+
+        /*
+         * The localizable long description of the Product.
+         */
+        attribute longDescription : string localized;
+
+        /*
+         * The file name of the template which is used to display the properties of the Product.
+         */
+        attribute template : string<256>;
+
+        /*
+         * The minimal required quantity to order the Product.
+         */
+        attribute minOrderQuantityValue : decimal;
+        
+         /*
+         * The minimal required quantity to order the Product.
+         */
+        attribute maxOrderQuantityValue : decimal;
+
+        /*
+         * The required step quantity to order the Product.
+         */
+        attribute stepQuantityValue : decimal;
+
+        /*
+         * The unit of the Product.
+         */
+        attribute unit : string<256>;
+
+        /*
+         * The UUID identifier of the original Product which possible can be used to recognize cloned Products in different domains.
+         */
+        attribute originalProductUUID : uuid;
+
+        /*
+         * Tax class identifier of the Product.
+         */
+        attribute taxClassID : uuid;
+
+        /*
+         * The UUID of the assigned ProductType.
+         */
+        attribute productTypeID : uuid observable searchable;
+
+        /*
+         * The UUID of the default ProductVariation in case the Product is a ProductMaster.
+         */
+        attribute defaultProductVariationID : uuid;
+
+        /*
+         * Availability flag for the Product.
+         */
+        attribute available : boolean = true observable;
+        
+        /*
+         * The UUID of the CatalogCategory to which the Product will be first assigned, required for Reporting.
+         */
+        attribute defaultCatalogCategoryID : uuid;
+
+        /*
+         * The UUID of the offered Product in case this Product is an Offer.
+         */
+        attribute offeredProductID : uuid observable;
+
+        /*
+         * Returns BigDecimal instance representing the quantity of item for which the set price applies. By default set to 1.0
+         * 
+         * <br>e.g. if price quantity for nails is set to 100 then the given price is per 100 nails. A price of 2USD would imply each nail costs 0.02USD and 250 nails cost 5USD.
+         * 
+         * <br>Method <code>isPriceQuantityAvailable()</code> can be used to check whether a valid non-default value has been set.
+         * 
+         * @return price quantity of the product
+         * @isattribute PriceQuantity
+         */
+        attribute priceQuantityValue : decimal = 1.0;
+
+        /*
+         * The date the product is valid from.
+         */
+        attribute validFrom : datetime;
+
+        /*
+         * The date the product is valid to.
+         */
+        attribute validTo : datetime;
+
+        attribute synchronized : datetime;
+
+        attribute lastOrderDateDB : datetime;
+
+        attribute endOfLifeDB : datetime;
+
+        /*
+         * Derive LOD and EOL from children.
+         */
+        attribute derivingDates : boolean = false;
+
+        /*
+         * Contains the current online state if a online/offline period is specified via validFrom/validTo. If this attribute is null, no period is specified, if it is 0, the product is in the offline period, if it is 1, it is in the online period accordingly.
+         */
+        attribute availabilityStatus : int;
+        
+        attribute productVariationPosition : double;
+        
+
+        relation offerPOs : ProductPO[0..n] inverse offeredProductPO implements offers;
+
+        relation offeredProductPO : ProductPO[0..1] inverse offerPOs // implements offeredProduct, but do not generate automatically since it requires special handling
+        {
+            foreign key(offeredProductID) -> (UUID);
+        }
+
+        relation productVariationPO : ProductVariationPO[0..1] inverse masteredProductPO;
+
+        relation listPricePOs : ProductListPricePO[0..n] inverse productPO cached strong implements listPrices;
+
+        relation variableVariationAttributePOs : VariableVariationAttributePO[0..n] inverse productMasterPO implements variableVariationAttributes;
+
+        relation productCategoryAssignments : ProductCategoryAssignmentPO[0..n] inverse productPO cached strong;
+
+        relation costPricePOs : ProductCostPricePO[0..n] inverse ProductPO cached strong implements costPrices;
+        
+        relation productCompletenessPOs : ProductCompletenessPO[0..n] inverse ProductPO cached none implements productCompletenesses;
+        
+        relation productApprovalPOs : ProductApprovalPO[0..n] inverse ProductPO cached none implements productApproval;
+
+        relation productVariationPOs : ProductVariationPO[0..n] inverse productMasterPO implements productVariations;
+
+        dependency defaultProductVariationPO : ProductVariationPO
+        {
+            foreign key(defaultProductVariationID);
+        }
+
+        dependency defaultCatalogCategoryPO : CatalogCategoryPO
+        {
+            foreign key(defaultCatalogCategoryID);
+        }
+
+        dependency productTypePO : ProductTypePO
+        {
+            foreign key(productTypeID);
+        }
+        
+    }
+}

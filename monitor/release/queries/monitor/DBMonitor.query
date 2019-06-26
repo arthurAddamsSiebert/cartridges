@@ -1,0 +1,3040 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query description="This query determines some performance information.">
+<parameters>
+	<parameter name="UUID" type="java.lang.String" optional="false"/>
+	<parameter name="ColumnSeparator" type="java.lang.String" optional="false"/>
+</parameters>
+<processor name="OracleSQL">
+</processor>
+<template>
+	<sql-dialect name="Oracle">
+		DECLARE
+			  uuid                  VARCHAR2(28) := <template-variable value="UUID"/>;
+			  sep                   VARCHAR2(10) := <template-variable value="ColumnSeparator"/>;
+			  in_user               user_users.username%TYPE;
+			  in_type               dbmonitor_master.type%TYPE;
+			  in_typeid             dbmonitor_master.typeid%TYPE;
+			  in_date               dbmonitor_master.run_date%TYPE := UTCTIMESTAMP();
+			  in_part               dbmonitor_detail.part%TYPE;
+			  in_data               dbmonitor_detail.data%TYPE;
+			  in_orderedby          dbmonitor_master.orderedby%TYPE;
+			  in_sort_order         VARCHAR2(10) := &apos;sort_order&apos;;
+			  in_version            NUMBER;
+			  in_version_latest     NUMBER;
+			  in_previous_delta     NUMBER := 10;
+			  j                     NUMBER := 1;
+			
+			  -- db version
+			  major NUMBER;
+			  minor_1 NUMBER;
+			  minor_2 NUMBER;
+			  minor_3 NUMBER;
+			  minor_4 NUMBER;
+			
+			  -- espacially enqueue statistic handling with 8i and 9i
+			  TYPE cur_type         IS REF CURSOR;
+			  TYPE rec_type8i       IS RECORD (enqueue          VARCHAR2(2),
+											   gets             NUMBER,
+											   waits            NUMBER);
+			  TYPE rec_type9i       IS RECORD (inst_id          NUMBER,
+											   eq_type          VARCHAR2(2),
+											   total_req#       NUMBER,
+											   total_wait#      NUMBER,
+											   succ_req#        NUMBER,
+											   failed_req#      NUMBER,
+											   cum_wait_time    NUMBER);
+			  enqueue_cur           cur_type;
+			  enqueue_rec9i         rec_type9i;
+			  enqueue_rec8i         rec_type8i;
+			
+			
+			  gets                  NUMBER;                    /* session logical reads                                */
+			  lhr                   NUMBER;                    /* latch hitratio                                       */
+			  bfwt                  NUMBER;                    /* buffer waits                                         */
+			  phyr                  NUMBER;                    /* physical reads                                       */
+			  lhtr                  NUMBER;                    /* librarycache hitratio                                */
+			  rent                  NUMBER;                    /* redo entries                                         */
+			  rlsr                  NUMBER;                    /* redo log space requests                              */
+			  srtd                  NUMBER;                    /* sorts (disk)                                         */
+			  srtm                  NUMBER;                    /* sorts (memory)                                       */
+			  srtr                  NUMBER;                    /* sorts (rows)                                         */
+			  hprs                  NUMBER;                    /* parse count (hard)                                   */
+			  prse                  NUMBER;                    /* parse count (total)                                  */
+			  rsiz                  NUMBER;                    /* redo size                                            */
+			  ela                   NUMBER;                    /* elapsed_time since startup in secs                   */
+			  urol                  NUMBER;                    /* user rollbacks                                       */
+			  tran                  NUMBER;                    /* user commits + user rollbacks                        */
+			  chng                  NUMBER;                    /* db block changes                                     */
+			  phyw                  NUMBER;                    /* physical writes                                      */
+			  ucal                  NUMBER;                    /* user calls                                           */
+			  recr                  NUMBER;                    /* recursive calls                                      */
+			  call                  NUMBER;                    /* user calls + recursive calls                         */
+			  strn                  NUMBER;                    /* sesstat(&apos;user rollbacks&apos;) + sesstat(&apos;user commits&apos;)  */
+			
+			  FUNCTION elapsed_time RETURN NUMBER IS in_ela NUMBER;
+			  BEGIN
+				SELECT ROUND((SYSDATE-startup_time)*1440*60,0) INTO in_ela FROM v$instance;
+				RETURN in_ela;
+			  END;
+			
+			  FUNCTION latch_hitratio RETURN NUMBER IS in_hitratio NUMBER;
+			  BEGIN
+				SELECT SUM(misses)/SUM(gets) INTO in_hitratio FROM v$latch;
+				RETURN in_hitratio;
+			  END;
+			
+			  FUNCTION librarycache_hitratio RETURN NUMBER IS in_hitratio NUMBER;
+			  BEGIN
+				SELECT SUM(pinhits)/SUM(pins) INTO in_hitratio FROM v$librarycache;
+				RETURN in_hitratio;
+			  END;
+			
+			  FUNCTION buffer_waits RETURN NUMBER IS in_count NUMBER;
+			  BEGIN
+				SELECT SUM(&quot;COUNT&quot;) INTO in_count FROM v$waitstat;
+				RETURN in_count;
+			  END;
+			
+			  FUNCTION sysstat(i_name VARCHAR2) RETURN NUMBER IS in_value NUMBER;
+			  BEGIN
+				SELECT value INTO in_value FROM v$sysstat WHERE name = i_name;
+				RETURN in_value;
+			  END;
+			
+			  FUNCTION sesstat(i_name VARCHAR2) RETURN NUMBER IS in_value NUMBER;
+			  BEGIN
+				 SELECT ses.value INTO in_value FROM v$sysstat sys, v$sesstat ses
+				   WHERE ses.statistic# = sys.statistic# AND sys.name = i_name;
+				RETURN in_value;
+			  END;
+			
+			BEGIN
+			  
+			  -- suppress oracle streaming
+			  core.suppress_data_movement;
+			  
+			  -- check all inputs
+			
+			  -- init the version
+			  SELECT dbmonitor_sequence.NEXTVAL INTO in_version FROM dual;
+			
+			  -- remove previous version - previous delta is 10
+			  SELECT MAX(version) - in_previous_delta + 1 INTO in_version_latest FROM dbmonitor_master;
+			  DELETE FROM dbmonitor_detail WHERE masterid IN (SELECT uuid FROM dbmonitor_master WHERE version &lt;= in_version_latest);
+			  DELETE FROM dbmonitor_master WHERE version &lt;= in_version_latest;
+			
+			  -- get the used db user
+			  SELECT user INTO in_user FROM dual;
+			
+			  -- get all sysstat efficiency values
+			  gets  := sysstat(&apos;session logical reads&apos;);
+			  phyr  := sysstat(&apos;physical reads&apos;);
+			  rent  := sysstat(&apos;redo entries&apos;);
+			  rlsr  := sysstat(&apos;redo log space requests&apos;);
+			  srtd  := sysstat(&apos;sorts (disk)&apos;);
+			  srtm  := sysstat(&apos;sorts (memory)&apos;);
+			  srtr  := sysstat(&apos;sorts (rows)&apos;);
+			  hprs  := sysstat(&apos;parse count (hard)&apos;);
+			  prse  := sysstat(&apos;parse count (total)&apos;);
+			  rsiz  := sysstat(&apos;redo size&apos;);
+			  urol  := sysstat(&apos;user rollbacks&apos;);
+			  tran  := sysstat(&apos;user commits&apos;) + urol;
+			  chng  := sysstat(&apos;db block changes&apos;);
+			  phyw  := sysstat(&apos;physical writes&apos;);
+			  ucal  := sysstat(&apos;user calls&apos;);
+			  recr  := sysstat(&apos;recursive calls&apos;);
+			  call  := ucal + recr;
+			  -- strn  := sesstat(&apos;user rollbacks&apos;) + sesstat(&apos;user commits&apos;);
+			
+			  bfwt  := buffer_waits();
+			  lhtr  := librarycache_hitratio();
+			  lhr   := latch_hitratio();
+			  ela   := elapsed_time();
+			
+			  --
+			  -- 10. db instance values, SGA and cache size parameters
+			  -- tabs/views: v$sga, v$database, v$instance, v$parameter
+			  --
+			
+			  -- instance
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 1001;
+			  in_type := &apos;database and instance info&apos;;
+			  in_orderedby := &apos;none.&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;db_name&apos;             || sep ||
+					&apos;db_id&apos;               || sep ||
+					&apos;db_creation_time&apos;    || sep ||
+					&apos;db_archive_log_mode&apos; || sep ||
+					&apos;instance_name&apos;       || sep ||
+					&apos;instance_number&apos;     || sep ||
+					&apos;version&apos;             || sep ||
+					&apos;host_name&apos;           || sep ||
+					&apos;startup_time&apos;        || sep ||
+					&apos;parallel&apos;            || sep ||
+					&apos;status&apos;              || sep ||
+					&apos;thread#&apos;             || sep ||
+					&apos;archiver&apos;            || sep ||
+					&apos;log_switch_wait&apos;     || sep ||
+					&apos;logins&apos;              || sep ||
+					&apos;shutdown_pending&apos;    || sep ||
+					&apos;database_status&apos;     || sep ||
+					&apos;instance_role#&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					d.name                                          db_name,
+					d.dbid                                          db_id,
+					TO_CHAR(d.created, &apos;YYYY-MM-DD/HH24:MI:SS&apos;)     db_creation_time,
+					d.log_mode                                      db_archive_log_mode,
+					instance_name,
+					instance_number,
+					version,
+					host_name,
+					TO_CHAR(startup_time, &apos;YYYY-MM-DD/HH24:MI:SS&apos;)  startup_time,
+					parallel,
+					status,
+					thread#,
+					archiver,
+					NVL(log_switch_wait, &apos;NULL&apos;)                    log_switch_wait,
+					logins,
+					shutdown_pending,
+					database_status,
+					instance_role
+				  FROM
+					v$instance di,
+					v$database d
+				  )
+				LOOP
+				  in_data := j             || sep ||
+					i.db_name              || sep ||
+					i.db_id                || sep ||
+					i.db_creation_time     || sep ||
+					i.db_archive_log_mode  || sep ||
+					i.instance_name        || sep ||
+					i.instance_number      || sep ||
+					i.version              || sep ||
+					i.host_name            || sep ||
+					i.startup_time         || sep ||
+					i.parallel             || sep ||
+					i.status               || sep ||
+					i.thread#              || sep ||
+					i.archiver             || sep ||
+					i.log_switch_wait      || sep ||
+					i.logins               || sep ||
+					i.shutdown_pending     || sep ||
+					i.database_status      || sep ||
+					i.instance_role;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- show SGA
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 1002;
+			  in_type := &apos;show SGA&apos;;
+			  in_orderedby := &apos;none.&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;name&apos;    || sep ||
+					&apos;size_in_bytes&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					name,
+					LTRIM(TO_CHAR(value,&apos;999,999,999,990.99&apos;)) size_in_bytes
+				  FROM
+					v$sga
+				  )
+				LOOP
+				  in_data := j             || sep ||
+					i.name                 || sep ||
+					i.size_in_bytes;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- cache sizes (init.ora)
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 1003;
+			  in_type := &apos;cache sizes from (init.ora)&apos;;
+			  in_orderedby := &apos;none.&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;name&apos;          || sep ||
+					&apos;size_in_bytes&apos; || sep ||
+					&apos;description&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					name,
+					LTRIM(TO_CHAR(p1*p2,&apos;999,999,999,990.99&apos;)) size_in_bytes,
+					description
+				  FROM (
+				  SELECT
+					name,
+					description,
+					TO_NUMBER(DECODE(UPPER(SUBSTR(value,-1)),
+					  &apos;K&apos;,&apos;1024&apos;,
+					  &apos;M&apos;,&apos;1048576&apos;,
+					  &apos;G&apos;,&apos;1073741824&apos;,
+						  &apos;1&apos;
+					)) AS p1,
+					TO_NUMBER(DECODE(UPPER(SUBSTR(value,-1)),
+					  &apos;K&apos;,SUBSTR(value,1,LENGTH(value)-1),
+					  &apos;M&apos;,SUBSTR(value,1,LENGTH(value)-1),
+					  &apos;G&apos;,SUBSTR(value,1,LENGTH(value)-1),
+						  value
+					)) AS p2
+					FROM
+					  v$parameter
+					WHERE
+					  name IN (&apos;shared_pool_size&apos;, &apos;db_block_buffers&apos;, &apos;db_block_size&apos;, &apos;log_buffer&apos;,&apos;db_cache_size&apos;))
+				  )
+				LOOP
+				  in_data := j             || sep ||
+					i.name                 || sep ||
+					i.size_in_bytes        || sep ||
+					i.description;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  -- 20. load profile
+			  -- tabs/views: v$waitstat, v$sysstat
+			  --
+			
+			  -- 20.1 load profile per second and tx
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 1501;
+			  in_type := &apos;load profile - per second and transaction&apos;;
+			  in_orderedby := &apos;none.&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;name&apos;             || sep ||
+					&apos;per_second&apos;       || sep ||
+					&apos;per_transaction&apos;);
+			
+			  FOR i IN (
+				  SELECT &apos;a. Redo Size&apos;       name, LTRIM(TO_CHAR(rsiz/ela,         &apos;999,999,999,990.99&apos;)) per_second,
+													LTRIM(TO_CHAR(rsiz/tran,        &apos;999,999,999,990.99&apos;)) per_transaction FROM dual UNION
+				  SELECT &apos;b. Logical Reads&apos;   name, LTRIM(TO_CHAR(gets/ela,         &apos;999,999,999,990.99&apos;)) per_second,
+													LTRIM(TO_CHAR(gets/tran,        &apos;999,999,999,990.99&apos;)) per_transaction FROM dual UNION
+				  SELECT &apos;c. Block Changes&apos;   name, LTRIM(TO_CHAR(chng/ela,         &apos;999,999,999,990.99&apos;)) per_second,
+													LTRIM(TO_CHAR(chng/tran,        &apos;999,999,999,990.99&apos;)) per_transaction FROM dual UNION
+				  SELECT &apos;d. Physical Reads&apos;  name, LTRIM(TO_CHAR(phyr/ela,         &apos;999,999,999,990.99&apos;)) per_second,
+													LTRIM(TO_CHAR(phyr/tran,        &apos;999,999,999,990.99&apos;)) per_transaction FROM dual UNION
+				  SELECT &apos;e. Physical Writes&apos; name, LTRIM(TO_CHAR(phyw/ela,         &apos;999,999,999,990.99&apos;)) per_second,
+													LTRIM(TO_CHAR(phyw/tran,        &apos;999,999,999,990.99&apos;)) per_transaction FROM dual UNION
+				  SELECT &apos;f. User Calls&apos;      name, LTRIM(TO_CHAR(ucal/ela,         &apos;999,999,999,990.99&apos;)) per_second,
+													LTRIM(TO_CHAR(ucal/tran,        &apos;999,999,999,990.99&apos;)) per_transaction FROM dual UNION
+				  SELECT &apos;g. Parses&apos;          name, LTRIM(TO_CHAR(prse/ela,         &apos;999,999,999,990.99&apos;)) per_second,
+													LTRIM(TO_CHAR(prse/tran,        &apos;999,999,999,990.99&apos;)) per_transaction FROM dual UNION
+				  SELECT &apos;h. Hard Parses&apos;     name, LTRIM(TO_CHAR(hprs/ela,         &apos;999,999,999,990.99&apos;)) per_second,
+													LTRIM(TO_CHAR(hprs/tran,        &apos;999,999,999,990.99&apos;)) per_transaction FROM dual UNION
+				  SELECT &apos;i. Sorts&apos;           name, LTRIM(TO_CHAR((srtm+srtd)/ela,  &apos;999,999,999,990.99&apos;)) per_second,
+													LTRIM(TO_CHAR((srtm+srtd)/tran, &apos;999,999,999,990.99&apos;)) per_transaction FROM dual UNION
+				  SELECT &apos;j. Transactions&apos;    name, LTRIM(TO_CHAR(tran/ela,         &apos;999,999,999,990.99&apos;)) per_second,
+													LTRIM(&apos; N/A&apos;                                         ) per_transaction FROM dual
+				  )
+				LOOP
+				  in_data := j                       || sep ||
+					SUBSTR(LTRIM(RTRIM(i.name)),4)   || sep ||
+					i.per_second                     || sep ||
+					i.per_transaction;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- 20.2 load profile additional summary
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 1502;
+			  in_type := &apos;load profile - additional summary&apos;;
+			  in_orderedby := &apos;none.&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;name&apos;             || sep ||
+					&apos;value&apos;);
+			
+			  FOR i IN (
+				  SELECT &apos;k. Rows Per Sort&apos;               name, LTRIM(TO_CHAR(DECODE((srtm+srtd),
+																0,0,srtr/(srtm+srtd)),            &apos;999,999,999,990.99&apos;)) value FROM dual UNION
+				  SELECT &apos;l. Pct Blocks Changed / Read&apos;   name, LTRIM(TO_CHAR(100*chng/gets,      &apos;999,999,999,990.99&apos;)) value FROM dual UNION
+				  SELECT &apos;m. Recursive Call Pct&apos;          name, LTRIM(TO_CHAR(100*recr/call,      &apos;999,999,999,990.99&apos;)) value FROM dual UNION
+				  SELECT &apos;n. Rollback / Transaction Pct&apos;  name, LTRIM(TO_CHAR(100*urol/tran,      &apos;999,999,999,990.99&apos;)) value FROM dual
+				  )
+				LOOP
+				  in_data := j                       || sep ||
+					SUBSTR(LTRIM(RTRIM(i.name)),4)   || sep ||
+					i.value;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  -- 30. instance efficiency percentages (target 100%)
+			  -- tabs/views: v$waitstat, v$sysstat
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 1800;
+			  in_type := &apos;instance efficiency percentages (target 100%)&apos;;
+			  in_orderedby := &apos;none.&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;name&apos;          || sep ||
+					&apos;value&apos;);
+			
+			  FOR i IN (
+				  SELECT &apos;a. Buffer Nowait Ratio&apos;  name, LTRIM(TO_CHAR(100*(1-(bfwt/gets)),                          &apos;990.99&apos;)) value FROM dual UNION
+				  SELECT &apos;b. Buffer Hit Ratio&apos;     name, LTRIM(TO_CHAR(100*(1-(phyr/gets)),                          &apos;990.99&apos;)) value FROM dual UNION
+				  SELECT &apos;c. Library Hit Ratio&apos;    name, LTRIM(TO_CHAR(100*(lhtr),                                   &apos;990.99&apos;)) value FROM dual UNION
+				  SELECT &apos;d. Redo Nowait Ratio&apos;    name, LTRIM(TO_CHAR(DECODE(rent,0,0,100*(1-(rlsr/rent))),         &apos;990.99&apos;)) value FROM dual UNION
+				  SELECT &apos;e. In-memory Sort Ratio&apos; name, LTRIM(TO_CHAR(DECODE((srtm+srtd),0,0,100*srtm/(srtd+srtm)), &apos;990.99&apos;)) value FROM dual UNION
+				  SELECT &apos;f. Soft Parse Ratio&apos;     name, LTRIM(TO_CHAR(100*(1-(hprs/prse)),                          &apos;990.99&apos;)) value FROM dual UNION
+				  SELECT &apos;g. Latch Hit Ratio&apos;      name, LTRIM(TO_CHAR(100*(1-lhr),                                  &apos;990.99&apos;)) value FROM dual
+				  )
+				LOOP
+				  in_data := j                       || sep ||
+					SUBSTR(LTRIM(RTRIM(i.name)),4)   || sep ||
+					i.value;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  -- 40.1 top 10 wait events
+			  -- 40.2 system wait events
+			  -- 40.3 background wait events
+			  -- tabs/views: v$system_event, v$session, v$session_event
+			  --
+			
+			  -- 40.1 top 10 wait events
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 2001;
+			  in_type := &apos;top 10 wait events, without idle events&apos;;
+			  in_orderedby := &apos;wait_time_centisecond DESC, total_waits DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;event&apos;                         || sep ||
+					&apos;total_waits&apos;                   || sep ||
+					&apos;total_timeouts&apos;                || sep ||
+					&apos;wait_time_centisecond&apos;         || sep ||
+					&apos;average_wait_time_centisecond&apos; || sep ||
+					&apos;pct_total_wait_time&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					event,
+					total_waits,
+					total_timeouts,
+					time_waited,
+					average_wait,
+					pct_total_wait_time
+				  FROM (
+					SELECT
+					  se.event,
+					  se.total_waits,
+					  se.total_timeouts,
+					  se.time_waited,
+					  LTRIM(TO_CHAR(se.average_wait, &apos;999,999,999,990.99&apos;)) average_wait,
+					  LTRIM(TO_CHAR(DECODE(total.time_waited, 0, 0, (100*se.time_waited)/total.time_waited), &apos;990.99&apos;)) pct_total_wait_time
+					FROM
+					  v$system_event se,
+					  (SELECT
+						 SUM(time_waited) time_waited
+					   FROM
+						 v$system_event
+					   WHERE
+						 event NOT IN /*idle_events*/ (
+						   &apos;smon timer&apos;,
+						   &apos;pmon timer&apos;,
+						   &apos;rdbms ipc message&apos;,
+						   &apos;Null event&apos;,
+						   &apos;parallel query dequeue&apos;,
+						   &apos;pipe get&apos;,
+						   &apos;client message&apos;,
+						   &apos;SQL*Net message to client&apos;,
+						   &apos;SQL*Net message from client&apos;,
+						   &apos;SQL*Net more data from client&apos;,
+						   &apos;dispatcher timer&apos;,
+						   &apos;virtual circuit status&apos;,
+						   &apos;lock manager wait for remote message&apos;,
+						   &apos;PX Idle Wait&apos;
+						 )
+					  ) total
+					WHERE
+					  event NOT IN /*idle_events*/ (
+						   &apos;smon timer&apos;,
+						   &apos;pmon timer&apos;,
+						   &apos;rdbms ipc message&apos;,
+						   &apos;Null event&apos;,
+						   &apos;parallel query dequeue&apos;,
+						   &apos;pipe get&apos;,
+						   &apos;client message&apos;,
+						   &apos;SQL*Net message to client&apos;,
+						   &apos;SQL*Net message from client&apos;,
+						   &apos;SQL*Net more data from client&apos;,
+						   &apos;dispatcher timer&apos;,
+						   &apos;virtual circuit status&apos;,
+						   &apos;lock manager wait for remote message&apos;,
+						   &apos;PX Idle Wait&apos;
+					  )
+					ORDER BY
+					  se.time_waited DESC, se.total_waits DESC
+					)
+				  WHERE
+					ROWNUM &lt; 11
+				  )
+				LOOP
+				  in_data := j              || sep ||
+					i.event                 || sep ||
+					i.total_waits           || sep ||
+					i.total_timeouts        || sep ||
+					i.time_waited           || sep ||
+					i.average_wait          || sep ||
+					i.pct_total_wait_time;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- 40.2 all system wait events
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 2002;
+			  in_type := &apos;all system wait events&apos;;
+			  in_orderedby := &apos;wait_time_centisecond DESC, total_waits DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;event&apos;                         || sep ||
+					&apos;total_waits&apos;                   || sep ||
+					&apos;total_timeouts&apos;                || sep ||
+					&apos;wait_time_centisecond&apos;         || sep ||
+					&apos;average_wait_time_centisecond&apos; || sep ||
+					&apos;pct_total_wait_time&apos;);
+			
+			  FOR i IN (
+					SELECT
+					  event,
+					  total_waits,
+					  total_timeouts,
+					  se.time_waited,
+					  LTRIM(TO_CHAR(average_wait, &apos;999,999,999,990.99&apos;)) average_wait,
+					  LTRIM(TO_CHAR(DECODE(total.time_waited, 0, 0, (100*se.time_waited)/total.time_waited), &apos;990.99&apos;)) pct_total_wait_time
+					FROM
+					  v$system_event se,
+					  (SELECT
+						 SUM(time_waited) time_waited
+					   FROM
+						 v$system_event
+					  ) total
+					ORDER BY
+					  se.time_waited DESC, total_waits DESC
+				  )
+				LOOP
+				  in_data := j              || sep ||
+					i.event                 || sep ||
+					i.total_waits           || sep ||
+					i.total_timeouts        || sep ||
+					i.time_waited           || sep ||
+					i.average_wait          || sep ||
+					i.pct_total_wait_time;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- 40.3 background wait events
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 2003;
+			  in_type := &apos;background wait events&apos;;
+			  in_orderedby := &apos;wait_time_centisecond DESC, total_waits DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;event&apos;                         || sep ||
+					&apos;total_waits&apos;                   || sep ||
+					&apos;total_timeouts&apos;                || sep ||
+					&apos;wait_time_centisecond&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					e.event               event,
+					SUM(e.total_waits)    total_waits,
+					SUM(e.total_timeouts) total_timeouts,
+					SUM(e.time_waited)    time_waited
+				  FROM
+					v$session s,
+					v$session_event e
+				  WHERE
+					s.type = &apos;BACKGROUND&apos;
+					AND s.sid = e.sid
+				  GROUP BY
+					e.event
+				  ORDER BY
+					SUM(e.time_waited) DESC, SUM(e.total_waits) DESC
+				  )
+				LOOP
+				  in_data := j              || sep ||
+					i.event                 || sep ||
+					i.total_waits           || sep ||
+					i.total_timeouts        || sep ||
+					i.time_waited;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  -- 50.1 .2 .3 top 10 of most expensive SQL, orderd by disk, gets and rows
+			  -- tabs/view: v$sqlarea, v$sql and all_users
+			  --
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 2501;
+			  in_type := &apos;top 10 of most expensive SQL, ordered by disk_reads&apos;;
+			  in_orderedby := &apos;disk_reads DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;parsing_username&apos;          || sep ||
+				&apos;disk_reads&apos;                || sep ||
+				&apos;pct_of_total_disk_reads&apos;   || sep ||
+				&apos;buffer_gets&apos;               || sep ||
+				&apos;pct_of_total_buffer_gets&apos;  || sep ||
+				&apos;executions&apos;                || sep ||
+				&apos;sorts&apos;                     || sep ||
+				&apos;users_executing&apos;           || sep ||
+				&apos;parse_calls&apos;               || sep ||
+				&apos;rows_processed&apos;            || sep ||
+				&apos;invalidations&apos;             || sep ||
+				&apos;optimizer_mode&apos;            || sep ||
+				&apos;optimizer_cost&apos;            || sep ||
+				&apos;first_load_time&apos;           || sep ||
+				&apos;sql_text&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					u.username                                                     parsing_username,
+					s.disk_reads                                                   disk_reads,
+					LTRIM(TO_CHAR(s.disk_reads*100/total1.disk_reads, &apos;990.99&apos;))   pct_of_total_disk_reads,
+					s.buffer_gets                                                  buffer_gets,
+					LTRIM(TO_CHAR(s.buffer_gets*100/total2.buffer_gets, &apos;990.99&apos;)) pct_of_total_buffer_gets,
+					executions,
+					sorts,
+					users_executing,
+					parse_calls,
+					rows_processed,
+					invalidations,
+					optimizer_mode,
+					DECODE(optimizer_cost, NULL, &apos;NULL&apos;, TO_CHAR(optimizer_cost)) optimizer_cost,
+					first_load_time,
+					sql_text
+				  FROM
+					v$sql s,
+					all_users u,
+					(SELECT SUM(disk_reads) disk_reads FROM v$sql) total1,
+					(SELECT SUM(buffer_gets) buffer_gets FROM v$sql) total2
+				  WHERE
+					u.user_id = s.parsing_user_id
+					AND executions &gt; 0
+					-- AND u.username = in_user
+				  ORDER BY
+					s.disk_reads DESC
+				  )
+				LOOP
+				  in_data := j || sep ||
+					i.parsing_username          || sep ||
+					i.disk_reads                || sep ||
+					i.pct_of_total_disk_reads   || sep ||
+					i.buffer_gets               || sep ||
+					i.pct_of_total_buffer_gets  || sep ||
+					i.executions                || sep ||
+					i.sorts                     || sep ||
+					i.users_executing           || sep ||
+					i.parse_calls               || sep ||
+					i.rows_processed            || sep ||
+					i.invalidations             || sep ||
+					i.optimizer_mode            || sep ||
+					i.optimizer_cost            || sep ||
+					i.first_load_time           || sep ||
+					i.sql_text;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				  -- only top 10
+				  EXIT WHEN j &gt; 10;
+				END LOOP;
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 2502;
+			  in_type := &apos;top 10 of most expensive SQL, ordered by buffer_gets&apos;;
+			  in_orderedby := &apos;buffer_gets DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;parsing_username&apos;          || sep ||
+				&apos;buffer_gets&apos;               || sep ||
+				&apos;pct_of_total_buffer_gets&apos;  || sep ||
+				&apos;disk_reads&apos;                || sep ||
+				&apos;pct_of_total_disk_reads&apos;   || sep ||
+				&apos;executions&apos;                || sep ||
+				&apos;sorts&apos;                     || sep ||
+				&apos;users_executing&apos;           || sep ||
+				&apos;parse_calls&apos;               || sep ||
+				&apos;rows_processed&apos;            || sep ||
+				&apos;invalidations&apos;             || sep ||
+				&apos;optimizer_mode&apos;            || sep ||
+				&apos;optimizer_cost&apos;            || sep ||
+				&apos;first_load_time&apos;           || sep ||
+				&apos;sql_text&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					u.username                                                     parsing_username,
+					s.buffer_gets                                                  buffer_gets,
+					LTRIM(TO_CHAR(s.buffer_gets*100/total2.buffer_gets, &apos;990.99&apos;)) pct_of_total_buffer_gets,
+					s.disk_reads                                                   disk_reads,
+					LTRIM(TO_CHAR(s.disk_reads*100/total1.disk_reads, &apos;990.99&apos;))   pct_of_total_disk_reads,
+					executions,
+					sorts,
+					users_executing,
+					parse_calls,
+					rows_processed,
+					invalidations,
+					optimizer_mode,
+					DECODE(optimizer_cost, NULL, &apos;NULL&apos;, TO_CHAR(optimizer_cost)) optimizer_cost,
+					first_load_time,
+					sql_text
+				  FROM
+					v$sql s,
+					all_users u,
+					(SELECT SUM(disk_reads) disk_reads FROM v$sql) total1,
+					(SELECT SUM(buffer_gets) buffer_gets FROM v$sql) total2
+				  WHERE
+					u.user_id = s.parsing_user_id
+					AND executions &gt; 0
+					-- AND u.username = in_user
+				  ORDER BY
+					s.buffer_gets DESC
+				  )
+				LOOP
+				  in_data := j || sep ||
+					i.parsing_username          || sep ||
+					i.buffer_gets               || sep ||
+					i.pct_of_total_buffer_gets  || sep ||
+					i.disk_reads                || sep ||
+					i.pct_of_total_disk_reads   || sep ||
+					i.executions                || sep ||
+					i.sorts                     || sep ||
+					i.users_executing           || sep ||
+					i.parse_calls               || sep ||
+					i.rows_processed            || sep ||
+					i.invalidations             || sep ||
+					i.optimizer_mode            || sep ||
+					i.optimizer_cost            || sep ||
+					i.first_load_time           || sep ||
+					i.sql_text;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				  -- only top 10
+				  EXIT WHEN j &gt; 10;
+				END LOOP;
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 2503;
+			  in_type := &apos;top 10 of most expensive SQL, ordered by rows_processed&apos;;
+			  in_orderedby := &apos;rows_processed DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;parsing_username&apos;          || sep ||
+				&apos;rows_processed&apos;            || sep ||
+				&apos;disk_reads&apos;                || sep ||
+				&apos;pct_of_total_disk_reads&apos;   || sep ||
+				&apos;buffer_gets&apos;               || sep ||
+				&apos;pct_of_total_buffer_gets&apos;  || sep ||
+				&apos;executions&apos;                || sep ||
+				&apos;sorts&apos;                     || sep ||
+				&apos;users_executing&apos;           || sep ||
+				&apos;parse_calls&apos;               || sep ||
+				&apos;invalidations&apos;             || sep ||
+				&apos;optimizer_mode&apos;            || sep ||
+				&apos;optimizer_cost&apos;            || sep ||
+				&apos;first_load_time&apos;           || sep ||
+				&apos;sql_text&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					u.username                                                     parsing_username,
+					rows_processed,
+					s.disk_reads                                                   disk_reads,
+					LTRIM(TO_CHAR(s.disk_reads*100/total1.disk_reads, &apos;990.99&apos;))   pct_of_total_disk_reads,
+					s.buffer_gets                                                  buffer_gets,
+					LTRIM(TO_CHAR(s.buffer_gets*100/total2.buffer_gets, &apos;990.99&apos;)) pct_of_total_buffer_gets,
+					executions,
+					sorts,
+					users_executing,
+					parse_calls,
+					invalidations,
+					optimizer_mode,
+					DECODE(optimizer_cost, NULL, &apos;NULL&apos;, TO_CHAR(optimizer_cost)) optimizer_cost,
+					first_load_time,
+					sql_text
+				  FROM
+					v$sql s,
+					all_users u,
+					(SELECT SUM(disk_reads) disk_reads FROM v$sql) total1,
+					(SELECT SUM(buffer_gets) buffer_gets FROM v$sql) total2
+				  WHERE
+					u.user_id = s.parsing_user_id
+					AND executions &gt; 0
+					-- AND u.username = in_user
+				  ORDER BY
+					rows_processed DESC
+				  )
+				LOOP
+				  in_data := j || sep ||
+					i.parsing_username          || sep ||
+					i.rows_processed            || sep ||
+					i.disk_reads                || sep ||
+					i.pct_of_total_disk_reads   || sep ||
+					i.buffer_gets               || sep ||
+					i.pct_of_total_buffer_gets  || sep ||
+					i.executions                || sep ||
+					i.sorts                     || sep ||
+					i.users_executing           || sep ||
+					i.parse_calls               || sep ||
+					i.invalidations             || sep ||
+					i.optimizer_mode            || sep ||
+					i.optimizer_cost            || sep ||
+					i.first_load_time           || sep ||
+					i.sql_text;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				  -- only top 10
+				  EXIT WHEN j &gt; 10;
+				END LOOP;
+			
+			  --
+			  --
+			  -- 60. instance activity statistics
+			  -- tabs/views: v$sysstat
+			  --
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 3000;
+			  in_type := &apos;all system wait events (see v$sysstat.class description)&apos;;
+			  in_orderedby := &apos;name ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;name&apos;                 || sep ||
+					&apos;total&apos;                || sep ||
+					&apos;per_second&apos;           || sep ||
+					&apos;per_transaction&apos;      || sep ||
+					&apos;class&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					name,
+					value total,
+					LTRIM(TO_CHAR(value/ela,  &apos;999,999,999,990.99&apos;)) per_second,
+					LTRIM(TO_CHAR(value/tran, &apos;999,999,999,990.99&apos;)) per_transaction,
+					class
+				  FROM
+					v$sysstat
+				  ORDER BY
+					name ASC
+				  )
+				LOOP
+				  in_data := j          || sep ||
+					i.name              || sep ||
+					i.total             || sep ||
+					i.per_second        || sep ||
+					i.per_transaction   || sep ||
+					i.class;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  --
+			  -- 80. tablespace IO summary and files
+			  -- tabs/views: x$kcbfwait, v$filestat, v$tablespace and v$datafile
+			  --
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 3501;
+			  in_type := &apos;tablespace IO summary&apos;;
+			  in_orderedby := &apos;sum_reads + sum_writes DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;tablespace_name&apos;                 || sep ||
+					&apos;sum_reads&apos;                       || sep ||
+					&apos;avg_read_ms&apos;                     || sep ||
+					&apos;sum_writes&apos;                      || sep ||
+					&apos;sum_read_time_centisecond&apos;       || sep ||
+					&apos;sum_write_time_centisecond&apos;      || sep ||
+					&apos;sum_block_reads&apos;                 || sep ||
+					&apos;sum_block_writes&apos;                || sep ||
+					&apos;total_wait&apos;                      || sep ||
+					&apos;avg_wait_ms&apos;                     || sep ||
+					&apos;time&apos;                            || sep ||
+					&apos;file_name&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					ts.name             tablespace_name,
+					SUM(fs.phyrds)      sum_reads,
+					LTRIM(TO_CHAR(DECODE(SUM(fs.phyrds), 0, 0, SUM(fs.readtim)/SUM(fs.phyrds)*10),&apos;999,999,999,990.99&apos;)) avg_read_ms,
+					SUM(fs.phywrts)     sum_writes,
+					SUM(fs.readtim)     sum_read_time_centisecond,
+					SUM(fs.writetim)    sum_write_time_centisecond,
+					SUM(fs.phyblkrd)    sum_block_reads,
+					SUM(fs.phyblkwrt)   sum_block_writes,
+					SUM(fw.count)       total_wait,
+					LTRIM(TO_CHAR(DECODE(SUM(fw.count), 0, 0, SUM(fw.time)/SUM(fw.count)*10),&apos;999,999,999,990.99&apos;)) avg_wait_ms,
+					SUM(fw.time)        time,
+					df.name             file_name
+				  FROM
+					x$kcbfwait    fw,
+					v$filestat    fs,
+					v$tablespace  ts,
+					v$datafile    df
+				  WHERE
+					ts.ts# = df.ts#
+					and fs.file# = df.file#
+					and fw.indx+1 = df.file#
+				  GROUP BY
+					ts.name, df.name
+				  ORDER BY
+					SUM(fs.phyrds) + SUM(fs.phywrts) DESC
+				  )
+				LOOP
+				  in_data := j                   || sep ||
+					i.tablespace_name            || sep ||
+					i.sum_reads                  || sep ||
+					i.avg_read_ms                || sep ||
+					i.sum_writes                 || sep ||
+					i.sum_read_time_centisecond  || sep ||
+					i.sum_write_time_centisecond || sep ||
+					i.sum_block_reads            || sep ||
+					i.sum_block_writes           || sep ||
+					i.total_wait                 || sep ||
+					i.avg_wait_ms                || sep ||
+					i.time                       || sep ||
+					i.file_name;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  --
+			  -- 90. block contention statistics (buffer wait summary)
+			  -- tabs/views: v$waitstat
+			  --
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 4000;
+			  in_type := &apos;block contention statistics, only with timed statistics=true&apos;;
+			  in_orderedby := &apos;class_of_block ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;class_of_block&apos;                  || sep ||
+					&apos;waits&apos;                           || sep ||
+					&apos;total_wait_time_in_centiseconds&apos; || sep ||
+					&apos;avg_wait_time_in_centiseconds&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					class class_of_block,
+					&quot;COUNT&quot; waits,
+					time total_wait_time_in_cs,
+					LTRIM(TO_CHAR(DECODE(&quot;COUNT&quot;, 0, 0, time/&quot;COUNT&quot;))) avg_wait_time_in_cs
+				  FROM
+					v$waitstat
+				  ORDER BY
+					class ASC
+				  )
+				LOOP
+				  in_data := j                        || sep ||
+					i.class_of_block                  || sep ||
+					i.waits                           || sep ||
+					i.total_wait_time_in_cs || sep ||
+					i.avg_wait_time_in_cs;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  --
+			  -- 100. enqueue statistics
+			  -- tabs/views: x$ksqst(8i) - v$enqueue_stat(9i)
+			  --
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 4500;
+			
+			  -- first check for Oracle version, &lt; or &gt;= 9i
+			  SELECT SUBSTR (version, 1,                              INSTR (version, &apos;.&apos;, 1, 1) - 1)                              major,
+					 SUBSTR (version, INSTR (version, &apos;.&apos;, 1, 1) + 1, INSTR (version, &apos;.&apos;, 1, 2) - INSTR (version, &apos;.&apos;, 1, 1) - 1) minor_1,
+					 SUBSTR (version, INSTR (version, &apos;.&apos;, 1, 2) + 1, INSTR (version, &apos;.&apos;, 1, 3) - INSTR (version, &apos;.&apos;, 1, 2) - 1) minor_2,
+					 SUBSTR (version, INSTR (version, &apos;.&apos;, 1, 3) + 1, INSTR (version, &apos;.&apos;, 1, 4) - INSTR (version, &apos;.&apos;, 1, 3) - 1) minor_3,
+					 SUBSTR (version, INSTR (version, &apos;.&apos;, 1, 4) + 1                                                             ) minor_4
+					 INTO major, minor_1, minor_2, minor_3, minor_4
+				FROM v$instance;
+			
+			  -- 8i
+			  IF (major &lt; 9) THEN
+			  in_type := &apos;enqueue statistics, only gets != 0 (see v$lock.type description)&apos;;
+			  in_orderedby := &apos;waits DESC, gets DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;enqueue&apos;       || sep ||
+					&apos;gets&apos;          || sep ||
+					&apos;waits&apos;);
+			
+				OPEN enqueue_cur FOR &apos;SELECT &apos;              ||
+										&apos;ksqsttyp enqueue, &apos;||
+										&apos;ksqstget gets, &apos;   ||
+										&apos;ksqstwat waits &apos;   ||
+									  &apos;FROM &apos;               ||
+										&apos;x$ksqst &apos;          ||
+									  &apos;WHERE &apos;              ||
+										&apos;ksqstget != 0 &apos;    ||
+									  &apos;ORDER BY &apos;           ||
+										&apos;ksqstwat DESC, ksqstget DESC &apos;;
+				  LOOP
+					FETCH enqueue_cur INTO enqueue_rec8i;
+					EXIT WHEN enqueue_cur%NOTFOUND;
+			
+					in_data := j                    || sep ||
+					  enqueue_rec8i.enqueue         || sep ||
+					  enqueue_rec8i.gets            || sep ||
+					  enqueue_rec8i.waits;
+					INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+					j := j + 1;
+			
+				  END LOOP;
+				CLOSE enqueue_cur;
+			
+			  -- &gt;8i (9i/10g)
+			  ELSE
+				in_type := &apos;statistics on the number of enqueue (lock) requests for each type of lock.&apos;;
+				in_orderedby := &apos;total_wait# DESC, total_req# DESC&apos;;
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					  &apos;inst_id&apos;         || sep ||
+					  &apos;eq_type&apos;         || sep ||
+					  &apos;total_req#&apos;      || sep ||
+					  &apos;total_wait#&apos;     || sep ||
+					  &apos;succ_req#&apos;       || sep ||
+					  &apos;failed_req#&apos;     || sep ||
+					  &apos;cum_wait_time&apos;);
+			
+				OPEN enqueue_cur FOR &apos;SELECT &apos;              ||
+										&apos;inst_id, &apos;         ||
+										&apos;eq_type, &apos;         ||
+										&apos;total_req#, &apos;      ||
+										&apos;total_wait#, &apos;     ||
+										&apos;succ_req#, &apos;       ||
+										&apos;failed_req#, &apos;     ||
+										&apos;cum_wait_time &apos;    ||
+									  &apos;FROM &apos;               ||
+										&apos;v$enqueue_stat &apos;   ||
+									  &apos;ORDER BY &apos;           ||
+										&apos;total_wait# DESC, total_req# DESC &apos;;
+				LOOP
+					FETCH enqueue_cur INTO enqueue_rec9i;
+					EXIT WHEN enqueue_cur%NOTFOUND;
+			
+				  in_data := j            || sep ||
+					  enqueue_rec9i.inst_id         || sep ||
+					  enqueue_rec9i.eq_type         || sep ||
+					  enqueue_rec9i.total_req#      || sep ||
+					  enqueue_rec9i.total_wait#     || sep ||
+					  enqueue_rec9i.succ_req#       || sep ||
+					  enqueue_rec9i.failed_req#     || sep ||
+					  enqueue_rec9i.cum_wait_time;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+			
+				END LOOP;
+				CLOSE enqueue_cur;
+			
+			  END IF;
+			
+			
+			  --
+			  -- 110.1 .2 rollback segments statistics and storage
+			  -- tabs/view: dba_rollback_segs and dba_segments
+			  --
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 5001;
+			  in_type := &apos;rollback segment statistics&apos;;
+			  in_orderedby := &apos;segment_number ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;segment_number&apos;           || sep ||
+				&apos;rollback_segment_name&apos;    || sep ||
+				&apos;number_of_header_gets&apos;    || sep ||
+				&apos;pct_waits&apos;                || sep ||
+				&apos;undo_bytes_written&apos;       || sep ||
+				&apos;number_of_wraps&apos;          || sep ||
+				&apos;number_of_shrinks&apos;        || sep ||
+				&apos;number_of_extending&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					s.usn segment_number,
+					name  rollback_segment_name,
+					LTRIM(TO_CHAR(gets, &apos;999,999,999,990&apos;)) number_of_header_gets,
+					LTRIM(TO_CHAR(DECODE(gets,0,0,waits*100/gets),&apos;990.99&apos;)) pct_waits,
+					LTRIM(TO_CHAR(writes, &apos;999,999,999,990&apos;)) undo_bytes_written,
+					LTRIM(TO_CHAR(wraps, &apos;999,999,999,990&apos;)) number_of_wraps,
+					LTRIM(TO_CHAR(shrinks, &apos;999,999,999,990&apos;)) number_of_shrinks,
+					LTRIM(TO_CHAR(extends, &apos;999,999,999,990&apos;)) number_of_extending
+				  FROM
+					v$rollstat s,
+					v$rollname n
+				  WHERE
+					s.usn = n.usn
+				  ORDER BY
+					s.usn ASC
+				  )
+				LOOP
+				  in_data := j || sep ||
+					i.segment_number            || sep ||
+					i.rollback_segment_name     || sep ||
+					i.number_of_header_gets     || sep ||
+					i.pct_waits                 || sep ||
+					i.undo_bytes_written        || sep ||
+					i.number_of_wraps           || sep ||
+					i.number_of_shrinks         || sep ||
+					i.number_of_extending;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 5002;
+			  in_type := &apos;rollback segment storage&apos;;
+			  in_orderedby := &apos;segment_number ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;segment_number&apos;                || sep ||
+				&apos;rollback_segment_name&apos;         || sep ||
+				&apos;tablespace&apos;                    || sep ||
+				&apos;status&apos;                        || sep ||
+				&apos;owner&apos;                         || sep ||
+				&apos;segment_size_kb&apos;               || sep ||
+				&apos;avg_size_active_extents_kb&apos;    || sep ||
+				&apos;optimal_size_kb&apos;               || sep ||
+				&apos;high_water_mark_kb&apos;            || sep ||
+				&apos;number_of_extents&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					s.usn segment_number,
+					r.segment_name rollback_segment_name,
+					r.tablespace_name tablespace,
+					r.status status,
+					r.owner owner,
+					LTRIM(TO_CHAR((s.rssize/1024), &apos;999,999,999,990&apos;)) segment_size_kb,
+					LTRIM(TO_CHAR((s.aveactive/1024), &apos;999,999,999,990&apos;)) avg_size_active_extents_kb,
+					LTRIM(DECODE(s.optsize,NULL,&apos;not set&apos;,TO_CHAR(s.optsize/1024, &apos;999,999,999,990&apos;))) optimal_size_kb,
+					LTRIM(TO_CHAR((s.hwmsize/1024), &apos;999,999,999,990&apos;)) high_water_mark_kb,
+					LTRIM(TO_CHAR(s.extents, &apos;999,999,999,990&apos;)) number_of_extents
+				  FROM
+					sys.dba_rollback_segs r,
+					v$rollstat s
+				  WHERE
+					r.segment_id = s.usn
+				  ORDER BY
+					s.usn ASC
+				  )
+				LOOP
+				  in_data := j || sep ||
+					i.segment_number                 || sep ||
+					i.rollback_segment_name          || sep ||
+					i.tablespace                     || sep ||
+					i.status                         || sep ||
+					i.owner                          || sep ||
+					i.segment_size_kb                || sep ||
+					i.avg_size_active_extents_kb     || sep ||
+					i.optimal_size_kb                || sep ||
+					i.high_water_mark_kb             || sep ||
+					i.number_of_extents;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  --
+			  -- 120. latch statistics, sleeps and miss sources
+			  -- tabs/views: v$latch
+			  --
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 5501;
+			  in_type := &apos;latch statistics, only gets &gt; 0&apos;;
+			  in_orderedby := &apos;immediate_misses DESC, immediate_gets DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;name&apos;                      || sep ||
+					&apos;gets&apos;                      || sep ||
+					&apos;misses&apos;                    || sep ||
+					&apos;sleeps&apos;                    || sep ||
+					&apos;immediate_gets&apos;            || sep ||
+					&apos;immediate_misses&apos;          || sep ||
+					&apos;pct_get_miss&apos;              || sep ||
+					&apos;avg_sleeps&apos;                || sep ||
+					&apos;pct_immediate_get_misses&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					name,
+					gets,
+					misses,
+					sleeps,
+					immediate_gets,
+					immediate_misses,
+					LTRIM(TO_CHAR(DECODE(gets, 0, 0, misses*100/gets), &apos;990.99&apos;)) pct_get_miss,
+					LTRIM(TO_CHAR(DECODE(misses, 0, 0, sleeps/misses), &apos;999,999,999,990.99&apos;)) avg_sleeps,
+					LTRIM(TO_CHAR(DECODE(immediate_gets, 0, 0, immediate_misses*100/immediate_gets), &apos;990.99&apos;)) pct_immediate_get_misses
+				  FROM
+					v$latch
+				  WHERE
+					gets &gt; 0
+				  ORDER BY
+					immediate_misses DESC, immediate_gets DESC
+				  )
+				LOOP
+				  in_data := j                  || sep ||
+					i.name                      || sep ||
+					i.gets                      || sep ||
+					i.misses                    || sep ||
+					i.sleeps                    || sep ||
+					i.immediate_gets            || sep ||
+					i.immediate_misses          || sep ||
+					i.pct_get_miss              || sep ||
+					i.avg_sleeps                || sep ||
+					i.pct_immediate_get_misses;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 5502;
+			  in_type := &apos;latch sleep breakdown, only sleeps &gt; 0&apos;;
+			  in_orderedby := &apos;misses DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;name&apos;                      || sep ||
+					&apos;gets&apos;                      || sep ||
+					&apos;misses&apos;                    || sep ||
+					&apos;sleeps&apos;                    || sep ||
+					&apos;spin_gets&apos;                 || sep ||
+					&apos;sleeps_1_4&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					name                      name,
+					gets                      gets,
+					misses                    misses,
+					sleeps                    sleeps,
+					spin_gets                 spin_gets,
+					TO_CHAR(sleep1)||&apos;/&apos;||
+					TO_CHAR(sleep2)||&apos;/&apos;||
+					TO_CHAR(sleep3)||&apos;/&apos;||
+					TO_CHAR(sleep4)           sleeps_1_4
+				  FROM
+					v$latch
+				  WHERE
+					sleeps &gt; 0
+				  ORDER BY
+					misses DESC
+				  )
+				LOOP
+				  in_data := j                  || sep ||
+					i.name                      || sep ||
+					i.gets                      || sep ||
+					i.misses                    || sep ||
+					i.sleeps                    || sep ||
+					i.spin_gets                 || sep ||
+					i.sleeps_1_4;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 5503;
+			  in_type := &apos;latch miss sources, only sleeps &gt; 0&apos;;
+			  in_orderedby := &apos;sleep_count DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+					&apos;name&apos;                      || sep ||
+					&apos;where_in_code&apos;             || sep ||
+					&apos;nowait_misses&apos;             || sep ||
+					&apos;sleeps&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					parent_name   name,
+					&quot;WHERE&quot;       where_in_code,
+					nwfail_count  nowait_misses,
+					sleep_count   sleeps
+				  FROM
+					v$latch_misses
+				  WHERE
+					sleep_count &gt; 0
+				  ORDER BY
+					sleep_count DESC
+				  )
+				LOOP
+				  in_data := j                  || sep ||
+					i.name                      || sep ||
+					i.where_in_code             || sep ||
+					i.nowait_misses             || sep ||
+					i.sleeps;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  -- 130 buffer pools,
+			  -- 140 dictionary cache
+			  -- 150 library cache statistics and
+			  -- tabs/views: v$buffer_pool_statistics, v$rowcache and v$librarycache
+			  --
+			
+			  -- buffer pool sets
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 6000;
+			  in_type := &apos;buffer pool sets&apos;;
+			  in_orderedby := &apos;id ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;pool_id&apos;                            || sep ||
+				&apos;pool_name&apos;                          || sep ||
+				&apos;max_set_size&apos;                       || sep ||
+				&apos;buffers_on_replacement_list&apos;        || sep ||
+				&apos;buffers_on_write_list&apos;              || sep ||
+				&apos;buffers_in_set&apos;                     || sep ||
+				&apos;buffer_gets&apos;                        || sep ||
+				&apos;buffers_written_by_set&apos;             || sep ||
+				&apos;buffers_scanned_in_set&apos;             || sep ||
+				&apos;free_buffer_wait&apos;                   || sep ||
+				&apos;write_complete_wait&apos;                || sep ||
+				&apos;buffer_busy_wait&apos;                   || sep ||
+				&apos;free_buffer_inspected&apos;              || sep ||
+				&apos;dirty_buffers_inspected&apos;            || sep ||
+				&apos;db_block_change&apos;                    || sep ||
+				&apos;db_block_gets&apos;                      || sep ||
+				&apos;consistent_gets&apos;                    || sep ||
+				&apos;physical_reads&apos;                     || sep ||
+				&apos;physical_writes&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					id          pool_id,
+					name        pool_name,
+					set_msize   max_set_size,
+					cnum_repl   buffers_on_replacement_list,
+					cnum_write  buffers_on_write_list,
+					cnum_set    buffers_in_set,
+					buf_got     buffer_gets,
+					sum_write   buffers_written_by_set,
+					sum_scan    buffers_scanned_in_set,
+					free_buffer_wait,
+					write_complete_wait,
+					buffer_busy_wait,
+					free_buffer_inspected,
+					dirty_buffers_inspected,
+					db_block_change,
+					db_block_gets,
+					consistent_gets,
+					physical_reads,
+					physical_writes
+				  FROM
+					v$buffer_pool_statistics
+				  ORDER BY
+					id
+				  )
+				LOOP
+				  in_data := j                      || sep ||
+					i.pool_id                       || sep ||
+					i.pool_name                     || sep ||
+					i.max_set_size                  || sep ||
+					i.buffers_on_replacement_list   || sep ||
+					i.buffers_on_write_list         || sep ||
+					i.buffers_in_set                || sep ||
+					i.buffer_gets                   || sep ||
+					i.buffers_written_by_set        || sep ||
+					i.buffers_scanned_in_set        || sep ||
+					i.free_buffer_wait              || sep ||
+					i.write_complete_wait           || sep ||
+					i.buffer_busy_wait              || sep ||
+					i.free_buffer_inspected         || sep ||
+					i.dirty_buffers_inspected       || sep ||
+					i.db_block_change               || sep ||
+					i.db_block_gets                 || sep ||
+					i.consistent_gets               || sep ||
+					i.physical_reads                || sep ||
+					i.physical_writes;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- dictionary cache statistics
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 6500;
+			  in_type := &apos;dictionary cache statistics&apos;;
+			  in_orderedby := &apos;parameter ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;parameter&apos;                          || sep ||
+				&apos;gets&apos;                               || sep ||
+				&apos;get_misses&apos;                         || sep ||
+				&apos;pct_get_misses&apos;                     || sep ||
+				&apos;scans&apos;                              || sep ||
+				&apos;scans_misses&apos;                       || sep ||
+				&apos;pct_scan_misses&apos;                    || sep ||
+				&apos;modification_requests&apos;              || sep ||
+				&apos;final_usage&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					LOWER(parameter)                                                               parameter,
+					SUM(gets)                                                                      gets,
+					SUM(getmisses)                                                                 get_misses,
+					LTRIM(TO_CHAR(DECODE(SUM(gets),0,0,SUM(getmisses)*100/SUM(gets)),&apos;990.99&apos;))    pct_get_misses,
+					SUM(scans)                                                                     scans,
+					SUM(scanmisses)                                                                scans_misses,
+					LTRIM(TO_CHAR(DECODE(SUM(scans),0,0,SUM(scanmisses)*100/SUM(scans)),&apos;990.99&apos;)) pct_scan_misses,
+					SUM(modifications)                                                             modification_requests,
+					SUM(usage)                                                                     final_usage,
+					LTRIM(TO_CHAR(DECODE(SUM(&quot;COUNT&quot;), 0, 0, SUM(usage)*100/SUM(&quot;COUNT&quot;)) ,&apos;990.99&apos;)) pct_sga
+				  FROM
+					v$rowcache
+				  GROUP BY
+					parameter
+				  ORDER BY
+					parameter
+				  )
+				LOOP
+				  in_data := j                      || sep ||
+					i.parameter                     || sep ||
+					i.gets                          || sep ||
+					i.get_misses                    || sep ||
+					i.pct_get_misses                || sep ||
+					i.scans                         || sep ||
+					i.scans_misses                  || sep ||
+					i.pct_scan_misses               || sep ||
+					i.modification_requests         || sep ||
+					i.final_usage;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- library cache activity
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 7000;
+			  in_type := &apos;library cache activity&apos;;
+			  in_orderedby := &apos;namespace ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;namespace&apos;                     || sep ||
+				&apos;get_requests&apos;                  || sep ||
+				&apos;pct_get_misses&apos;                || sep ||
+				&apos;pins_requests&apos;                 || sep ||
+				&apos;pct_pin_misses&apos;                || sep ||
+				&apos;reloads&apos;                       || sep ||
+				&apos;invalidations&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					namespace,
+					gets                                                             get_requests,
+					LTRIM(TO_CHAR(DECODE(gets,0,0,100-(gethits*100)/gets),&apos;990.99&apos;)) pct_get_misses,
+					pins                                                             pins_requests,
+					LTRIM(TO_CHAR(DECODE(pins,0,0,100-(pinhits*100)/pins),&apos;990.99&apos;)) pct_pin_misses,
+					reloads,
+					invalidations
+				  FROM
+					v$librarycache
+				  ORDER BY
+					namespace
+				  )
+				LOOP
+				  in_data := j                      || sep ||
+					i.namespace                     || sep ||
+					i.get_requests                  || sep ||
+					i.pct_get_misses                || sep ||
+					i.pins_requests                 || sep ||
+					i.pct_pin_misses                || sep ||
+					i.reloads                       || sep ||
+					i.invalidations;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  -- 160.1 .2 SGA regions and statistics
+			  -- tabs/views: v$sga and v$sgastat
+			  --
+			
+			  -- SGA region memory summary
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 7501;
+			  in_type := &apos;SGA region memory summary&apos;;
+			  in_orderedby := &apos;name ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;name&apos;          || sep ||
+				&apos;size_in_bytes&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					&apos; &apos;||name                                  name,
+					LTRIM(TO_CHAR(value,&apos;999,999,999,990.99&apos;)) size_in_bytes
+				  FROM
+					v$sga
+				  UNION
+				  SELECT
+					&apos;&apos;||&apos;Sum SGA regions&apos;                           name,
+					LTRIM(TO_CHAR(SUM(value),&apos;999,999,999,990.99&apos;)) size_in_bytes
+				  FROM
+					v$sga
+				  ORDER BY
+					name
+				  )
+				LOOP
+				  in_data := j             || sep ||
+					LTRIM(i.name)          || sep ||
+						  i.size_in_bytes;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- SGA statistics
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 7502;
+			  in_type := &apos;SGA statistics&apos;;
+			  in_orderedby := &apos;pool DESC bytes DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;pool&apos;          || sep ||
+				&apos;name&apos;          || sep ||
+				&apos;size_in_bytes&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					NVL(pool,&apos;NULL&apos;) pool,
+					name,
+					LTRIM(TO_CHAR(bytes,&apos;999,999,999,990.99&apos;)) size_in_bytes
+				  FROM
+					v$sgastat
+				  ORDER BY
+					pool DESC, bytes DESC
+				  )
+				LOOP
+				  in_data := j      || sep ||
+					i.pool          || sep ||
+					i.name          || sep ||
+					i.size_in_bytes;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  -- 170. initialization parameters
+			  -- tabs/views: v$parameter
+			  --
+			
+			  -- SGA region memory summary
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 8000;
+			  in_type := &apos;initialization parameters&apos;;
+			  in_orderedby := &apos;name ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;name&apos;          || sep ||
+				&apos;value&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					name,
+					value
+				  FROM
+					v$parameter
+				  WHERE
+					isdefault = &apos;FALSE&apos; OR
+					ismodified != &apos;FALSE&apos;
+				  ORDER BY
+					name
+				  )
+				LOOP
+				  in_data := j       || sep ||
+					i.name           || sep ||
+					i.value;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  -- 200.1 .2 .3 disk layout for data-files (tablespaces), control-files, redo-log-groups and archive-logs
+			  -- tabs/view:
+			  --
+			
+			  -- data and temp files
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 8501;
+			  in_type := &apos;layout (disk): data, control and redo-log files&apos;;
+			  in_orderedby := &apos;tablespace ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;tablespace&apos;            || sep ||
+				&apos;file_type&apos;             || sep ||
+				&apos;sql_access&apos;            || sep ||
+				&apos;file_status&apos;           || sep ||
+				&apos;file_name&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					d.tablespace_name   tablespace,
+					v.status            file_type,
+					v.enabled           sql_access,
+					d.status            file_status,
+					d.file_name         file_name
+				  FROM
+					sys.dba_data_files d,
+					v$datafile v
+				  WHERE
+					d.file_name = v.name
+				  UNION ALL
+				  SELECT
+					d.tablespace_name   tablespace,
+					v.status            file_type,
+					v.enabled           sql_access,
+					d.status            file_status,
+					d.file_name         file_name
+				  FROM
+					sys.dba_temp_files d,
+					v$tempfile v
+				  WHERE
+					d.file_id = v.file#
+				  ORDER BY tablespace ASC
+				  )
+				LOOP
+				  in_data := j || sep ||
+					i.tablespace        || sep ||
+					i.file_type         || sep ||
+					i.sql_access        || sep ||
+					i.file_status       || sep ||
+					i.file_name;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- log files
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 8502;
+			  in_type := &apos;layout (disk): redo-log files&apos;;
+			  in_orderedby := &apos;log_group_nr ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;log_group_nr&apos;                    || sep ||
+				&apos;log_group_status&apos;                || sep ||
+				&apos;size_kb&apos;                         || sep ||
+				&apos;archived&apos;                        || sep ||
+				&apos;thread#&apos;                         || sep ||
+				&apos;sequence#&apos;                       || sep ||
+				&apos;lowest_scn_in_the_log&apos;           || sep ||
+				&apos;time_of_first_scn_in_the_log&apos;    || sep ||
+				&apos;log_file_status&apos;                 || sep ||
+				&apos;redo_log_member_file_name&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					l.group#                                             log_group_nr,
+					NLS_INITCAP(l.status)                                log_group_status,
+					LTRIM(TO_CHAR((l.bytes/1024), &apos;999,999,999,990.99&apos;)) size_kb,
+					l.archived                                           archived,
+					l.thread#                                            thread#,
+					l.sequence#                                          sequence#,
+					l.first_change#                                      lowest_scn_in_the_log,
+					l.first_time                                         time_of_first_scn_in_the_log,
+					NVL(f.status, &apos;NULL&apos;)                                log_file_status,
+					f.member                                             redo_log_member_file_name
+				  FROM
+					v$log l, v$logfile f
+				  WHERE
+					l.group# = f.group#
+				  ORDER BY
+					l.group# ASC
+				  )
+				LOOP
+				  in_data := j || sep ||
+					i.log_group_nr                    || sep ||
+					i.log_group_status                || sep ||
+					i.size_kb                         || sep ||
+					i.archived                        || sep ||
+					i.thread#                         || sep ||
+					i.sequence#                       || sep ||
+					i.lowest_scn_in_the_log           || sep ||
+					i.time_of_first_scn_in_the_log    || sep ||
+					i.log_file_status                 || sep ||
+					i.redo_log_member_file_name;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- archived logs
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 8503;
+			  in_type := &apos;layout (disk): last 10 archived logs&apos;;
+			  in_orderedby := &apos;sequence# DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;sequence#&apos;         || sep ||
+				&apos;name&apos;              || sep ||
+				&apos;thread#&apos;           || sep ||
+				&apos;first_change#&apos;     || sep ||
+				&apos;first_time&apos;        || sep ||
+				&apos;completion_time&apos;   || sep ||
+				&apos;blocks&apos;            || sep ||
+				&apos;block_size&apos;        || sep ||
+				&apos;archived&apos;          || sep ||
+				&apos;deleted&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					sequence#,
+					name,
+					thread#,
+					first_change#,
+					TO_CHAR(first_time, &apos;YYYY-MM-DD/HH24:MI:SS&apos;) first_time,
+					TO_CHAR(completion_time, &apos;YYYY-MM-DD/HH24:MI:SS&apos;) completion_time,
+					blocks,
+					block_size,
+					archived,
+					deleted
+				  FROM
+					v$archived_log
+				  ORDER BY
+					sequence# DESC
+				  )
+				LOOP
+				  in_data := j || sep ||
+					i.sequence#         || sep ||
+					i.name              || sep ||
+					i.thread#           || sep ||
+					i.first_change#     || sep ||
+					i.first_time        || sep ||
+					i.completion_time   || sep ||
+					i.blocks            || sep ||
+					i.block_size        || sep ||
+					i.archived          || sep ||
+					i.deleted;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				  -- only top 10
+				  EXIT WHEN j &gt; 10;
+				END LOOP;
+				IF j &lt;= 1 THEN
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, &apos;no rows selected.&apos;);
+				END IF;
+			
+			  --
+			  -- 300. free ts/datafile fragmentation
+			  -- tabs/view: dba_free_space, dba_data_file, dba_tablespaces, sys.fet$, sys.file$, sys.ts$
+			  --
+			  -- tablespace storage overview
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 9001;
+			  in_type := &apos;tablespace storage overview&apos;;
+			  in_orderedby := &apos;tablespace ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;tablespace&apos;        || sep ||
+				&apos;status&apos;            || sep ||
+				&apos;type&apos;              || sep ||
+				&apos;extent_management&apos; || sep ||
+				&apos;size_kb&apos;           || sep ||
+				&apos;used_kb&apos;           || sep ||
+				&apos;free_kb&apos;           || sep ||
+				&apos;pct_used&apos;          || sep ||
+				&apos;initial_extent_kb&apos; || sep ||
+				&apos;next_extent_kb&apos;    || sep ||
+				&apos;min_extents&apos;       || sep ||
+				&apos;max_extents&apos;       || sep ||
+				&apos;pct_increase&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					d.tablespace_name                                                                       tablespace,
+					d.status                                                                                status,
+					d.contents                                                                              type,
+					d.extent_management                                                                     extent_management,
+					LTRIM(TO_CHAR(NVL(a.bytes/1024, 0),                              &apos;999,999,999,990.99&apos;)) size_kb,
+					LTRIM(TO_CHAR(NVL(a.bytes - NVL(f.bytes, 0), 0)/1024,            &apos;999,999,999,990.99&apos;)) used_kb,
+					LTRIM(TO_CHAR(NVL(f.bytes, 0)/1024,                              &apos;999,999,999,990.99&apos;)) free_kb,
+					LTRIM(TO_CHAR(NVL((a.bytes - NVL(f.bytes, 0))/a.bytes*100, 0),               &apos;990.00&apos;)) pct_used,
+					LTRIM(TO_CHAR(d.initial_extent/1024,                             &apos;999,999,999,990.99&apos;)) initial_extent_kb,
+					LTRIM(TO_CHAR(d.next_extent/1024,                                &apos;999,999,999,990.99&apos;)) next_extent_kb,
+					LTRIM(TO_CHAR(d.min_extents,                                     &apos;999,999,999,990&apos;))    min_extents,
+					LTRIM(DECODE(d.max_extents, NULL, &apos;NULL&apos;, TO_CHAR(d.max_extents, &apos;999,999,999,990&apos;)))   max_extents,
+					d.pct_increase                                                                          pct_increase
+				  FROM
+					sys.dba_tablespaces d,
+					(select tablespace_name, sum(bytes) bytes from dba_data_files group by tablespace_name) a,
+					(select tablespace_name, sum(bytes) bytes from dba_free_space group by tablespace_name) f
+				  WHERE
+					d.tablespace_name = a.tablespace_name(+) AND
+					d.tablespace_name = f.tablespace_name(+) AND NOT
+					(d.extent_management = &apos;LOCAL&apos; AND d.contents = &apos;TEMPORARY&apos;)
+				  UNION ALL
+				  SELECT
+					d.tablespace_name                                                                       tablespace,
+					d.status                                                                                status,
+					d.contents                                                                              type,
+					d.extent_management                                                                     extent_management,
+					LTRIM(TO_CHAR(NVL(a.bytes/1024, 0),                              &apos;999,999,999,990.99&apos;)) size_kb,
+					LTRIM(TO_CHAR(NVL(t.bytes, 0)/1024,                              &apos;999,999,999,990.99&apos;)) used_kb,
+					LTRIM(TO_CHAR((NVL(a.bytes, 0) - NVL(t.bytes, 0))/1024,          &apos;999,999,999,990.99&apos;)) free_kb,
+					LTRIM(TO_CHAR(NVL(t.bytes/a.bytes*100, 0),                                   &apos;990.00&apos;)) pct_used,
+					LTRIM(TO_CHAR(d.initial_extent/1024,                             &apos;999,999,999,990.99&apos;)) initial_extent_kb,
+					LTRIM(TO_CHAR(d.next_extent/1024,                                &apos;999,999,999,990.99&apos;)) next_extent_kb,
+					LTRIM(TO_CHAR(d.min_extents,                                     &apos;999,999,999,990&apos;))    min_extents,
+					LTRIM(DECODE(d.max_extents, NULL, &apos;NULL&apos;, TO_CHAR(d.max_extents, &apos;999,999,999,990&apos;)))   max_extents,
+					d.pct_increase                                                                          pct_increase
+				  FROM
+					sys.dba_tablespaces d,
+					(select tablespace_name, sum(bytes) bytes from dba_temp_files group by tablespace_name) a,
+					(select tablespace_name, sum(bytes_cached) bytes from v$temp_extent_pool group by tablespace_name) t
+				  WHERE
+					d.tablespace_name = a.tablespace_name(+) AND
+					d.tablespace_name = t.tablespace_name(+) AND
+					d.extent_management = &apos;LOCAL&apos; AND d.contents = &apos;TEMPORARY&apos;
+				  ORDER BY
+					tablespace
+				  )
+				LOOP
+				  in_data := j          || sep ||
+					i.tablespace        || sep ||
+					i.status            || sep ||
+					i.type              || sep ||
+					i.extent_management || sep ||
+					i.size_kb           || sep ||
+					i.used_kb           || sep ||
+					i.free_kb           || sep ||
+					i.pct_used          || sep ||
+					i.initial_extent_kb || sep ||
+					i.next_extent_kb    || sep ||
+					i.min_extents       || sep ||
+					i.max_extents       || sep ||
+					i.pct_increase;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- tablespace/file storage overview
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 9002;
+			  in_type := &apos;tablespace/file storage overview&apos;;
+			  in_orderedby := &apos;tablespace ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;tablespace&apos;        || sep ||
+				&apos;file_name&apos;         || sep ||
+				&apos;status&apos;            || sep ||
+				&apos;autoextensible&apos;    || sep ||
+				&apos;size_kb&apos;           || sep ||
+				&apos;used_kb&apos;           || sep ||
+				&apos;free_kb&apos;           || sep ||
+				&apos;pct_used&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					d.tablespace_name                                                                     tablespace,
+					d.file_name                                                                           file_name,
+					v.status                                                                              status,
+					NVL(d.autoextensible, &apos;NO&apos;)                                                           autoextensible,
+					LTRIM(TO_CHAR(NVL(d.bytes/1024, 0),                            &apos;999,999,999,990.99&apos;)) size_kb,
+					LTRIM(TO_CHAR(NVL((d.bytes - NVL(s.bytes, 0))/1024, 0),        &apos;999,999,999,990.99&apos;)) used_kb,
+					LTRIM(TO_CHAR(NVL(s.bytes, 0)/1024,                            &apos;999,999,999,990.99&apos;)) free_kb,
+					LTRIM(TO_CHAR(NVL((d.bytes - NVL(s.bytes, 0))/d.bytes*100, 0),             &apos;990.00&apos;)) pct_used
+				  FROM
+					sys.dba_data_files d,
+					v$datafile v,
+					(SELECT file_id, SUM(bytes) bytes FROM sys.dba_free_space GROUP BY file_id) s
+				  WHERE
+					(s.file_id (+)= d.file_id) AND (d.file_name = v.name)
+				  UNION ALL
+				  SELECT
+					d.tablespace_name                                                                     tablespace,
+					d.file_name                                                                           file_name,
+					v.status                                                                              status,
+					NVL(d.autoextensible, &apos;NO&apos;)                                                           autoextensible,
+					LTRIM(TO_CHAR(NVL(d.bytes/1024, 0),                            &apos;999,999,999,990.99&apos;)) size_kb,
+					LTRIM(TO_CHAR(NVL(t.bytes_cached/1024, 0),                     &apos;999,999,999,990.99&apos;)) used_kb,
+					LTRIM(TO_CHAR((NVL(d.bytes, 0) - NVL(t.bytes_cached, 0))/1024, &apos;999,999,999,990.99&apos;)) free_kb,
+					LTRIM(TO_CHAR(NVL(t.bytes_cached/d.bytes*100, 0),                          &apos;990.00&apos;)) pct_used
+				  FROM
+					sys.dba_temp_files d,
+					v$temp_extent_pool t,
+					v$tempfile v
+				  WHERE
+					(t.file_id (+)= d.file_id) AND (d.file_id = v.file#)
+				  ORDER BY
+					tablespace
+				  )
+				LOOP
+				  in_data := j          || sep ||
+					i.tablespace        || sep ||
+					i.file_name         || sep ||
+					i.status            || sep ||
+					i.autoextensible    || sep ||
+					i.size_kb           || sep ||
+					i.used_kb           || sep ||
+					i.free_kb           || sep ||
+					i.pct_used;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  -- storage avg/max/min free space
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 9003;
+			  in_type := &apos;tablespace storage avg/max/min/free space&apos;;
+			  in_orderedby := &apos;tablespace ASC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;tablespace&apos;    || sep ||
+				&apos;pieces_count&apos;  || sep ||
+				&apos;min_free_kb&apos;   || sep ||
+				&apos;avg_free_kb&apos;   || sep ||
+				&apos;max_free_kb&apos;   || sep ||
+				&apos;sum_free_kb&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					tablespace_name tablespace,
+					COUNT(bytes) pieces_count,
+					LTRIM(TO_CHAR(MIN(bytes)/1024, &apos;999,999,999,990.99&apos;)) min_free_kb,
+					LTRIM(TO_CHAR(AVG(bytes)/1024, &apos;999,999,999,990.99&apos;)) avg_free_kb,
+					LTRIM(TO_CHAR(MAX(bytes)/1024, &apos;999,999,999,990.99&apos;)) max_free_kb,
+					LTRIM(TO_CHAR(SUM(bytes)/1024, &apos;999,999,999,990.99&apos;)) sum_free_kb
+				  FROM
+					dba_free_space
+				  GROUP BY
+					tablespace_name
+				  )
+				LOOP
+				  in_data := j      || sep ||
+					i.tablespace    || sep ||
+					i.pieces_count  || sep ||
+					i.min_free_kb   || sep ||
+					i.avg_free_kb   || sep ||
+					i.max_free_kb   || sep ||
+					i.sum_free_kb;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+			  --
+			  -- 400. table/index size for all tables per server
+			  -- tabs/views: dba_segments, dba_extents, user_segments, user_extents
+			  --
+			
+			  -- set defaults
+			  j := 1;
+			  in_part := 1;
+			  -- set the type
+			  in_typeid := 9500;
+			  in_type := &apos;table/index size&apos;;
+			  in_orderedby := &apos;object_type DESC, size_kb DESC&apos;;
+			
+			  INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (uuid, in_date, in_type, in_typeid, in_version, in_orderedby);
+			  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, 0, in_sort_order || sep ||
+				&apos;object_type&apos; || sep ||
+				&apos;object_name&apos; || sep ||
+				&apos;size_kb&apos;);
+			
+			  FOR i IN (
+				  SELECT
+					segment_type object_type,
+					segment_name object_name,
+					LTRIM(TO_CHAR((SUM(bytes))/1024, &apos;999,999,999,990.99&apos;)) size_kb
+				  FROM
+					user_extents
+				  WHERE
+					segment_type IN (&apos;TABLE&apos;,&apos;INDEX&apos;)
+				  GROUP BY
+					segment_name, segment_type
+				  ORDER BY
+					object_type DESC, SUM(bytes) DESC
+				  )
+				LOOP
+				  in_data := j      || sep ||
+					i.object_type   || sep ||
+					i.object_name   || sep ||
+					i.size_kb;
+				  INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (uuid, in_typeid, in_part, j, in_data);
+				  j := j + 1;
+				END LOOP;
+			
+				COMMIT;
+				
+				-- re-enable oracle streaming
+				core.enable_data_movement;
+				
+		EXCEPTION WHEN OTHERS THEN
+			BEGIN
+				-- re-enable oracle streaming
+				core.enable_data_movement;
+				
+				RAISE;
+			END;
+
+		END;
+	</sql-dialect>
+	<sql-dialect name="Microsoft">
+		DECLARE
+		@uuid                  VARCHAR(28) = <template-variable value="UUID"/>,
+		@sep                   VARCHAR(10) = <template-variable value="ColumnSeparator"/>,
+		@in_user               NVARCHAR(128),
+		@in_type               NVARCHAR(80),
+		@in_typeid             NUMERIC(6,2),
+		@in_date               DATETIME2 = GETUTCDATE(),
+		@in_part               FLOAT,
+		@in_data               NVARCHAR(4000),
+		@in_orderedby          NVARCHAR(64),
+		@in_sort_order         VARCHAR(10) = 'sort_order',
+		@in_version            NUMERIC,
+		@in_version_latest     NUMERIC,
+		@in_previous_delta     NUMERIC = 10,
+		@j                     NUMERIC = 1;
+		
+		-- db version
+		BEGIN
+			BEGIN TRAN
+				-- init the version
+				SET @in_version = NEXT VALUE FOR DBMONITOR_SEQUENCE;
+			
+				-- remove previous version - previous delta is 10
+				SELECT @in_version_latest = MAX(version) - @in_previous_delta + 1  FROM dbmonitor_master;
+				DELETE FROM dbmonitor_detail WHERE masterid IN (SELECT uuid FROM dbmonitor_master WHERE version >= @in_version_latest);
+				DELETE FROM dbmonitor_master WHERE version >= @in_version_latest;
+			
+				-- get the used db user
+				SELECT @in_user = system_user;	
+				--
+				-- 10. db instance values, SGA and cache size parameters
+				-- tabs/views: server properties
+				--
+			
+				-- instance
+			
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 1001;
+				SET @in_type = 'database and instance info';
+				SET @in_orderedby = 'none.';
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (@uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+																								'db_name()'				, @sep ,
+																								'db_id()'				, @sep ,
+																								'create_date'			, @sep ,
+																								'recovery_model_desc'	, @sep ,
+																								'servicename'			, @sep ,
+																								'instance_number'		, @sep ,
+																								'version'				, @sep ,
+																								'host_name'				, @sep ,
+																								'startup_time'			, @sep ,
+																								'parallel'				, @sep ,
+																								'status'				, @sep ,
+																								'thread#'				, @sep ,
+																								'archiver'				, @sep ,
+																								'log_switch_wait'		, @sep ,
+																								'logins'				, @sep ,
+																								'shutdown_pending'		, @sep ,
+																								'database_status'		, @sep ,
+																								'instance_role#'
+																								));
+
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+				SELECT @uuid, @in_typeid, @in_part, @j, 
+					CONCAT(DB_NAME(), DB_ID(), CONVERT(VARCHAR(50), GETDATE(), 121),												@sep,
+					CAST(DATABASEPROPERTYEX(db_name(), 'RECOVERY') AS VARCHAR(300)),												@sep,
+					@@servicename,																									@sep,
+					@@SERVICENAME,																									@sep,
+					@@VERSION,																										@sep,
+					CAST(SERVERPROPERTY('ComputerNamePhysicalNetBIOS') AS VARCHAR(300)),											@sep,
+					(SELECT CONVERT(VARCHAR(50), sqlserver_start_time, 121) FROM sys.dm_os_sys_info),								@sep,
+					CAST((SELECT value_in_use FROM sys.configurations WHERE description LIKE '%max%parallelism%') AS VARCHAR(300)),	@sep,
+					CAST(DATABASEPROPERTYEX(DB_NAME(), 'Status') AS VARCHAR(300)),													@sep,
+					'thread#',																										@sep,
+					'archiver',																										@sep,
+					'ISNULL(log_switch_wait, ''NULL'')',																			@sep,
+					'logins',																										@sep,
+					'N/A',																											@sep,
+					CAST(DATABASEPROPERTYEX(DB_NAME(), 'Status') AS VARCHAR(300)),													@sep,
+					sys.fn_hadr_is_primary_replica(DB_NAME())
+					);
+			
+				-- show SGA
+			
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 1002;
+				SET @in_type = 'show file information';
+				SET @in_orderedby = 'none.';
+				-- Need to replace the SGA files.
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (@uuid, @in_typeid, @in_part, 0, 
+				CONCAT(@in_sort_order, @sep,
+				'name', @sep,
+				'size_in_bytes')
+				);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (@uuid, @in_typeid, @in_part, @j, 
+				CONCAT(@j, @sep,
+				DB_NAME(), @sep,
+					(SELECT CONVERT(VARCHAR(50), CAST(sum((size*8/1024)*1024*1024) AS MONEY), 1) 
+					FROM sys.master_files WHERE DB_NAME(database_id) = DB_NAME()))
+				);
+			
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 1003;
+				SET @in_type = 'cache sizes from sys.dm_os_buffer_descriptors';
+				SET @in_orderedby = 'none.';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (@uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+					'name',  @sep, 'size_in_bytes', @sep,'description'));
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (@uuid, @in_typeid, @in_part, @j, 
+				CONCAT(@j, @sep, DB_NAME(), @sep,
+					(SELECT (COUNT(*)*8/1024)*1024*1024 FROM sys.dm_os_buffer_descriptors 
+					WHERE DB_NAME(database_id) = DB_NAME() GROUP BY DB_NAME(database_id)))
+				)
+				-- set defaults
+
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 1004;
+				SET @in_type = 'show system memory information';
+				SET @in_orderedby = 'none.';
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) 
+					VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+					VALUES (@uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep, 
+					'physical_memory_kb',	@sep, 
+					'virtual_memory_kb',	@sep,
+					'committed_kb',			@sep,
+					'committed_target_kb'
+					));
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+					SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY physical_memory_kb ASC),
+					CONCAT(ROW_NUMBER() OVER(ORDER BY physical_memory_kb ASC),	@sep,
+					DB_NAME(),													@sep,
+					physical_memory_kb,											@sep, 
+					virtual_memory_kb,											@sep,
+					committed_kb,												@sep, 
+					committed_target_kb)
+					FROM sys.dm_os_sys_info;
+
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 1005;
+				SET @in_type = 'show used database cache information';
+				SET @in_orderedby = 'none.';
+				-- Need to replace the SGA files.
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) 
+					VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+					VALUES (@uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep, 
+					'database_name',	@sep, 
+					'buffer_cache_pages',	@sep, 
+					'mb_used'
+					));
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+					SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY databases.name ASC), CONCAT(
+						ROW_NUMBER() OVER(ORDER BY databases.name ASC), @sep,
+						databases.name,									@sep, 
+						COUNT(*),										@sep, --Buffer Cache Pages
+						COUNT(*) * 8 / 1024 --MB_Used
+					)
+					FROM sys.dm_os_buffer_descriptors
+					INNER JOIN sys.databases
+					ON databases.database_id = dm_os_buffer_descriptors.database_id
+					WHERE databases.name = DB_NAME()
+					GROUP BY databases.name
+					ORDER BY COUNT(*) DESC;
+
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 1006;
+				SET @in_type = 'show used table cache information';
+				SET @in_orderedby = 'none.';
+
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) 
+					VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+					VALUES (@uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep, 
+					'database_name',			@sep, 
+					'object_name',				@sep, 
+					'object_type_description',	@sep, 
+					'buffer_cache_pages',		@sep, 
+					'buffer_cache_used_mb'
+					));
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+					SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY objects.name ASC), CONCAT(ROW_NUMBER() OVER(ORDER BY objects.name ASC), @sep,
+						DB_NAME(),				@sep,--Database Name
+						objects.name,			@sep,--object_name
+						objects.type_desc collate Latin1_General_100_CI_AS,		@sep,--object_type_description,
+						COUNT(*),				@sep,--buffer_cache_pages,
+						COUNT(*) * 8 / 1024		 -- buffer_cache_used_MB
+					)
+					FROM sys.dm_os_buffer_descriptors
+					INNER JOIN sys.allocation_units
+					ON allocation_units.allocation_unit_id = dm_os_buffer_descriptors.allocation_unit_id
+					INNER JOIN sys.partitions
+					ON ((allocation_units.container_id = partitions.hobt_id AND type IN (1,3))
+					OR (allocation_units.container_id = partitions.partition_id AND type IN (2)))
+					INNER JOIN sys.objects
+					ON partitions.object_id = objects.object_id
+					WHERE allocation_units.type IN (1,2,3)
+					AND objects.is_ms_shipped = 0
+					AND dm_os_buffer_descriptors.database_id = DB_ID()
+					GROUP BY objects.name,
+							 objects.type_desc
+					ORDER BY COUNT(*) DESC;
+
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 1007;
+				SET @in_type = 'show used index cache information';
+				SET @in_orderedby = 'none.';
+				
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) 
+					VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+					VALUES (@uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep, 
+					'database_name',			@sep, 
+					'index_name',				@sep, 
+					'object_name',				@sep, 
+					'object_type_description',	@sep, 
+					'buffer_cache_pages',		@sep, 
+					'buffer_cache_used_mb'
+					));
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+					SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY objects.name ASC), CONCAT(ROW_NUMBER() OVER(ORDER BY objects.name ASC), @sep,
+						DB_NAME(),				@sep,--Database Name
+						indexes.name,			@sep,--index_name
+						objects.name,			@sep,--object_name
+						objects.type_desc collate Latin1_General_100_CI_AS,		@sep,--object_type_description,
+						COUNT(*),				@sep,--buffer_cache_pages,
+						COUNT(*) * 8 / 1024		 -- buffer_cache_used_MB
+					)
+					FROM sys.dm_os_buffer_descriptors
+					INNER JOIN sys.allocation_units
+					ON allocation_units.allocation_unit_id = dm_os_buffer_descriptors.allocation_unit_id
+					INNER JOIN sys.partitions
+					ON ((allocation_units.container_id = partitions.hobt_id AND type IN (1,3))
+					OR (allocation_units.container_id = partitions.partition_id AND type IN (2)))
+					INNER JOIN sys.objects
+					ON partitions.object_id = objects.object_id
+					INNER JOIN sys.indexes
+					ON objects.object_id = indexes.object_id
+					AND partitions.index_id = indexes.index_id
+					WHERE allocation_units.type IN (1,2,3)
+					AND objects.is_ms_shipped = 0
+					AND dm_os_buffer_descriptors.database_id = DB_ID()
+					GROUP BY indexes.name,
+							 objects.name,
+							 objects.type_desc
+					ORDER BY COUNT(*) DESC;
+
+				-- 20.2 load profile additional summary
+			
+				--
+				-- 40.1 top 10 wait events
+				-- 40.2 system wait events
+				-- 40.3 background wait events
+				-- tabs/views: v$system_event, v$session, v$session_event
+			  --
+			
+			  -- 40.1 top 10 wait events
+			
+			  -- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 2001;
+				SET @in_type = 'top 10 wait events';
+				SET @in_orderedby = 'wait_time_centisecond DESC, total_waits DESC';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(
+					@in_sort_order,						@sep,
+					'event',							@sep,
+					'total_waits',						@sep,
+					'total_timeouts',					@sep,
+					'wait_time_centisecond',			@sep,
+					'average_wait_time_centisecond',	@sep,
+					'pct_total_wait_time');
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+				SELECT TOP 10 @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY wait_type ASC), CONCAT(
+				ROW_NUMBER() OVER(ORDER BY wait_type ASC),	@sep,
+				wait_type,									@sep,
+				SUM(WAIT_TIME_MS),							@sep,
+				SUM(max_wait_time_ms),						@sep,
+				SUM(signal_wait_time_ms)) 
+				FROM sys.dm_exec_session_wait_stats 
+				WHERE session_id = @@SPID
+				GROUP BY session_id, wait_type
+			
+			  -- 40.2 all system wait events
+			
+			  -- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 2002;
+				SET @in_type = 'all system wait events';
+				SET @in_orderedby = '';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(
+					@in_sort_order,						@sep,
+					'event',							@sep,
+					'total_waits',						@sep,
+					'total_timeouts',					@sep,
+					'wait_time_centisecond',			@sep,
+					'average_wait_time_centisecond',	@sep,
+					'pct_total_wait_time');
+			
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data)
+				SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY wait_type ASC), CONCAT(
+					ROW_NUMBER() OVER(ORDER BY wait_type ASC),	@sep,
+					wait_type,									@sep,
+					SUM(WAIT_TIME_MS),							@sep,
+					SUM(max_wait_time_ms),						@sep,
+					SUM(signal_wait_time_ms)
+				) 
+				FROM sys.dm_exec_session_wait_stats 
+				GROUP BY session_id, wait_type 
+			
+			  -- 40.3 background wait events
+			
+			  -- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 2003;
+				SET @in_type = 'background wait events';
+				SET @in_orderedby = '';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(
+					@in_sort_order,		@sep,
+					'event',			@sep,
+					'total_waits',		@sep,
+					'total_timeouts',	@sep,
+					'wait_time_centisecond');
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY wait_type ASC), CONCAT(
+					ROW_NUMBER() OVER(ORDER BY wait_type ASC),	@sep,
+					wait_type,									@sep,
+					SUM(waiting_tasks_count),					@sep,
+					0,											@sep,
+					SUM(wait_time_ms)
+				)  FROM sys.dm_exec_session_wait_stats
+				GROUP BY wait_type	
+			  --
+			  -- 50.1 .2 .3 top 10 of most expensive SQL, orderd by disk, gets and rows
+			  -- tabs/view: v$sqlarea, v$sql and all_users
+			  --
+			
+			  -- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 2501;
+				SET @in_type = 'top 10 of most expensive SQL, ordered by total_physical_reads';
+				SET @in_orderedby = 'total_physical_reads DESC';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(
+				@in_sort_order				, @sep,
+				'total_physical_reads'      , @sep,
+				'Avg Physical Reads'		, @sep,
+				'Execution_Count'           , @sep,
+				'Calls/Second'				, @sep,
+				'AvgWorkerTime'             , @sep,
+				'TotalWorkerTime'           , @sep,
+				'AvgElapsedTime'            , @sep,
+				'max_logical_reads'		    , @sep,
+				'max_logical_writes'        , @sep,
+				'Age in Cache'              , @sep,
+				'sql_text');
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+				SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY qs.total_physical_reads ASC), CONCAT(
+					ROW_NUMBER() OVER(ORDER BY qs.total_physical_reads ASC),			@sep,
+					FORMAT(qs.total_physical_reads, '##0.##'),							@sep,
+					(qs.total_physical_reads/qs.execution_count),						@sep,
+					FORMAT(qs.execution_count, '##0.##'),								@sep, 
+					qs.execution_count/DATEDIFF(Second, qs.creation_time, GetDate()),	@sep,
+					qs.total_worker_time/qs.execution_count,							@sep,
+					qs.total_worker_time,												@sep, 
+					FORMAT(qs.total_elapsed_time/qs.execution_count, '##0.##'),			@sep,
+					qs.max_logical_reads,												@sep,
+					qs.max_logical_writes,												@sep,
+					DATEDIFF(Minute, qs.creation_time, GetDate()),						@sep,
+					qt.text)
+				FROM sys.dm_exec_query_stats AS qs
+					CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS qt
+					WHERE qt.dbid = db_id() -- Filter by current database
+					ORDER BY qs.total_physical_reads DESC;
+
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 2502;
+				SET @in_type = 'top 10 of most expensive SQL, ordered by logical reads';
+				SET @in_orderedby = 'total_logical_reads DESC';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+				'total_logical_reads'       , @sep,
+				'Avg Logical Reads'			, @sep,
+				'Execution_Count'           , @sep,
+				'Calls/Second'				, @sep,
+				'AvgWorkerTime'             , @sep,
+				'TotalWorkerTime'           , @sep,
+				'AvgElapsedTime'            , @sep,
+				'max_logical_reads'		    , @sep,
+				'max_logical_writes'        , @sep,
+				'Age in Cache'              , @sep,
+				'sql_text');
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+				SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY qs.total_physical_reads ASC), CONCAT(
+					ROW_NUMBER() OVER(ORDER BY qs.total_physical_reads ASC)				,@sep,
+					FORMAT(qs.total_logical_reads, '##0.##')							,@sep,
+					(qs.total_logical_reads/qs.execution_count)							,@sep,
+					FORMAT(qs.execution_count, '##0.##')								,@sep, 
+					qs.execution_count/DATEDIFF(Second, qs.creation_time, GetDate())	,@sep,
+					qs.total_worker_time/qs.execution_count								,@sep,
+					qs.total_worker_time												,@sep, 
+					FORMAT(qs.total_elapsed_time/qs.execution_count, '##0.##')			,@sep,
+					qs.max_logical_reads												,@sep,
+					qs.max_logical_writes												,@sep,
+					DATEDIFF(Minute, qs.creation_time, GetDate())						,@sep,
+					qt.text)
+				FROM sys.dm_exec_query_stats AS qs
+					CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS qt
+					WHERE qt.dbid = db_id() -- Filter by current database
+					ORDER BY qs.total_logical_reads DESC;	
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 2503;
+				SET @in_type = 'top 10 of most expensive SQL, ordered by total_rows';
+				SET @in_orderedby = 'total_rows DESC';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+				'total_logical_reads'       , @sep,
+				'Avg Logical Reads'			, @sep,
+				'Execution_Count'           , @sep,
+				'Calls/Second'				, @sep,
+				'AvgWorkerTime'             , @sep,
+				'TotalWorkerTime'           , @sep,
+				'AvgElapsedTime'            , @sep,
+				'max_logical_reads'		    , @sep,
+				'max_logical_writes'        , @sep,
+				'Age in Cache'              , @sep,
+				'sql_text');
+				
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+				SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY qs.total_physical_reads ASC), CONCAT(
+					ROW_NUMBER() OVER(ORDER BY qs.total_physical_reads ASC),			@sep,
+					FORMAT(qs.total_logical_reads, '##0.##'),							@sep,
+					(qs.total_logical_reads/qs.execution_count),						@sep,
+					FORMAT(qs.execution_count, '##0.##'),								@sep, 
+					qs.execution_count/DATEDIFF(Second, qs.creation_time, GetDate()),	@sep,
+					qs.total_worker_time/qs.execution_count,							@sep,
+					qs.total_worker_time,												@sep, 
+					FORMAT(qs.total_elapsed_time/qs.execution_count, '##0.##'),			@sep,
+					qs.max_logical_reads,												@sep,
+					qs.max_logical_writes,												@sep,
+					DATEDIFF(Minute, qs.creation_time, GetDate()),						@sep,
+					qt.text)
+				FROM sys.dm_exec_query_stats AS qs
+					CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS qt
+					WHERE qt.dbid = DB_ID() -- Filter by current database
+					ORDER BY qs.total_rows DESC;
+				--
+				--
+				-- 60. instance activity statistics
+				-- tabs/views: v$sysstat
+				--	
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 3000;
+				SET @in_type = 'all system wait events (see sys.dm_os_wait_stats description)';
+				SET @in_orderedby = 'wait_type ASC';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+					'wait_type'              , @sep,
+					'waiting_tasks_count'    , @sep,
+					'wait_time_ms'           , @sep,
+					'max_wait_time_ms'       , @sep,
+					'signal_wait_time_ms');
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data)
+				SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY wait_type DESC), CONCAT(@in_sort_order, @sep,
+				ROW_NUMBER() OVER(ORDER BY wait_type DESC), @sep,
+				wait_type, 									@sep,
+				FORMAT(SUM(waiting_tasks_count), '##0.##'),	@sep,
+				FORMAT(SUM(wait_time_ms), '##0.##'),		@sep,
+				FORMAT(SUM(max_wait_time_ms), '##0.##'),	@sep,
+				FORMAT(SUM(signal_wait_time_ms), '##0.##'))
+				FROM sys.dm_os_wait_stats 
+				GROUP BY wait_type 
+				ORDER BY wait_type ASC
+
+				--
+				--
+				-- 80. table/index IO summary and files
+				-- tabs/views: sys.dm_db_index_usage_stats
+				--
+			
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 3501;
+				SET @in_type = 'table IO summary';
+				SET @in_orderedby = '';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+					'table_name'                 , @sep,
+					'user_seeks'                 , @sep,
+					'user_scans'                 , @sep,
+					'user_lookups'               , @sep,
+					'user_updates'				 , @sep,
+					'system_scans'				 , @sep,
+					'system_seeks'               , @sep,
+					'system_updates'
+					);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+				SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY object_name(s.object_id) ASC), CONCAT(
+					ROW_NUMBER() OVER(ORDER BY object_name(s.object_id) ASC), @sep,
+					object_name(s.object_id),					@sep,
+					SUM(s.user_seeks),							@sep,
+					SUM(s.user_scans),							@sep,
+					SUM(s.user_lookups),						@sep,
+					SUM(s.user_updates),						@sep,
+					SUM(s.system_seeks),						@sep,
+					SUM(s.system_scans),						@sep,
+					SUM(s.system_lookups),						@sep,
+					SUM(s.system_updates)
+				) 
+				FROM sys.dm_db_index_usage_stats AS s
+				INNER JOIN sys.indexes AS i
+				ON s.object_id = i.object_id
+				AND i.index_id = s.index_id
+				WHERE objectproperty(s.object_id,'IsUserTable') = 1
+				AND s.database_id = db_id()
+				GROUP BY object_name(s.object_id)
+					
+				--
+				--
+				-- 90. block contention statistics (buffer wait summary)
+				-- tabs/views: v$waitstat
+				--
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 4000;
+				SET @in_type = 'block contention statistics';
+				SET @in_orderedby = '';
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+					'table_name'                 , @sep,
+					'No_of_Locks'                , @sep,
+					'user_scans'                 , @sep,
+					'No_Of_Blocks'               , @sep,
+					'Block_Wait_Time'			 , @sep,
+					'Avg_Block_Wait_Time'
+					);
+
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+				
+				SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY at.object_id ASC), CONCAT(
+				object_name(at.object_id) , --Obj Name
+				SUM(row_lock_count + page_lock_count ), --No_Of_Locks
+				SUM(row_lock_wait_count + page_lock_wait_count ), --No_Of_Blocks
+				SUM(row_lock_wait_in_ms + page_lock_wait_in_ms ), --Block_Wait_Time
+				AVG(row_lock_wait_in_ms + page_lock_wait_in_ms ) --Avg Block_Wait_Time
+				)
+				FROM sys.dm_db_index_operational_stats(DB_ID(),NULL,NULL,NULL) at
+				INNER JOIN sys.tables st ON at.object_id = st.object_id
+				GROUP BY at.object_id
+			  --
+			  --
+			  -- 100. SQL Server page statistics
+			  -- tabs/views: sys.dm_db_index_operational_stats(DB_ID(), 0, NULL, NULL), sys.tables
+			  --
+			
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 4500;
+			
+				-- The page lock, wait time and other statistics.
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+				'object_name',									@sep,
+				'row_lock_count', 								@sep,
+				'row_lock_wait_count', 							@sep,
+				'row_lock_wait_in_ms', 							@sep,
+				'page_lock_count', 								@sep,
+				'page_lock_wait_count', 						@sep,
+				'page_lock_wait_in_ms', 						@sep,
+				'index_lock_promotion_attempt_count', 			@sep,
+				'index_lock_promotion_count', 					@sep,
+				'page_latch_wait_count', 						@sep,
+				'page_latch_wait_in_ms', 						@sep,
+				'page_io_latch_wait_count',						@sep,
+				'page_io_latch_wait_in_ms'
+				);
+				
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+				SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY at.object_id ASC), CONCAT(
+				@in_sort_order, 								@sep,
+				ROW_NUMBER() OVER(ORDER BY at.object_id ASC),	@sep,
+				object_name(at.object_id),						@sep,
+				row_lock_count, 								@sep,
+				row_lock_wait_count, 							@sep,
+				row_lock_wait_in_ms, 							@sep,
+				page_lock_count, 								@sep,
+				page_lock_wait_count, 							@sep,
+				page_lock_wait_in_ms, 							@sep,
+				index_lock_promotion_attempt_count, 			@sep,
+				index_lock_promotion_count, 					@sep,
+				page_latch_wait_count, 							@sep,
+				page_latch_wait_in_ms, 							@sep,
+				page_io_latch_wait_count, 						@sep,
+				page_io_latch_wait_in_ms
+				)
+				FROM sys.dm_db_index_operational_stats(DB_ID(), 0, NULL, NULL) at
+				INNER JOIN sys.tables st ON st.object_id = at.object_id;
+			
+				--
+				--
+				-- 120. latch statistics, sleeps and miss sources
+				-- tabs/views: sys.dm_db_index_operational_stats
+				--
+			
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 5501;
+				SET @in_type = 'page latch statistics';
+				SET @in_orderedby = '';
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (@uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+					'name'                      , @sep ,
+					'gets'                      , @sep ,
+					'misses'                    , @sep ,
+					'sleeps'                    , @sep ,
+					'immediate_gets'            , @sep ,
+					'immediate_misses'          , @sep ,
+					'pct_get_miss'              , @sep ,
+					'avg_sleeps'                , @sep ,
+					'pct_immediate_get_misses')
+				);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+				SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY at.object_id ASC), CONCAT(
+				@in_sort_order, 								@sep,
+				ROW_NUMBER() OVER(ORDER BY at.object_id ASC),	@sep,
+				object_name(at.object_id),						@sep,
+				page_latch_wait_count, 							@sep,
+				page_latch_wait_in_ms, 							@sep,
+				page_io_latch_wait_count, 						@sep,
+				page_io_latch_wait_in_ms
+				)
+				FROM sys.dm_db_index_operational_stats(DB_ID(), 0, NULL, NULL) at
+				INNER JOIN sys.tables st ON st.object_id = at.object_id;
+			  --
+			  -- 130 buffer pools,
+			  -- 140 dictionary cache
+			  -- 150 library cache statistics and
+			  -- tabs/views: v$buffer_pool_statistics, v$rowcache and v$librarycache
+			  --
+			
+			  -- buffer pool sets
+			
+			  -- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 6000;
+				SET @in_type = 'buffer pool sets';
+				SET @in_orderedby = 'id ASC';
+			
+			  -- dictionary cache statistics	
+				-- archived logs
+
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 8503;
+				SET @in_type = 'layout (disk): last 10 archived logs';
+				SET @in_orderedby = 'sequence# DESC';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+				'sequence#'         , @sep,
+				'name'              , @sep,
+				'thread#'           , @sep,
+				'first_change#'     , @sep,
+				'first_time'        , @sep,
+				'completion_time'   , @sep,
+				'blocks'            , @sep,
+				'block_size'        , @sep,
+				'archived'          , @sep,
+				'deleted');
+
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+					SELECT TOP 10 @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY backup_set_id ASC), 
+					CONCAT(backup_set_id, @sep, msdb.dbo.backupset.name, @sep, 'N/A', @sep, 'N/A', 'N/A', msdb.dbo.backupset.backup_finish_date, 'N/A', 'N/A', 'N/A','N/A')
+					FROM msdb.dbo.backupmediafamily 
+					INNER JOIN msdb.dbo.backupset ON msdb.dbo.backupmediafamily.media_set_id = msdb.dbo.backupset.media_set_id 
+					WHERE msdb..backupset.type ='L' AND database_name = DB_NAME()
+					ORDER BY 
+					msdb.dbo.backupset.database_name, 
+					msdb.dbo.backupset.backup_finish_date 
+				IF @@ROWCOUNT = 0 
+					INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) VALUES (@uuid, @in_typeid, @in_part, 1, 'no rows selected.');
+
+				--
+				-- 300. free ts/datafile fragmentation
+				-- tabs/view: dba_free_space, dba_data_file, dba_tablespaces, sys.fet$, sys.file$, sys.ts$
+				--
+				-- tablespace storage overview
+			
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 9001;
+				SET @in_type = 'table storage overview';
+				SET @in_orderedby = 'tablespace ASC';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+				'table'        , @sep,
+				'status'            , @sep,
+				'type'              , @sep,
+				'extent_management' , @sep,
+				'size_kb'           , @sep,
+				'used_kb'           , @sep,
+				'free_kb'           , @sep,
+				'pct_used'          , @sep,
+				'initial_extent_kb' , @sep,
+				'next_extent_kb'    , @sep,
+				'min_extents'       , @sep,
+				'max_extents'       , @sep,
+				'pct_increase');
+			
+				-- tablespace/file storage overview
+			
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 9002;
+				SET @in_type = 'file storage overview';
+				SET @in_orderedby = '';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+				'File_ID'        , @sep,
+				'file_name'         , @sep,
+				'status'            , @sep,
+				'autoextensible'    , @sep,
+				'size_kb'           , @sep,
+				'used_kb'           , @sep,
+				'free_kb'           , @sep,
+				'pct_used');
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data)
+				SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY name ASC), CONCAT(
+				FILE_ID, @sep,
+				name, @sep,
+				'N/A', @sep,
+				CASE WHEN max_size = -1 THEN 'YES' ELSE 'NO' END, @sep, 
+				FORMAT(size*8, '##,##0.##'), @sep,
+				FORMAT(CAST(FILEPROPERTY(name, 'SpaceUsed') AS INT)*8, '##,##0.##'), @sep,
+				FORMAT((size - CAST(FILEPROPERTY(name, 'SpaceUsed') AS INT))*8, '##,##0.##'), @sep,
+				(CAST(FILEPROPERTY(name, 'SpaceUsed') AS decimal)) / (size) * 100
+				)
+				FROM sys.database_files;
+			
+			  -- storage avg/max/min free space
+			
+			  -- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 9003;
+				SET @in_type = 'database file avg/max/min/free space';
+				SET @in_orderedby = '';
+				--SQL SERVER does not have tablespace concept and following queries are deleted.
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+				'table'    , @sep,
+				'space_used');
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data)
+				SELECT @uuid, @in_typeid, @in_part, ROW_NUMBER() OVER(ORDER BY name ASC), CONCAT(@in_sort_order, @sep, name, @sep,
+				FORMAT(size/128.0 - ((CAST(FILEPROPERTY(name, 'SpaceUsed') AS INT)/128.0)*1024), '##,##0.##'))
+				FROM sys.database_files; 
+			  --
+			  -- 400. table/index size for all tables per server
+			  -- tabs/views: dba_segments, dba_extents, user_segments, user_extents
+			  --
+			
+				-- set defaults
+				SET @j = 1;
+				SET @in_part = 1;
+				-- set the type
+				SET @in_typeid = 9500;
+				SET @in_type = 'table/index size';
+				SET @in_orderedby = 'object_type DESC, size_kb DESC';
+			
+				INSERT INTO dbmonitor_master (uuid, run_date, type, typeid, version, orderedby) VALUES (@uuid, @in_date, @in_type, @in_typeid, @in_version, @in_orderedby);
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) SELECT @uuid, @in_typeid, @in_part, 0, CONCAT(@in_sort_order, @sep,
+				'object_type' , @sep,
+				'object_name' , @sep,
+				'size_kb');
+				INSERT INTO dbmonitor_detail (masterid, typeid, part, sort_order, data) 
+				SELECT uuid, in_typeid, in_part, ROW_NUMBER() OVER(ORDER BY uuid ASC) AS row_numb, in_data
+				 FROM ((SELECT TOP 100 PERCENT @uuid AS uuid, @in_typeid AS in_typeid, @in_part AS in_part, 
+					CONCAT(CAST(ROW_NUMBER() OVER(ORDER BY t.NAME ASC) AS VARCHAR(20)),
+							t.type_desc , @sep,
+							t.NAME collate SQL_Latin1_General_CP1_CI_AS, @sep,
+							FORMAT(SUM(a.used_pages) * 8, '##,##0.##')
+						)  AS in_data
+						FROM 
+						sys.tables t
+					INNER JOIN      
+						sys.indexes i ON t.OBJECT_ID = i.object_id
+					INNER JOIN 
+						sys.partitions p ON i.object_id = p.OBJECT_ID AND i.index_id = p.index_id
+					INNER JOIN 
+						sys.allocation_units a ON p.partition_id = a.container_id
+					LEFT OUTER JOIN 
+						sys.schemas s ON t.schema_id = s.schema_id
+					WHERE 
+						t.NAME NOT LIKE 'dt%' 
+						AND t.is_ms_shipped = 0
+						AND i.OBJECT_ID > 255 
+					GROUP BY 
+						t.Name, t.type_desc
+					ORDER BY 
+						t.Name) 
+				UNION
+				SELECT * FROM (
+				SELECT TOP 100 PERCENT
+					@uuid AS uuid, @in_typeid AS in_typeid, @in_part AS in_part,
+					CONCAT('USER INDEX ', @sep,
+					i.name,			@sep,
+					i.index_id,		@sep,
+					8 * SUM(a.used_pages)
+					) AS in_data
+				FROM
+					sys.indexes AS i JOIN 
+					sys.partitions AS p ON p.OBJECT_ID = i.OBJECT_ID AND p.index_id = i.index_id JOIN 
+					sys.allocation_units AS a ON a.container_id = p.partition_id
+					JOIN sys.objects o ON o.object_id = i.object_id AND o.type='U' AND i.name IS NOT NULL
+				GROUP BY
+					i.OBJECT_ID,
+					i.index_id,
+					i.name
+				ORDER BY
+					OBJECT_NAME(i.OBJECT_ID),
+					i.index_id) b) c
+			COMMIT;
+		END
+	</sql-dialect>
+</template>
+</query>

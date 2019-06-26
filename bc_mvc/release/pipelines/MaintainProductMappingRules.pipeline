@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This job pipeline executes all product mapping rules according to the last execution date and the set refresh interval. The rule has to be executed manually before it can be executed by a job that triggers this pipeline.
+@Group Product-->
+
+<pipeline:Pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pipeline="http://www.intershop.de/pipeline/2010"
+    name="MaintainProductMappingRules" type="process">
+<!--@Location 2,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start1" name="ExecuteJob" callMode="Private">
+    <nodeSuccessors name="next" next="SetDictionaryValue1"/>
+  </nodes>
+<!--@Location 2,1-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="SetDictionaryValue1">
+    <configurationValues name="Name" value="OrganizationType"/>
+    <configurationValues name="Value" value="1"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/SetDictionaryValue.xml"/>
+    <nodeSuccessors name="next" next="VerifyInteger1"/>
+  </nodes>
+<!--@Location 2,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyInteger1">
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyInteger.xml"/>
+    <nodeSuccessors name="next" next="Loop3"/>
+    <parameterBindings name="LocalizedString" objectPath="OrganizationType"/>
+    <returnValueBindings name="IntegerObject" objectPath="OrganizationType"/>
+  </nodes>
+<!--@Location 2,3-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop3" loop="CurrentDomain:Units">
+    <nodeSuccessors name="next" next="End1"/>
+    <entry key="OrganizationDomain">
+      <nodeSuccessors name="loop_entry_next" next="GetOrganizationByDomain1"/>
+    </entry>
+  </nodes>
+<!--@Location 2,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizationByDomain1">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizationByDomain.xml"/>
+    <nodeSuccessors name="next" next="Decision1"/>
+<!--@BendPoints 6,9 6,13-->
+    <nodeSuccessors name="pipelet_error" next="Join4"/>
+  </nodes>
+<!--@Location 2,5-->
+  <nodes xsi:type="pipeline:DecisionNode" nodeID="Decision1" conditionKey="Organization:TypeCode"
+      operator="neq" conditionValue="3">
+    <nodeSuccessors name="decision_yes" next="Join4"/>
+<!--@BendPoints 7,11 7,15 5,15-->
+    <nodeSuccessors name="decision_no" next="GetOrganizations2"/>
+  </nodes>
+<!--@Location 2,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join4">
+<!--@BendPoints 5,14 3,14 3,7-->
+    <nodeSuccessors name="next" next="Loop3_Entry"/>
+  </nodes>
+<!--@Location 2,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetOrganizations2">
+    <pipelet href="enfinity:/bc_organization/pipelets/GetOrganizations.xml"/>
+    <nodeSuccessors name="next" next="Loop4"/>
+    <parameterBindings name="Owner" objectPath="Organization:Domain"/>
+  </nodes>
+<!--@Location 2,9-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop4" loop="Organizations">
+<!--@BendPoints 8,19-->
+    <nodeSuccessors name="next" next="Stop1"/>
+    <entry key="Organization">
+      <nodeSuccessors name="loop_entry_next" next="GetProductMappingRulesToExecute1"/>
+    </entry>
+  </nodes>
+<!--@Location 2,10-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="GetProductMappingRulesToExecute1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/GetProductMappingRulesToExecute.xml"/>
+    <nodeSuccessors name="next" next="Loop2"/>
+<!--@BendPoints 9,21-->
+    <nodeSuccessors name="pipelet_error" next="Join3"/>
+    <parameterBindings name="OrganizationDomain" objectPath="Organization:Domain"/>
+  </nodes>
+<!--@Location 2,11-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop2" loop="ProductMappingRules">
+    <nodeSuccessors name="next" next="Join3"/>
+    <entry key="ProductMappingRule">
+      <nodeSuccessors name="loop_entry_next" next="Call1"/>
+    </entry>
+  </nodes>
+<!--@Location 2,12-->
+  <nodes xsi:type="pipeline:CallNode" nodeID="Call1">
+    <nodeSuccessors name="next" next="UpdateDictionary4"/>
+    <startNode referencedName="This:ValidateParameters"/>
+  </nodes>
+<!--@Location 2,13-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary4">
+    <configurationValues name="Name_01" value="DomainID"/>
+    <configurationValues name="Name_02" value="LocaleID"/>
+    <configurationValues name="Name_03" value="Currency"/>
+    <configurationValues name="Name_04" value="CategoryUUID"/>
+    <configurationValues name="Name_05" value="SupplierValue"/>
+    <configurationValues name="Name_06" value="ProductName"/>
+    <configurationValues name="Name_07" value="ManufacturerName"/>
+    <configurationValues name="Name_08" value="Description"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+<!--@BendPoints 5,28-->
+    <nodeSuccessors name="next" next="UpdateDictionary3"/>
+    <parameterBindings name="InDictionary" nullBinding="true"/>
+    <parameterBindings name="Value_01" objectPath="ProductMappingRule:QueryForm:task_1_object_1_condition_6_value:Value"/>
+    <parameterBindings name="Value_02" objectPath="CurrentSession:Locale:LocaleID"/>
+    <parameterBindings name="Value_03" objectPath="CurrentSession:CurrencyCode"/>
+    <parameterBindings name="Value_04" objectPath="ProductMappingRule:QueryForm:task_1_object_2_condition_1_value:Value"/>
+    <parameterBindings name="Value_05" objectPath="ProductMappingRule:QueryForm:task_1_object_1_condition_4_value:Value"/>
+    <parameterBindings name="Value_06" objectPath="ExpProductName"/>
+    <parameterBindings name="Value_07" objectPath="ExpManufacturerName"/>
+    <parameterBindings name="Value_08" objectPath="ExpDescription"/>
+    <returnValueBindings name="OutDictionary" objectPath="Parameters"/>
+  </nodes>
+<!--@Location 2,14-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateDictionary3">
+    <configurationValues name="Name_01" value="Available"/>
+    <configurationValues name="Name_02" value="PriceFrom"/>
+    <configurationValues name="Name_03" value="PriceTo"/>
+    <pipelet href="enfinity:/core/pipelets/UpdateDictionary.xml"/>
+    <nodeSuccessors name="next" next="ExecuteObjectsQuery2"/>
+    <parameterBindings name="InDictionary" objectPath="Parameters"/>
+    <parameterBindings name="Value_01" objectPath="AvailableFlag"/>
+    <parameterBindings name="Value_02" objectPath="PriceFrom"/>
+    <parameterBindings name="Value_03" objectPath="PriceTo"/>
+    <returnValueBindings name="OutDictionary" objectPath="Parameters"/>
+  </nodes>
+<!--@Location 2,15-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="ExecuteObjectsQuery2">
+    <configurationValues name="Datasource" value="current ORM connection"/>
+    <configurationValues name="QueryName" value="product/GetProductsByMappingRule"/>
+    <pipelet href="enfinity:/core/pipelets/ExecuteObjectsQuery.xml"/>
+    <nodeSuccessors name="next" next="Loop1"/>
+    <parameterBindings name="Parameters" objectPath="Parameters"/>
+    <returnValueBindings name="SearchResult" objectPath="Products"/>
+  </nodes>
+<!--@Location 2,17-->
+  <nodes xsi:type="pipeline:LoopNode" nodeID="Loop1" loop="Products">
+<!--@BendPoints 6,35-->
+    <nodeSuccessors name="next" next="UpdateProductMappingRule1"/>
+    <entry key="Product">
+      <nodeSuccessors name="loop_entry_next" next="AssignProductToCatalogCategory1"/>
+    </entry>
+  </nodes>
+<!--@Location 2,18-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="AssignProductToCatalogCategory1">
+    <pipelet href="enfinity:/bc_mvc/pipelets/AssignProductToCatalogCategory.xml"/>
+<!--@BendPoints 5,38 4,38 4,35-->
+    <nodeSuccessors name="next" next="Loop1_Entry"/>
+    <parameterBindings name="CatalogCategory" objectPath="ProductMappingRule:CatalogCategory"/>
+    <parameterBindings name="Domain" objectPath="ProductMappingRule:CatalogCategory:Domain"/>
+  </nodes>
+<!--@Location 3,17-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="UpdateProductMappingRule1">
+    <configurationValues name="TestMode" value="false"/>
+    <pipelet href="enfinity:/bc_mvc/pipelets/UpdateProductMappingRule.xml"/>
+<!--@BendPoints 8,33 8,32 4,32 4,23-->
+    <nodeSuccessors name="next" next="Loop2_Entry"/>
+  </nodes>
+<!--@Location 4,11-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="Join3">
+<!--@BendPoints 9,40 2,40 2,19-->
+    <nodeSuccessors name="next" next="Loop4_Entry"/>
+  </nodes>
+<!--@Location 4,9-->
+  <nodes xsi:type="pipeline:StopNode" nodeID="Stop1"/>
+<!--@Location 3,3-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End1"/>
+<!--@Location 6,0-->
+  <nodes xsi:type="pipeline:StartNode" nodeID="Start16" name="ValidateParameters"
+      callMode="Private">
+<!--@BendPoints 13,3-->
+    <nodeSuccessors name="next" next="VerifySearchTerm1"/>
+  </nodes>
+<!--@Location 6,2-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifySearchTerm1">
+    <configurationValues name="AllowFuzzySearch" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifySearchTerm.xml"/>
+    <nodeSuccessors name="next" next="VerifySearchTerm9"/>
+<!--@BendPoints 15,5-->
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+    <parameterBindings name="UserSearchTerm" objectPath="ProductMappingRule:QueryForm:task_1_object_1_condition_2_value:Value"/>
+    <returnValueBindings name="ErrorCode" objectPath="DescriptionError"/>
+    <returnValueBindings name="SearchExpression" objectPath="ExpDescription"/>
+  </nodes>
+<!--@Location 6,3-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifySearchTerm9">
+    <configurationValues name="AllowFuzzySearch" value="false"/>
+    <configurationValues name="DefaultOperator" value="OR"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifySearchTerm.xml"/>
+<!--@BendPoints 13,8-->
+    <nodeSuccessors name="next" next="VerifySearchTerm8"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode11"/>
+    <parameterBindings name="UserSearchTerm" objectPath="ProductMappingRule:QueryForm:task_1_object_1_condition_1_value:Value"/>
+    <returnValueBindings name="ErrorCode" objectPath="ProductNameError"/>
+    <returnValueBindings name="SearchExpression" objectPath="ExpProductName"/>
+  </nodes>
+<!--@Location 6,4-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifySearchTerm8">
+    <configurationValues name="AllowFuzzySearch" value="false"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifySearchTerm.xml"/>
+<!--@BendPoints 13,11-->
+    <nodeSuccessors name="next" next="VerifyInteger9"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode2"/>
+    <parameterBindings name="UserSearchTerm" objectPath="ProductMappingRule:QueryForm:task_1_object_1_condition_3_value:Value"/>
+    <returnValueBindings name="ErrorCode" objectPath="ManufacturerNameError"/>
+    <returnValueBindings name="SearchExpression" objectPath="ExpManufacturerName"/>
+  </nodes>
+<!--@Location 6,6-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="VerifyInteger9">
+    <configurationValues name="MaxValue" value="1"/>
+    <configurationValues name="MinValue" value="0"/>
+    <configurationValues name="isOptional" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyInteger.xml"/>
+    <nodeSuccessors name="next" next="Pipelet18"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode8"/>
+    <parameterBindings name="LocalizedString" objectPath="ProductMappingRule:QueryForm:task_1_object_1_condition_5_value:Value"/>
+    <returnValueBindings name="ErrorCode" objectPath="AvailableFlagError"/>
+    <returnValueBindings name="IntegerObject" objectPath="AvailableFlag"/>
+    <returnValueBindings name="IntegerValue" objectPath="AvailableFlagLong"/>
+  </nodes>
+<!--@Location 6,7-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet18">
+    <configurationValues name="isOptional" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDouble.xml"/>
+<!--@BendPoints 13,16-->
+    <nodeSuccessors name="next" next="Pipelet5"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode7"/>
+    <parameterBindings name="LocalizedString" objectPath="ProductMappingRule:QueryForm:task_1_object_3_condition_1_value:Value"/>
+    <returnValueBindings name="DoubleValue" objectPath="PriceFrom"/>
+    <returnValueBindings name="ErrorCode" objectPath="PriceFromError"/>
+  </nodes>
+<!--@Location 6,8-->
+  <nodes xsi:type="pipeline:PipeletNode" nodeID="Pipelet5">
+    <configurationValues name="isOptional" value="true"/>
+    <pipelet href="enfinity:/bc_foundation/pipelets/VerifyDouble.xml"/>
+<!--@BendPoints 13,18-->
+    <nodeSuccessors name="next" next="End11"/>
+    <nodeSuccessors name="pipelet_error" next="JoinNode14"/>
+    <parameterBindings name="LocalizedString" objectPath="ProductMappingRule:QueryForm:task_1_object_3_condition_2_value:Value"/>
+    <returnValueBindings name="DoubleValue" objectPath="PriceTo"/>
+    <returnValueBindings name="ErrorCode" objectPath="PriceToError"/>
+  </nodes>
+<!--@Location 6,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End11"/>
+<!--@Location 7,8-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode14">
+<!--@BendPoints 15,18-->
+    <nodeSuccessors name="next" next="End10"/>
+  </nodes>
+<!--@Location 7,9-->
+  <nodes xsi:type="pipeline:EndNode" nodeID="End10" name="ERROR"/>
+<!--@Location 7,7-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode7">
+    <nodeSuccessors name="next" next="JoinNode14"/>
+  </nodes>
+<!--@Location 7,6-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode8">
+    <nodeSuccessors name="next" next="JoinNode7"/>
+  </nodes>
+<!--@Location 7,4-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode2">
+    <nodeSuccessors name="next" next="JoinNode42"/>
+  </nodes>
+<!--@Location 7,5-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode42">
+    <nodeSuccessors name="next" next="JoinNode8"/>
+  </nodes>
+<!--@Location 7,3-->
+  <nodes xsi:type="pipeline:JoinNode" nodeID="JoinNode11">
+    <nodeSuccessors name="next" next="JoinNode2"/>
+  </nodes>
+</pipeline:Pipeline>

@@ -1,0 +1,287 @@
+import "enfinity:/bts/edl/com/intershop/beehive/bts/capi/orderprocess/LineItemCtnr.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/LineItemGroupPO.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/ProductLineItemPO.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/ServiceLineItemPO.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/orderprocess/StaticAddressPO.edl";
+import "enfinity:/bts/edl/com/intershop/beehive/bts/internal/payment/PaymentInstrumentInfoPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/capi/domain/ExtensibleObjectPO.edl";
+import "enfinity:/core/edl/com/intershop/beehive/core/types.edl";
+
+external ComputedItems type "com.intershop.component.foundation.capi.spreadsheet.orm.ComputedItems";
+external User type "com.intershop.beehive.core.capi.user.User";
+
+namespace com.intershop.beehive.bts.internal.orderprocess
+{
+    /*
+     * Abstract base class for Basket and Order. A LineItemCtnr has references to one User (the 'buying' User) and one Domain (the site currently being browsed).
+     * 
+     * <P>Also known as a 'CalculationTarget', a LineItemCtnr provides a common basis for the calculation process, i.e. Baskets and Orders are subclasses of LineItemCtnr which may be passed through the same calculation process pipeline, named ProcessCalculation.
+     * 
+     * A LineItemCtnr directly references 2 subclasses of LineItems: ProductLineItems and one or more ServiceLineItems <P>
+     * 
+     * Each ProductLineItem represents a product which have been added to the LineItemCtnr. Each ProductLineItem has a settable quantity; the product is identified with a ProductRef, prices include single base price, prices net and gross of tax. See ProductLineItem class for further info. <P>
+     * 
+     * ServiceLineItems can be accessed with a String name and the Domain to which they belong. ServiceLineItems can be used to represent additional costs in the business transaction such as shipping costs handling costs.  See ServiceLineItem class for further info.<P>
+     * 
+     * <P>All prices with a 'Total' prefix represent the sum of a SubTotal price and ServiceLineItem price(s). Prices with prefix 'GrandTotal' provide a final 'layer' of prices, which will be identical to the 'Total' prices unless a total discount is present.
+     * 
+     * <P>Price summary (PC is Purchase Currency, LC Lead Currency, PTC is PaymentTransactionCurrency)
+     * 
+     * <BR>SubtotalBasePricePC - sum of product line item BasePricePC (i.e. price before discount and after applying quantity)
+     * <BR>SubtotalNetPricePC - sum of product line item PricePC (i.e. price net of tax)
+     * <BR>SubtotalTaxPC - sum of product line item TaxPC (i.e. amount of tax calculated from net or gross price depending on which is provided)
+     * <BR>SubtotalGrossPricePC - sum of product line item GrossPricePC (i.e. price gross of tax)
+     * <BR>SubtotalNetPriceLC - SubtotalNetPricePC converted to LC
+     * <BR>SubtotalTaxLC - SubtotalTaxPC converted to LC
+     * <BR>SubtotalGrossPriceLC - SubtotalGrossPricePC converted to LC
+     * <BR>TotalNetPricePC - sum of subtotal and service line item NetPricePC (i.e. total net of tax)
+     * <BR>TotalTaxPC - sum of subtotal and service line item TaxPC (i.e. total tax)
+     * <BR>TotalGrossPricePC - sum of subtotal and service line item GrossPricePC (i.e. total gross of tax)
+     * <BR>TotalNetPriceLC - TotalNetPricePC converted to LC
+     * <BR>TotalTaxLC - TotalTaxPC converted to LC
+     * <BR>TotalGrossPriceLC - TotalGrossPricePC converted to LC
+     * <BR>GrandTotalNetPricePC - TotalNetPricePC (i.e. total net of tax) after applying total discount when required
+     * <BR>GrandTotalTaxPC - TotalTaxPC (i.e. total tax) after applying total discount when required
+     * <BR>GrandTotalGrossPricePC - TotalGrossPricePC (i.e. total gross of tax) after applying total discount when required
+     * <BR>GrandTotalGrossPricePTC - GrandTotalGrossPricePC converted to PTC (payment transaction currency, settable in PaymentMethod)
+     * <BR>GrandTotalNetPriceLC - GrandTotalNetPricePC converted to LC
+     * <BR>GrandTotalTaxLC - GrandTotalTaxPC converted to LC
+     * <BR>GrandTotalGrossPriceLC - GrandTotalGrossPricePC converted to LC
+     * 
+     * <P>Important LineItemCtnr attributes used by the calculation process (apart from the LineItems) are:
+     * <BR>ExchangeRates (PC->LC and PC->PTC)
+     * 
+     * <p>Address Handling:
+     * <br>A LineItemCtnr has a list of StaticAddresses which are referenced for all the addresses found within the LineItemCtnr structure, in other words the LineItemCtnr's invoice-to, ship-from and each ProductLineItem's ship-to and ship-from addresses reference one of these addresses. Each StaticAddress has a UUID as its primary key, in addition it has an AddressID which is used for address lookup.  Within the StaticAddresses owned by a single LineItemCtnr the AddressID must always be unique
+     * <br>Each LineItemCtnr has a InvoiceToAddressID and ShipFromAddressID, each ProductLineItem has a ShipFromAddressID. These IDs map onto one of the AddressIDs held in the LineItemCtnr's list of StaticAddresses OR (within a Basket only) to one of the addresses held in the buying User's profile:
+     * <br>In a Basket address lookup functions as this example:
+     * <br>a. myBasket.getInvoiceToAddress()
+     * <br>b. calls this.getBuyerAddress(basket.getInvoiceToAddressID())
+     * <br>c. searches StaticAddresses for one with this AddressID, return if found
+     * <br>d. searches buying User's profile for an Address with this AddressID, return if found
+     * <br>e. return nothing (no address found)
+     * <br>Order address lookup misses out step d.
+     * <br>During the order process all static addresses are copied from Basket -> Order -> Order. When creating an Order from a Basket any addressIDs mapping to addresses in the buying User's profile result in new StaticAdresses being created. The AddressIDs remain identical during the copying process.
+     * <br>
+     * <br>// StaticAddress creation and cloning is handled
+     * <br>// by the relevant OrderProcessMgr:
+     * <br>BasketMgr mgr = (BasketMgr) Registry.getInstance().lookupManager(BasketMgr.REGISTRY_NAME);
+     * <br>// create new address, AddressID is automatically
+     * <br>// set to new UUID:
+     * <br>StaticAddress add1 = mgr.createStaticAddress(LineItemCtnr aBasket);
+     * <br>// clone address, AddressID is automatically copied:
+     * <br>StaticAddress add2 = mgr.createStaticAddress(Address add1, LineItemCtnr anOrder);
+     * <br>// note: When you use this method to copy a
+     * <br>//          StaticAddress within the same
+     * <br>//          LineItemCtnr you need to make sure
+     * <br>//          the AddressID remains unique:
+     * <br>StaticAddress add2.setAddressID(add2.getUUID());
+     * <br>// You can assign the address to a
+     * <br>// ProductLineItem held in the LineItemCtnr:
+     * <br>myPLI.setInvoiceToAddressID(add2.getAddressID());
+     * <br>
+     */
+    abstract orm class LineItemCtnrPO extends ExtensibleObjectPO implements LineItemCtnr
+    {
+        index(invoiceToAddressURN);
+
+        index(shipToAddressURN);
+
+        index(shipFromAddressURN);
+
+        index(serviceToAddressURN);
+
+        index(installToAddressURN);
+
+        index(creationDate);
+
+        index(documentNo, status);
+        
+        index(requisitionDocumentNo);
+        
+        index(recurringOrderDocumentNo);
+
+        index(status);
+
+        /*
+         * Date and time when this LineItemCtnr was created
+         */
+        attribute creationDate : datetime;
+
+        /*
+         * Optionally set date, expressing a requested delivery date. This date is copied from Basket to PlacedOrder to Order in the orderprocess.
+         */
+        attribute requestedDeliveryDate : datetime;
+
+        /*
+         * The int status of a LineItemCtnr. Possible status values are dependent on the subclass (see class documentation for classes Basket, PlacedOrder, Order for more info). Constant values are available from the relevant interfaces.
+         * 
+         * @see com.intershop.beehive.bts.orderprocess.basket.BasketConstants
+         * @see com.intershop.beehive.bts.orderprocess.placedorder.PlacedOrderConstants
+         * @see com.intershop.beehive.bts.orderprocess.fulfillment.OrderConstants
+         */
+        attribute status : int searchable;
+
+        /*
+         * Document number is assigned to every order in the context of the order creation and can be thought of as kind of order document number
+         * that uniquely identifies an order in the context of an organization or a deployment.
+         * Document number is not used in the basket.
+         */
+        attribute documentNo : string<256> searchable;
+
+        /*
+         * Requisition document number that is assigned to a requisition, that is in fact represented by a basket that has to be approved.
+         * In the course of the order creation this number is copied to the order during order creation. This number allows the approver
+         * to establish a relation between a requisition and the resulting order. 
+         */
+        attribute requisitionDocumentNo : string<256> searchable;
+
+        /*
+         * The recurring order document number that is assigned to a recurring order (template), that is in fact represented by a Basket
+         * with a specific type identifier.
+         * When recurring order scheduler triggers creation of a new order, a new Basket is created first by cloning the recurring order 
+         * (template). The recurring order document number is taken to the cloned basket to and suffixed by a sequence number that specifies
+         * the nth order of the recurring order (template).    
+         */
+        attribute recurringOrderDocumentNo : string<256> searchable;
+
+        attribute user : User;
+
+        /*
+         * The 3-character currency mnemonic (eg 'USD', 'DEM') representing the LineItemCtnr's lead currency - this is the globally set lead currency.
+         */
+        attribute leadCurrencyCode : string<3>;
+
+        /*
+         * The 3-character currency mnemonic (eg 'USD', 'DEM') representing the LineItemCtnr's purchase currency - this is the currency in which the calculation is made, and in which the buyer sees all prices in the store front.
+         */
+        attribute purchaseCurrencyCode : string<3>;
+
+        /*
+         * This is the exchangerate which allows conversion from the LineItemCtnr's PTC (payment transaction currency) to its LC (lead curreny)
+         * 
+         * @see com.intershop.beehive.core.common.ExchangeRate
+         */
+        attribute exchangeRatePTCtoLC : ExchangeRate;
+
+        /*
+         * This is the exchangerate which allows conversion from the LineItemCtnr's PC (purchase currency) to its LC (lead curreny)
+         * 
+         * @see com.intershop.beehive.core.common.ExchangeRate
+         */
+        attribute exchangeRatePCtoLC : ExchangeRate;
+
+        /*
+         * This is the exchangerate which allows conversion from the LineItemCtnr's PC (purchase currency) to its PTC (payment transaction curreny)
+         * 
+         * @see com.intershop.beehive.core.common.ExchangeRate
+         */
+        attribute exchangeRatePCtoPTC : ExchangeRate;
+
+        /*
+         * URN of line item container's invoice-to address.
+         */
+        attribute invoiceToAddressURN : string<256>;
+
+        /*
+         * URN of line item container's ship-to address.
+         */
+        attribute shipToAddressURN : string<256>;
+
+        /*
+         * URN of line item container's ship-from address.
+         */
+        attribute shipFromAddressURN : string<256>;
+
+        /*
+         * URN of line item container's service-to address.
+         */
+        attribute serviceToAddressURN : string<256>;
+
+        /*
+         * URN of line item container's install-to address.
+         */
+        attribute installToAddressURN : string<256>;
+
+        /*
+         * UUID of shipping method.
+         */
+        attribute shippingMethodID : string<256>;
+
+        /*
+         * Grand total price net of tax in lead currency, converted from the equivalent price in the purchase currency.
+         */
+        attribute grandTotalNetPriceLC : Money;
+
+        /*
+         * Grand total price for LineItemCtnr net of tax, in purchase currency.
+         * 
+         * <P>Note: price attributes with the prefix 'GrandTotal' (price after applying total discount) can be paired with equivalent 'Total' prices (price before applying total discount), e.g. GrandTotalGrossPricePC is paired with TotalGrossPricePC.
+         */
+        attribute grandTotalNetPricePC : Money;
+
+        /*
+         * Grand total tax in lead currency, converted from the equivalent price in the purchase currency.
+         */
+        attribute grandTotalTaxLC : Money;
+
+        /*
+         * Grand total tax for LineItemCtnr, in purchase currency.
+         * 
+         * <P>Note: price attributes with the prefix 'GrandTotal' (price after applying total discount) can be paired with equivalent 'Total' prices (price before applying total discount), e.g. GrandTotalGrossPricePC is paired with TotalGrossPricePC.
+         */
+        attribute grandTotalTaxPC : Money;
+
+        /*
+         * Grand total price gross of tax in lead currency, converted from the equivalent price in the purchase currency.
+         */
+        attribute grandTotalGrossPriceLC : Money;
+
+        /*
+         * Grand total price gross of tax for LineItemCtnr, in purchase currency.
+         * 
+         * <P>Note: price attributes with the prefix 'GrandTotal' (price after applying total discount) can be paired with equivalent 'Total' prices (price before applying total discount), e.g. Total.GrandTotalGrossPricePC is paired with Total.GrossPricePC.
+         */
+        attribute grandTotalGrossPricePC : Money;
+
+        /*
+         * Grand total price gross of tax for LineItemCtnr, in payment transaction currency, i.e. the price to be paid for the LineItemCtnr, converted from the equivalent price in purchase currency to the currency specified by the selected PaymentMethod.
+         */
+        attribute grandTotalGrossPricePTC : Money;
+
+        attribute buyerNo : string<256>;
+
+        attribute anonymous : boolean;
+
+        attribute sessionID : string<256>;
+
+        /*
+         * Date and time when the Basket/Requisition which contains this  LineItemCtnr was submited
+         */
+        attribute submitDate : datetime;
+
+        /*
+         * The XML structure representing the result of an cart/order calculation as an acyclic directed graph of 
+         * <code>ComputedItem</code> instances.   
+         */
+        attribute xmlComputedItems : ComputedItems column "COMPUTEDITEMS" type "CLOB" handler "com.intershop.component.foundation.capi.spreadsheet.orm.XMLComputedItemsAttributeHandler";
+        
+        attribute purchaseLocaleID : string<10>;
+				
+		/*
+     	 * Indicating that customer is tax exempt. 
+     	 */
+		attribute taxExempt : boolean;
+
+        relation paymentInstrumentInfoPO : PaymentInstrumentInfoPO[0..n] inverse lineItemCtnrPO;
+
+        relation serviceLineItemPOs : ServiceLineItemPO[0..n] inverse lineItemCtnrPO cached strong;
+
+        relation lineItemGroupPOs : LineItemGroupPO[0..n] inverse lineItemCtnrPO cached strong;
+
+        relation staticAddressPOs : StaticAddressPO[0..n] inverse lineItemCtnrPO;
+
+        relation productLineItemPOs : ProductLineItemPO[0..n] inverse lineItemCtnrPO cached strong;
+
+    }
+}
